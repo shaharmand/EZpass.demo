@@ -1,5 +1,5 @@
 import React from 'react';
-import { Typography, Space } from 'antd';
+import { Typography, Space, Spin } from 'antd';
 import type { Question } from '../types/question';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
@@ -9,13 +9,41 @@ interface QuestionViewerProps {
   question: Question;
   showOptions?: boolean;
   showSolution?: boolean;
+  loading?: boolean;
 }
 
 const QuestionViewer: React.FC<QuestionViewerProps> = ({
   question,
   showOptions = true,
-  showSolution = false
+  showSolution = false,
+  loading = false
 }) => {
+  if (loading) {
+    return (
+      <div style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '12px',
+        border: '1px solid #e5e7eb',
+        padding: '48px 24px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '300px'
+      }}>
+        <div style={{ marginBottom: '16px' }}>
+          <Spin size="large" />
+        </div>
+        <div style={{ 
+          color: '#6b7280',
+          fontSize: '1.1rem'
+        }}>
+          טוען שאלה...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="question-viewer" style={{ direction: 'rtl', textAlign: 'right' }}>
       {/* Question Content */}

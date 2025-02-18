@@ -1,0 +1,134 @@
+{
+  "id": "construction_safety",
+  "name": "בטיחות בבנייה",
+  "domain": "construction_safety",
+  "subject": "civil_engineering",
+  "description": "בטיחות בבניה",
+  "topics": [
+    {
+      "id": "safety_management",
+      "name": "ניהול בטיחות",
+      "description": "ניהול בטיחות באתר בנייה",
+      "subTopics": [
+        {
+          "id": "safety_regulations",
+          "name": "תקנות בטיחות",
+          "description": "חוקים ותקנות בטיחות בעבודה באתרי בנייה",
+          "questionTemplate": "ניתוח תקנות בטיחות והשלכותיהן"
+        },
+        {
+          "id": "risk_assessment",
+          "name": "הערכת סיכונים",
+          "description": "זיהוי והערכת סיכונים באתר בנייה",
+          "questionTemplate": "ניתוח מצבים וזיהוי סיכונים"
+        },
+        {
+          "id": "safety_planning",
+          "name": "תכנון בטיחות",
+          "description": "תכנון מערך בטיחות באתר בנייה",
+          "questionTemplate": "תכנון אמצעי בטיחות ונהלים"
+        }
+      ]
+    },
+    {
+      "id": "work_at_height",
+      "name": "עבודה בגובה",
+      "description": "בטיחות בעבודה בגובה",
+      "subTopics": [
+        {
+          "id": "scaffolding",
+          "name": "פיגומים",
+          "description": "סוגי פיגומים, הקמה ובטיחות",
+          "questionTemplate": "תכנון והערכת בטיחות פיגומים"
+        },
+        {
+          "id": "fall_protection",
+          "name": "הגנה מנפילה",
+          "description": "אמצעי הגנה מנפילה, רתמות וקווי חיים",
+          "questionTemplate": "בחירת והתקנת אמצעי הגנה מנפילה"
+        },
+        {
+          "id": "ladders",
+          "name": "סולמות",
+          "description": "שימוש בטוח בסולמות",
+          "questionTemplate": "הערכת בטיחות בשימוש בסולמות"
+        }
+      ]
+    },
+    {
+      "id": "construction_operations",
+      "name": "עבודות בנייה",
+      "description": "בטיחות בעבודות בנייה שונות",
+      "subTopics": [
+        {
+          "id": "excavation",
+          "name": "חפירות",
+          "description": "בטיחות בעבודות חפירה ותיעול",
+          "questionTemplate": "תכנון בטיחות בעבודות חפירה"
+        },
+        {
+          "id": "demolition",
+          "name": "הריסות",
+          "description": "בטיחות בעבודות הריסה",
+          "questionTemplate": "תכנון והערכת סיכונים בהריסות"
+        },
+        {
+          "id": "concrete_work",
+          "name": "עבודות בטון",
+          "description": "בטיחות ביציקות ועבודות בטון",
+          "questionTemplate": "ניהול בטיחות בעבודות בטון"
+        }
+      ]
+    },
+    {
+      "id": "equipment_safety",
+      "name": "בטיחות בציוד",
+      "description": "בטיחות בשימוש בציוד בנייה",
+      "subTopics": [
+        {
+          "id": "heavy_equipment",
+          "name": "ציוד כבד",
+          "description": "בטיחות בהפעלת ציוד מכני הנדסי",
+          "questionTemplate": "הערכת בטיחות בשימוש בציוד כבד"
+        },
+        {
+          "id": "lifting_equipment",
+          "name": "ציוד הרמה",
+          "description": "בטיחות במנופים ואביזרי הרמה",
+          "questionTemplate": "תכנון בטיחות בעבודות הרמה"
+        },
+        {
+          "id": "power_tools",
+          "name": "כלי עבודה חשמליים",
+          "description": "בטיחות בשימוש בכלי עבודה חשמליים",
+          "questionTemplate": "הערכת סיכונים בשימוש בכלים חשמליים"
+        }
+      ]
+    },
+    {
+      "id": "special_risks",
+      "name": "סיכונים מיוחדים",
+      "description": "טיפול בסיכונים מיוחדים באתר בנייה",
+      "subTopics": [
+        {
+          "id": "hazardous_materials",
+          "name": "חומרים מסוכנים",
+          "description": "טיפול בחומרים מסוכנים באתר",
+          "questionTemplate": "ניהול בטיחות בעבודה עם חומרים מסוכנים"
+        },
+        {
+          "id": "confined_spaces",
+          "name": "חללים מוקפים",
+          "description": "בטיחות בעבודה בחללים מוקפים",
+          "questionTemplate": "תכנון בטיחות בעבודה בחללים מוקפים"
+        },
+        {
+          "id": "fire_safety",
+          "name": "בטיחות אש",
+          "description": "מניעת שריפות וטיפול באירועי אש",
+          "questionTemplate": "תכנון מערך בטיחות אש באתר"
+        }
+      ]
+    }
+  ]
+} 

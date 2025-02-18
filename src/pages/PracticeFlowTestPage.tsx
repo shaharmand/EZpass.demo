@@ -48,7 +48,7 @@ const PracticeFlowTestPage: React.FC = () => {
             id: 'algebra',
             name: 'Algebra',
             code: 'algebra_101',
-            topic_id: 'algebra_101',
+            topicId: 'algebra_101',
             description: 'Basic algebra concepts',
             order: 0,
             subTopics: [

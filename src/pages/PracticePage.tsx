@@ -189,27 +189,58 @@ const PracticePage: React.FC = () => {
   }, [practiceState, activePrep, setActivePrep]);
 
   const handleAnswer = async (answer: string, isCorrect: boolean) => {
-    if (isRequestInProgress.current || !isComponentMounted.current) return;
+    if (isRequestInProgress.current) return;
+    isRequestInProgress.current = true;
+    setLoading(true);
 
     try {
-      isRequestInProgress.current = true;
-      setLoading(true);
-      
       await submitPracticeAnswer(answer, isCorrect);
+      const nextQuestion = await getNextPracticeQuestion();
       
       if (isComponentMounted.current) {
-        const nextQuestion = await getNextPracticeQuestion();
         setCurrentQuestion(nextQuestion);
       }
     } catch (error) {
       if (isComponentMounted.current) {
-        setError(error instanceof Error ? error.message : 'אירעה שגיאה בשליחת התשובה');
+        setError(error instanceof Error ? error.message : 'אירעה שגיאה בהגשת התשובה');
       }
     } finally {
       if (isComponentMounted.current) {
-        setLoading(false);
         isRequestInProgress.current = false;
+        setLoading(false);
       }
+    }
+  };
+
+  const handleNextQuestion = async () => {
+    if (isRequestInProgress.current) return;
+    isRequestInProgress.current = true;
+    setLoading(true);
+
+    try {
+      const nextQuestion = await getNextPracticeQuestion();
+      
+      if (isComponentMounted.current) {
+        setCurrentQuestion(nextQuestion);
+      }
+    } catch (error) {
+      if (isComponentMounted.current) {
+        setError(error instanceof Error ? error.message : 'אירעה שגיאה בטעינת השאלה הבאה');
+      }
+    } finally {
+      if (isComponentMounted.current) {
+        isRequestInProgress.current = false;
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleHelp = async (action: string) => {
+    if (action === 'next') {
+      await handleNextQuestion();
+    } else if (action === 'hint') {
+      // TODO: Implement hint functionality
+      console.log('Hint requested');
     }
   };
 
@@ -280,6 +311,9 @@ const PracticePage: React.FC = () => {
             <PracticeQuestionDisplay
               question={currentQuestion}
               onAnswer={handleAnswer}
+              onNextQuestion={handleNextQuestion}
+              onHelp={handleHelp}
+              isLoading={loading}
             />
           </Card>
         ) : initialized ? (

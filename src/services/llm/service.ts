@@ -24,6 +24,9 @@ export class QuestionService {
     MAX_BACKOFF: 300000
   };
 
+  // Add question cache
+  private questionCache: Map<string, Question> = new Map();
+
   constructor() {
     let apiKey = process.env.REACT_APP_OPENAI_API_KEY;
     
@@ -236,16 +239,19 @@ ${formatInstructions}`;
       
       const systemMessage = new SystemMessage(
         'You are an expert educator specializing in creating high-quality exam questions. ' +
-        'Follow the format instructions exactly. The question type is a root-level property ' +
-        'that determines the structure and requirements for the question. ' +
-        'When including code blocks in the response, they must be properly escaped as part of the JSON string. Example:\n' +
-        '{\n' +
-        '  "content": {\n' +
-        '    "text": "Here is a code example:\\\\n```python\\\\ndef hello():\\\\n    print(\\\\"world\\\\")\\\\n```"\n' +
-        '  }\n' +
-        '}\n' +
-        'Note that in JSON strings, newlines need double backslashes (\\\\n) and quotes need double backslashes (\\\\")'
+        'IMPORTANT: For ALL code examples in the response:\n' +
+        '1. Include code as normal text in the markdown content\n' +
+        '2. Do not use any special formatting or backticks\n' +
+        '3. Code must be left-aligned and properly indented\n' +
+        '4. Example of how to include code in markdown text:\n\n' +
+        'Here is the code:\n\n' +
+        'public class Example {\n' +
+        '    public static void main(String[] args) {\n' +
+        '        System.out.println("Hello");\n' +
+        '    }\n' +
+        '}\n'
       );
+
       console.log('%c📋 System Message:', 'color: #059669; font-weight: bold', '\n' + systemMessage.content);
       
       const prompt = await this.buildPrompt(params);
@@ -255,56 +261,42 @@ ${formatInstructions}`;
       const response = await this.llm.invoke([systemMessage, humanMessage]);
       
       // PHASE 1: Immediate raw response analysis
-      console.log('Raw OpenAI Response:', {
-        content: response.content,
-        type: typeof response.content,
-        length: response.content?.length || 0,
-        preview: typeof response.content === 'string' ? response.content.slice(0, 500) + '...' : 'Not a string'
-      });
-
-      // PHASE 2: Code block analysis (before any processing)
-      const codeBlocks = typeof response.content === 'string' ? response.content.match(/```[\s\S]*?```/g) || [] : [];
-      console.log('Code Block Analysis:', {
-        totalBlocks: codeBlocks.length,
-        blocks: codeBlocks.map(block => {
-          const lines = block.split('\n');
-          const matches = block.match(/```/g);
-          return {
-            hasUnescapedNewlines: block.includes('\n') && !block.includes('\\n'),
-            hasUnescapedQuotes: block.includes('"') && !block.includes('\\"'),
-            firstLine: lines[0],
-            lastLine: lines[lines.length - 1],
-            extraClosingMarkers: matches ? matches.length > 2 : false,
-            rawBlock: block,
-            lineCount: lines.length
-          };
-        })
-      });
-
-      // PHASE 3: Type check and content validation
       if (typeof response.content !== 'string') {
         throw new Error('Unexpected response format from OpenAI');
       }
 
+      // Clean up the response content
+      let cleanContent = response.content
+        .trim() // Remove leading/trailing whitespace and newlines
+        .replace(/^\uFEFF/, ''); // Remove BOM if present
+
+      // Log the raw response and any potential issues
+      console.log('%c📥 Response Analysis:', 'color: #059669; font-weight: bold', {
+        originalLength: response.content.length,
+        cleanedLength: cleanContent.length,
+        hasLeadingWhitespace: response.content.startsWith(' ') || response.content.startsWith('\n'),
+        hasTrailingWhitespace: response.content.endsWith(' ') || response.content.endsWith('\n'),
+        hasBOM: response.content.startsWith('\uFEFF'),
+        hasBackticks: cleanContent.includes('`'),
+        preview: cleanContent.slice(0, 100) + '...'
+      });
+
+      // If we still find any backticks, that's an error
+      if (cleanContent.includes('`')) {
+        console.error('%c❌ Found backticks in response despite instructions:', 'color: #dc2626', 
+          cleanContent.match(/`[^`]*`/g)
+        );
+        throw new Error('Response contains backticks despite instructions to use plain text');
+      }
+
       try {
-        const parsedContent = JSON.parse(response.content);
-        // Check for improperly escaped code blocks before parsing
-        const codeBlockRegex = /```[\s\S]*?```/g;
-        const codeBlocks = response.content.match(codeBlockRegex);
+        // Try parsing the cleaned content
+        const parsedContent = JSON.parse(cleanContent);
         
-        if (codeBlocks) {
-          for (const block of codeBlocks) {
-            if (block.includes('\n') && !block.includes('\\n')) {
-              console.error('%c⚠️ Detected improperly escaped newlines in code block:', 'color: #dc2626', block);
-            }
-            if (block.includes('"') && !block.includes('\\"')) {
-              console.error('%c⚠️ Detected improperly escaped quotes in code block:', 'color: #dc2626', block);
-            }
-          }
-        }
+        // No special processing needed anymore, just use the content as is
+        let processedContent = cleanContent;
 
         // Pre-process the response to handle code blocks
-        let processedContent = response.content;
         try {
           // First try to parse as is
           await this.parser.parse(processedContent);
@@ -401,6 +393,9 @@ ${formatInstructions}`;
           id: `generated_${Date.now()}`
         };
 
+        // Cache the new question
+        this.questionCache.set(question.id, question);
+
         console.log('%c✅ Question Generated Successfully:', 'color: #059669; font-weight: bold', {
           id: question.id,
           type: question.type,
@@ -444,6 +439,47 @@ ${formatInstructions}`;
       }
       
       throw error;
+    }
+  }
+
+  async getQuestion(questionId: string): Promise<Question> {
+    try {
+      // Check if question exists in cache
+      const cachedQuestion = this.questionCache.get(questionId);
+      if (cachedQuestion) {
+        return cachedQuestion;
+      }
+
+      // If questionId starts with 'generated_', parse the timestamp
+      // and check if it's a reasonable time (last 24 hours)
+      if (questionId.startsWith('generated_')) {
+        const timestamp = parseInt(questionId.replace('generated_', ''));
+        const isRecentQuestion = Date.now() - timestamp < 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (!isRecentQuestion) {
+          throw new Error('Question not found or expired');
+        }
+      }
+
+      // Generate new question for valid generated IDs
+      const question = await this.generateQuestion({
+        topic: 'work_safety',
+        difficulty: 3,
+        type: 'multiple_choice',
+        subject: 'Safety',
+        educationType: 'technical_college'
+      });
+
+      // Override the generated ID with the requested ID
+      question.id = questionId;
+      
+      // Cache the question
+      this.questionCache.set(questionId, question);
+      
+      return question;
+    } catch (error) {
+      console.error('Error getting question:', error);
+      throw error instanceof Error ? error : new Error('Failed to get question');
     }
   }
 }

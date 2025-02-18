@@ -13,8 +13,8 @@
       "programming_language": "java",
       "topics": [
         {
-          "topic_id": "basic_programming",
-          "sub_topics": [
+          "topicId": "basic_programming",
+          "subTopics": [
             "basic_io",
             "variables_and_types",
             "control_structures",
@@ -39,8 +39,8 @@
       "programming_language": "c#",
       "topics": [
         {
-          "topic_id": "basic_programming",
-          "sub_topics": [
+          "topicId": "basic_programming",
+          "subTopics": [
             "basic_io",
             "variables_and_types",
             "control_structures",
@@ -65,8 +65,8 @@
       "programming_language": "java",
       "topics": [
         {
-          "topic_id": "complexity_analysis",
-          "sub_topics": [
+          "topicId": "complexity_analysis",
+          "subTopics": [
             "time_complexity",
             "space_complexity",
             "asymptotic_notation",
@@ -74,16 +74,16 @@
           ]
         },
         {
-          "topic_id": "linear_structures",
-          "sub_topics": [
+          "topicId": "linear_structures",
+          "subTopics": [
             "linked_lists",
             "stacks",
             "queues"
           ]
         },
         {
-          "topic_id": "tree_structures",
-          "sub_topics": [
+          "topicId": "tree_structures",
+          "subTopics": [
             "binary_trees"
           ]
         }
@@ -102,8 +102,8 @@
       "programming_language": "c#",
       "topics": [
         {
-          "topic_id": "complexity_analysis",
-          "sub_topics": [
+          "topicId": "complexity_analysis",
+          "subTopics": [
             "time_complexity",
             "space_complexity",
             "asymptotic_notation",
@@ -111,16 +111,16 @@
           ]
         },
         {
-          "topic_id": "linear_structures",
-          "sub_topics": [
+          "topicId": "linear_structures",
+          "subTopics": [
             "linked_lists",
             "stacks",
             "queues"
           ]
         },
         {
-          "topic_id": "tree_structures",
-          "sub_topics": [
+          "topicId": "tree_structures",
+          "subTopics": [
             "binary_trees"
           ]
         }

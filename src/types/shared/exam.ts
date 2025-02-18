@@ -61,7 +61,7 @@ export interface Topic {
   /** Institution's topic code */
   code: string;
   /** Topic ID for subject mapping */
-  topic_id: string;
+  topicId: string;
   /** Display name */
   name: string;
   /** Description of the topic */
@@ -136,21 +136,21 @@ export const createFormalExam = (
     description: `${examData.code} - ${examData.names.full}`,
     names: examData.names,
     duration: 180, // TODO: Make configurable
-    totalQuestions: examData.topics.reduce((total, topic) => total + topic.sub_topics.length, 0),
+    totalQuestions: examData.topics.reduce((total, topic) => total + topic.subTopics.length, 0),
     examType: examData.exam_type as 'bagrut' | 'mahat',
     status: session?.status,
     score: session?.score,
     startedAt: session?.startedAt,
     completedAt: session?.completedAt,
     topics: examData.topics.map((topic, index) => ({
-      id: `${examData.id}_${topic.topic_id}`,
-      name: topic.topic_id, // TODO: Load from subjects/*.json
-      code: topic.topic_id,
-      topic_id: topic.topic_id,
+      id: `${examData.id}_${topic.topicId}`,
+      name: topic.topicId, // TODO: Load from subjects/*.json
+      code: topic.topicId,
+      topicId: topic.topicId,
       description: '', // TODO: Load from subjects/*.json
       order: index,
-      subTopics: topic.sub_topics.map((subTopic, subIndex) => ({
-        id: `${examData.id}_${topic.topic_id}_${subTopic}`,
+      subTopics: topic.subTopics.map((subTopic: string, subIndex: number) => ({
+        id: `${examData.id}_${topic.topicId}_${subTopic}`,
         code: subTopic,
         name: subTopic, // TODO: Load from subjects/*.json
         description: '', // TODO: Load from subjects/*.json
@@ -164,59 +164,60 @@ export const createFormalExam = (
 export interface DBExam {
   id: string;
   code: string;
-  name_short: string;
-  name_medium: string;
-  name_full: string;
-  exam_type: string;
+  nameShort: string;
+  nameMedium: string;
+  nameFull: string;
+  examType: string;
   difficulty: number;
-  programming_language?: string;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
+  programmingLanguage?: string;
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
 }
 
 export interface DBTopic {
   id: string;
-  exam_id: string;  // Foreign key to DBExam
-  topic_id: string;
+  examId: string;  // Foreign key to DBExam
+  topicId: string;
   name: string;
   description: string;
   order: number;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DBSubTopic {
   id: string;
-  topic_id: string;  // Foreign key to DBTopic
+  topicId: string;  // Foreign key to DBTopic
   name: string;
   description: string;
   order: number;
-  created_at: string;
-  updated_at: string;
+  questionTemplate?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DBExamSession {
   id: string;
-  exam_id: string;  // Foreign key to DBExam
-  user_id: string;
+  examId: string;  // Foreign key to DBExam
+  userId: string;
   status: 'not_started' | 'in_progress' | 'completed';
   score?: number;
-  started_at?: string;
-  completed_at?: string;
-  created_at: string;
-  updated_at: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DBExamTopicProgress {
   id: string;
-  session_id: string;  // Foreign key to DBExamSession
-  topic_id: string;    // Foreign key to DBTopic
-  correct_answers: number;
-  total_questions: number;
-  time_spent: number;  // in seconds
-  created_at: string;
-  updated_at: string;
+  sessionId: string;  // Foreign key to DBExamSession
+  topicId: string;    // Foreign key to DBTopic
+  correctAnswers: number;
+  totalQuestions: number;
+  timeSpent: number;  // in seconds
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Utility type for converting DB exam to FormalExam
@@ -233,29 +234,30 @@ export const convertDBExamToFormalExam = (examWithRelations: ExamWithRelations):
   
   return {
     id: exam.id,
-    title: exam.name_medium,
-    description: `${exam.code} - ${exam.name_full}`,
+    title: exam.nameMedium,
+    description: `${exam.code} - ${exam.nameFull}`,
     names: {
-      short: exam.name_short,
-      medium: exam.name_medium,
-      full: exam.name_full
+      short: exam.nameShort,
+      medium: exam.nameMedium,
+      full: exam.nameFull
     },
     duration: 180, // This would come from a separate exam_settings table in real DB
     totalQuestions: topics.reduce((total, topic) => total + topic.subTopics.length, 0),
-    examType: exam.exam_type as 'bagrut' | 'mahat',
+    examType: exam.examType as 'bagrut' | 'mahat',
     topics: topics.map(topic => ({
       id: topic.id,
       name: topic.name,
-      code: topic.topic_id,
-      topic_id: topic.topic_id,
+      code: topic.topicId,
+      topicId: topic.topicId,
       description: topic.description,
       order: topic.order,
       subTopics: topic.subTopics.map(subTopic => ({
         id: subTopic.id,
-        code: subTopic.name, // The original name was the code in the JSON
+        code: subTopic.topicId,
         name: subTopic.name,
         description: subTopic.description,
-        order: subTopic.order
+        order: subTopic.order,
+        questionTemplate: subTopic.questionTemplate
       }))
     }))
   };

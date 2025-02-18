@@ -3,39 +3,36 @@ import {
   type ExamData, 
   type BagrutExams, 
   type MahatExams,
-  type TopicData
+  type Topic
 } from '../types/exam';
 import type { 
   FormalExam,
   ExamSession,
-  Topic,
+  Topic as FormalTopic,
   SubTopic
 } from '../types/shared/exam';
 import { validateExamData } from '../schemas/exam';
 
 // Import exam data directly
-import bagrutCS from 'data/exams/bagrut_cs.json';
-import mahatCS from 'data/exams/mahat_cs.json';
-import csProgrammingFundamentals from 'data/subjects/cs_programming_fundamentals.json';
-import csDataStructures from 'data/subjects/cs_data_structures.json';
+import bagrutCS from '../../data/exams/bagrut_cs.json';
+import mahatCS from '../../data/exams/mahat_cs.json';
+import bagrutMath from '../../data/exams/bagrut_math.json';
+import mahatCivil from '../../data/exams/mahat_civil.json';
+
+// Import subject data
+import csProgrammingFundamentals from '../../data/subjects/cs_programming_fundamentals.json';
+import csDataStructures from '../../data/subjects/cs_data_structures.json';
+import mathSubject from '../../data/subjects/math.json';
+import constructionSafety from '../../data/subjects/construction_safety.json';
+
+// Import domain data
+import civilEngineering from '../../data/domains/civil_engineering.json';
 
 // Transform JSON data to match our types
-function transformTopic(topic: { topicId?: string; subTopics?: string[]; topic_id?: string; sub_topics?: string[] }): TopicData {
-  // Normalize topic data to use consistent property names
-  const normalizedTopicId = topic.topic_id || topic.topicId;
-  const normalizedSubTopics = topic.sub_topics || topic.subTopics;
-
-  if (!normalizedTopicId) {
-    throw new Error('Topic is missing required topic_id/topicId field');
-  }
-
-  if (!Array.isArray(normalizedSubTopics)) {
-    throw new Error(`Topic ${normalizedTopicId} is missing required sub_topics/subTopics array`);
-  }
-
+function transformTopic(topic: { topicId: string; subTopics: string[] }): Topic {
   return {
-    topic_id: normalizedTopicId,
-    sub_topics: normalizedSubTopics
+    topicId: topic.topicId,
+    subTopics: topic.subTopics
   };
 }
 
@@ -51,18 +48,20 @@ function validateExamTopics(exam: { id: string; topics: any[] }): any[] {
 
   // Filter and validate topics
   const validTopics = exam.topics.filter(topic => {
-    const topicId = topic.topic_id || topic.topicId;
+    const topicId = topic.topicId;
     if (!topicId) {
-      console.error(`Exam ${exam.id} contains a topic missing topic_id/topicId - skipping`);
+      console.error(`Exam ${exam.id} contains a topic missing topicId - skipping`);
       return false;
     }
 
     // Find the subject file containing this topic
     let subjectData;
-    if (csProgrammingFundamentals.topics.some(t => t.id === topicId)) {
+    if (csProgrammingFundamentals.topics.some((t: { id: string }) => t.id === topicId)) {
       subjectData = csProgrammingFundamentals;
-    } else if (csDataStructures.topics.some(t => t.id === topicId)) {
+    } else if (csDataStructures.topics.some((t: { id: string }) => t.id === topicId)) {
       subjectData = csDataStructures;
+    } else if (constructionSafety.topics.some((t: { id: string }) => t.id === topicId)) {
+      subjectData = constructionSafety;
     } else {
       console.error(
         `Exam ${exam.id} references topic "${topicId}" which does not exist in any subject file - skipping`
@@ -70,20 +69,20 @@ function validateExamTopics(exam: { id: string; topics: any[] }): any[] {
       return false;
     }
 
-    const topicDef = subjectData.topics.find(t => t.id === topicId);
+    const topicDef = subjectData.topics.find((t: { id: string }) => t.id === topicId);
     if (!topicDef) {
       console.error(`Could not find topic ${topicId} in its subject file - skipping`);
       return false;
     }
 
-    const subTopics = topic.sub_topics || topic.subTopics;
+    const subTopics = topic.subTopics;
     if (!Array.isArray(subTopics)) {
-      console.error(`Topic ${topicId} in exam ${exam.id} is missing sub_topics/subTopics array - skipping`);
+      console.error(`Topic ${topicId} in exam ${exam.id} is missing subTopics array - skipping`);
       return false;
     }
 
     // Validate and filter subtopics
-    const validSubTopicIds = new Set(topicDef.subTopics.map(st => st.id));
+    const validSubTopicIds = new Set(topicDef.subTopics.map((st: { id: string }) => st.id));
     const validSubTopics = subTopics.filter(subTopicId => {
       if (!validSubTopicIds.has(subTopicId)) {
         console.error(
@@ -104,8 +103,8 @@ function validateExamTopics(exam: { id: string; topics: any[] }): any[] {
     // Return the topic with only valid subtopics
     return {
       ...topic,
-      topic_id: topicId, // Normalize to topic_id
-      sub_topics: validSubTopics // Only include valid subtopics
+      topicId, // Normalize to topicId
+      subTopics: validSubTopics // Only include valid subtopics
     };
   });
 
@@ -128,13 +127,16 @@ function transformExam(exam: {
   };
   difficulty: number;
 }): ExamData {
-  // Validate and get only valid topics
-  const validatedTopics = validateExamTopics(exam);
+  // Validate and transform topics
+  const validatedTopics = exam.topics.map(transformTopic);
 
   return {
-    ...exam,
+    id: exam.id,
+    code: exam.code,
+    names: exam.names,
     exam_type: exam.exam_type === 'bagrut' ? ExamType.BAGRUT : ExamType.MAHAT,
-    topics: validatedTopics.map(transformTopic)
+    difficulty: exam.difficulty,
+    topics: validatedTopics
   };
 }
 
@@ -144,19 +146,28 @@ let mahatExams: MahatExams;
 
 try {
   // First validate all topics exist before transforming
-  const allExams = [...bagrutCS.exams, ...mahatCS.exams];
-  for (const exam of allExams) {
-    validateExamTopics(exam); // This will throw if any exam has invalid topics
-  }
+  const allExams = [
+    ...bagrutCS.exams,
+    ...mahatCS.exams,
+    ...bagrutMath.exams,
+    ...mahatCivil.exams
+  ];
+  
+  // Validate all exams first
+  const validatedBagrutExams = validateExamData(bagrutCS, 'bagrut').exams;
+  const validatedMahatExams = [
+    ...validateExamData(mahatCS, 'mahat').exams,
+    ...validateExamData(mahatCivil, 'mahat').exams
+  ];
 
   // Now transform the exams
   bagrutExams = {
-    exams: bagrutCS.exams.map(transformExam)
+    exams: validatedBagrutExams.map(transformExam)
   };
 
   mahatExams = {
     faculty: mahatCS.faculty,
-    exams: mahatCS.exams.map(transformExam)
+    exams: validatedMahatExams.map(transformExam)
   };
 } catch (error) {
   // Log the error and re-throw to prevent the app from loading with invalid data
@@ -180,14 +191,32 @@ class ExamService {
    * @param subjectId Subject identifier
    */
   async getSubjectData(subjectId: string): Promise<any> {
+    // Check cache first
+    if (subjectDataCache.has(subjectId)) {
+      return subjectDataCache.get(subjectId);
+    }
+
+    // Load and cache subject data
+    let subjectData;
     switch (subjectId) {
       case 'cs_programming_fundamentals':
-        return csProgrammingFundamentals;
+        subjectData = csProgrammingFundamentals;
+        break;
       case 'cs_data_structures':
-        return csDataStructures;
+        subjectData = csDataStructures;
+        break;
+      case 'mathematics':
+        subjectData = mathSubject;
+        break;
+      case 'construction_safety':
+        subjectData = constructionSafety;
+        break;
       default:
         throw new Error(`Unknown subject: ${subjectId}`);
     }
+
+    subjectDataCache.set(subjectId, subjectData);
+    return subjectData;
   }
 
   /**
@@ -206,21 +235,24 @@ class ExamService {
 
     // Find the subject file containing this topic
     let subjectData;
-    if (csProgrammingFundamentals.topics.some(t => t.id === topicId)) {
+    if (csProgrammingFundamentals.topics.some((t: { id: string }) => t.id === topicId)) {
       subjectData = csProgrammingFundamentals;
-    } else if (csDataStructures.topics.some(t => t.id === topicId)) {
+    } else if (csDataStructures.topics.some((t: { id: string }) => t.id === topicId)) {
       subjectData = csDataStructures;
+    } else if (constructionSafety.topics.some((t: { id: string }) => t.id === topicId)) {
+      subjectData = constructionSafety;
     } else {
       const availableTopics = [
-        ...csProgrammingFundamentals.topics.map(t => t.id),
-        ...csDataStructures.topics.map(t => t.id)
+        ...csProgrammingFundamentals.topics.map((t: { id: string }) => t.id),
+        ...csDataStructures.topics.map((t: { id: string }) => t.id),
+        ...constructionSafety.topics.map((t: { id: string }) => t.id)
       ].join(', ');
       throw new Error(
         `Topic ${topicId} not found in any subject file. Available topics are: ${availableTopics}`
       );
     }
 
-    const topic = subjectData.topics.find(t => t.id === topicId);
+    const topic = subjectData.topics.find((t: { id: string }) => t.id === topicId);
     if (!topic) {
       throw new Error(`Topic ${topicId} not found in subject data`);
     }
@@ -269,10 +301,12 @@ class ExamService {
   private getTopicInfo(topicId: string, subTopicId?: string) {
     // Find the subject file that contains this topic
     let subjectData;
-    if (csProgrammingFundamentals.topics.some(t => t.id === topicId)) {
+    if (csProgrammingFundamentals.topics.some((t: { id: string }) => t.id === topicId)) {
       subjectData = csProgrammingFundamentals;
-    } else if (csDataStructures.topics.some(t => t.id === topicId)) {
+    } else if (csDataStructures.topics.some((t: { id: string }) => t.id === topicId)) {
       subjectData = csDataStructures;
+    } else if (constructionSafety.topics.some((t: { id: string }) => t.id === topicId)) {
+      subjectData = constructionSafety;
     } else {
       throw new Error(`Topic ${topicId} not found in any subject file`);
     }
@@ -309,7 +343,7 @@ class ExamService {
    * Creates a formal exam with proper topic names and descriptions
    * @throws Error if topic data is invalid or missing
    */
-  private createFormalExam(examData: ExamData, session?: ExamSession): FormalExam {
+  private async createFormalExam(examData: ExamData, session?: ExamSession): Promise<FormalExam> {
     if (!examData?.id) {
       throw new Error('Invalid exam data: missing exam ID');
     }
@@ -320,7 +354,7 @@ class ExamService {
 
     // First validate and normalize topics
     const validTopics = examData.topics.filter(topic => {
-      if (!topic.topic_id || !Array.isArray(topic.sub_topics)) {
+      if (!topic.topicId || !Array.isArray(topic.subTopics)) {
         console.error(`Skipping invalid topic in exam ${examData.id}: missing required fields`);
         return false;
       }
@@ -332,57 +366,56 @@ class ExamService {
     }
 
     // Load complete topic data from subject files
-    const topics: Topic[] = validTopics.map((topic, index) => {
+    const topics: FormalTopic[] = await Promise.all(validTopics.map(async (topic, index) => {
       // Find the subject file containing this topic
       let subjectData;
-      if (csProgrammingFundamentals.topics.some(t => t.id === topic.topic_id)) {
-        subjectData = csProgrammingFundamentals;
-      } else if (csDataStructures.topics.some(t => t.id === topic.topic_id)) {
-        subjectData = csDataStructures;
-      } else {
-        throw new Error(`Topic ${topic.topic_id} not found in any subject file`);
+      try {
+        subjectData = await this.getSubjectData(this.getSubjectIdForTopic(topic.topicId));
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err.message : String(err);
+        throw new Error(`Failed to load subject data for topic ${topic.topicId}: ${error}`);
       }
 
-      // Get complete topic data
-      const topicData = subjectData.topics.find(t => t.id === topic.topic_id);
+      // Get complete topic data from the subject
+      const topicData = subjectData.topics.find((t: { id: string }) => t.id === topic.topicId);
       if (!topicData) {
-        throw new Error(`Topic ${topic.topic_id} not found in subject data`);
+        throw new Error(`Topic ${topic.topicId} not found in subject data`);
       }
 
       // Validate topic data
       if (!topicData.name || !topicData.description || !Array.isArray(topicData.subTopics)) {
-        throw new Error(`Invalid topic data structure for ${topic.topic_id}`);
+        throw new Error(`Invalid topic data structure for ${topic.topicId}`);
       }
 
       // Map subtopics with complete data
       return {
-        id: `${examData.id}_${topic.topic_id}`,
-        code: topic.topic_id,
-        topic_id: topic.topic_id,
+        id: `${examData.id}_${topic.topicId}`,
+        code: topic.topicId,
+        topicId: topic.topicId,
         name: topicData.name,
         description: topicData.description,
         order: index,
-        subTopics: topic.sub_topics
+        subTopics: topic.subTopics
           .map(subTopicId => {
-            const subTopicData = topicData.subTopics.find(st => st.id === subTopicId);
+            const subTopicData = topicData.subTopics.find((st: { id: string }) => st.id === subTopicId);
             if (!subTopicData) {
-              console.error(`Skipping invalid subtopic ${subTopicId} in topic ${topic.topic_id}`);
+              console.error(`Skipping invalid subtopic ${subTopicId} in topic ${topic.topicId}`);
               return null;
             }
 
             const subTopic: SubTopic = {
-              id: `${examData.id}_${topic.topic_id}_${subTopicId}`,
+              id: `${examData.id}_${topic.topicId}_${subTopicId}`,
               code: subTopicId,
               name: subTopicData.name,
               description: subTopicData.description,
               questionTemplate: subTopicData.questionTemplate,
-              order: topic.sub_topics.indexOf(subTopicId)
+              order: topic.subTopics.indexOf(subTopicId)
             };
             return subTopic;
           })
           .filter((subTopic): subTopic is NonNullable<typeof subTopic> => subTopic !== null)
       };
-    });
+    }));
 
     return {
       id: examData.id,
@@ -401,6 +434,31 @@ class ExamService {
   }
 
   /**
+   * Maps a topic ID to its subject ID
+   */
+  private getSubjectIdForTopic(topicId: string): string {
+    // First check CS subjects
+    if (csProgrammingFundamentals.topics.some((t: { id: string }) => t.id === topicId)) {
+      return 'cs_programming_fundamentals';
+    }
+    if (csDataStructures.topics.some((t: { id: string }) => t.id === topicId)) {
+      return 'cs_data_structures';
+    }
+
+    // Check math topics
+    if (topicId in mathSubject.topics) {
+      return 'mathematics';
+    }
+
+    // Check construction safety topics
+    if (constructionSafety.topics.some((t: { id: string }) => t.id === topicId)) {
+      return 'construction_safety';
+    }
+
+    throw new Error(`Cannot find subject for topic: ${topicId}`);
+  }
+
+  /**
    * Gets all exams of a specific type.
    * @param examType Type of exams to load (bagrut/mahat)
    */
@@ -412,9 +470,9 @@ class ExamService {
     data.exams.forEach(exam => this.examCache.set(exam.id, exam));
     
     // Convert to formal exams with any existing session data
-    return data.exams.map(exam => 
+    return Promise.all(data.exams.map(exam => 
       this.createFormalExam(exam, this.sessionCache.get(exam.id))
-    );
+    ));
   }
 
   /**

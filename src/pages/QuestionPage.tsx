@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Space, Button, Dropdown, Menu, Typography, Tag, Alert, Divider } from 'antd';
+import { Card, Space, Button, Dropdown, Menu, Typography, Tag, Alert, Divider, Spin } from 'antd';
 import { 
   EditOutlined, 
   ShareAltOutlined, 
@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import QuestionViewer from '../components/QuestionViewer';
 import type { Question } from '../types/question';
+import { questionService } from '../services/llm/service';
 
 const { Title, Text } = Typography;
 
@@ -30,23 +31,26 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
 
   useEffect(() => {
     const fetchQuestion = async () => {
+      if (!questionId) return;
+      
       try {
         setLoading(true);
-        // TODO: Replace with actual API call
-        const response = await fetch(`/api/questions/${questionId}`);
-        const data = await response.json();
-        setQuestion(data);
+        setError(null);
+        setQuestion(null); // Reset question while loading
+        
+        // Use the question service to get the question
+        const fetchedQuestion = await questionService.getQuestion(questionId);
+        setQuestion(fetchedQuestion);
       } catch (err) {
-        setError('Failed to load question');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load question';
+        setError(errorMessage);
         console.error('Error fetching question:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    if (questionId) {
-      fetchQuestion();
-    }
+    fetchQuestion();
   }, [questionId]);
 
   const actionMenuItems = [
@@ -96,8 +100,24 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: '2rem' }}>
-        <Card loading={true} />
+      <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        <Card>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '48px 24px',
+            minHeight: '300px'
+          }}>
+            <div style={{ marginBottom: '16px' }}>
+              <Spin size="large" />
+            </div>
+            <Text style={{ color: '#6b7280', fontSize: '1.1rem' }}>
+              טוען שאלה...
+            </Text>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -117,6 +137,31 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Description Section */}
+      <Card style={{ marginBottom: '2rem' }}>
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Title level={5} style={{ margin: 0 }}>דף שאלה</Title>
+          <Text>
+            דף זה מציג את כל המידע הרלוונטי לשאלה ספציפית, כולל:
+          </Text>
+          <ul style={{ 
+            listStyleType: 'none', 
+            padding: 0, 
+            margin: 0,
+            color: '#666'
+          }}>
+            <li>• תוכן השאלה ופתרון מלא</li>
+            <li>• מטא-דאטה (נושא, תת-נושא, רמת קושי)</li>
+            <li>• סטטיסטיקות ביצועים</li>
+            <li>• שאלות דומות ומקושרות</li>
+            <li>• אפשרויות תרגול ועריכה</li>
+          </ul>
+          <Text type="secondary" style={{ fontSize: '0.9rem' }}>
+            * חלק מהתכונות עדיין בפיתוח
+          </Text>
+        </Space>
+      </Card>
+
       {/* Header Section */}
       <div style={{ marginBottom: '2rem' }}>
         <Space direction="vertical" size="small" style={{ width: '100%' }}>

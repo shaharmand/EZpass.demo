@@ -23,20 +23,9 @@ export const PracticeContainer: React.FC<PracticeContainerProps> = ({
   const [startTime] = useState(Date.now());
   const [needsHelp, setNeedsHelp] = useState(false);
 
-  const handleSubmit = (answer: string) => {
-    const timeTaken = (Date.now() - startTime) / 1000; // Convert to seconds
-    const isCorrect = question.type === 'multiple_choice' 
-      ? question.correctOption !== undefined && parseInt(answer) === question.correctOption
-      : false; // For essay questions, correctness is determined elsewhere
-
-    setIsSubmitted(true);
-    
-    if (onComplete) {
-      onComplete({
-        isCorrect,
-        timeTaken,
-        needsHelp
-      });
+  const handleNext = () => {
+    if (onNext) {
+      onNext();
     }
   };
 
@@ -44,6 +33,8 @@ export const PracticeContainer: React.FC<PracticeContainerProps> = ({
     setNeedsHelp(true);
     if (action === 'hint') {
       message.info('רמז: נסה לחשוב על הנושא מזווית אחרת');
+    } else if (action === 'next') {
+      handleNext();
     }
   };
 
@@ -57,10 +48,6 @@ export const PracticeContainer: React.FC<PracticeContainerProps> = ({
         timeTaken,
         needsHelp
       });
-    }
-
-    if (onNext) {
-      onNext();
     }
   };
 
@@ -77,6 +64,7 @@ export const PracticeContainer: React.FC<PracticeContainerProps> = ({
         question={question}
         onHelp={handleHelp}
         onAnswer={handleAnswer}
+        onNextQuestion={handleNext}
       />
       
       {isSubmitted && onNext && (

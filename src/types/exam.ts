@@ -1,4 +1,6 @@
-import type { Topic, SubTopic } from './shared/exam';
+import { Topic, ExamNames, Exam as ExamSchema } from '../schemas/exam';
+
+export type { Topic, ExamNames };
 
 /**
  * Core exam data types representing the static configuration of exams in the system.
@@ -21,19 +23,6 @@ import type { Topic, SubTopic } from './shared/exam';
  *   "topics": [...]
  * }
  */
-
-/**
- * Names for an exam in different display contexts.
- * Used to provide appropriate titles based on UI space constraints.
- */
-export type ExamNames = {
-  /** Ultra-short name for mobile/tight spaces (e.g., "יסודות מדמ\"ח Java") */
-  short: string;
-  /** Medium length for regular displays (e.g., "יסודות מדעי המחשב Java - בגרות") */
-  medium: string;
-  /** Full official name (e.g., "בחינת בגרות - יסודות מדעי המחשב ותכנות בסיסי בשפת Java") */
-  full: string;
-};
 
 /**
  * Supported exam types in the system.
@@ -77,18 +66,7 @@ export interface ExamData {
   /** Programming language for CS exams */
   programming_language?: 'java' | 'c#' | 'python';
   /** List of topics covered in the exam */
-  topics: TopicData[];
-}
-
-/**
- * Core topic configuration representing a subject area within an exam.
- * References a universal topic from the subjects configuration.
- */
-export interface TopicData {
-  /** Reference to the universal topic ID in subjects/*.json */
-  topic_id: string;
-  /** List of subtopics covered from the universal topic */
-  sub_topics: string[];
+  topics: Topic[];
 }
 
 /**

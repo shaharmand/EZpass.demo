@@ -1,5 +1,5 @@
-import React from 'react';
-import { Modal, Typography, Space, Divider, Card, Button, Collapse } from 'antd';
+import React, { useState } from 'react';
+import { Modal, Typography, Space, Divider, Card, Button, Collapse, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { 
   BookOutlined, 
@@ -29,6 +29,7 @@ export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
 }) => {
   const navigate = useNavigate();
   const { setActivePrep } = useStudentPrep();
+  const [expandedTopics, setExpandedTopics] = useState<string[]>([]);
   
   // Filter out missing topics
   const validTopics = React.useMemo(() => {
@@ -115,15 +116,16 @@ export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
           {validTopics.map((topic, topicIndex) => (
             <Collapse 
               key={topicIndex}
-              defaultActiveKey={['1']}
               expandIcon={({ isActive }) => (
                 <CaretRightOutlined
                   rotate={isActive ? 90 : 0}
-                  style={{ 
-                    fontSize: '16px',
-                    color: '#1890ff'
-                  }}
+                  style={{ fontSize: '16px', color: '#1890ff' }}
                 />
+              )}
+              onChange={(keys) => setExpandedTopics(prev => 
+                keys.includes('1') 
+                  ? [...prev, topic.id]
+                  : prev.filter(id => id !== topic.id)
               )}
               style={{
                 background: 'white',
@@ -134,22 +136,44 @@ export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
               <Panel 
                 key="1"
                 header={
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    width: '100%'
-                  }}>
-                    <Text strong style={{ 
-                      fontSize: '1.2rem',
-                      color: '#1f2937'
+                  <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      width: '100%'
                     }}>
-                      {topic.name}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: '0.9rem' }}>
-                      {topic.subTopics.length} תתי-נושאים
-                    </Text>
-                  </div>
+                      <Text strong style={{ fontSize: '1.2rem', color: '#1f2937' }}>
+                        {topic.name}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: '0.9rem' }}>
+                        {topic.subTopics.length} תתי-נושאים
+                      </Text>
+                    </div>
+                    {!expandedTopics.includes(topic.id) && (
+                      <div style={{ 
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '4px',
+                        marginTop: '4px'
+                      }}>
+                        {topic.subTopics.map((subTopic, subIndex) => (
+                          <Tag 
+                            key={subIndex}
+                            style={{ 
+                              margin: 0,
+                              fontSize: '0.85rem',
+                              background: '#f3f4f6',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '4px'
+                            }}
+                          >
+                            {subTopic.name}
+                          </Tag>
+                        ))}
+                      </div>
+                    )}
+                  </Space>
                 }
               >
                 {/* Topic Description */}

@@ -14,8 +14,8 @@
       "programming_language": "java",
       "topics": [
         {
-          "topic_id": "basic_programming",
-          "sub_topics": [
+          "topicId": "basic_programming",
+          "subTopics": [
             "basic_io",
             "variables_and_types",
             "control_structures",
@@ -40,8 +40,8 @@
       "programming_language": "c#",
       "topics": [
         {
-          "topic_id": "basic_programming",
-          "sub_topics": [
+          "topicId": "basic_programming",
+          "subTopics": [
             "basic_io",
             "variables_and_types",
             "control_structures",
@@ -66,8 +66,8 @@
       "programming_language": "python",
       "topics": [
         {
-          "topic_id": "basic_programming",
-          "sub_topics": [
+          "topicId": "basic_programming",
+          "subTopics": [
             "basic_io",
             "variables_and_types",
             "control_structures",

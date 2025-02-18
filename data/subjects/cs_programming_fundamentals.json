@@ -1,25 +1,25 @@
 {
   "id": "cs_programming_fundamentals",
-  "name": "יסודות התכנות",
+  "name": "יסודות מדעי המחשב",
   "subject": "computer_science",
-  "description": "יסודות התכנות, אלגוריתמיקה בסיסית ותכנות מונחה עצמים",
+  "description": "יסודות התכנות ומדעי המחשב",
   "topics": [
     {
       "id": "basic_programming",
-      "name": "יסודות התכנות",
-      "description": "עקרונות בסיסיים בתכנות",
+      "name": "תכנות בסיסי",
+      "description": "יסודות התכנות",
       "subTopics": [
         {
           "id": "basic_io",
-          "name": "קלט ופלט בסיסי",
-          "description": "קליטה מהמקלדת, הדפסה למסך, פורמט פלט",
-          "questionTemplate": "קליטת קלט, עיבוד והדפסת פלט מפורמט"
+          "name": "קלט ופלט",
+          "description": "קלט ופלט בסיסי",
+          "questionTemplate": "כתיבת תוכנית עם קלט ופלט"
         },
         {
           "id": "variables_and_types",
           "name": "משתנים וטיפוסים",
-          "description": "הכרזה על משתנים, טיפוסי נתונים בסיסיים, המרות",
-          "questionTemplate": "הגדרת משתנים, המרות טיפוסים, חישובים בסיסיים"
+          "description": "הגדרת משתנים וטיפוסי נתונים",
+          "questionTemplate": "שימוש במשתנים וטיפוסי נתונים"
         },
         {
           "id": "control_structures",

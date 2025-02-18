@@ -1,0 +1,61 @@
+{
+  "faculty": "civil_engineering",
+  "exams": [
+    {
+      "id": "mahat_construction_safety",
+      "domain": "construction_safety",
+      "field": "construction_management",
+      "subject": "civil_engineering",
+      "exam_type": "mahat",
+      "code": "70178",
+      "names": {
+        "short": "בטיחות בבנייה",
+        "medium": "בטיחות בבנייה - מה״ט",
+        "full": "בחינת מה״ט - בטיחות בבנייה"
+      },
+      "difficulty": 4,
+      "topics": [
+        {
+          "topicId": "safety_management",
+          "subTopics": [
+            "safety_regulations",
+            "risk_assessment",
+            "safety_planning"
+          ]
+        },
+        {
+          "topicId": "work_at_height",
+          "subTopics": [
+            "scaffolding",
+            "fall_protection",
+            "ladders"
+          ]
+        },
+        {
+          "topicId": "construction_operations",
+          "subTopics": [
+            "excavation",
+            "demolition",
+            "concrete_work"
+          ]
+        },
+        {
+          "topicId": "equipment_safety",
+          "subTopics": [
+            "heavy_equipment",
+            "lifting_equipment",
+            "power_tools"
+          ]
+        },
+        {
+          "topicId": "special_risks",
+          "subTopics": [
+            "hazardous_materials",
+            "confined_spaces",
+            "fire_safety"
+          ]
+        }
+      ]
+    }
+  ]
+} 

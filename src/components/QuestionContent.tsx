@@ -85,13 +85,14 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
         justifyContent: 'center',
         minHeight: '300px'
       }}>
-        <Spin size="large" />
+        <div style={{ marginBottom: '16px' }}>
+          <Spin size="large" />
+        </div>
         <div style={{ 
-          marginTop: '16px',
-          color: '#475569',
+          color: '#6b7280',
           fontSize: '1.1rem'
         }}>
-          מייצר שאלה...
+          טוען שאלה...
         </div>
       </div>
     );
@@ -100,13 +101,13 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   return (
     <div style={{ padding: '24px' }}>
       <div style={{
-        backgroundColor: '#eff6ff',
+        background: 'linear-gradient(to bottom, #eff6ff, #f8fafc)',
         borderRadius: '8px',
-        border: '1px solid #60a5fa',
-        padding: '16px',
+        border: '1px solid #bfdbfe',
+        padding: '12px 16px',
         direction: 'rtl',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-        minHeight: '120px',
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)',
+        minHeight: '100px',
       }}>
         <div 
           ref={contentRef}

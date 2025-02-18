@@ -1,0 +1,21 @@
+{
+  "id": "civil_engineering",
+  "name": "הנדסה אזרחית",
+  "fields": [
+    {
+      "id": "construction_management",
+      "name": "ניהול הבנייה",
+      "subjects": ["civil_engineering_construction_management", "project_management", "construction_planning"]
+    },
+    {
+      "id": "structural_engineering",
+      "name": "הנדסת מבנים",
+      "subjects": []
+    },
+    {
+      "id": "infrastructure_engineering",
+      "name": "הנדסת תשתיות",
+      "subjects": []
+    }
+  ]
+} 

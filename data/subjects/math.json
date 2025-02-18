@@ -1,0 +1,82 @@
+{
+  "id": "mathematics",
+  "name": "מתמטיקה",
+  "description": "מתמטיקה ברמת 5 יחידות לימוד",
+  "topics": [
+    {
+      "id": "algebra",
+      "name": "אלגברה",
+      "description": "אלגברה מתקדמת",
+      "subTopics": [
+        {
+          "id": "equations",
+          "name": "משוואות",
+          "description": "פתרון משוואות",
+          "questionTemplate": "פתרון משוואות מסדר ראשון ושני"
+        },
+        {
+          "id": "inequalities",
+          "name": "אי שוויונים",
+          "description": "פתרון אי שוויונים",
+          "questionTemplate": "פתרון אי שוויונים"
+        },
+        {
+          "id": "functions",
+          "name": "פונקציות",
+          "description": "חקירת פונקציות",
+          "questionTemplate": "חקירת פונקציות וגרפים"
+        }
+      ]
+    },
+    {
+      "id": "calculus",
+      "name": "חשבון דיפרנציאלי ואינטגרלי",
+      "description": "נגזרות, אינטגרלים וחקירת פונקציות",
+      "subTopics": [
+        {
+          "id": "derivatives",
+          "name": "נגזרות",
+          "description": "חוקי גזירה, נגזרות של פונקציות, שימושים",
+          "questionTemplate": "מציאת נגזרת, בעיות קיצון, חקירת פונקציה"
+        },
+        {
+          "id": "integrals",
+          "name": "אינטגרלים",
+          "description": "אינטגרל לא מסוים ומסוים, שיטות אינטגרציה",
+          "questionTemplate": "חישוב אינטגרל, שטח בין עקומות, נפח גוף סיבוב"
+        },
+        {
+          "id": "limits",
+          "name": "גבולות",
+          "description": "חישוב גבולות, רציפות, נקודות אי-רציפות",
+          "questionTemplate": "חישוב גבול, הוכחת רציפות, אסימפטוטות"
+        }
+      ]
+    },
+    {
+      "id": "trigonometry",
+      "name": "טריגונומטריה",
+      "description": "פונקציות טריגונומטריות, משוואות וזהויות",
+      "subTopics": [
+        {
+          "id": "basicTrig",
+          "name": "יסודות הטריגונומטריה",
+          "description": "פונקציות טריגונומטריות במשולש ישר זווית ובמעגל",
+          "questionTemplate": "חישובים במשולש, המעגל הטריגונומטרי"
+        },
+        {
+          "id": "trigEquations",
+          "name": "משוואות טריגונומטריות",
+          "description": "פתרון משוואות טריגונומטריות מסוגים שונים",
+          "questionTemplate": "פתרון משוואה טריגונומטרית, תחומי פתרון"
+        },
+        {
+          "id": "trigIdentities",
+          "name": "זהויות טריגונומטריות",
+          "description": "הוכחת זהויות, שימוש בזהויות לפתרון בעיות",
+          "questionTemplate": "הוכחת זהות, פישוט ביטויים טריגונומטריים"
+        }
+      ]
+    }
+  ]
+} 

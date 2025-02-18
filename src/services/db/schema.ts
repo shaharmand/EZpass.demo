@@ -12,30 +12,30 @@ export interface DBUser {
   id: string;
   email: string;
   name: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DBQuestion {
   id: string;
-  topic_id: string;
+  topicId: string;
   content: string;
   type: 'multiple_choice' | 'open' | 'code';
   difficulty: number;
   metadata: Record<string, any>;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DBQuestionResponse {
   id: string;
-  session_id: string;
-  question_id: string;
-  user_id: string;
+  sessionId: string;
+  questionId: string;
+  userId: string;
   answer: string;
-  is_correct: boolean;
-  time_taken: number;
-  created_at: string;
+  isCorrect: boolean;
+  timeTaken: number;
+  createdAt: string;
 }
 
 // Define the database
@@ -55,14 +55,14 @@ export class ExamDatabase extends Dexie {
 
     // Define schema with indexes
     this.version(1).stores({
-      exams: 'id, code, exam_type, is_active',
-      topics: 'id, exam_id, topic_id',
-      subtopics: 'id, topic_id',
+      exams: 'id, code, examType, isActive',
+      topics: 'id, examId, topicId',
+      subtopics: 'id, topicId',
       users: 'id, email',
-      questions: 'id, topic_id, type, difficulty',
-      examSessions: 'id, exam_id, user_id, status',
-      topicProgress: 'id, session_id, topic_id',
-      questionResponses: 'id, session_id, question_id, user_id'
+      questions: 'id, topicId, type, difficulty',
+      examSessions: 'id, examId, userId, status',
+      topicProgress: 'id, sessionId, topicId',
+      questionResponses: 'id, sessionId, questionId, userId'
     });
   }
 

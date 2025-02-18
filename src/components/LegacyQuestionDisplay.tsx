@@ -18,6 +18,24 @@ interface LegacyQuestionDisplayProps {
   onHelp?: (action: string) => void;
 }
 
+const formatSource = (source: { 
+  examType: string; 
+  year?: number; 
+  season?: string; 
+  moed?: string; 
+} | undefined): string | undefined => {
+  if (!source) return undefined;
+  
+  const parts = [
+    source.examType,
+    source.year,
+    source.season,
+    source.moed ? `מועד ${source.moed}` : undefined
+  ].filter(Boolean);
+  
+  return parts.join(' ');
+};
+
 const LegacyQuestionDisplay: React.FC<LegacyQuestionDisplayProps> = ({
   question,
   onNext,
@@ -79,7 +97,7 @@ const LegacyQuestionDisplay: React.FC<LegacyQuestionDisplayProps> = ({
           },
           type: question.type === 'multiple_choice' ? 'רב-ברירה' : 'פתוח',
           difficulty: question.metadata.difficulty.toString(),
-          source: question.metadata.source
+          source: formatSource(question.metadata.source)
         }} />
 
         <div style={{ height: '1px', backgroundColor: '#e5e7eb' }} />

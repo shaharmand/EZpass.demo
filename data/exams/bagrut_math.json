@@ -34,6 +34,43 @@
         "derivatives",
         "integrals"
       ]
+    },
+    {
+      "id": "bagrut_math_5_units",
+      "code": "581",
+      "names": {
+        "short": "מתמטיקה 5 יח\"ל",
+        "medium": "מתמטיקה 5 יחידות - בגרות",
+        "full": "בחינת בגרות - מתמטיקה 5 יחידות לימוד"
+      },
+      "exam_type": "bagrut",
+      "difficulty": 5,
+      "topics": [
+        {
+          "topicId": "algebra",
+          "subTopics": [
+            "equations",
+            "inequalities",
+            "functions"
+          ]
+        },
+        {
+          "topicId": "calculus",
+          "subTopics": [
+            "derivatives",
+            "integrals",
+            "limits"
+          ]
+        },
+        {
+          "topicId": "trigonometry",
+          "subTopics": [
+            "triangles",
+            "identities",
+            "equations"
+          ]
+        }
+      ]
     }
   ]
 } 

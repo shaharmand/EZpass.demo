@@ -32,15 +32,15 @@ export class ExamRepository {
   // Exam operations
   async findExamsByType(examType: 'bagrut' | 'mahat'): Promise<FormalExam[]> {
     const exams = await db.exams
-      .where('exam_type')
+      .where('examType')
       .equals(examType)
-      .and((exam: { is_active: boolean }) => exam.is_active)
+      .and((exam: { isActive: boolean }) => exam.isActive)
       .toArray();
 
     const examsWithRelations = await Promise.all(
       exams.map(async (exam: DBExam) => {
         const topics = await db.topics
-          .where('exam_id')
+          .where('examId')
           .equals(exam.id)
           .toArray();
 
@@ -48,7 +48,7 @@ export class ExamRepository {
           topics.map(async (topic: DBTopic) => ({
             ...topic,
             subTopics: await db.subtopics
-              .where('topic_id')
+              .where('topicId')
               .equals(topic.id)
               .toArray()
           }))
@@ -67,7 +67,7 @@ export class ExamRepository {
   // Question operations
   async findQuestionsByTopic(topicId: string): Promise<DBQuestion[]> {
     return db.questions
-      .where('topic_id')
+      .where('topicId')
       .equals(topicId)
       .toArray();
   }
@@ -75,8 +75,8 @@ export class ExamRepository {
   async saveQuestion(question: DBQuestion): Promise<string> {
     return db.questions.add({
       ...question,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
   }
 
@@ -85,11 +85,11 @@ export class ExamRepository {
     return db.users.get(userId);
   }
 
-  async saveUser(user: Omit<DBUser, 'created_at' | 'updated_at'>): Promise<string> {
+  async saveUser(user: Omit<DBUser, 'createdAt' | 'updatedAt'>): Promise<string> {
     return db.users.add({
       ...user,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
   }
 
@@ -97,25 +97,25 @@ export class ExamRepository {
   async createSession(examId: string, userId: string): Promise<string> {
     return db.examSessions.add({
       id: generateUUID(),
-      exam_id: examId,
-      user_id: userId,
+      examId: examId,
+      userId: userId,
       status: 'not_started',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
   }
 
-  async saveQuestionResponse(response: Omit<DBQuestionResponse, 'created_at'>): Promise<string> {
+  async saveQuestionResponse(response: Omit<DBQuestionResponse, 'createdAt'>): Promise<string> {
     return db.questionResponses.add({
       ...response,
-      created_at: new Date().toISOString()
+      createdAt: new Date().toISOString()
     });
   }
 
   // Progress tracking
   async getTopicProgress(sessionId: string, topicId: string): Promise<DBExamTopicProgress | undefined> {
     return db.topicProgress
-      .where(['session_id', 'topic_id'])
+      .where(['sessionId', 'topicId'])
       .equals([sessionId, topicId])
       .first();
   }
@@ -123,7 +123,7 @@ export class ExamRepository {
   async updateTopicProgress(progress: DBExamTopicProgress): Promise<void> {
     await db.topicProgress.put({
       ...progress,
-      updated_at: new Date().toISOString()
+      updatedAt: new Date().toISOString()
     });
   }
 } 

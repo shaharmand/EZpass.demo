@@ -2,7 +2,7 @@
 // This was previously used for hierarchical selection of institution/subject/topic/subtopic
 // Keep as reference for future topic selection UI implementations
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useExam } from '../contexts/ExamContext';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import ProgressBar from './ProgressBar/ProgressBar';
@@ -16,6 +16,19 @@ const TopicSelectorReference: React.FC = () => {
     return null;
   }
 
+  // Calculate statistics from answers array
+  const stats = useMemo(() => {
+    const correctAnswers = practiceState.answers.filter(a => a.isCorrect).length;
+    const questionsAnswered = practiceState.answers.length;
+    const totalTimeSpent = practiceState.answers.reduce((sum, a) => sum + a.timeTaken, 0);
+    
+    return {
+      correctAnswers,
+      questionsAnswered,
+      totalTimeSpent
+    };
+  }, [practiceState.answers]);
+
   const getSuccessRateLevel = (percentage: number): 'low' | 'medium' | 'high' => {
     if (percentage < 60) return 'low';
     if (percentage < 80) return 'medium';
@@ -23,7 +36,7 @@ const TopicSelectorReference: React.FC = () => {
   };
 
   const getTrafficLight = (value: number, total: number): 'red' | 'yellow' | 'green' => {
-    const percentage = (value / total) * 100;
+    const percentage = total > 0 ? (value / total) * 100 : 0;
     if (percentage < 60) return 'red';
     if (percentage < 80) return 'yellow';
     return 'green';
@@ -41,36 +54,29 @@ const TopicSelectorReference: React.FC = () => {
   const metrics: ProgressMetric[] = [
     {
       title: 'הצלחה',
-      value: practiceState.correctAnswers,
-      total: practiceState.questionsAnswered,
-      status: getTrafficLight(practiceState.correctAnswers, practiceState.questionsAnswered),
-      tooltipContent: `${practiceState.correctAnswers} תשובות נכונות מתוך ${practiceState.questionsAnswered} שאלות`
+      value: stats.correctAnswers,
+      total: stats.questionsAnswered,
+      status: getTrafficLight(stats.correctAnswers, stats.questionsAnswered),
+      tooltipContent: `${stats.correctAnswers} תשובות נכונות מתוך ${stats.questionsAnswered} שאלות`
     },
     {
       title: 'כיסוי',
-      value: practiceState.answeredQuestions.length,
-      total: activePrep.content.selectedTopics.length,
-      status: getTrafficLight(
-        practiceState.answeredQuestions.length,
-        activePrep.content.selectedTopics.length
-      ),
-      tooltipContent: `${practiceState.answeredQuestions.length} שאלות מתוך ${activePrep.content.selectedTopics.length} נושאים נבחרים`
+      value: stats.questionsAnswered,
+      total: practiceState.selectedTopics.length * 3, // 3 questions per topic
+      status: getTrafficLight(stats.questionsAnswered, practiceState.selectedTopics.length * 3),
+      tooltipContent: `${stats.questionsAnswered} שאלות מתוך ${practiceState.selectedTopics.length * 3}`
     },
     {
-      title: 'זמן לימוד',
-      value: practiceState.timeSpent,
-      total: 7200000, // 2 hours in milliseconds as target
-      status: getSuccessRateLevel((practiceState.timeSpent / 7200000) * 100),
-      tooltipContent: `זמן לימוד: ${formatStudyTime(practiceState.timeSpent)}`
+      title: 'זמן למידה',
+      value: stats.totalTimeSpent,
+      total: practiceState.selectedTopics.length * 300, // 5 minutes (300 seconds) per topic
+      status: 'green',
+      tooltipContent: `זמן למידה כולל: ${formatStudyTime(stats.totalTimeSpent * 1000)}`
     }
   ];
 
   return (
-    <div style={{
-      backgroundColor: '#ffffff',
-      borderBottom: '1px solid #e5e7eb',
-      padding: '16px 24px'
-    }}>
+    <div style={{ padding: '24px' }}>
       <ProgressBar metrics={metrics} />
     </div>
   );

@@ -7,12 +7,15 @@
   justify-content: flex-start;
   padding: 8px 0;
   direction: rtl;
+  width: 100%;
 }
 
 .progress-section .ant-space {
   flex: 1;
   display: flex;
   justify-content: flex-start;
+  gap: 32px;
+  width: 100%;
 }
 
 .progress-stat {
@@ -36,6 +39,7 @@
   border: 1px solid #e2e8f0;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  flex: 1;
 }
 
 .progress-bar-section:hover {
@@ -157,6 +161,7 @@
 /* Override Ant Design Progress styles */
 .progress-bar-section .ant-progress {
   margin: 0 !important;
+  width: 100% !important;
 }
 
 .progress-bar-section .ant-progress-inner {

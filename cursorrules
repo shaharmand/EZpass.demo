@@ -380,3 +380,403 @@ Project Documentation:
 Note: While IDE settings can be configured through various means (VS Code settings, EditorConfig, etc.), 
 the cursor rules document serves as a central reference for project standards and must be manually shared 
 with the AI in new sessions.
+
+18. Future Tasks & Enhancements
+
+A. Landing Page (/)
+   - [ ] Enhance marketing content and value proposition
+   - [ ] Add user testimonials section
+   - [ ] Implement SEO optimization
+   - [ ] Add feature highlights/benefits
+   - [ ] Create proper registration flow
+   - [ ] Optimize for lightweight loading
+   - [ ] Add proper meta tags and descriptions
+
+B. Safety Courses Section (/safety-courses)
+   - [ ] Implement course listing functionality
+   - [ ] Add course details and requirements
+   - [ ] Create registration process
+   - [ ] Develop course materials delivery system
+   - [ ] Add progress tracking
+   - [ ] Implement certification process
+
+C. Development & Technical
+   - [ ] Fix linter errors in ExamContext type definitions
+   - [ ] Clean up legacy components after confirming no needed patterns
+   - [ ] Add proper type definitions for Node.js process env
+
+D. Data Models & Documentation
+   - [ ] Document Question Schema (@src/schemas/question.ts)
+     - Document each field's purpose and requirements
+     - Add examples for each question type
+     - Document validation rules and their rationale
+     - Add migration guidelines for schema updates
+   - [ ] Add schema documentation to core data structures:
+     - Content format requirements
+     - Answer type specifications
+     - Metadata field requirements
+     - Solution structure guidelines
+   - [ ] Create question authoring guidelines:
+     - Format requirements for content
+     - Best practices for writing options
+     - Guidelines for solution steps
+     - Standards for test cases in code questions
+   - [ ] Add schema visualization:
+     - Entity relationship diagrams
+     - Question type hierarchy
+     - Field dependency graphs
+   - [ ] Centralize Exam Types (@src/types/exam.ts):
+     - Create proper enum/constant for exam types
+     - Add support for 'government' exam type
+     - Document each exam type's requirements
+     - Add validation for exam type-specific fields
+   - [ ] Improve Question Types (@src/schemas/question.ts):
+     - Document relationship between types
+     - Add validation for type-specific fields
+     - Create migration path for new question types
+     - Add examples for each question type
+   - [ ] Integrate Question Guidelines with Schema:
+     - Move difficulty guidelines into question schema
+     - Move type guidelines into question schema
+     - Add validation based on guidelines
+     - Create shared constants for both schema and LLM
+     - Example structure:
+       ```typescript
+       export const QUESTION_GUIDELINES = {
+         difficulties: {
+           1: { description: "Basic recall...", validation: {...} },
+           2: { description: "Simple problem solving...", validation: {...} },
+           // ...
+         },
+         types: {
+           multiple_choice: { 
+             description: "4 options...",
+             validation: {...},
+             structure: {...}
+           },
+           // ...
+         }
+       } as const;
+       ```
+   - [ ] Resolve Schema/Type Inconsistencies:
+     - Align question types between schema and TypeScript types
+     - Use discriminated unions consistently
+     - Create proper type generation from Zod schema
+     - Consider terminology:
+       - Use 'open' instead of 'essay' for consistency
+       - Document type naming rationale:
+         - multiple_choice: Standard format with fixed options
+         - open: Free-form responses (replaces 'essay')
+         - code: Programming-specific questions
+         - step_by_step: Structured solution steps
+     - Example structure:
+       ```typescript
+       // Shared enum for question types
+       export enum QuestionType {
+         MULTIPLE_CHOICE = 'multiple_choice',
+         OPEN = 'open',  // More flexible than 'essay'
+         CODE = 'code',
+         STEP_BY_STEP = 'step_by_step'
+       }
+
+       // Generate types from schema
+       export type Question = z.infer<typeof questionSchema>;
+       
+       // Type-specific interfaces
+       export interface MultipleChoiceQuestion extends BaseQuestion {
+         type: QuestionType.MULTIPLE_CHOICE;
+         options: string[];
+         correctOption: number;
+       }
+       
+       export interface OpenQuestion extends BaseQuestion {
+         type: QuestionType.OPEN;
+         // Flexible response format
+         expectedLength?: 'short' | 'medium' | 'long';
+         // Optional structure hints
+         structureHints?: {
+           type: 'proof' | 'explanation' | 'analysis';
+           sections?: string[];
+         };
+       }
+       // ... etc
+       ```
+   - [ ] Implement Question Type Hierarchies:
+     - Create hierarchical type system for questions:
+       ```typescript
+       export enum QuestionCategory {
+         MULTIPLE_CHOICE = 'multiple_choice',
+         OPEN = 'open',
+         CODE = 'code',
+         STEP_BY_STEP = 'step_by_step'
+       }
+
+       export enum OpenQuestionType {
+         PROOF = 'proof',              // Mathematical/logical proofs
+         EXPLANATION = 'explanation',   // Concept explanations
+         ANALYSIS = 'analysis',        // Problem analysis
+         IMPLEMENTATION = 'implementation', // Algorithm implementation
+         DERIVATION = 'derivation'     // Mathematical derivations
+       }
+
+       export enum CodeQuestionType {
+         IMPLEMENTATION = 'implementation',  // Write full solution
+         DEBUG = 'debug',                   // Fix broken code
+         ANALYSIS = 'analysis',             // Analyze code behavior
+         OPTIMIZATION = 'optimization',      // Improve existing code
+         COMPLETION = 'completion'          // Fill in missing parts
+       }
+
+       export interface QuestionTypeMetadata {
+         category: QuestionCategory;
+         subType?: OpenQuestionType | CodeQuestionType;
+         complexity: 'basic' | 'intermediate' | 'advanced';
+         skills: string[];             // Required skills
+         prerequisites?: string[];     // Required knowledge
+         estimatedTime: number;        // In minutes
+       }
+       ```
+     - Add mapping to exam requirements:
+       ```typescript
+       export interface ExamTypeRequirements {
+         allowedTypes: QuestionCategory[];
+         typeDistribution: {
+           [key in QuestionCategory]?: {
+             percentage: number;
+             requiredSubTypes?: string[];
+           };
+         };
+       }
+       ```
+     - Create performance tracking structure:
+       ```typescript
+       export interface UserPerformanceByType {
+         category: QuestionCategory;
+         subType?: string;
+         attempts: number;
+         successRate: number;
+         averageTime: number;
+         commonMistakes: string[];
+         improvement: 'improving' | 'stable' | 'declining';
+       }
+       ```
+     - Add validation rules for each type:
+       - Multiple choice: Option count, format requirements
+       - Open: Length limits, required sections
+       - Code: Language-specific rules, test case requirements
+       - Step-by-step: Step count, intermediate validation
+     - Implement type-specific feedback systems:
+       - Multiple choice: Distractor analysis
+       - Open: Key point coverage
+       - Code: Test case performance
+       - Step-by-step: Step accuracy tracking
+
+E. LLM Integration
+   - [ ] Centralize LLM Prompts (@src/services/llm/):
+     - Use shared question guidelines from schema
+     - Create metadata-to-prompt mapping
+     - Document prompt structure and variables
+     - Create prompt testing framework
+   - [ ] Improve Difficulty Guidelines:
+     - Use schema-defined difficulty criteria
+     - Add subject-specific adaptations
+     - Create difficulty validation rules
+   - [ ] Enhance Type Guidelines:
+     - Use schema-defined type requirements
+     - Add validation for generated content
+     - Create type-specific examples
+   - [ ] Add Prompt Management:
+     - Version control for prompts
+     - A/B testing framework
+     - Performance tracking
+     - Quality metrics
+
+Format for adding new tasks:
+```
+
+// OpenAI API Key Format Changes
+// ============================
+// IMPORTANT: OpenAI has changed their API key format multiple times:
+// 1. Classic format: starts with 'sk-' and is 51 characters long
+// 2. Organization format: starts with 'org-' followed by the key
+// 3. Project-based format: starts with 'k-projs-' (newer format)
+//
+// Current Implementation:
+// - We should NOT enforce the 'sk-' prefix check
+// - We should NOT enforce the 51 character length check
+// - We should accept any valid API key format
+// - The key validation should happen through actual API calls
+//
+// Example Implementation:
+// ```typescript
+// // INCORRECT - Don't do this:
+// if (!apiKey.startsWith('sk-') || apiKey.length !== 51) {
+//   throw new Error('Invalid API key format');
+// }
+//
+// // CORRECT - Do this:
+// if (!apiKey) {
+//   throw new Error('OpenAI API key not found');
+// }
+// // Let the API call validate the key format
+// ```
+//
+// Error Handling:
+// - 401 errors indicate invalid API key
+// - HTML responses may indicate network/configuration issues
+// - Always provide clear error messages to users
+
+STANDARD PROCEDURE AFTER CODE CHANGES:
+1. Always check for compilation errors immediately after making changes
+2. Do not proceed with additional changes until current compilation errors are resolved
+3. Do not assume the code is working without verifying the compiler output
+4. Address compilation errors one at a time, verifying each fix
+5. If a fix introduces new errors, address those before moving on
+6. Only mark a task as complete when there are zero compilation errors
+
+// Type Documentation Standards
+// --------------------------
+/**
+ * Every type definition must include a documentation block with the following sections:
+ * 
+ * 1. Main Type Documentation:
+ *    - What the type represents
+ *    - When and where to use it
+ *    - Any important notes about lifecycle/limitations
+ *    - Example usage if helpful
+ * 
+ * 2. Field-Level Documentation:
+ *    - Description for each non-obvious field
+ *    - Default values where applicable
+ *    - Examples for complex fields
+ *    - Valid value ranges/constraints
+ * 
+ * Example:
+ * ```typescript
+ * /**
+ *  * Represents a specific kind of data structure.
+ *  * Used in [specific context] for [specific purpose].
+ *  * 
+ *  * Important: [crucial information about usage/limitations]
+ *  * 
+ *  * @example
+ *  * ```typescript
+ *  * const example: TypeName = {
+ *  *   field: value
+ *  * };
+ *  * ```
+ *  *\/
+ * interface TypeName {
+ *   /** Description of what this field is used for *\/
+ *   field1: string;
+ * 
+ *   /** 
+ *    * Complex field description
+ *    * @default 0
+ *    * @example 42
+ *    *\/
+ *   field2: number;
+ * }
+ * ```
+ * 
+ * Required Documentation Elements:
+ * 1. Purpose - What the type is for
+ * 2. Usage Context - Where/when to use it
+ * 3. Important Notes - Any crucial information
+ * 4. Field Descriptions - For non-obvious fields
+ * 5. Examples - When helpful for understanding
+ * 
+ * Documentation Style:
+ * - Use clear, concise language
+ * - Include practical examples
+ * - Document constraints and assumptions
+ * - Explain relationships to other types
+ * - Note any validation requirements
+ * 
+ * Bad Examples to Avoid:
+ * ```typescript
+ * // Don't do this:
+ * interface UndocumentedType {
+ *   field1: string;  // Inline comment only
+ *   field2: number;  // Missing documentation
+ * }
+ * 
+ * // Don't do this either:
+ * /** Some type *\/
+ * interface PartiallyDocumented {
+ *   field1: string;  // Missing field docs
+ * }
+ * ```
+ */
+
+12. Data Relationships and Dependencies
+
+Topic Resolution Flow:
+1. Exam JSON (e.g., bagrut_cs.json) contains topic_id references
+2. topic_id maps to a subject file (e.g., cs_programming_fundamentals.json)
+3. Subject file contains full topic details (name, description, subtopics)
+
+Data Dependencies:
+exam.topics[].topic_id → subject.topics[].id
+exam.topics[].sub_topics[] → subject.topics[].subTopics[].id
+
+Example Flow:
+bagrut_cs.json:
+{
+  "topic_id": "basic_programming",
+  "sub_topics": ["variables_and_types"]
+}
+↓
+cs_programming_fundamentals.json:
+{
+  "id": "basic_programming",
+  "name": "יסודות התכנות",
+  "subTopics": [
+    {
+      "id": "variables_and_types",
+      "name": "משתנים וטיפוסים"
+    }
+  ]
+}
+
+13. Type System Hierarchy
+
+Core Types Flow:
+ExamData (raw JSON) → FormalExam (runtime) → DBExam (persistence)
+
+Interface Dependencies:
+- ExamData depends on TopicData
+- FormalExam depends on Topic and SubTopic
+- DBExam relates to DBTopic and DBSubTopic
+
+Type Transformation:
+JSON → ExamData → FormalExam → UI Components
+     ↓
+Subject Data → Topic/SubTopic enrichment
+
+14. Subject File Organization
+
+Subject Files (data/subjects/):
+- cs_programming_fundamentals.json: Programming basics
+- cs_data_structures.json: Data structures and algorithms
+- mathematics.json: Math topics
+
+Each subject file must contain:
+1. Root level metadata (id, name, description)
+2. Topics array with complete topic information
+3. SubTopics array within each topic
+4. Question templates and guidelines
+
+15. Topic Resolution Error Handling
+
+When resolving topics:
+1. Check if topic_id exists in topicToSubjectMap
+2. Verify subject file exists and is accessible
+3. Confirm topic exists in subject file
+4. Validate subtopic exists in topic
+
+Error Cases to Handle:
+- Missing topic_id mapping
+- Invalid subject file reference
+- Missing topic in subject file
+- Missing subtopic in topic

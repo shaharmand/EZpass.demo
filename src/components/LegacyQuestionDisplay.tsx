@@ -77,11 +77,9 @@ const LegacyQuestionDisplay: React.FC<LegacyQuestionDisplayProps> = ({
             main: question.metadata.topicId,
             sub: question.metadata.subtopicId
           },
-          type: question.metadata.type === 'multiple_choice' ? 'רב-ברירה' : 'פתוח',
+          type: question.type === 'multiple_choice' ? 'רב-ברירה' : 'פתוח',
           difficulty: question.metadata.difficulty.toString(),
-          source: question.metadata.source ? {
-            examType: question.metadata.source
-          } : undefined
+          source: question.metadata.source
         }} />
 
         <div style={{ height: '1px', backgroundColor: '#e5e7eb' }} />
@@ -102,14 +100,14 @@ const LegacyQuestionDisplay: React.FC<LegacyQuestionDisplayProps> = ({
         </div>
 
         {/* Multiple Choice Options */}
-        {question.metadata.type === 'multiple_choice' && question.options && (
+        {question.type === 'multiple_choice' && question.options && (
           <div style={{ padding: '0 24px 24px' }}>
             <Radio.Group style={{ width: '100%' }}>
               <Space direction="vertical" style={{ width: '100%' }}>
                 {question.options.map((option, index) => (
-                  <Radio
-                    key={index}
-                    value={index + 1}
+                  <Radio 
+                    key={index} 
+                    value={index + 1} 
                     style={{
                       display: 'block',
                       padding: '12px',
@@ -119,7 +117,9 @@ const LegacyQuestionDisplay: React.FC<LegacyQuestionDisplayProps> = ({
                       width: '100%'
                     }}
                   >
-                    <MarkdownRenderer content={option} />
+                    <div style={{ whiteSpace: 'pre-wrap' }}>
+                      {option.text}
+                    </div>
                   </Radio>
                 ))}
               </Space>

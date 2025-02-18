@@ -1,5 +1,5 @@
 // System message defines the AI's role and capabilities
-const systemTemplate = `You are a professional mathematics teacher specializing in creating high-quality educational content.
+export const systemTemplate = `You are a professional mathematics teacher specializing in creating high-quality educational content.
 Your task is to generate clear, pedagogically sound questions in Hebrew (RTL).
 
 Guidelines for LaTeX:

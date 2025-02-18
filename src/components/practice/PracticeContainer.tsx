@@ -14,7 +14,7 @@ interface PracticeContainerProps {
   }) => void;
 }
 
-const PracticeContainer: React.FC<PracticeContainerProps> = ({
+export const PracticeContainer: React.FC<PracticeContainerProps> = ({
   question,
   onNext,
   onComplete
@@ -26,7 +26,7 @@ const PracticeContainer: React.FC<PracticeContainerProps> = ({
   const handleSubmit = (answer: string) => {
     const timeTaken = (Date.now() - startTime) / 1000; // Convert to seconds
     const isCorrect = question.type === 'multiple_choice' 
-      ? parseInt(answer) === question.correctOption
+      ? question.correctOption !== undefined && parseInt(answer) === question.correctOption
       : false; // For essay questions, correctness is determined elsewhere
 
     setIsSubmitted(true);
@@ -47,22 +47,38 @@ const PracticeContainer: React.FC<PracticeContainerProps> = ({
     }
   };
 
+  const handleAnswer = async (answer: string, isCorrect: boolean) => {
+    const timeTaken = (Date.now() - startTime) / 1000;
+    setIsSubmitted(true);
+    
+    if (onComplete) {
+      onComplete({
+        isCorrect,
+        timeTaken,
+        needsHelp
+      });
+    }
+
+    if (onNext) {
+      onNext();
+    }
+  };
+
+  const getCorrectAnswer = (): string | undefined => {
+    if (question.type === 'multiple_choice') {
+      return question.correctOption?.toString();
+    }
+    return question.solution.text;
+  };
+
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <PracticeQuestionDisplay
         question={question}
         onHelp={handleHelp}
-        onNext={onNext}
+        onAnswer={handleAnswer}
       />
       
-      <AnswerSection
-        type={question.type}
-        options={question.type === 'multiple_choice' ? question.options : undefined}
-        onSubmit={handleSubmit}
-        isSubmitted={isSubmitted}
-        correctAnswer={question.type === 'multiple_choice' ? question.correctOption.toString() : question.solution}
-      />
-
       {isSubmitted && onNext && (
         <div style={{ textAlign: 'center' }}>
           <Button type="primary" onClick={onNext}>

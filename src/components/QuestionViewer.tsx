@@ -17,17 +17,17 @@ const QuestionViewer: React.FC<QuestionViewerProps> = ({
   showSolution = false
 }) => {
   return (
-    <div className="question-viewer">
+    <div className="question-viewer" style={{ direction: 'rtl', textAlign: 'right' }}>
       {/* Question Content */}
       <div className="question-content">
         <MarkdownRenderer content={question.content.text} />
       </div>
 
       {/* Options (if multiple choice and showOptions is true) */}
-      {showOptions && question.metadata.type === 'multiple_choice' && question.answer.options && (
+      {showOptions && question.type === 'multiple_choice' && question.options && (
         <div className="question-options" style={{ marginTop: '1rem' }}>
           <Space direction="vertical" style={{ width: '100%' }}>
-            {question.answer.options.map((option, index) => (
+            {question.options.map((option, index) => (
               <div 
                 key={index}
                 className="question-option"
@@ -35,13 +35,22 @@ const QuestionViewer: React.FC<QuestionViewerProps> = ({
                   padding: '0.5rem 1rem',
                   borderRadius: '4px',
                   border: '1px solid #e5e7eb',
-                  backgroundColor: showSolution && (index + 1 === question.answer.correctOption) 
+                  backgroundColor: showSolution && (index + 1 === question.correctOption) 
                     ? '#ecfdf5' // Light green for correct answer when showing solution
-                    : '#ffffff'
+                    : '#ffffff',
+                  textAlign: 'right',
+                  direction: 'rtl'
                 }}
               >
-                <Text>
-                  {index + 1}. <MarkdownRenderer content={option.text} />
+                <Text style={{ 
+                  display: 'flex', 
+                  gap: '0.5rem', 
+                  alignItems: 'center'
+                }}>
+                  <span style={{ lineHeight: '1.5' }}>{index + 1}.</span>
+                  <div style={{ flex: 1 }}>
+                    <MarkdownRenderer content={option.text} />
+                  </div>
                 </Text>
               </div>
             ))}
@@ -56,21 +65,6 @@ const QuestionViewer: React.FC<QuestionViewerProps> = ({
             פתרון:
           </Text>
           <MarkdownRenderer content={question.solution.text} />
-          {question.solution.steps && (
-            <div className="solution-steps" style={{ marginTop: '1rem' }}>
-              {question.solution.steps.map((step, index) => (
-                <div key={index} className="solution-step" style={{ marginBottom: '0.5rem' }}>
-                  <Text strong>{index + 1}. </Text>
-                  <MarkdownRenderer content={step.text} />
-                  {step.key_point && (
-                    <Text type="secondary" style={{ display: 'block', marginLeft: '1.5rem' }}>
-                      נקודה מרכזית: {step.key_point}
-                    </Text>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>

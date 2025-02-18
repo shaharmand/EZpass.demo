@@ -176,7 +176,7 @@ const QuestionFilters: React.FC<QuestionFiltersProps> = ({
                 >
                   כל סוגי השאלות
                 </Button>
-                {['multiple_choice', 'essay', 'step_by_step'].map(type => (
+                {['multiple_choice', 'open', 'step_by_step'].map(type => (
                   <Button
                     key={type}
                     onClick={() => handleTypeChange(type)}
@@ -187,7 +187,7 @@ const QuestionFilters: React.FC<QuestionFiltersProps> = ({
                     }}
                   >
                     {type === 'multiple_choice' ? 'רב-ברירה' : 
-                     type === 'essay' ? 'שאלה פתוחה' : 'חישובית'}
+                     type === 'open' ? 'שאלה פתוחה' : 'חישובית'}
                   </Button>
                 ))}
               </div>

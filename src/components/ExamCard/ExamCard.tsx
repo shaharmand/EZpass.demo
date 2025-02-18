@@ -1,24 +1,26 @@
 import React, { useState } from 'react';
 import { Card, Button, Typography, Space } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { 
   InfoCircleOutlined,
   FolderOutlined,
 } from '@ant-design/icons';
 import type { FormalExam } from '../../types/shared/exam';
 import { ExamTopicsDialog } from './ExamTopicsDialog';
+import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import './ExamCard.css';
 
 const { Title, Text } = Typography;
 
 interface ExamCardProps {
   exam: FormalExam;
-  onStartExam?: (exam: FormalExam) => void;
 }
 
 export const ExamCard: React.FC<ExamCardProps> = ({ 
-  exam, 
-  onStartExam
+  exam
 }) => {
+  const navigate = useNavigate();
+  const { setActivePrep } = useStudentPrep();
   const [isTopicsDialogOpen, setIsTopicsDialogOpen] = useState(false);
   
   // Calculate topic and subtopic counts
@@ -27,6 +29,23 @@ export const ExamCard: React.FC<ExamCardProps> = ({
 
   // Extract exam code from description (format: "CODE - Full Name")
   const examCode = exam.description.split(' - ')[0];
+
+  const handleStartPractice = () => {
+    // Create a new prep instance with all topics
+    const prepId = `prep_${exam.id}_${Date.now()}`;
+    const prep = {
+      id: prepId,
+      exam,
+      selectedTopics: exam.topics?.flatMap(topic => topic.subTopics.map(st => st.code)) || [],
+      difficulty: 3, // Default difficulty
+      status: 'not_started' as const,
+      startTime: Date.now(),
+    };
+    
+    // Set active prep and navigate to practice page
+    setActivePrep(prep);
+    navigate(`/practice/${prepId}`);
+  };
 
   return (
     <>
@@ -103,10 +122,13 @@ export const ExamCard: React.FC<ExamCardProps> = ({
             type="primary"
             size="large"
             block
-            onClick={() => onStartExam?.(exam)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStartPractice();
+            }}
             style={{ marginTop: '8px' }}
           >
-            התחל תרגול
+            התחל תרגול מהיר
           </Button>
         </div>
       </Card>
@@ -116,7 +138,6 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         exam={exam}
         open={isTopicsDialogOpen}
         onClose={() => setIsTopicsDialogOpen(false)}
-        onStartPractice={() => onStartExam?.(exam)}
       />
     </>
   );

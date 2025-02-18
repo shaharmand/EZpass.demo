@@ -2,12 +2,13 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import LandingPage from './pages/LandingPage';
+import ExamDashboard from './pages/ExamDashboard';
+import SafetyCoursesPage from './pages/SafetyCoursesPage';
 import PracticePage from './pages/PracticePage';
 import QuestionPage from './pages/QuestionPage';
-import QuestionGenerationTest from './components/QuestionGenerationTest';
-import PracticeFlowTest from './components/PracticeFlowTest';
+import TestGeneration from './pages/TestGeneration';
+import PracticeFlowTestPage from './pages/PracticeFlowTestPage';
 import { ExamProvider } from './contexts/ExamContext';
-import { PrepProvider } from './contexts/Prep';
 import { StudentPrepProvider } from './contexts/StudentPrepContext';
 import MainLayout from './layouts/MainLayout';
 
@@ -15,36 +16,24 @@ const App: React.FC = () => {
   return (
     <ConfigProvider direction="rtl">
       <StudentPrepProvider>
-        <PrepProvider>
-          <ExamProvider>
-            <Routes>
-              <Route element={<MainLayout />}>
-                {/* Main navigation */}
-                <Route path="/" element={<Navigate to="/exams" replace />} />
-                <Route path="/exams" element={<LandingPage />} />
+        <ExamProvider>
+          <Routes>
+            <Route element={<MainLayout />}>
+              {/* Main navigation */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/dashboard" element={<ExamDashboard />} />
+              <Route path="/safety-courses" element={<SafetyCoursesPage />} />
 
-                {/* Question Routes */}
-                <Route path="/questions/:questionId" element={<QuestionPage />} />
+              {/* Question Routes */}
+              <Route path="/questions/:questionId" element={<QuestionPage />} />
+              <Route path="/test/generation" element={<TestGeneration />} />
+              <Route path="/test/practice-flow" element={<PracticeFlowTestPage />} />
 
-                {/* Preparation Routes */}
-                <Route path="/prep">
-                  <Route path=":prepId">
-                    <Route index element={<Navigate to="practice" replace />} />
-                    <Route path="practice" element={<PracticePage />} />
-                  </Route>
-                </Route>
-
-                {/* Development Routes */}
-                {process.env.NODE_ENV === 'development' && (
-                  <>
-                    <Route path="/test/generation" element={<QuestionGenerationTest />} />
-                    <Route path="/test/practice" element={<PracticeFlowTest />} />
-                  </>
-                )}
-              </Route>
-            </Routes>
-          </ExamProvider>
-        </PrepProvider>
+              {/* Practice Routes */}
+              <Route path="/practice/:prepId" element={<PracticePage />} />
+            </Route>
+          </Routes>
+        </ExamProvider>
       </StudentPrepProvider>
     </ConfigProvider>
   );

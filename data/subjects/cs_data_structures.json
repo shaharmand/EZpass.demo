@@ -5,6 +5,37 @@
   "description": "מבני נתונים מתקדמים ואלגוריתמים",
   "topics": [
     {
+      "id": "complexity_analysis",
+      "name": "ניתוח סיבוכיות",
+      "description": "ניתוח סיבוכיות זמן ומקום של אלגוריתמים",
+      "subTopics": [
+        {
+          "id": "time_complexity",
+          "name": "סיבוכיות זמן",
+          "description": "ניתוח זמן ריצה, סימון O גדול, מקרה גרוע וממוצע",
+          "questionTemplate": "ניתוח סיבוכיות זמן של אלגוריתמים"
+        },
+        {
+          "id": "space_complexity",
+          "name": "סיבוכיות מקום",
+          "description": "ניתוח צריכת זיכרון, מקום נוסף, רקורסיה",
+          "questionTemplate": "ניתוח סיבוכיות מקום של אלגוריתמים"
+        },
+        {
+          "id": "asymptotic_notation",
+          "name": "סימונים אסימפטוטיים",
+          "description": "O, Ω, Θ, סדרי גודל, השוואת פונקציות",
+          "questionTemplate": "שימוש בסימונים אסימפטוטיים"
+        },
+        {
+          "id": "algorithm_comparison",
+          "name": "השוואת אלגוריתמים",
+          "description": "השוואת יעילות, מקרי קיצון, אופטימיזציה",
+          "questionTemplate": "השוואת יעילות אלגוריתמים"
+        }
+      ]
+    },
+    {
       "id": "linear_structures",
       "name": "מבנים לינאריים",
       "description": "מבני נתונים לינאריים והמימוש שלהם",

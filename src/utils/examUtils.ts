@@ -28,4 +28,24 @@ export const convertToFormalExam = (exam: ExamData): FormalExam => {
       }))
     }))
   };
+};
+
+export const startQuickPractice = (
+  exam: FormalExam,
+  setActivePrep: (prep: any) => void,
+  navigate: (path: string) => void
+) => {
+  // Create a new prep instance with all topics
+  const prepId = `prep_${exam.id}_${Date.now()}`;
+  const prep = {
+    id: prepId,
+    exam,
+    selectedTopics: exam.topics?.flatMap(topic => topic.subTopics.map(st => st.code)) || [],
+    status: 'not_started' as const,
+    startTime: Date.now(),
+  };
+  
+  // Set active prep and navigate to practice page
+  setActivePrep(prep);
+  navigate(`/practice/${prepId}`);
 }; 

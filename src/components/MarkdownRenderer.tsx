@@ -34,8 +34,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   const processedContent = React.useMemo(() => {
     if (!content) return '';
     
+    // Convert literal \n strings to actual newlines
+    const contentWithNewlines = content.replace(/\\n/g, '\n');
+    
     // Fix code block formatting
-    return content.replace(/```(\w+)?\n([\s\S]*?)```/g, (match: string, language: string | undefined, code: string) => {
+    return contentWithNewlines.replace(/```(\w+)?\n([\s\S]*?)```/g, (match: string, language: string | undefined, code: string) => {
       // Clean up the code block while preserving meaningful whitespace
       const cleanCode = code
         .replace(/^\n+/, '') // Remove leading newlines

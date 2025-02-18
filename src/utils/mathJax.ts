@@ -1,24 +1,3 @@
-// MathJax type declarations
-declare global {
-  interface Window {
-    MathJax?: {
-      typesetPromise?: (elements: HTMLElement[]) => Promise<void>;
-      tex?: {
-        inlineMath: string[][];
-        displayMath: string[][];
-        processEscapes: boolean;
-        processEnvironments: boolean;
-      };
-      options?: {
-        skipHtmlTags: string[];
-      };
-      startup?: {
-        typeset: boolean;
-      };
-    };
-  }
-}
-
 // MathJax configuration and helper functions
 export const configureMathJax = async () => {
   if (window.MathJax) {

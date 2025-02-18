@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Typography, Space, Divider, Card, Button, Collapse } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { 
   BookOutlined, 
   ClockCircleOutlined, 
@@ -9,6 +10,8 @@ import {
   PlayCircleOutlined
 } from '@ant-design/icons';
 import type { FormalExam, Topic } from '../../types/shared/exam';
+import { useStudentPrep } from '../../contexts/StudentPrepContext';
+import { startQuickPractice } from '../../utils/examUtils';
 
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
@@ -17,20 +20,26 @@ interface ExamTopicsDialogProps {
   exam: FormalExam;
   open: boolean;
   onClose: () => void;
-  onStartPractice: () => void;
 }
 
 export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
   exam,
   open,
   onClose,
-  onStartPractice
 }) => {
+  const navigate = useNavigate();
+  const { setActivePrep } = useStudentPrep();
+  
   // Filter out missing topics
   const validTopics = React.useMemo(() => {
     if (!exam.topics) return [];
     return exam.topics;
   }, [exam.topics]);
+
+  const handleStartPractice = () => {
+    startQuickPractice(exam, setActivePrep, navigate);
+    onClose();
+  };
 
   return (
     <Modal
@@ -43,7 +52,7 @@ export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
           type="primary" 
           size="large"
           icon={<PlayCircleOutlined />}
-          onClick={onStartPractice}
+          onClick={handleStartPractice}
           style={{
             width: '100%',
             height: '48px',

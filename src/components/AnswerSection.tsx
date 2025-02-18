@@ -35,7 +35,7 @@ const AnswerSection: React.FC<AnswerSectionProps> = ({
   const handleSubmit = () => {
     if (type === 'multiple_choice' && selectedOption) {
       onSubmit(selectedOption);
-    } else if (type === 'essay' && essayAnswer.trim()) {
+    } else if (type === 'open' && essayAnswer.trim()) {
       onSubmit(essayAnswer);
     }
   };
@@ -103,7 +103,7 @@ const AnswerSection: React.FC<AnswerSectionProps> = ({
             onClick={handleSubmit}
             disabled={
               (type === 'multiple_choice' && !selectedOption) ||
-              (type === 'essay' && !essayAnswer.trim())
+              (type === 'open' && !essayAnswer.trim())
             }
           >
             הגש תשובה
@@ -111,7 +111,7 @@ const AnswerSection: React.FC<AnswerSectionProps> = ({
         </div>
       )}
 
-      {isSubmitted && type === 'essay' && correctAnswer && (
+      {isSubmitted && type === 'open' && correctAnswer && (
         <div style={{ marginTop: '16px' }}>
           <Text strong>פתרון מוצע:</Text>
           <div style={{ 

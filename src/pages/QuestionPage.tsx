@@ -137,7 +137,7 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
           </Space>
           
           <Space size="middle">
-            <Tag color="blue">{question.metadata.type === 'multiple_choice' ? 'רב-ברירה' : 'פתוח'}</Tag>
+            <Tag color="blue">{question.type === 'multiple_choice' ? 'רב-ברירה' : 'פתוח'}</Tag>
             <Tag color="gold">רמה {question.metadata.difficulty}</Tag>
             {question.metadata.estimatedTime && (
               <Tag color="green">{question.metadata.estimatedTime} דקות</Tag>
@@ -199,9 +199,6 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
         {/* Tags/Categories */}
         <Card title="תגיות" size="small">
           <Space wrap>
-            {question.metadata.cognitiveLevel && (
-              <Tag>{question.metadata.cognitiveLevel}</Tag>
-            )}
             {question.metadata.source?.examType && (
               <Tag>{question.metadata.source.examType}</Tag>
             )}

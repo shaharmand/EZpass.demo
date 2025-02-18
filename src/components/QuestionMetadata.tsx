@@ -3,19 +3,24 @@ import {
   BookOutlined, 
   CalculatorOutlined, 
   BulbOutlined, 
-  InfoCircleOutlined 
+  InfoCircleOutlined,
+  CheckSquareOutlined,
+  FormOutlined,
+  SignalFilled,
+  CaretRightOutlined
 } from '@ant-design/icons';
+import { Space, Tag } from 'antd';
 
 interface QuestionMetadataProps {
   metadata: {
-    topic?: {
+    topic: {
       main: string;
-      sub?: string | null;
+      sub?: string;
     };
-    type?: string;
-    difficulty?: string;
+    type: 'רב-ברירה' | 'פתוח' | 'חישובית';
+    difficulty: string;
     source?: {
-      examType?: string;
+      examType: string;
       year?: number;
       season?: string;
       moed?: string;
@@ -25,110 +30,83 @@ interface QuestionMetadataProps {
 
 const QuestionMetadata: React.FC<QuestionMetadataProps> = ({ metadata }) => {
   return (
-    <div style={{ 
-      padding: '0 24px 16px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '16px'
-    }}>
-      {/* Main topic/subtopic with larger emphasis */}
-      <div style={{ flex: '1' }}>
-        {metadata?.topic?.sub ? (
-          <span>
-            <span style={{ 
-              color: '#1f2937', 
-              fontWeight: '600',
-              fontSize: '1.1rem' 
-            }}>
+    <div style={{ padding: '0 24px 16px' }}>
+      <Space size={[0, 8]} wrap>
+        {/* Topic */}
+        <Tag 
+          icon={<BookOutlined />}
+          color="default"
+          style={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '4px 8px'
+          }}
+        >
+          {metadata.topic.main}
+          {metadata.topic.sub && (
+            <>
+              <CaretRightOutlined style={{ fontSize: '10px', color: '#9ca3af' }} />
               {metadata.topic.sub}
-            </span>
-            <span style={{ 
-              color: '#64748b',
-              fontSize: '0.9rem',
-              marginRight: '4px'
-            }}>
-              {metadata.topic.main ? ` (${metadata.topic.main})` : ''}
-            </span>
-          </span>
-        ) : (
-          <span style={{ color: '#1f2937', fontWeight: '500' }}>
-            {metadata?.topic?.main || ''}
-          </span>
-        )}
-      </div>
+            </>
+          )}
+        </Tag>
 
-      {/* Secondary metadata in a subtle pill layout */}
-      <div style={{ 
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        backgroundColor: '#f8fafc',
-        padding: '6px 12px',
-        borderRadius: '20px',
-        border: '1px solid #e2e8f0'
-      }}>
-        {metadata?.type && (
-          <span style={{
-            fontSize: '0.85rem',
-            color: '#64748b',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}>
-            {metadata.type === 'רב-ברירה' ? (
-              <BookOutlined style={{ fontSize: '14px' }} />
+        {/* Question Type */}
+        <Tag
+          icon={
+            metadata.type === 'רב-ברירה' ? (
+              <CheckSquareOutlined />
             ) : metadata.type === 'חישובית' ? (
-              <CalculatorOutlined style={{ fontSize: '14px' }} />
+              <CalculatorOutlined />
             ) : (
-              <BookOutlined style={{ fontSize: '14px' }} />
-            )}
-            {metadata.type}
-          </span>
-        )}
-
-        <span style={{ 
-          width: '1px', 
-          height: '12px', 
-          backgroundColor: '#e2e8f0' 
-        }} />
-
-        {metadata?.difficulty && (
-          <span style={{
-            fontSize: '0.85rem',
-            color: '#64748b',
+              <FormOutlined />
+            )
+          }
+          color="blue"
+          style={{ 
             display: 'flex',
             alignItems: 'center',
-            gap: '4px'
-          }}>
-            <BulbOutlined style={{ fontSize: '14px' }} />
-            {metadata.difficulty}
-          </span>
-        )}
+            gap: '4px',
+            padding: '4px 8px'
+          }}
+        >
+          {metadata.type}
+        </Tag>
 
-        <span style={{ 
-          width: '1px', 
-          height: '12px', 
-          backgroundColor: '#e2e8f0' 
-        }} />
-
-        {metadata?.source && (
-          <span style={{
-            fontSize: '0.85rem',
-            color: '#64748b',
+        {/* Difficulty */}
+        <Tag
+          icon={<SignalFilled />}
+          color="gold"
+          style={{ 
             display: 'flex',
             alignItems: 'center',
-            gap: '4px'
-          }}>
-            <InfoCircleOutlined style={{ fontSize: '14px' }} />
-            {[
-              metadata.source.examType,
-              metadata.source.year,
-              metadata.source.season,
-              metadata.source.moed
-            ].filter(Boolean).join(', ')}
-          </span>
+            gap: '4px',
+            padding: '4px 8px'
+          }}
+        >
+          רמה {metadata.difficulty}
+        </Tag>
+
+        {/* Source (if exists) */}
+        {metadata.source && (
+          <Tag
+            icon={<BookOutlined />}
+            color="purple"
+            style={{ 
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 8px'
+            }}
+          >
+            {metadata.source.examType}
+            {metadata.source.year && ` ${metadata.source.year}`}
+            {metadata.source.season && ` ${metadata.source.season}`}
+            {metadata.source.moed && ` מועד ${metadata.source.moed}`}
+          </Tag>
         )}
-      </div>
+      </Space>
     </div>
   );
 };

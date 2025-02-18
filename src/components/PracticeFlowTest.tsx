@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, Space, Button, Typography, Divider } from 'antd';
 import { useExam } from '../contexts/ExamContext';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
-import QuestionDisplay from './QuestionDisplay';
+import LegacyQuestionDisplay from './LegacyQuestionDisplay';
 
 const { Title, Text } = Typography;
 
@@ -25,41 +25,52 @@ const PracticeFlowTest: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Create a mock exam for testing
+      // Create a mock exam that matches FormalExam type
       const mockExam = {
         id: 'test_exam',
-        name: 'Test Exam',
+        title: 'Test Exam',
         description: 'A test exam for development purposes',
-        subject: {
-          id: 'mathematics',
-          name: 'Mathematics'
+        names: {
+          short: 'Test Exam',
+          medium: 'Test Exam',
+          full: 'Test Exam for Development Purposes'
         },
+        examType: 'bagrut' as const,
+        duration: 120,
+        totalQuestions: 10,
+        status: 'not_started' as const,
         topics: [
           {
             id: 'algebra',
             name: 'Algebra',
-            subtopics: [
+            code: 'algebra_101',
+            topic_id: 'algebra_101',
+            description: 'Basic algebra concepts',
+            order: 0,
+            subTopics: [
               {
                 id: 'linear_equations',
-                name: 'Linear Equations'
+                code: 'linear_eq_101',
+                name: 'Linear Equations',
+                description: 'Solving linear equations',
+                order: 0
               },
               {
                 id: 'quadratic_equations',
-                name: 'Quadratic Equations'
+                code: 'quad_eq_101',
+                name: 'Quadratic Equations',
+                description: 'Solving quadratic equations',
+                order: 1
               }
             ]
           }
-        ],
-        duration: 120,
-        totalQuestions: 10,
-        passingScore: 60
+        ]
       };
 
       // Start practice with mock data
       await startPractice(
         mockExam,
-        mockExam.topics,
-        '3' // Default difficulty
+        ['linear_equations', 'quadratic_equations']
       );
 
       // Get first question
@@ -75,7 +86,8 @@ const PracticeFlowTest: React.FC = () => {
   const handleAnswer = async (answer: string) => {
     try {
       setLoading(true);
-      await submitPracticeAnswer(answer);
+      // Add isCorrect parameter (mock value for testing)
+      await submitPracticeAnswer(answer, true);
       const nextQuestion = await getNextPracticeQuestion();
       setCurrentQuestion(nextQuestion);
     } catch (error) {
@@ -132,7 +144,7 @@ const PracticeFlowTest: React.FC = () => {
           {currentQuestion && (
             <div>
               <Title level={5}>Current Question:</Title>
-              <QuestionDisplay 
+              <LegacyQuestionDisplay 
                 question={currentQuestion}
                 onNext={() => handleAnswer('test_answer')}
               />

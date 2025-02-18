@@ -10,13 +10,13 @@ const { Text } = Typography;
 
 interface PracticeQuestionDisplayProps {
   question: Question;
-  onNext?: () => void;
+  onAnswer: (answer: string, isCorrect: boolean) => Promise<void>;
   onHelp?: (action: string) => void;
 }
 
 const PracticeQuestionDisplay: React.FC<PracticeQuestionDisplayProps> = ({
   question,
-  onNext,
+  onAnswer,
   onHelp
 }) => {
   const navigate = useNavigate();
@@ -61,7 +61,7 @@ const PracticeQuestionDisplay: React.FC<PracticeQuestionDisplayProps> = ({
             main: question.metadata.topicId,
             sub: question.metadata.subtopicId
           },
-          type: question.metadata.type === 'multiple_choice' ? 'רב-ברירה' : 'פתוח',
+          type: question.type === 'multiple_choice' ? 'רב-ברירה' : 'פתוח',
           difficulty: question.metadata.difficulty.toString(),
           source: question.metadata.source
         }} />
@@ -72,6 +72,34 @@ const PracticeQuestionDisplay: React.FC<PracticeQuestionDisplayProps> = ({
           content={question.content.text} 
           isLoading={false}
         />
+
+        {/* Answer section */}
+        <div style={{ padding: '16px 24px' }}>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            {question.type === 'multiple_choice' && question.options && (
+              <div>
+                {question.options.map((option, index) => (
+                  <Button
+                    key={index}
+                    onClick={() => onAnswer?.(String(index + 1), index + 1 === question.correctOption)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'right',
+                      marginBottom: '8px',
+                      whiteSpace: 'normal',
+                      height: 'auto',
+                      padding: '12px'
+                    }}
+                  >
+                    <div style={{ whiteSpace: 'pre-wrap' }}>
+                      {option.text}
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            )}
+          </Space>
+        </div>
       </Card>
     </div>
   );

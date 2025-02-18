@@ -2,15 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import { Spin } from 'antd';
 import { configureMathJax } from '../utils/mathJax';
 
-// Add MathJax type declarations
-declare global {
-  interface Window {
-    MathJax?: {
-      typesetPromise?: (elements: HTMLElement[]) => Promise<void>;
-    };
-  }
-}
-
 interface QuestionContentProps {
   content: string;
   isLoading?: boolean;

@@ -1,0 +1,35 @@
+.exam-card {
+  transition: all 0.3s ease;
+  border: 1px solid #e5e7eb;
+}
+
+.exam-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.exam-card .ant-card-body {
+  padding: 16px;
+}
+
+.exam-card .ant-tag {
+  margin-right: 0;
+  margin-left: 8px;
+}
+
+.exam-card .ant-space {
+  gap: 8px !important;
+}
+
+.exam-card .info-button {
+  background: rgba(24, 144, 255, 0.1);
+}
+
+.exam-card .info-button:hover {
+  background: rgba(24, 144, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.exam-card .info-button:active {
+  transform: scale(0.95);
+} 

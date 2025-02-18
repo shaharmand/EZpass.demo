@@ -1,10 +1,14 @@
+// Reference implementation of the topic selection dialog and progress tracking
+// This was previously used for hierarchical selection of institution/subject/topic/subtopic
+// Keep as reference for future topic selection UI implementations
+
 import React from 'react';
 import { useExam } from '../contexts/ExamContext';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import ProgressBar from './ProgressBar/ProgressBar';
 import type { ProgressMetric } from './ProgressBar/ProgressBar';
 
-const TopPanelNew: React.FC = () => {
+const TopicSelectorReference: React.FC = () => {
   const { practiceState } = useExam();
   const { activePrep } = useStudentPrep();
 
@@ -72,4 +76,4 @@ const TopPanelNew: React.FC = () => {
   );
 };
 
-export default TopPanelNew; 
+export default TopicSelectorReference; 

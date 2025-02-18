@@ -1,3 +1,7 @@
+// Legacy implementation of question display
+// Kept for reference as it might contain useful patterns or implementations
+// The new implementation is in practice/PracticeQuestionDisplay.tsx
+
 import React from 'react';
 import { Card, Space, Button, Typography, Radio } from 'antd';
 import { QuestionCircleOutlined, LinkOutlined } from '@ant-design/icons';
@@ -8,13 +12,13 @@ import type { Question } from '../types/question';
 
 const { Text } = Typography;
 
-interface QuestionDisplayProps {
+interface LegacyQuestionDisplayProps {
   question: Question;
   onNext?: () => void;
   onHelp?: (action: string) => void;
 }
 
-const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
+const LegacyQuestionDisplay: React.FC<LegacyQuestionDisplayProps> = ({
   question,
   onNext,
   onHelp
@@ -127,4 +131,4 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   );
 };
 
-export default QuestionDisplay; 
+export default LegacyQuestionDisplay; 

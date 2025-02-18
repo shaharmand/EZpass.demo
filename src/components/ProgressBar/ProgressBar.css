@@ -1,0 +1,173 @@
+/* Progress section container */
+.progress-section {
+  position: relative;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 8px 0;
+  direction: rtl;
+}
+
+.progress-section .ant-space {
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.progress-stat {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.progress-bar-section {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 200px;
+  padding: 8px;
+  z-index: 1;
+  height: 100%;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.progress-bar-section:hover {
+  background-color: #f8fafc;
+}
+
+/* Progress info and numbers */
+.progress-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  position: relative;
+  z-index: 1;
+}
+
+.progress-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4b5563;
+  margin-bottom: 4px;
+}
+
+.progress-value {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+  margin-top: 2px;
+}
+
+/* Progress bar container and fill */
+.progress-bar-container {
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.progress-bar {
+  flex-grow: 1;
+  height: 8px;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #3b82f6;
+  transition: width 0.3s ease;
+}
+
+/* Status colors */
+.progress-bar-section.with-status::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  right: -12px;
+  bottom: -8px;
+  left: -12px;
+  border-radius: 12px;
+  opacity: 0.1;
+  z-index: 0;
+}
+
+.progress-bar-section.with-status.red::before,
+.progress-bar-section.with-status.low::before {
+  background-color: #ef4444;
+}
+
+.progress-bar-section.with-status.yellow::before,
+.progress-bar-section.with-status.medium::before {
+  background-color: #f59e0b;
+}
+
+.progress-bar-section.with-status.green::before,
+.progress-bar-section.with-status.high::before {
+  background-color: #22c55e;
+}
+
+/* Hover tooltip */
+.hover-tooltip {
+  position: absolute;
+  top: -40px;
+  right: 50%;
+  transform: translateX(50%);
+  background: #1e293b;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  z-index: 1003;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.hover-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  right: 50%;
+  transform: translateX(50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #1e293b;
+}
+
+.progress-bar-section:hover .hover-tooltip {
+  opacity: 1;
+  visibility: visible;
+  top: -45px;
+}
+
+/* Override Ant Design Progress styles */
+.progress-bar-section .ant-progress {
+  margin: 0 !important;
+}
+
+.progress-bar-section .ant-progress-inner {
+  background-color: #e5e7eb !important;
+}
+
+/* RTL support */
+[dir="rtl"] .progress-section {
+  direction: rtl;
+}
+
+[dir="rtl"] .progress-value {
+  text-align: left;
+} 

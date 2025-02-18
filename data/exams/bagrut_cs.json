@@ -1,0 +1,130 @@
+{
+  "exams": [
+    {
+      "id": "bagrut_cs_basic_java",
+      "code": "899",
+      "names": {
+        "short": "יסודות מדמ\"ח Java",
+        "medium": "יסודות מדעי המחשב Java - בגרות",
+        "full": "בחינת בגרות - יסודות מדעי המחשב ותכנות בסיסי בשפת Java"
+      },
+      "exam_type": "bagrut",
+      "difficulty": 3,
+      "programming_language": "java",
+      "topics": [
+        {
+          "topicId": "basic_programming",
+          "subTopics": [
+            "basic_io",
+            "variables_and_types",
+            "control_structures",
+            "functions",
+            "arrays_1d",
+            "arrays_2d",
+            "strings"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bagrut_cs_basic_csharp",
+      "code": "899",
+      "names": {
+        "short": "יסודות מדמ\"ח #C",
+        "medium": "יסודות מדעי המחשב #C - בגרות",
+        "full": "בחינת בגרות - יסודות מדעי המחשב ותכנות בסיסי בשפת #C"
+      },
+      "exam_type": "bagrut",
+      "difficulty": 3,
+      "programming_language": "c#",
+      "topics": [
+        {
+          "topicId": "basic_programming",
+          "subTopics": [
+            "basic_io",
+            "variables_and_types",
+            "control_structures",
+            "functions",
+            "arrays_1d",
+            "arrays_2d",
+            "strings"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bagrut_cs_data_structures_java",
+      "code": "902",
+      "names": {
+        "short": "מבני נתונים Java",
+        "medium": "מבני נתונים ואלגוריתמים Java - בגרות",
+        "full": "בחינת בגרות - מבני נתונים ואלגוריתמיקה מתקדמת בשפת Java"
+      },
+      "exam_type": "bagrut",
+      "difficulty": 3,
+      "programming_language": "java",
+      "topics": [
+        {
+          "topicId": "complexity_analysis",
+          "subTopics": [
+            "time_complexity",
+            "space_complexity",
+            "asymptotic_notation",
+            "algorithm_comparison"
+          ]
+        },
+        {
+          "topicId": "linear_structures",
+          "subTopics": [
+            "linked_lists",
+            "stacks",
+            "queues"
+          ]
+        },
+        {
+          "topicId": "tree_structures",
+          "subTopics": [
+            "binary_trees"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bagrut_cs_data_structures_csharp",
+      "code": "902",
+      "names": {
+        "short": "מבני נתונים #C",
+        "medium": "מבני נתונים ואלגוריתמים #C - בגרות",
+        "full": "בחינת בגרות - מבני נתונים ואלגוריתמיקה מתקדמת בשפת #C"
+      },
+      "exam_type": "bagrut",
+      "difficulty": 3,
+      "programming_language": "c#",
+      "topics": [
+        {
+          "topicId": "complexity_analysis",
+          "subTopics": [
+            "time_complexity",
+            "space_complexity",
+            "asymptotic_notation",
+            "algorithm_comparison"
+          ]
+        },
+        {
+          "topicId": "linear_structures",
+          "subTopics": [
+            "linked_lists",
+            "stacks",
+            "queues"
+          ]
+        },
+        {
+          "topicId": "tree_structures",
+          "subTopics": [
+            "binary_trees"
+          ]
+        }
+      ]
+    }
+  ]
+} 

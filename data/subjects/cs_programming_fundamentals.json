@@ -1,0 +1,144 @@
+{
+  "id": "cs_programming_fundamentals",
+  "name": "יסודות התכנות",
+  "subject": "computer_science",
+  "description": "יסודות התכנות, אלגוריתמיקה בסיסית ותכנות מונחה עצמים",
+  "topics": [
+    {
+      "id": "basic_programming",
+      "name": "יסודות התכנות",
+      "description": "עקרונות בסיסיים בתכנות",
+      "subTopics": [
+        {
+          "id": "basic_io",
+          "name": "קלט ופלט בסיסי",
+          "description": "קליטה מהמקלדת, הדפסה למסך, פורמט פלט",
+          "questionTemplate": "קליטת קלט, עיבוד והדפסת פלט מפורמט"
+        },
+        {
+          "id": "variables_and_types",
+          "name": "משתנים וטיפוסים",
+          "description": "הכרזה על משתנים, טיפוסי נתונים בסיסיים, המרות",
+          "questionTemplate": "הגדרת משתנים, המרות טיפוסים, חישובים בסיסיים"
+        },
+        {
+          "id": "control_structures",
+          "name": "מבני בקרה",
+          "description": "תנאים (if-else), לולאות (for, while, do-while), מבני switch, תנאים מקוצרים",
+          "questionTemplate": "כתיבת תנאים, לולאות, תרגילי מעקב"
+        },
+        {
+          "id": "functions",
+          "name": "פונקציות",
+          "description": "הגדרת פונקציות, פרמטרים, החזרת ערכים, scope, העמסת פונקציות (overloading)",
+          "questionTemplate": "כתיבת פונקציות, העברת פרמטרים, מעקב אחר קוד, תרגילי דיבוג"
+        },
+        {
+          "id": "arrays_1d",
+          "name": "מערכים חד-ממדיים",
+          "description": "הגדרת מערכים חד-ממדיים, לולאות על מערכים, אלגוריתמים בסיסיים",
+          "questionTemplate": "עבודה עם מערכים חד-ממדיים, חיפוש, מיון בסיסי"
+        },
+        {
+          "id": "arrays_2d",
+          "name": "מערכים דו-ממדיים",
+          "description": "הגדרת מערכים דו-ממדיים, לולאות מקוננות, אלגוריתמים על מטריצות",
+          "questionTemplate": "עבודה עם מערכים דו-ממדיים, אלכסונים, שורות ועמודות"
+        },
+        {
+          "id": "strings",
+          "name": "מחרוזות",
+          "description": "עבודה עם מחרוזות, פעולות בסיסיות, מניפולציות",
+          "questionTemplate": "עיבוד מחרוזות, חיפוש תווים, חיתוך והדבקה"
+        }
+      ]
+    },
+    {
+      "id": "basic_algorithms",
+      "name": "אלגוריתמים בסיסיים",
+      "description": "אלגוריתמים ומבני נתונים בסיסיים",
+      "subTopics": [
+        {
+          "id": "searching",
+          "name": "חיפוש",
+          "description": "חיפוש לינארי, חיפוש בינארי",
+          "questionTemplate": "יישום אלגוריתמי חיפוש, השוואת יעילות"
+        },
+        {
+          "id": "sorting",
+          "name": "מיון",
+          "description": "מיון בועות, מיון הכנסה, מיון בחירה",
+          "questionTemplate": "יישום אלגוריתמי מיון, מעקב אחר ביצוע"
+        },
+        {
+          "id": "basic_complexity",
+          "name": "סיבוכיות בסיסית",
+          "description": "הבנת סיבוכיות זמן בסיסית, השוואת אלגוריתמים",
+          "questionTemplate": "ניתוח סיבוכיות, השוואת אלגוריתמים פשוטים"
+        },
+        {
+          "id": "recursion",
+          "name": "רקורסיה",
+          "description": "פתרון בעיות באופן רקורסיבי, עץ רקורסיה",
+          "questionTemplate": "כתיבת פונקציות רקורסיביות, ניתוח רקורסיה"
+        }
+      ]
+    },
+    {
+      "id": "oop_basics",
+      "name": "תכנות מונחה עצמים",
+      "description": "עקרונות בסיסיים בתכנות מונחה עצמים",
+      "subTopics": [
+        {
+          "id": "classes_objects",
+          "name": "מחלקות ואובייקטים",
+          "description": "הגדרת מחלקות, יצירת אובייקטים, תכונות ומתודות",
+          "questionTemplate": "כתיבת מחלקות, שימוש באובייקטים"
+        },
+        {
+          "id": "inheritance",
+          "name": "ירושה",
+          "description": "ירושה בסיסית, העמסת מתודות (overloading), דריסת מתודות (override)",
+          "questionTemplate": "יצירת היררכיית מחלקות, שימוש בירושה"
+        },
+        {
+          "id": "encapsulation",
+          "name": "כימוס",
+          "description": "הסתרת מידע, מודיפיקטורי גישה",
+          "questionTemplate": "יישום כימוס, שימוש בגטרים וסטרים"
+        },
+        {
+          "id": "polymorphism",
+          "name": "פולימורפיזם",
+          "description": "פולימורפיזם בזמן ריצה, ממשקים, מחלקות מופשטות",
+          "questionTemplate": "יישום פולימורפיזם, שימוש בממשקים"
+        }
+      ]
+    },
+    {
+      "id": "advanced_concepts",
+      "name": "נושאים מתקדמים",
+      "description": "נושאים מתקדמים בתכנות",
+      "subTopics": [
+        {
+          "id": "file_handling",
+          "name": "טיפול בקבצים",
+          "description": "קריאה וכתיבה לקבצים, עבודה עם זרמים",
+          "questionTemplate": "קריאה וכתיבה לקבצים, עיבוד מידע מקבצים"
+        },
+        {
+          "id": "error_handling",
+          "name": "טיפול בשגיאות",
+          "description": "תפיסת חריגים, זריקת חריגים, ניהול שגיאות",
+          "questionTemplate": "כתיבת קוד לטיפול בשגיאות, שימוש בחריגים"
+        },
+        {
+          "id": "concurrent_programming",
+          "name": "תכנות מקבילי",
+          "description": "תהליכים ותהליכונים, סנכרון, תקשורת בין תהליכים",
+          "questionTemplate": "יצירת תהליכונים, סנכרון, פתרון בעיות מקביליות"
+        }
+      ]
+    }
+  ]
+} 

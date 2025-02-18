@@ -1,0 +1,61 @@
+.question-content {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: #1f2937;
+}
+
+.question-content p {
+  margin: 0.75em 0;
+  direction: rtl;
+  text-align: right;
+}
+
+.question-content ul,
+.question-content ol {
+  margin: 0.75em 0;
+  padding-right: 1.5em;
+  padding-left: 0;
+  direction: rtl;
+}
+
+.question-content li {
+  margin: 0.5em 0;
+}
+
+/* Math expressions */
+.question-content .katex {
+  font-size: 1.1em;
+  direction: ltr;
+}
+
+.question-content .katex-display {
+  margin: 1em 0;
+  direction: ltr;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Code blocks */
+.question-content pre {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 1em;
+  margin: 1em 0;
+  direction: ltr;
+  overflow-x: auto;
+}
+
+.question-content code {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.9em;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  background-color: #f1f5f9;
+}
+
+/* Inline code */
+.question-content p code {
+  direction: ltr;
+  display: inline-block;
+} 

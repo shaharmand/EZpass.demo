@@ -1,0 +1,218 @@
+{
+  "faculty": "software_engineering",
+  "exams": [
+    {
+      "id": "mahat_cs_basic_java",
+      "code": "61101",
+      "names": {
+        "short": "אלגוריתמיקה Java",
+        "medium": "אלגוריתמיקה ותכנות Java - מה\"ט",
+        "full": "בחינת מה\"ט - אלגוריתמיקה ותכנות בסיסי בשפת Java"
+      },
+      "exam_type": "mahat",
+      "difficulty": 3,
+      "programming_language": "java",
+      "topics": [
+        {
+          "topicId": "basic_programming",
+          "subTopics": [
+            "basic_io",
+            "variables_and_types",
+            "control_structures",
+            "functions",
+            "arrays_1d",
+            "arrays_2d",
+            "strings"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mahat_cs_basic_csharp",
+      "code": "61102",
+      "names": {
+        "short": "אלגוריתמיקה #C",
+        "medium": "אלגוריתמיקה ותכנות #C - מה\"ט",
+        "full": "בחינת מה\"ט - אלגוריתמיקה ותכנות בסיסי בשפת #C"
+      },
+      "exam_type": "mahat",
+      "difficulty": 3,
+      "programming_language": "c#",
+      "topics": [
+        {
+          "topicId": "basic_programming",
+          "subTopics": [
+            "basic_io",
+            "variables_and_types",
+            "control_structures",
+            "functions",
+            "arrays_1d",
+            "arrays_2d",
+            "strings"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mahat_cs_basic_python",
+      "code": "61103",
+      "names": {
+        "short": "אלגוריתמיקה Python",
+        "medium": "אלגוריתמיקה ותכנות Python - מה\"ט",
+        "full": "בחינת מה\"ט - אלגוריתמיקה ותכנות בסיסי בשפת Python"
+      },
+      "exam_type": "mahat",
+      "difficulty": 3,
+      "programming_language": "python",
+      "topics": [
+        {
+          "topicId": "basic_programming",
+          "subTopics": [
+            "basic_io",
+            "variables_and_types",
+            "control_structures",
+            "functions",
+            "arrays_1d",
+            "arrays_2d",
+            "strings"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mahat_cs_data_structures_java",
+      "code": "61201",
+      "names": {
+        "short": "מבני נתונים Java",
+        "medium": "מבני נתונים ואלגוריתמים Java - מה\"ט",
+        "full": "בחינת מה\"ט - מבני נתונים ואלגוריתמיקה מתקדמת בשפת Java"
+      },
+      "exam_type": "mahat",
+      "difficulty": 3,
+      "programming_language": "java",
+      "topics": [
+        {
+          "topicId": "complexity_analysis",
+          "subTopics": [
+            "time_complexity",
+            "space_complexity",
+            "asymptotic_notation",
+            "algorithm_comparison"
+          ]
+        },
+        {
+          "topicId": "linear_structures",
+          "subTopics": [
+            "linked_lists",
+            "stacks",
+            "queues"
+          ]
+        },
+        {
+          "topicId": "tree_structures",
+          "subTopics": [
+            "binary_trees",
+            "heap"
+          ]
+        },
+        {
+          "topicId": "hash_tables",
+          "subTopics": [
+            "hashing",
+            "collision_resolution"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mahat_cs_data_structures_csharp",
+      "code": "61202",
+      "names": {
+        "short": "מבני נתונים #C",
+        "medium": "מבני נתונים ואלגוריתמים #C - מה\"ט",
+        "full": "בחינת מה\"ט - מבני נתונים ואלגוריתמיקה מתקדמת בשפת #C"
+      },
+      "exam_type": "mahat",
+      "difficulty": 3,
+      "programming_language": "c#",
+      "topics": [
+        {
+          "topicId": "complexity_analysis",
+          "subTopics": [
+            "time_complexity",
+            "space_complexity",
+            "asymptotic_notation",
+            "algorithm_comparison"
+          ]
+        },
+        {
+          "topicId": "linear_structures",
+          "subTopics": [
+            "linked_lists",
+            "stacks",
+            "queues"
+          ]
+        },
+        {
+          "topicId": "tree_structures",
+          "subTopics": [
+            "binary_trees",
+            "heap"
+          ]
+        },
+        {
+          "topicId": "hash_tables",
+          "subTopics": [
+            "hashing",
+            "collision_resolution"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mahat_cs_data_structures_python",
+      "code": "61203",
+      "names": {
+        "short": "מבני נתונים Python",
+        "medium": "מבני נתונים ואלגוריתמים Python - מה\"ט",
+        "full": "בחינת מה\"ט - מבני נתונים ואלגוריתמיקה מתקדמת בשפת Python"
+      },
+      "exam_type": "mahat",
+      "difficulty": 3,
+      "programming_language": "python",
+      "topics": [
+        {
+          "topicId": "complexity_analysis",
+          "subTopics": [
+            "time_complexity",
+            "space_complexity",
+            "asymptotic_notation",
+            "algorithm_comparison"
+          ]
+        },
+        {
+          "topicId": "linear_structures",
+          "subTopics": [
+            "linked_lists",
+            "stacks",
+            "queues"
+          ]
+        },
+        {
+          "topicId": "tree_structures",
+          "subTopics": [
+            "binary_trees",
+            "heap"
+          ]
+        },
+        {
+          "topicId": "hash_tables",
+          "subTopics": [
+            "hashing",
+            "collision_resolution"
+          ]
+        }
+      ]
+    }
+  ]
+} 

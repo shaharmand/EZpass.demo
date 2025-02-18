@@ -1,0 +1,25 @@
+{
+  "id": "data_structures",
+  "name": "מבני נתונים",
+  "description": "מבני נתונים בסיסיים ואלגוריתמים",
+  "topics": [
+    {
+      "id": "basic_algorithms",
+      "name": "אלגוריתמים בסיסיים",
+      "description": "חיפוש, מיון, חישובי מערכים",
+      "questionTemplate": "מעקב אחר אלגוריתם, ניתוח בעיה, יישום אלגוריתם"
+    },
+    {
+      "id": "complexity",
+      "name": "סיבוכיות",
+      "description": "הבנת סיבוכיות זמן ומקום, נוטציית Big O",
+      "questionTemplate": "ניתוח סיבוכיות, השוואת אלגוריתמים"
+    },
+    {
+      "id": "recursion",
+      "name": "רקורסיה",
+      "description": "פתרון בעיות באופן רקורסיבי, עץ רקורסיה",
+      "questionTemplate": "כתיבת פונקציות רקורסיביות, ניתוח עץ רקורסיה"
+    }
+  ]
+} 

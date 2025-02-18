@@ -1,0 +1,6 @@
+npx create-react-app ezpass-mvp
+cd ezpass-mvp
+npm install @mui/material @emotion/react @emotion/styled @mui/icons-material openai better-react-mathjax stylis-plugin-rtl
+
+
+

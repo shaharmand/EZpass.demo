@@ -1,0 +1,102 @@
+{
+  "id": "cs_data_structures",
+  "name": "מבני נתונים",
+  "subject": "computer_science",
+  "description": "מבני נתונים מתקדמים ואלגוריתמים",
+  "topics": [
+    {
+      "id": "linear_structures",
+      "name": "מבנים לינאריים",
+      "description": "מבני נתונים לינאריים והמימוש שלהם",
+      "subTopics": [
+        {
+          "id": "linked_lists",
+          "name": "רשימות מקושרות",
+          "description": "רשימה מקושרת חד-כיוונית, דו-כיוונית, מעגלית",
+          "questionTemplate": "מימוש פעולות, מעבר על רשימה, אלגוריתמים על רשימות"
+        },
+        {
+          "id": "stacks",
+          "name": "מחסניות",
+          "description": "מחסנית ושימושיה, מימוש במערך וברשימה",
+          "questionTemplate": "מימוש מחסנית, שימושים, אלגוריתמים עם מחסניות"
+        },
+        {
+          "id": "queues",
+          "name": "תורים",
+          "description": "תור רגיל, תור מעגלי, תור עדיפויות",
+          "questionTemplate": "מימוש תור, שימושים, אלגוריתמים עם תורים"
+        }
+      ]
+    },
+    {
+      "id": "tree_structures",
+      "name": "עצים",
+      "description": "מבני עץ שונים ואלגוריתמים",
+      "subTopics": [
+        {
+          "id": "binary_trees",
+          "name": "עצים בינאריים",
+          "description": "עץ בינארי, עץ חיפוש בינארי, איזון",
+          "questionTemplate": "מימוש עץ, חיפוש, הוספה ומחיקה, מעבר על עץ"
+        },
+        {
+          "id": "balanced_trees",
+          "name": "עצים מאוזנים",
+          "description": "עצי AVL, עצי אדום-שחור",
+          "questionTemplate": "איזון עצים, ניתוח יעילות, מימוש פעולות"
+        },
+        {
+          "id": "heap",
+          "name": "ערימה",
+          "description": "ערימת מקסימום, ערימת מינימום, בניית ערימה",
+          "questionTemplate": "מימוש ערימה, heapify, heap sort"
+        }
+      ]
+    },
+    {
+      "id": "hash_tables",
+      "name": "טבלאות גיבוב",
+      "description": "מבני גיבוב ופתרון התנגשויות",
+      "subTopics": [
+        {
+          "id": "hashing",
+          "name": "פונקציות גיבוב",
+          "description": "פונקציות גיבוב, התנגשויות, פקטור העמסה",
+          "questionTemplate": "תכנון פונקציות גיבוב, ניתוח יעילות"
+        },
+        {
+          "id": "collision_resolution",
+          "name": "טיפול בהתנגשויות",
+          "description": "שרשור, כתובת פתוחה, גיבוב כפול",
+          "questionTemplate": "מימוש שיטות שונות, השוואת יעילות"
+        }
+      ]
+    },
+    {
+      "id": "graphs",
+      "name": "גרפים",
+      "description": "ייצוג גרפים ואלגוריתמים בסיסיים",
+      "subTopics": [
+        {
+          "id": "graph_representation",
+          "name": "ייצוג גרפים",
+          "description": "מטריצת סמיכויות, רשימת שכנויות",
+          "questionTemplate": "מימוש ייצוגים שונים, המרה בין ייצוגים"
+        },
+        {
+          "id": "graph_traversal",
+          "name": "מעבר על גרף",
+          "description": "חיפוש לרוחב, חיפוש לעומק, קישוריות",
+          "questionTemplate": "מימוש אלגוריתמי חיפוש, ניתוח תוצאות"
+        },
+        {
+          "id": "shortest_paths",
+          "name": "מסלולים קצרים ביותר",
+          "description": "אלגוריתם דייקסטרה, פלויד-וורשל",
+          "questionTemplate": "מציאת מסלול קצר ביותר, ניתוח יעילות"
+        }
+      ]
+    }
+  ]
+} 

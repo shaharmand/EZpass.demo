@@ -1,0 +1,382 @@
+Cursor Rules for EZpass Project
+
+1. Project Context
+
+@file: ./project_overview.txt
+
+2. General Guidelines
+
+This project uses React (TypeScript) for the frontend.
+
+Follow Airbnb JavaScript/TypeScript style guide.
+
+Use functional components and React hooks.
+
+Prefer async/await for asynchronous operations.
+
+Ensure all code is well-documented with JSDoc where necessary.
+
+3. Directory Structure
+
+src/assets/ → Static assets (images, icons, etc.)
+
+src/components/ → Reusable UI components
+  - ExamCard/ → Card component for displaying exam information
+  - QuestionDisplay/ → Component for rendering exam questions
+
+src/config/ → Configuration files
+
+src/constants/ → Global constants
+
+src/containers/ → Stateful components that wrap UI components
+
+src/contexts/ → React context providers
+  - ExamContext → Manages exam data and selection state
+  - StudentPrepContext → Manages student preparation state
+
+src/data/ → Data management and JSON data files
+  - exams/ → Exam definitions (bagrut_cs.json, mahat_cs.json)
+  - subjects/ → Subject definitions and topic hierarchies
+
+src/layouts/ → Page layouts and wrappers
+
+src/pages/ → Top-level page components
+  - LandingPage → Main exam selection page
+  - PracticePage → Exam practice environment
+
+src/types/ → TypeScript type definitions
+  - exam.ts → Core exam type definitions
+  - shared/exam.ts → Shared exam interfaces
+
+src/utils/ → Utility functions and helper methods
+  - examUtils.ts → Exam data transformation utilities
+
+4. Core Data Types and Responsibilities
+
+Exam Types (src/types/exam.ts):
+- Exam: Base exam type with metadata and topic structure
+  - Used for raw exam data from JSON files
+  - Contains exam identification, difficulty, and topic references
+  
+- FormalExam (src/types/shared/exam.ts):
+  - Processed exam format for the application
+  - Used in ExamCard and practice sessions
+  - Includes status tracking and session metadata
+
+Topic Structure:
+- Topic: Represents a main subject area
+  - Contains subtopics and learning objectives
+  - Used for organizing exam content
+
+- SubTopic: Specific learning areas within a topic
+  - Contains detailed learning materials
+  - Used for question generation and progress tracking
+
+Context Types:
+- ExamContextType: Manages exam data state
+  - Handles loading states and error conditions
+  - Provides exam selection functionality
+
+- StudentPrepContextType: Manages student preparation
+  - Tracks progress and performance
+  - Handles practice session state
+
+5. Performance & Optimization
+
+Implement lazy loading for large components when it improves performance.
+
+Use React.memo where applicable to optimize rendering.
+
+Optimize API calls by caching frequently accessed data.
+
+6. Error Handling
+
+All API calls must handle errors using try/catch.
+
+Display user-friendly error messages instead of raw error logs.
+
+7. Security
+
+Never commit sensitive API keys or credentials.
+
+Ensure all user inputs are sanitized before processing.
+
+8. Code Reviews & Testing
+
+All code must pass ESLint and Prettier checks before merging.
+
+Use Jest and React Testing Library for unit and integration tests.
+
+Maintain at least 80% test coverage on critical features.
+
+9. Logging & Debugging
+
+Use console.debug() sparingly for local debugging.
+
+Remove console.log() and other debug logs before production.
+
+Prefer structured logging using a service like Sentry, LogRocket, or a custom logger.
+
+Implement a logging utility for better control over log levels.
+
+10. Data Structure and Organization
+
+File System Structure:
+data/
+├── subjects/                           → Organizational metadata
+│   ├── cs_programming_fundamentals.json  → Topic definitions for programming
+│   ├── cs_data_structures.json          → Topic definitions for data structures
+│   └── mathematics.json                  → Topic definitions for math
+└── exams/                             → Core exam definitions
+    ├── bagrut_cs.json                   → High school CS exams
+    ├── bagrut_math.json                 → High school Math exams
+    └── mahat_cs.json                    → Practical engineering CS exams
+
+Data Purpose:
+1. Exam Definitions (Core)
+   - Contained in exam JSON files
+   - Define actual test content and structure
+   - Reference topics from subject files
+   - Include metadata (difficulty, language, etc.)
+
+2. Subject/Domain Organization (Presentation)
+   - Used for UI organization and navigation
+   - Help categorize and present exam content
+   - Provide topic hierarchies for content organization
+   - No functional impact on exam logic
+
+Example Exam Structure:
+```json
+{
+  "id": "bagrut_cs_basic_java",
+  "code": "899",
+  "names": {
+    "short": "יסודות מדמ\"ח Java",
+    "medium": "יסודות מדעי המחשב Java - בגרות",
+    "full": "בחינת בגרות - יסודות מדעי המחשב ותכנות בסיסי בשפת Java"
+  },
+  "exam_type": "bagrut",
+  "difficulty": 3,
+  "programming_language": "java",
+  "topics": [
+    {
+      "topicId": "basic_programming",
+      "subTopics": ["variables_and_types", "control_structures", "functions"]
+    }
+  ]
+}
+```
+
+Key Points:
+1. Exam-Centric Design
+   - Exams are the primary data entities
+   - Topics are referenced by exams
+   - Subjects/domains provide organizational context
+
+2. Separation of Concerns
+   - Exam definitions → Core functionality
+   - Subject/domain structure → UI organization
+   - Topic definitions → Content organization
+
+3. Data Flow
+   - Load exam definitions first
+   - Reference topics as needed
+   - Use subject/domain for navigation/presentation
+
+Application State Management:
+1. ExamContext (Exam Selection)
+   - Purpose: Manage available exams and selection state
+   - Responsibilities:
+     - Load and provide exam definitions
+     - Track currently selected exam
+     - Filter exams by type (Bagrut/Mahat)
+     - Handle exam metadata presentation
+   - No preparation/practice logic
+
+2. ExamPrepContext (Exam Practice)
+   - Purpose: Manage active exam preparation session
+   - Responsibilities:
+     - Track practice progress
+     - Manage question generation
+     - Store user responses
+     - Calculate scores and performance
+     - Handle practice session state
+   - Independent of exam selection/browsing
+
+State Separation:
+- ExamContext → Browse and select exams
+- ExamPrepContext → Practice and track progress
+- Clear separation between selection and practice
+- Independent state management for each concern
+
+11. Document Formatting Standards
+
+Markdown Usage:
+- Use consistent heading levels (# for main sections, ## for subsections)
+- Code blocks should specify language for proper highlighting
+  ```typescript
+  // TypeScript code
+  ```
+- Use tables for structured data presentation
+- Use bullet points for lists of related items
+- Use numbered lists for sequential steps
+
+LaTeX Integration:
+- Use LaTeX for mathematical formulas and equations
+- Wrap inline math with single $ symbols
+- Wrap block math with double $$ symbols
+- Example: $f(x) = x^2$ for inline, or:
+  $$
+  \sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+  $$
+
+Code Block Standards:
+- Always include language identifier
+- Use proper indentation (2 spaces for TypeScript/JSON)
+- Include comments for complex logic
+- Example:
+  ```typescript
+  // Interface definition
+  interface ExamType {
+    id: string;
+    name: string;
+  }
+  ```
+
+Documentation Flow:
+1. Start with high-level overview
+2. Follow with detailed specifications
+3. Include examples where necessary
+4. End with implementation notes
+
+Processing Instructions:
+- Use clear section separators
+- Include version/date information when relevant
+- Reference related documentation
+- Link to external resources when applicable
+
+12. AI Assistance & Guidelines
+
+AI should generate code that aligns with the existing project structure and patterns.
+
+AI-generated code must prioritize readability, maintainability, and security.
+
+AI should follow established coding conventions, including TypeScript best practices.
+
+AI must avoid generating duplicate implementations where reusable components exist.
+
+AI should provide meaningful inline documentation where necessary.
+
+AI must not generate direct access to sensitive data or authentication tokens.
+
+13. Command Line Operations
+
+Command Shell:
+- Use PowerShell for Windows operations
+- Ensure proper path escaping (use backticks for paths with spaces)
+- Always use relative paths from project root when possible
+
+File Operations:
+- Use non-silent move operations for better error tracking
+  - Example: `mv -v source destination`
+- Always verify file operations with confirmation output
+- Use `dir` or `ls` to verify file structure changes
+
+14. AI Integration Notes
+
+OpenAI Model Differences:
+- GPT-4.0 Turbo (gpt-4-0125-preview):
+  - Supports direct JSON object handling
+  - Can process structured data efficiently
+  - Use for operations requiring complex JSON manipulation
+
+- GPT-4 Base:
+  - Limited JSON object handling
+  - Requires string serialization for complex objects
+  - May fail when processing direct JSON structures
+  - Use string templates or simplified data structures
+
+Best Practices:
+- Always stringify complex objects when unsure of model version
+- Use explicit type checking for data validation
+- Include error handling for JSON parsing operations
+
+15. Future Enhancements
+
+Define state management best practices.
+
+Establish API documentation standards.
+
+Add CI/CD integration guidelines.
+
+16. Project Configuration Files
+
+Configuration Standards:
+- .prettierrc → Prettier code formatting rules
+- .eslintrc → ESLint code quality rules
+- .editorconfig → Editor-agnostic coding style definitions
+- tsconfig.json → TypeScript compiler options
+- package.json → Project dependencies and scripts
+
+Example .prettierrc:
+```json
+{
+  "semi": true,
+  "trailingComma": "es5",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2
+}
+```
+
+Example .editorconfig:
+```ini
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+indent_style = space
+indent_size = 2
+
+[*.{ts,tsx,js,jsx,json}]
+trim_trailing_whitespace = true
+```
+
+17. Cursor Rules Usage
+
+Document Loading:
+- This document is NOT automatically loaded in new sessions
+- For consistent initialization, you can:
+  1. Create a workspace-level settings in VS Code:
+     ```json
+     // .vscode/settings.json
+     {
+       "cursor.initializationFiles": [
+         "${workspaceFolder}/cursorrules"
+       ]
+     }
+     ```
+  2. Reference this file in your first interaction with Cursor
+  3. Include key sections in relevant code files as comments
+
+Best Practices for New Sessions:
+1. Reference this document at the start of each session by:
+   - Sharing the file content with the AI
+   - Specifically mentioning relevant sections
+   - Using it as a reference for project standards
+2. Include key guidelines in project README.md
+3. Reference specific rules in code comments when relevant
+
+Project Documentation:
+- Keep this document updated with new decisions and standards
+- Reference it in:
+  - README.md
+  - Contributing guidelines
+  - Pull request templates
+  - Code documentation
+
+Note: While IDE settings can be configured through various means (VS Code settings, EditorConfig, etc.), 
+the cursor rules document serves as a central reference for project standards and must be manually shared 
+with the AI in new sessions.

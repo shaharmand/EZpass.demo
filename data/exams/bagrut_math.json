@@ -1,0 +1,39 @@
+{
+  "exams": [
+    {
+      "id": "bagrut_math_3",
+      "name": "בגרות מתמטיקה 3 יחידות",
+      "institution": "BAGRUT",
+      "difficulty": 3,
+      "topics": [
+        "algebra_quadratic",
+        "trigonometry"
+      ]
+    },
+    {
+      "id": "bagrut_math_4",
+      "name": "בגרות מתמטיקה 4 יחידות",
+      "institution": "BAGRUT",
+      "difficulty": 4,
+      "topics": [
+        "algebra_quadratic",
+        "exponents_logs",
+        "trigonometry",
+        "derivatives"
+      ]
+    },
+    {
+      "id": "bagrut_math_5",
+      "name": "בגרות מתמטיקה 5 יחידות",
+      "institution": "BAGRUT",
+      "difficulty": 5,
+      "topics": [
+        "algebra_quadratic",
+        "exponents_logs",
+        "trigonometry",
+        "derivatives",
+        "integrals"
+      ]
+    }
+  ]
+} 

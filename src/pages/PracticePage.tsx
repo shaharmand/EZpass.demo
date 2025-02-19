@@ -1,336 +1,427 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useExam } from '../contexts/ExamContext';
-import { useStudentPrep } from '../contexts/StudentPrepContext';
-import { Alert, Space, Button, Spin, Typography, Card } from 'antd';
-import { HomeOutlined, ReloadOutlined } from '@ant-design/icons';
-import PracticeQuestionDisplay from '../components/practice/PracticeQuestionDisplay';
+import { usePrepState } from '../hooks/usePrepState';
+import { Alert, Space, Button, Spin, Typography } from 'antd';
+import { HomeOutlined } from '@ant-design/icons';
 import { PracticeHeader } from '../components/PracticeHeader';
-
-const { Title } = Typography;
+import PracticeContainer from '../components/practice/PracticeContainer';
+import type { PracticeQuestion, SkipReason } from '../types/prepUI';
+import type { QuestionState } from '../types/prepState';
+import type { HelpRequest } from '../types/prepUI';
+import type { PracticeQuestion as PracticeQuestionUI } from '../types/prepUI';
+import { useStudentPrep } from '../contexts/StudentPrepContext';
+import { LoadingSpinner } from '../components/LoadingSpinner';
+import { ErrorMessage } from '../components/ErrorMessage';
 
 const PracticePage: React.FC = () => {
   const navigate = useNavigate();
   const { prepId } = useParams();
-  const { 
-    selectedExam,
-    practiceState,
-    startPractice,
-    submitPracticeAnswer,
-    endPractice,
-    getNextPracticeQuestion,
-    setCurrentQuestion,
-    currentQuestion
-  } = useExam();
-  
-  const { activePrep, setActivePrep, getStoredPrep } = useStudentPrep();
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
-  const [currentPrep, setCurrentPrep] = useState<any>(null);
-  
-  // Request locking mechanism
-  const isRequestInProgress = useRef(false);
+  const requestInProgress = useRef(false);
   const isComponentMounted = useRef(true);
+  const { findExamById } = useExam();
+  const {
+    activePrep,
+    getPrep,
+    currentQuestion,
+    startPrep,
+    submitAnswer,
+    pausePrep,
+    setCurrentQuestion,
+    getNextQuestion
+  } = useStudentPrep();
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Debug logging for component state
-  console.log('PracticePage Render:', {
-    prepId,
-    loading,
-    error,
-    initialized,
-    hasActivePrep: !!activePrep,
-    hasPracticeState: !!practiceState,
-    hasCurrentQuestion: !!currentQuestion,
-    requestInProgress: isRequestInProgress.current
-  });
-
-  // Cleanup on unmount
+  // Set mounted flag
   useEffect(() => {
+    isComponentMounted.current = true;
     return () => {
       isComponentMounted.current = false;
     };
   }, []);
 
-  // Load prep data on mount
   useEffect(() => {
-    const loadPrepData = async () => {
-      if (!prepId) return;
-
-      try {
-        setLoading(true);
-        
-        // First check if this is the active prep
-        if (activePrep && activePrep.id === prepId) {
-          setCurrentPrep(activePrep);
-          return;
-        }
-
-        // If not active, try to load from storage
-        const storedPrep = await getStoredPrep(prepId);
-        if (storedPrep) {
-          setCurrentPrep(storedPrep);
-          return;
-        }
-
-        // If we couldn't find the prep, show error
-        setError('לא נמצא מידע על התרגול המבוקש');
-      } catch (error) {
-        console.error('Error loading prep:', error);
-        setError('אירעה שגיאה בטעינת התרגול');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadPrepData();
-  }, [prepId, activePrep, getStoredPrep]);
-
-  // Initialize practice when component mounts
-  useEffect(() => {
-    const initializePractice = async () => {
-      console.log('🔄 Checking initialization conditions:', {
-        prepId,
-        initialized,
-        requestInProgress: isRequestInProgress.current,
-        activePrep: !!activePrep
-      });
-
-      if (!prepId || initialized || isRequestInProgress.current) {
-        console.log('⏭️ Skipping practice initialization:', {
-          reason: !prepId ? 'no prepId' : initialized ? 'already initialized' : 'request in progress'
+    let mounted = true;
+    const initialize = async () => {
+      if (!prepId) {
+        console.warn('Practice initialization failed:', { 
+          reason: 'Missing prepId',
+          prepId 
         });
+        if (mounted) {
+          setError('מזהה תרגול לא תקין');
+          setIsLoading(false);
+        }
         return;
       }
 
       try {
-        console.log('🚀 Starting initialization process');
-        isRequestInProgress.current = true;
-        setLoading(true);
-        setError(null);
+        console.log('Initializing practice:', { prepId });
+        if (mounted) setIsLoading(true);
+        
+        // Set requestInProgress only when making the request
+        requestInProgress.current = true;
+        const prep = await getPrep(prepId);
+        
+        if (!mounted) return;
 
-        // Get prep instance
-        const prep = activePrep;
-        if (!prep || prep.id !== prepId) {
-          console.error('❌ No matching prep found:', { prepId, activePrepId: prep?.id });
+        if (!prep) {
+          console.error('Practice not found:', { prepId });
           setError('לא נמצא מידע על התרגול המבוקש');
-          setLoading(false);
-          isRequestInProgress.current = false;
           return;
         }
 
-        console.log('📋 Starting practice with:', {
-          prepId,
-          examId: prep.exam.id,
-          selectedTopics: prep.selectedTopics
+        console.log('Practice loaded:', { 
+          prepId, 
+          status: prep.state.status,
+          exam: prep.exam 
         });
 
-        // Start practice with selected topics
-        await startPractice(
-          prep.exam,
-          prep.selectedTopics
-        );
-
-        console.log('🎯 Practice started, fetching first question');
-        // Get first question
-        const firstQuestion = await getNextPracticeQuestion();
-        console.log('📝 First question received:', {
-          questionId: firstQuestion?.id,
-          hasQuestion: !!firstQuestion
-        });
+        // Only restore from localStorage if this is NOT a new prep
+        const isNewPrep = prep.state.status === 'active' && 
+                         prep.state.startedAt && 
+                         Date.now() - prep.state.startedAt < 5000; // Prep created in last 5 seconds
         
-        if (isComponentMounted.current) {
-          console.log('✅ Updating component state');
-          setActivePrep({
-            ...prep,
-            status: 'in_progress'
-          });
-
-          setCurrentQuestion(firstQuestion);
-          setInitialized(true);
-          setLoading(false);
-          console.log('🏁 Initialization complete:', {
-            hasQuestion: !!firstQuestion,
-            initialized: true,
-            loading: false
-          });
-        } else {
-          console.log('⚠️ Component unmounted during initialization');
+        if (isNewPrep) {
+          // Clear any stored question for new preps
+          localStorage.removeItem('current_question');
+          setCurrentQuestion(null);
         }
+
+        setIsLoading(false);
+        requestInProgress.current = false;
+
       } catch (error) {
-        console.error('❌ Error during initialization:', error);
-        if (isComponentMounted.current) {
-          setError(error instanceof Error ? error.message : 'אירעה שגיאה בהתחלת התרגול');
-          setLoading(false);
+        if (mounted) {
+          const errorMessage = error instanceof Error ? error.message : 'אירעה שגיאה בטעינת התרגול';
+          console.error('Practice initialization error:', {
+            error,
+            message: errorMessage,
+            prepId,
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          setError(errorMessage);
         }
       } finally {
-        if (isComponentMounted.current) {
-          isRequestInProgress.current = false;
-          console.log('🔓 Request lock released');
+        if (mounted) {
+          setIsLoading(false);
+          requestInProgress.current = false;
         }
       }
     };
 
-    initializePractice();
-  }, [prepId, initialized, activePrep, startPractice, getNextPracticeQuestion, setCurrentQuestion, setActivePrep]);
+    initialize();
 
-  // Handle practice completion
-  useEffect(() => {
-    if (practiceState && activePrep && !isRequestInProgress.current) {
-      // Update prep status when practice is completed
-      if (practiceState.currentQuestionIndex >= practiceState.answers.length) {
-        setActivePrep({
-          ...activePrep,
-          status: 'completed',
-          completedAt: new Date().toISOString()
-        });
-      }
-    }
-  }, [practiceState, activePrep, setActivePrep]);
+    return () => {
+      mounted = false;
+    };
+  }, [prepId, getPrep, currentQuestion]);
 
-  const handleAnswer = async (answer: string, isCorrect: boolean) => {
-    if (isRequestInProgress.current) return;
-    isRequestInProgress.current = true;
-    setLoading(true);
+  const handleAnswer = async (answer: string) => {
+    if (requestInProgress.current || !currentQuestion || !activePrep) return;
+    requestInProgress.current = true;
 
     try {
-      await submitPracticeAnswer(answer, isCorrect);
-      const nextQuestion = await getNextPracticeQuestion();
-      
-      if (isComponentMounted.current) {
-        setCurrentQuestion(nextQuestion);
-      }
+      console.log('Submitting answer:', {
+        prepId: activePrep.id,
+        questionId: currentQuestion.question.id,
+        questionIndex: currentQuestion.state.questionIndex,
+        answerLength: answer.length
+      });
+
+      await submitAnswer(answer, true);
     } catch (error) {
-      if (isComponentMounted.current) {
-        setError(error instanceof Error ? error.message : 'אירעה שגיאה בהגשת התשובה');
-      }
+      const errorMessage = error instanceof Error ? error.message : 'Error submitting answer';
+      console.error('Error submitting answer:', {
+        error,
+        prepId: activePrep.id,
+        questionId: currentQuestion.question.id,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      setError(errorMessage);
     } finally {
       if (isComponentMounted.current) {
-        isRequestInProgress.current = false;
-        setLoading(false);
+        requestInProgress.current = false;
       }
     }
   };
 
-  const handleNextQuestion = async () => {
-    if (isRequestInProgress.current) return;
-    isRequestInProgress.current = true;
-    setLoading(true);
+  const handleHelp = async () => {
+    if (!currentQuestion || !activePrep) return;
 
     try {
-      const nextQuestion = await getNextPracticeQuestion();
-      
-      if (isComponentMounted.current) {
-        setCurrentQuestion(nextQuestion);
+      console.log('Requesting help:', {
+        prepId: activePrep.id,
+        questionId: currentQuestion.question.id,
+        questionIndex: currentQuestion.state.questionIndex,
+        previousHelpRequests: currentQuestion.state.helpRequests.length
+      });
+
+      // Just update the state with the help request
+      const updatedState = {
+        ...currentQuestion.state,
+        helpRequests: [
+          ...(currentQuestion.state.helpRequests || []),
+          {
+            type: 'hint' as const,
+            timestamp: Date.now()
+          }
+        ]
+      };
+
+      setCurrentQuestion({
+        ...currentQuestion,
+        state: updatedState
+      });
+
+      console.log('Help request recorded:', {
+        prepId: activePrep.id,
+        questionId: currentQuestion.question.id,
+        totalHelpRequests: updatedState.helpRequests.length
+      });
+    } catch (error) {
+      console.error('Error requesting help:', {
+        error,
+        prepId: activePrep.id,
+        questionId: currentQuestion.question.id,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    }
+  };
+
+  const handleSkip = async (reason: SkipReason) => {
+    if (requestInProgress.current || !currentQuestion || !activePrep) return;
+    requestInProgress.current = true;
+
+    try {
+      // Clear current question to show loading
+      setCurrentQuestion(null);
+
+      // Get next question
+      const nextQuestion = await getNextQuestion();
+      if (isComponentMounted.current && nextQuestion) {
+        const practiceQuestion: PracticeQuestionUI = {
+          question: nextQuestion,
+          state: {
+            status: 'active',
+            startedAt: Date.now(),
+            lastUpdatedAt: Date.now(),
+            helpRequests: [],
+            questionIndex: (currentQuestion.state.questionIndex || 0) + 1,
+            correctAnswers: currentQuestion.state.correctAnswers || 0,
+            averageScore: currentQuestion.state.averageScore || 0
+          }
+        };
+        setCurrentQuestion(practiceQuestion);
       }
     } catch (error) {
-      if (isComponentMounted.current) {
-        setError(error instanceof Error ? error.message : 'אירעה שגיאה בטעינת השאלה הבאה');
-      }
+      const errorMessage = error instanceof Error ? error.message : 'Error skipping question';
+      console.error('Error skipping question:', {
+        error,
+        prepId: activePrep.id,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      setError(errorMessage);
     } finally {
       if (isComponentMounted.current) {
-        isRequestInProgress.current = false;
-        setLoading(false);
+        requestInProgress.current = false;
       }
     }
   };
 
-  const handleHelp = async (action: string) => {
-    if (action === 'next') {
-      await handleNextQuestion();
-    } else if (action === 'hint') {
-      // TODO: Implement hint functionality
-      console.log('Hint requested');
+  const handleNext = async () => {
+    if (requestInProgress.current || !currentQuestion || !activePrep) return;
+    requestInProgress.current = true;
+
+    try {
+      // Clear current question to show loading
+      setCurrentQuestion(null);
+
+      // Get next question
+      const nextQuestion = await getNextQuestion();
+      if (isComponentMounted.current && nextQuestion) {
+        const practiceQuestion: PracticeQuestionUI = {
+          question: nextQuestion,
+          state: {
+            status: 'active',
+            startedAt: Date.now(),
+            lastUpdatedAt: Date.now(),
+            helpRequests: [],
+            questionIndex: (currentQuestion.state.questionIndex || 0) + 1,
+            correctAnswers: currentQuestion.state.correctAnswers || 0,
+            averageScore: currentQuestion.state.averageScore || 0
+          }
+        };
+        setCurrentQuestion(practiceQuestion);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error loading next question';
+      console.error('Error loading next question:', {
+        error,
+        prepId: activePrep.id,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      setError(errorMessage);
+    } finally {
+      if (isComponentMounted.current) {
+        requestInProgress.current = false;
+      }
     }
   };
 
-  // Get prep instance early
-  if (!prepId || !currentPrep) {
+  const handleRetry = () => {
+    if (!currentQuestion || !activePrep) return;
+
+    console.log('Retrying question:', {
+      prepId: activePrep.id,
+      questionId: currentQuestion.question.id,
+      questionIndex: currentQuestion.state.questionIndex,
+      previousHelpRequests: currentQuestion.state.helpRequests.length
+    });
+
+    // Reset the question state to active, clearing feedback and current answer
+    setCurrentQuestion({
+      ...currentQuestion,
+      state: {
+        status: 'active',
+        startedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+        helpRequests: currentQuestion.state.helpRequests || [],
+        questionIndex: currentQuestion.state.questionIndex,
+        correctAnswers: currentQuestion.state.correctAnswers || 0,
+        averageScore: currentQuestion.state.averageScore || 0,
+        feedback: undefined,
+        currentAnswer: undefined
+      }
+    });
+
+    console.log('Question reset for retry:', {
+      prepId: activePrep.id,
+      questionId: currentQuestion.question.id,
+      newStartTime: Date.now()
+    });
+  };
+
+  // Error display with better messaging
+  if (!prepId || error) {
     return (
       <div style={{ 
         padding: '24px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '16px'
+        maxWidth: '600px',
+        margin: '0 auto',
+        marginTop: '32px'
       }}>
         <Alert
-          message="שגיאה"
+          message="שגיאה בטעינת התרגול"
           description={error || 'לא נמצא מידע על התרגול המבוקש'}
           type="error"
           showIcon
+          action={
+            <Space>
+              <Button 
+                icon={<HomeOutlined />} 
+                onClick={() => navigate('/')}
+                type="default"
+              >
+                חזרה לדף הבית
+              </Button>
+              {error?.includes('המערכת עמוסה') && (
+                <Button 
+                  type="primary" 
+                  onClick={() => window.location.reload()}
+                >
+                  נסה שוב
+                </Button>
+              )}
+            </Space>
+          }
         />
-        <Space>
-          <Button 
-            icon={<HomeOutlined />}
-            onClick={() => navigate('/')}
-          >
-            חזרה לדף הבית
-          </Button>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (!activePrep) {
+    return (
+      <div style={{ 
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '300px'
+      }}>
+        <Space direction="vertical" align="center">
+          <Spin size="large" />
+          <Typography.Text>טוען מידע...</Typography.Text>
         </Space>
       </div>
     );
   }
 
-  // If we're here, we have a valid practice - always show header
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
   return (
     <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      minHeight: '100vh',
-      backgroundColor: '#f5f5f5'
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '24px',
+      padding: '24px',
+      maxWidth: '1400px',
+      margin: '0 auto',
+      minHeight: '100vh'
     }}>
-      {/* Practice Header - Always visible when practice exists */}
-      <PracticeHeader prep={currentPrep} />
-      
-      <div style={{ 
-        padding: '24px', 
-        maxWidth: '1200px', 
-        margin: '0 auto',
-        width: '100%',
-        flex: 1
-      }}>
-        {error ? (
+      {/* Header */}
+      {activePrep && <PracticeHeader prep={activePrep} />}
+
+      {/* Main Content */}
+      {!currentQuestion || currentQuestion.state.status === 'loading' ? (
+        <div style={{ 
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '400px',
+          backgroundColor: '#ffffff',
+          borderRadius: '8px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <Space direction="vertical" align="center">
+            <Spin size="large" />
+            <Typography.Text>טוען שאלה...</Typography.Text>
+          </Space>
+        </div>
+      ) : error ? (
+        <div style={{ padding: '24px' }}>
           <Alert
             message="שגיאה"
             description={error}
             type="error"
             showIcon
+            action={
+              <Space>
+                <Button onClick={() => setError(null)}>נסה שוב</Button>
+              </Space>
+            }
           />
-        ) : loading && !initialized ? (
-          <div style={{ 
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '50vh'
-          }}>
-            <Spin size="large" />
-          </div>
-        ) : currentQuestion ? (
-          <Card>
-            <PracticeQuestionDisplay
-              question={currentQuestion}
-              onAnswer={handleAnswer}
-              onNextQuestion={handleNextQuestion}
-              onHelp={handleHelp}
-              isLoading={loading}
-            />
-          </Card>
-        ) : initialized ? (
-          <Card style={{ textAlign: 'center', padding: '48px' }}>
-            <Space direction="vertical" size="large">
-              <Title level={3}>התרגול הסתיים</Title>
-              <Button 
-                type="primary"
-                size="large"
-                onClick={() => navigate('/')}
-              >
-                חזרה לדף הבית
-              </Button>
-            </Space>
-          </Card>
-        ) : null}
-      </div>
+        </div>
+      ) : (
+        <PracticeContainer
+          question={currentQuestion.question}
+          onAnswer={handleAnswer}
+          onHelp={handleHelp}
+          onSkip={handleSkip}
+          onNext={handleNext}
+          onRetry={handleRetry}
+          state={{
+            status: currentQuestion.state.status,
+            feedback: currentQuestion.state.feedback,
+            questionIndex: currentQuestion.state.questionIndex || 0,
+            correctAnswers: 0,
+            averageScore: 0
+          }}
+        />
+      )}
     </div>
   );
 };

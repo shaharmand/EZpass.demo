@@ -1,18 +1,23 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useExam } from '../contexts/ExamContext';
-import { usePrepState } from '../hooks/usePrepState';
-import { Alert, Space, Button, Spin, Typography } from 'antd';
+import { Alert, Space, Button, Spin, Typography, Layout } from 'antd';
 import { HomeOutlined } from '@ant-design/icons';
 import { PracticeHeader } from '../components/PracticeHeader';
-import PracticeContainer from '../components/practice/PracticeContainer';
+import QuestionInteractionContainer from '../components/practice/QuestionInteractionContainer';
 import type { PracticeQuestion, SkipReason } from '../types/prepUI';
-import type { QuestionState } from '../types/prepState';
-import type { HelpRequest } from '../types/prepUI';
-import type { PracticeQuestion as PracticeQuestionUI } from '../types/prepUI';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { ErrorMessage } from '../components/ErrorMessage';
+import { EnhancedSidebar } from '../components/EnhancedSidebar/EnhancedSidebar';
+import type { FilterState, Question, DifficultyLevel } from '../types/question';
+import './PracticePage.css';
+import { QuestionFilter } from '../components/EnhancedSidebar/QuestionFilter';
+import QuestionMetadata from '../components/QuestionMetadata';
+import { FilterSummary } from '../components/EnhancedSidebar/FilterSummary';
+import QuestionContent from '../components/QuestionContent';
+import QuestionResponseInput from '../components/QuestionResponseInput';
+import type { QuestionStatus } from '../types/prepState';
+import { PrepStateManager } from '../services/PrepStateManager';
 
 const PracticePage: React.FC = () => {
   const navigate = useNavigate();
@@ -29,9 +34,31 @@ const PracticePage: React.FC = () => {
     submitAnswer,
     pausePrep,
     setCurrentQuestion,
-    getNextQuestion
+    getNextQuestion,
+    setActivePrep
   } = useStudentPrep();
   const [isLoading, setIsLoading] = useState(true);
+  const [filters, setFilters] = useState<FilterState>({});
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+
+  // Track user progress
+  const [userProgress, setUserProgress] = useState({
+    completedContent: [] as string[],
+    currentContent: undefined as string | undefined
+  });
+
+  // Loading state for questions (both initial and transitions)
+  const [isLoadingQuestion, setIsLoadingQuestion] = useState(true);
+
+  const handleFilterChange = useCallback((newFilters: FilterState) => {
+    // Ensure difficulty is always DifficultyLevel[]
+    if (newFilters.difficulty) {
+      newFilters.difficulty = newFilters.difficulty.map(d => 
+        typeof d === 'string' ? parseInt(d) as DifficultyLevel : d
+      );
+    }
+    setFilters(newFilters);
+  }, []);
 
   // Set mounted flag
   useEffect(() => {
@@ -52,13 +79,17 @@ const PracticePage: React.FC = () => {
         if (mounted) {
           setError('מזהה תרגול לא תקין');
           setIsLoading(false);
+          setIsLoadingQuestion(false);
         }
         return;
       }
 
       try {
         console.log('Initializing practice:', { prepId });
-        if (mounted) setIsLoading(true);
+        if (mounted) {
+          setIsLoading(true);
+          setIsLoadingQuestion(true);
+        }
         
         // Set requestInProgress only when making the request
         requestInProgress.current = true;
@@ -81,10 +112,9 @@ const PracticePage: React.FC = () => {
         // Only restore from localStorage if this is NOT a new prep
         const isNewPrep = prep.state.status === 'active' && 
                          prep.state.startedAt && 
-                         Date.now() - prep.state.startedAt < 5000; // Prep created in last 5 seconds
+                         Date.now() - prep.state.startedAt < 5000;
         
         if (isNewPrep) {
-          // Clear any stored question for new preps
           localStorage.removeItem('current_question');
           setCurrentQuestion(null);
         }
@@ -95,13 +125,9 @@ const PracticePage: React.FC = () => {
       } catch (error) {
         if (mounted) {
           const errorMessage = error instanceof Error ? error.message : 'אירעה שגיאה בטעינת התרגול';
-          console.error('Practice initialization error:', {
-            error,
-            message: errorMessage,
-            prepId,
-            stack: error instanceof Error ? error.stack : undefined
-          });
+          console.error('Practice initialization error:', error);
           setError(errorMessage);
+          setIsLoadingQuestion(false);
         }
       } finally {
         if (mounted) {
@@ -116,11 +142,19 @@ const PracticePage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [prepId, getPrep, currentQuestion]);
+  }, [prepId, getPrep]);
+
+  // Effect to handle question loading states
+  useEffect(() => {
+    if (currentQuestion) {
+      setIsLoadingQuestion(false);
+    }
+  }, [currentQuestion]);
 
   const handleAnswer = async (answer: string) => {
     if (requestInProgress.current || !currentQuestion || !activePrep) return;
     requestInProgress.current = true;
+    setIsLoadingQuestion(true);
 
     try {
       console.log('Submitting answer:', {
@@ -130,7 +164,38 @@ const PracticePage: React.FC = () => {
         answerLength: answer.length
       });
 
-      await submitAnswer(answer, true);
+      // For multiple choice, check if the selected option is correct
+      let isCorrect = false;
+      if (currentQuestion.question.type === 'multiple_choice' && currentQuestion.question.correctOption) {
+        isCorrect = answer === currentQuestion.question.correctOption.toString();
+      }
+
+      // Update correct answers count and average score
+      const newCorrectAnswers = isCorrect ? (currentQuestion.state.correctAnswers || 0) + 1 : (currentQuestion.state.correctAnswers || 0);
+      const currentIndex = currentQuestion.state.questionIndex || 0;
+      const newAverageScore = Math.round((newCorrectAnswers / (currentIndex + 1)) * 100);
+
+      // Create updated question state
+      const updatedQuestion = {
+        ...currentQuestion,
+        state: {
+          ...currentQuestion.state,
+          correctAnswers: newCorrectAnswers,
+          averageScore: newAverageScore,
+          status: 'submitted' as QuestionStatus,
+          submittedAnswer: {
+            text: answer,
+            timestamp: Date.now()
+          },
+          lastUpdatedAt: Date.now()
+        }
+      };
+
+      // Update the current question state first
+      setCurrentQuestion(updatedQuestion);
+
+      // Then submit the answer
+      await submitAnswer(answer, isCorrect);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error submitting answer';
       console.error('Error submitting answer:', {
@@ -143,6 +208,7 @@ const PracticePage: React.FC = () => {
     } finally {
       if (isComponentMounted.current) {
         requestInProgress.current = false;
+        setIsLoadingQuestion(false);
       }
     }
   };
@@ -191,82 +257,93 @@ const PracticePage: React.FC = () => {
   };
 
   const handleSkip = async (reason: SkipReason) => {
-    if (requestInProgress.current || !currentQuestion || !activePrep) return;
-    requestInProgress.current = true;
+    if (!currentQuestion || !activePrep) {
+      return;
+    }
 
     try {
-      // Clear current question to show loading
+      requestInProgress.current = true;
+      setIsLoading(true);
+
+      // Skip question without counting it
+      const updatedPrep = PrepStateManager.skipQuestion(activePrep);
+      setActivePrep(updatedPrep);
       setCurrentQuestion(null);
 
       // Get next question
-      const nextQuestion = await getNextQuestion();
-      if (isComponentMounted.current && nextQuestion) {
-        const practiceQuestion: PracticeQuestionUI = {
-          question: nextQuestion,
-          state: {
-            status: 'active',
-            startedAt: Date.now(),
-            lastUpdatedAt: Date.now(),
-            helpRequests: [],
-            questionIndex: (currentQuestion.state.questionIndex || 0) + 1,
-            correctAnswers: currentQuestion.state.correctAnswers || 0,
-            averageScore: currentQuestion.state.averageScore || 0
-          }
-        };
-        setCurrentQuestion(practiceQuestion);
+      const nextQuestionData = await getNextQuestion();
+      if (!nextQuestionData) {
+        throw new Error('Failed to get next question');
       }
+
+      // Create practice question with current state values
+      const nextQuestion: PracticeQuestion = {
+        question: nextQuestionData,
+        state: {
+          status: 'active',
+          startedAt: Date.now(),
+          lastUpdatedAt: Date.now(),
+          helpRequests: [],
+          questionIndex: currentQuestion.state.questionIndex || 0,
+          correctAnswers: currentQuestion.state.correctAnswers || 0,
+          averageScore: currentQuestion.state.averageScore || 0
+        }
+      };
+
+      // Update state
+      setCurrentQuestion(nextQuestion);
+      setIsLoading(false);
+      requestInProgress.current = false;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error skipping question';
-      console.error('Error skipping question:', {
-        error,
-        prepId: activePrep.id,
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      setError(errorMessage);
-    } finally {
-      if (isComponentMounted.current) {
-        requestInProgress.current = false;
-      }
+      console.error('Failed to get next question:', error);
+      setError('Failed to get next question');
+      setIsLoading(false);
+      requestInProgress.current = false;
     }
   };
 
   const handleNext = async () => {
-    if (requestInProgress.current || !currentQuestion || !activePrep) return;
-    requestInProgress.current = true;
+    if (!currentQuestion || !activePrep) {
+      return;
+    }
 
     try {
-      // Clear current question to show loading
+      requestInProgress.current = true;
+      setIsLoading(true);
+
+      // Move to next question
+      const updatedPrep = PrepStateManager.moveToNextQuestion(activePrep);
       setCurrentQuestion(null);
 
       // Get next question
-      const nextQuestion = await getNextQuestion();
-      if (isComponentMounted.current && nextQuestion) {
-        const practiceQuestion: PracticeQuestionUI = {
-          question: nextQuestion,
-          state: {
-            status: 'active',
-            startedAt: Date.now(),
-            lastUpdatedAt: Date.now(),
-            helpRequests: [],
-            questionIndex: (currentQuestion.state.questionIndex || 0) + 1,
-            correctAnswers: currentQuestion.state.correctAnswers || 0,
-            averageScore: currentQuestion.state.averageScore || 0
-          }
-        };
-        setCurrentQuestion(practiceQuestion);
+      const nextQuestionData = await getNextQuestion();
+      if (!nextQuestionData) {
+        throw new Error('Failed to get next question');
       }
+
+      // Create practice question
+      const nextQuestion: PracticeQuestion = {
+        question: nextQuestionData,
+        state: {
+          status: 'active',
+          startedAt: Date.now(),
+          lastUpdatedAt: Date.now(),
+          helpRequests: [],
+          questionIndex: (currentQuestion.state.questionIndex || 0) + 1,
+          correctAnswers: currentQuestion.state.correctAnswers || 0,
+          averageScore: currentQuestion.state.averageScore || 0
+        }
+      };
+
+      // Update state
+      setCurrentQuestion(nextQuestion);
+      setIsLoading(false);
+      requestInProgress.current = false;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error loading next question';
-      console.error('Error loading next question:', {
-        error,
-        prepId: activePrep.id,
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      setError(errorMessage);
-    } finally {
-      if (isComponentMounted.current) {
-        requestInProgress.current = false;
-      }
+      console.error('Failed to get next question:', error);
+      setError('Failed to get next question');
+      setIsLoading(false);
+      requestInProgress.current = false;
     }
   };
 
@@ -301,6 +378,27 @@ const PracticePage: React.FC = () => {
       questionId: currentQuestion.question.id,
       newStartTime: Date.now()
     });
+  };
+
+  const handleClearFilter = () => {
+    setFilters({});
+  };
+
+  // Format metadata for QuestionMetadata
+  const formattedMetadata = currentQuestion ? {
+    topicId: currentQuestion.question.metadata.topicId,
+    subtopicId: currentQuestion.question.metadata.subtopicId,
+    type: currentQuestion.question.type,
+    difficulty: currentQuestion.question.metadata.difficulty.toString(),
+    source: currentQuestion.question.metadata.source ? {
+      type: 'exam',
+      ...currentQuestion.question.metadata.source
+    } : { type: 'ezpass' }
+  } : {
+    topicId: '',
+    type: 'multiple_choice',
+    difficulty: '1',
+    source: { type: 'ezpass' }
   };
 
   // Error display with better messaging
@@ -363,66 +461,67 @@ const PracticePage: React.FC = () => {
   }
 
   return (
-    <div style={{ 
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '24px',
-      padding: '24px',
-      maxWidth: '1400px',
-      margin: '0 auto',
-      minHeight: '100vh'
-    }}>
-      {/* Header */}
-      {activePrep && <PracticeHeader prep={activePrep} />}
+    <Layout className="practice-page-layout">
+      <PracticeHeader prep={activePrep} />
+      
+      <Layout.Content className="practice-content">
+        <div className="practice-container">
+          {/* Main Content Area */}
+          <div className="practice-main">
+            {error ? (
+              <Alert
+                message="שגיאה"
+                description={error}
+                type="error"
+                showIcon
+                action={
+                  <Button 
+                    onClick={() => navigate('/')}
+                    icon={<HomeOutlined />}
+                  >
+                    חזור לדף הבית
+                  </Button>
+                }
+              />
+            ) : isLoading ? (
+              <LoadingSpinner />
+            ) : !currentQuestion ? (
+              <LoadingSpinner />
+            ) : (
+              <QuestionInteractionContainer
+                question={currentQuestion.question}
+                onAnswer={handleAnswer}
+                onSkip={handleSkip}
+                onHelp={handleHelp}
+                onNext={handleNext}
+                onRetry={handleRetry}
+                state={{
+                  status: currentQuestion.state.status || 'loading',
+                  feedback: currentQuestion.state.feedback,
+                  questionIndex: ('completedQuestions' in activePrep.state) ? activePrep.state.completedQuestions : 0,
+                  correctAnswers: ('correctAnswers' in activePrep.state) ? activePrep.state.correctAnswers : 0,
+                  averageScore: ('averageScore' in activePrep.state) ? activePrep.state.averageScore : 0
+                }}
+                filters={filters}
+                onFiltersChange={handleFilterChange}
+                activePrep={activePrep}
+              />
+            )}
+          </div>
 
-      {/* Main Content */}
-      {!currentQuestion || currentQuestion.state.status === 'loading' ? (
-        <div style={{ 
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
-          backgroundColor: '#ffffff',
-          borderRadius: '8px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-        }}>
-          <Space direction="vertical" align="center">
-            <Spin size="large" />
-            <Typography.Text>טוען שאלה...</Typography.Text>
-          </Space>
+          {/* Right Sidebar */}
+          <div className="practice-sidebar practice-sidebar-right">
+            {currentQuestion && (
+              <EnhancedSidebar
+                question={currentQuestion.question}
+                filters={filters}
+                onFiltersChange={handleFilterChange}
+              />
+            )}
+          </div>
         </div>
-      ) : error ? (
-        <div style={{ padding: '24px' }}>
-          <Alert
-            message="שגיאה"
-            description={error}
-            type="error"
-            showIcon
-            action={
-              <Space>
-                <Button onClick={() => setError(null)}>נסה שוב</Button>
-              </Space>
-            }
-          />
-        </div>
-      ) : (
-        <PracticeContainer
-          question={currentQuestion.question}
-          onAnswer={handleAnswer}
-          onHelp={handleHelp}
-          onSkip={handleSkip}
-          onNext={handleNext}
-          onRetry={handleRetry}
-          state={{
-            status: currentQuestion.state.status,
-            feedback: currentQuestion.state.feedback,
-            questionIndex: currentQuestion.state.questionIndex || 0,
-            correctAnswers: 0,
-            averageScore: 0
-          }}
-        />
-      )}
-    </div>
+      </Layout.Content>
+    </Layout>
   );
 };
 

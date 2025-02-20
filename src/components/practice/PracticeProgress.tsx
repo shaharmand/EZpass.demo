@@ -9,6 +9,11 @@ interface PracticeProgressProps {
   currentQuestionIndex: number;
   correctAnswers: number;
   score: number;
+  answeredQuestions?: {
+    index: number;
+    isCorrect: boolean;
+    score?: number;
+  }[];
 }
 
 // Define scrollbar styles as a CSS class
@@ -25,19 +30,25 @@ const scrollbarStyles = `
   }
 `;
 
+const MAX_QUESTIONS = 10;
+
 const PracticeProgress: React.FC<PracticeProgressProps> = ({
   totalQuestions,
   currentQuestionIndex,
   correctAnswers,
-  score
+  score,
+  answeredQuestions = []
 }) => {
   const progressStyles = {
     container: {
       display: 'flex',
       gap: '8px',
-      padding: '16px 24px',
+      padding: '12px 16px',
       backgroundColor: '#f8fafc',
-      alignItems: 'center'
+      alignItems: 'center',
+      direction: 'rtl' as const,
+      width: '100%',
+      overflow: 'hidden'
     },
     progressList: {
       display: 'flex',
@@ -48,24 +59,31 @@ const PracticeProgress: React.FC<PracticeProgressProps> = ({
     },
     item: {
       base: {
-        padding: '8px 16px',
-        borderRadius: '8px',
+        padding: '6px 8px',
+        borderRadius: '6px',
         transition: 'all 0.2s ease-in-out',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        minWidth: '48px',
-        justifyContent: 'center'
+        gap: '4px',
+        minWidth: '32px',
+        maxWidth: '32px',
+        justifyContent: 'center',
+        fontSize: '12px'
       },
       states: {
-        completed: {
+        correct: {
           backgroundColor: '#dcfce7',
-          border: '2px solid #22c55e',
+          border: '1px solid #22c55e',
           color: '#166534'
+        },
+        wrong: {
+          backgroundColor: '#fee2e2',
+          border: '1px solid #ef4444',
+          color: '#991b1b'
         },
         current: {
           backgroundColor: '#dbeafe',
-          border: '2px solid #3b82f6',
+          border: '1px solid #3b82f6',
           color: '#1e40af',
           fontWeight: 600,
           transform: 'scale(1.05)'
@@ -77,24 +95,31 @@ const PracticeProgress: React.FC<PracticeProgressProps> = ({
         }
       }
     },
-    score: {
+    stats: {
       container: {
-        marginLeft: 'auto',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        padding: '12px 20px',
+        gap: '12px',
+        marginRight: 'auto'
+      },
+      item: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        padding: '6px 12px',
         backgroundColor: '#fff',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-        border: '1px solid #e5e7eb'
+        borderRadius: '8px',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+        border: '1px solid #e5e7eb',
+        minWidth: '80px',
+        justifyContent: 'center'
       },
       label: {
-        fontSize: '14px',
+        fontSize: '12px',
         color: '#64748b'
       },
       value: {
-        fontSize: '18px',
+        fontSize: '14px',
         fontWeight: 600,
         color: '#0f172a',
         transition: 'color 0.3s ease'
@@ -103,9 +128,48 @@ const PracticeProgress: React.FC<PracticeProgressProps> = ({
   };
 
   const getItemState = (index: number) => {
-    if (index < currentQuestionIndex) return 'completed';
-    if (index === currentQuestionIndex) return 'current';
+    const answeredQuestion = answeredQuestions.find(q => q.index === index);
+    console.log('🎨 Determining button state:', {
+      index,
+      currentQuestionIndex,
+      answeredQuestion,
+      hasScore: answeredQuestion?.score !== undefined,
+      isCorrect: answeredQuestion?.isCorrect,
+      score: answeredQuestion?.score
+    });
+    
+    if (answeredQuestion) {
+      // Use score threshold of 80% if score is available, otherwise use isCorrect
+      const isSuccess = answeredQuestion.score !== undefined
+        ? answeredQuestion.score >= 80 
+        : answeredQuestion.isCorrect;
+      const state = isSuccess ? 'correct' : 'wrong';
+      console.log(`✨ Button ${index + 1} state determined:`, {
+        state,
+        basedOn: answeredQuestion.score !== undefined ? 'score' : 'isCorrect'
+      });
+      return state;
+    }
+    if (index === currentQuestionIndex) {
+      console.log(`🔵 Button ${index + 1} is current question`);
+      return 'current';
+    }
+    console.log(`⚪ Button ${index + 1} is upcoming`);
     return 'upcoming';
+  };
+
+  // Calculate real success rate based on feedback scores
+  const calculateSuccessRate = () => {
+    const completedQuestions = answeredQuestions.filter(q => q.score !== undefined || q.isCorrect !== undefined);
+    if (completedQuestions.length === 0) return 0;
+    
+    const totalScore = completedQuestions.reduce((sum, q) => {
+      // If we have a score, use it, otherwise use 100 for correct and 40 for incorrect
+      if (q.score !== undefined) return sum + q.score;
+      return sum + (q.isCorrect ? 100 : 40);
+    }, 0);
+    
+    return Math.round(totalScore / completedQuestions.length);
   };
 
   return (
@@ -113,22 +177,26 @@ const PracticeProgress: React.FC<PracticeProgressProps> = ({
       <style>{scrollbarStyles}</style>
       <div style={progressStyles.container}>
         <div className="progress-list" style={progressStyles.progressList}>
-          {Array.from({ length: totalQuestions }).map((_, index) => {
+          {Array.from({ length: Math.min(MAX_QUESTIONS, totalQuestions) }).map((_, index) => {
             const state = getItemState(index);
             return (
               <Tooltip 
                 key={index}
-                title={`שאלה ${index + 1} ${state === 'completed' ? '(הושלם)' : 
-                       state === 'current' ? '(נוכחי)' : ''}`}
+                title={`שאלה ${index + 1} ${
+                  state === 'correct' ? '(נכון)' : 
+                  state === 'wrong' ? '(לא נכון)' :
+                  state === 'current' ? '(נוכחי)' : ''}`}
               >
                 <div style={{
                   ...progressStyles.item.base,
                   ...progressStyles.item.states[state]
                 }}>
-                  {state === 'completed' ? (
-                    <CheckCircleFilled style={{ fontSize: '16px' }} />
+                  {state === 'correct' ? (
+                    <CheckCircleFilled style={{ fontSize: '12px' }} />
+                  ) : state === 'wrong' ? (
+                    <Text>✕</Text>
                   ) : state === 'current' ? (
-                    <LoadingOutlined style={{ fontSize: '16px' }} />
+                    <LoadingOutlined style={{ fontSize: '12px' }} />
                   ) : (
                     <Text>{index + 1}</Text>
                   )}
@@ -137,12 +205,16 @@ const PracticeProgress: React.FC<PracticeProgressProps> = ({
             );
           })}
         </div>
-        
-        <div style={progressStyles.score.container}>
-          <Text style={progressStyles.score.label}>ציון ממוצע:</Text>
-          <Text style={progressStyles.score.value}>
-            {score}%
-          </Text>
+
+        {/* Stats Section */}
+        <div style={progressStyles.stats.container}>
+          {/* Success Rate */}
+          <div style={progressStyles.stats.item}>
+            <Text style={progressStyles.stats.label}>הצלחה:</Text>
+            <Text style={progressStyles.stats.value}>
+              {calculateSuccessRate()}%
+            </Text>
+          </div>
         </div>
       </div>
     </>

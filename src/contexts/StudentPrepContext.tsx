@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import type { FormalExam } from '../types/shared/exam';
 import type { StudentPrep, QuestionState, TopicSelection, PrepState, logPrepStateChange, logQuestionStateChange } from '../types/prepState';
 import type { PracticeQuestion } from '../types/prepUI';
-import type { Question, QuestionType, QuestionFeedback } from '../types/question';
+import type { Question, QuestionType, QuestionFeedback, FilterState } from '../types/question';
 import { PrepStateManager } from '../services/PrepStateManager';
 import { questionService } from '../services/llm/service';
 import { QuestionRotationManager } from '../services/QuestionRotationManager';
@@ -13,10 +13,11 @@ interface StudentPrepContextType {
   startPrep: (exam: FormalExam, selection?: TopicSelection) => Promise<string>;
   pausePrep: (prepId: string) => void;
   completePrep: (prepId: string) => void;
-  getNextQuestion: () => Promise<Question>;
+  getNextQuestion: (filters?: FilterState) => Promise<Question>;
   submitAnswer: (answer: string, isCorrect: boolean) => Promise<void>;
   setCurrentQuestion: (question: PracticeQuestion | null) => void;
   getPrep: (prepId: string) => Promise<StudentPrep | null>;
+  setActivePrep: (prep: StudentPrep | null) => void;
 }
 
 const StudentPrepContext = createContext<StudentPrepContextType | null>(null);
@@ -65,7 +66,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   // Get next question
-  const getNextQuestion = useCallback(async (): Promise<Question> => {
+  const getNextQuestion = useCallback(async (filters?: FilterState): Promise<Question> => {
     if (!activePrep) {
       throw new Error('No active prep session');
     }
@@ -104,6 +105,11 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Get next parameters using rotation manager
       if (!rotationManager.current) {
         throw new Error('Question rotation manager not initialized');
+      }
+
+      // Set current filters
+      if (filters) {
+        rotationManager.current.setFilter(filters);
       }
 
       const params = rotationManager.current.getNextParameters();
@@ -260,6 +266,49 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!activePrep || !currentQuestion) return;
 
     try {
+      // Generate feedback based on question type
+      let score: number;
+      switch (currentQuestion.question.type) {
+        case 'multiple_choice':
+          score = isCorrect ? 100 : 0; // Binary scoring for multiple choice
+          break;
+        case 'open':
+        case 'step_by_step':
+          // For open questions, score should come from the question's evaluation criteria
+          // This is a mock - in reality this should come from the question service
+          score = isCorrect ? 100 : 0; // TODO: Replace with actual scoring logic
+          break;
+        case 'code':
+          // For code questions, score should be based on test cases and code quality
+          // This is a mock - in reality this should come from the code evaluation service
+          score = isCorrect ? 100 : 0; // TODO: Replace with actual code evaluation
+          break;
+        default:
+          score = isCorrect ? 100 : 0;
+      }
+
+      const feedback: QuestionFeedback = {
+        isCorrect,
+        score,
+        type: currentQuestion.question.type,
+        assessment: isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה. נסה שוב.',
+        explanation: isCorrect 
+          ? 'כל הכבוד! התשובה שלך מדויקת ומראה הבנה טובה של החומר. המשך כך!'
+          : 'אני רואה שיש מקום לשיפור. נסה לחשוב על הבעיה שוב, ואם צריך, אפשר לבקש רמז או הסבר נוסף.',
+        solution: isCorrect 
+          ? 'הפתרון שלך נכון ומדויק.'
+          : 'נסה לחשוב על הבעיה שוב ולפתור אותה צעד אחר צעד.'
+      };
+
+      // Update prep progress with the score and question ID
+      const updatedPrep = PrepStateManager.updateProgress(
+        activePrep, 
+        isCorrect, 
+        score,
+        currentQuestion.question.id
+      );
+      setActivePrep(updatedPrep);
+
       // Update question state with feedback
       const updatedState: QuestionState = {
         ...currentQuestion.state,
@@ -269,18 +318,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
           timestamp: Date.now()
         },
         lastUpdatedAt: Date.now(),
-        feedback: {
-          isCorrect,
-          score: isCorrect ? 100 : 0,
-          type: currentQuestion.question.type,
-          assessment: isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה. נסה שוב.',
-          explanation: isCorrect 
-            ? 'כל הכבוד! התשובה שלך מדויקת ומראה הבנה טובה של החומר. המשך כך!'
-            : 'אני רואה שיש מקום לשיפור. נסה לחשוב על הבעיה שוב, ואם צריך, אפשר לבקש רמז או הסבר נוסף.',
-          solution: isCorrect 
-            ? 'הפתרון שלך נכון ומדויק.'
-            : 'נסה לחשוב על הבעיה שוב ולפתור אותה צעד אחר צעד.'
-        }
+        feedback
       };
 
       setCurrentQuestion({
@@ -356,7 +394,8 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       getNextQuestion,
       submitAnswer,
       setCurrentQuestion,
-      getPrep
+      getPrep,
+      setActivePrep
     }}>
       {children}
     </StudentPrepContext.Provider>

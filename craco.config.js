@@ -14,6 +14,12 @@ module.exports = {
         'node_modules',
       ];
 
+      // Add path alias for data directory
+      webpackConfig.resolve.alias = {
+        ...webpackConfig.resolve.alias,
+        data: path.resolve(__dirname, './data'),
+      };
+
       return webpackConfig;
     },
   },

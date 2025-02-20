@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, Typography, Space, Divider, Card, Button, Collapse, Tag } from 'antd';
+import { Modal, Typography, Space, Divider, Card, Button, Collapse, Tag, List, Checkbox, Alert } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { 
   BookOutlined, 
@@ -9,9 +9,9 @@ import {
   CaretRightOutlined,
   PlayCircleOutlined
 } from '@ant-design/icons';
-import type { FormalExam, Topic } from '../../types/shared/exam';
+import type { FormalExam, Topic, SubTopic } from '../../types/shared/exam';
+import type { TopicSelection, StudentPrep } from '../../types/prepState';
 import { useStudentPrep } from '../../contexts/StudentPrepContext';
-import { startQuickPractice } from '../../utils/examUtils';
 
 const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
@@ -20,244 +20,102 @@ interface ExamTopicsDialogProps {
   exam: FormalExam;
   open: boolean;
   onClose: () => void;
+  startPrep: (exam: FormalExam, selection?: TopicSelection) => Promise<string>;
+  getPrep: (prepId: string) => Promise<StudentPrep | null>;
 }
 
 export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
   exam,
   open,
   onClose,
+  startPrep,
+  getPrep
 }) => {
   const navigate = useNavigate();
-  const { setActivePrep } = useStudentPrep();
-  const [expandedTopics, setExpandedTopics] = useState<string[]>([]);
+  const [selectedTopics, setSelectedTopics] = useState<Topic[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   
-  // Filter out missing topics
-  const validTopics = React.useMemo(() => {
-    if (!exam.topics) return [];
-    return exam.topics;
-  }, [exam.topics]);
-
-  const handleStartPractice = () => {
-    startQuickPractice(exam, setActivePrep, navigate);
-    onClose();
+  const handleSubmit = async () => {
+    if (!exam) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('Starting practice session with topic selection...');
+      
+      // If topics are selected, create a TopicSelection
+      const selection: TopicSelection | undefined = selectedTopics.length > 0
+        ? {
+            topics: selectedTopics.map(t => t.topicId),
+            subTopics: selectedTopics.flatMap(t => t.subTopics.map(st => st.id))
+          }
+        : undefined;
+      
+      // Start practice and get ID
+      const prepId = await startPrep(exam, selection);
+      console.log('Prep created with ID:', prepId);
+      
+      // Close dialog and navigate immediately
+      onClose();
+      navigate(`/practice/${prepId}`, { replace: true });
+    } catch (error) {
+      console.error('Error starting practice:', {
+        error,
+        examId: exam.id,
+        selectedTopics: selectedTopics.length,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      setError(error instanceof Error ? error.message : 'Failed to start practice');
+      setLoading(false);
+    }
   };
 
   return (
     <Modal
-      title={null}
+      title="בחר נושאים לתרגול"
       open={open}
       onCancel={onClose}
-      width={800}
-      footer={
+      footer={[
         <Button 
+          key="submit" 
           type="primary" 
-          size="large"
-          icon={<PlayCircleOutlined />}
-          onClick={handleStartPractice}
-          style={{
-            width: '100%',
-            height: '48px',
-            fontSize: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px'
-          }}
+          onClick={handleSubmit}
+          loading={loading}
         >
           התחל תרגול
         </Button>
-      }
-      className="exam-topics-dialog"
-      bodyStyle={{ padding: 0 }}
+      ]}
     >
-      {/* Header Section */}
-      <div style={{ 
-        background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
-        padding: '24px',
-        borderRadius: '8px 8px 0 0',
-        marginBottom: '24px'
-      }}>
-        <Title level={4} style={{ 
-          margin: 0,
-          color: 'white',
-          marginBottom: '16px'
-        }}>
-          {exam.title}
-        </Title>
-        
-        <Space split={<Divider type="vertical" style={{ borderColor: 'rgba(255,255,255,0.3)' }} />}>
-          <Space>
-            <BookOutlined style={{ color: 'white' }} />
-            <Text style={{ color: 'white' }}>
-              קוד {exam.description.split(' - ')[0]}
-            </Text>
-          </Space>
-          <Space>
-            <ClockCircleOutlined style={{ color: 'white' }} />
-            <Text style={{ color: 'white' }}>
-              {exam.duration} דקות
-            </Text>
-          </Space>
-          <Space>
-            <QuestionCircleOutlined style={{ color: 'white' }} />
-            <Text style={{ color: 'white' }}>
-              {exam.totalQuestions} שאלות
-            </Text>
-          </Space>
-        </Space>
-      </div>
-
-      <div style={{ 
-        maxHeight: 'calc(80vh - 240px)', // Adjusted for footer
-        overflowY: 'auto',
-        padding: '0 24px 24px'
-      }}>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>            
-          {validTopics.map((topic, topicIndex) => (
-            <Collapse 
-              key={topicIndex}
-              expandIcon={({ isActive }) => (
-                <CaretRightOutlined
-                  rotate={isActive ? 90 : 0}
-                  style={{ fontSize: '16px', color: '#1890ff' }}
-                />
-              )}
-              onChange={(keys) => setExpandedTopics(prev => 
-                keys.includes('1') 
-                  ? [...prev, topic.id]
-                  : prev.filter(id => id !== topic.id)
-              )}
-              style={{
-                background: 'white',
-                borderRadius: '8px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+      {error && (
+        <Alert
+          message="שגיאה"
+          description={error}
+          type="error"
+          showIcon
+          style={{ marginBottom: '16px' }}
+        />
+      )}
+      <List
+        dataSource={exam.topics}
+        renderItem={(topic: Topic) => (
+          <List.Item>
+            <Checkbox
+              checked={selectedTopics.some(t => t.id === topic.id)}
+              onChange={e => {
+                if (e.target.checked) {
+                  setSelectedTopics([...selectedTopics, topic]);
+                } else {
+                  setSelectedTopics(selectedTopics.filter(t => t.id !== topic.id));
+                }
               }}
             >
-              <Panel 
-                key="1"
-                header={
-                  <Space direction="vertical" style={{ width: '100%' }} size={4}>
-                    <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      width: '100%'
-                    }}>
-                      <Text strong style={{ fontSize: '1.2rem', color: '#1f2937' }}>
-                        {topic.name}
-                      </Text>
-                      <Text type="secondary" style={{ fontSize: '0.9rem' }}>
-                        {topic.subTopics.length} תתי-נושאים
-                      </Text>
-                    </div>
-                    {!expandedTopics.includes(topic.id) && (
-                      <div style={{ 
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '4px',
-                        marginTop: '4px'
-                      }}>
-                        {topic.subTopics.map((subTopic, subIndex) => (
-                          <Tag 
-                            key={subIndex}
-                            style={{ 
-                              margin: 0,
-                              fontSize: '0.85rem',
-                              background: '#f3f4f6',
-                              border: '1px solid #e5e7eb',
-                              borderRadius: '4px'
-                            }}
-                          >
-                            {subTopic.name}
-                          </Tag>
-                        ))}
-                      </div>
-                    )}
-                  </Space>
-                }
-              >
-                {/* Topic Description */}
-                <Space direction="vertical" style={{ width: '100%', marginBottom: '12px' }}>
-                  <div>
-                    <Text strong>תיאור הנושא:</Text>
-                    <Paragraph style={{ 
-                      margin: '4px 0 8px',
-                      color: '#4b5563',
-                      fontSize: '0.95rem'
-                    }}>
-                      {topic.description}
-                    </Paragraph>
-                  </div>
-                </Space>
-
-                {/* Subtopics */}
-                <Space direction="vertical" style={{ width: '100%' }} size="small">
-                  {topic.subTopics.map((subTopic, subIndex) => (
-                    <div key={subIndex} style={{
-                      padding: '2px 4px',
-                      background: '#f9fafb',
-                      borderRadius: '4px',
-                      marginBottom: subIndex < topic.subTopics.length - 1 ? '2px' : 0
-                    }}>
-                      <Collapse 
-                        ghost 
-                        expandIcon={({ isActive }) => (
-                          <CaretRightOutlined
-                            rotate={isActive ? 90 : 0}
-                            style={{ 
-                              fontSize: '14px',
-                              color: '#1890ff'
-                            }}
-                          />
-                        )}
-                      >
-                        <Panel 
-                          header={
-                            <Text strong style={{ 
-                              color: '#1f2937',
-                              fontSize: '0.95rem',
-                              lineHeight: '1.2'
-                            }}>
-                              {subTopic.name}
-                            </Text>
-                          }
-                          key="1"
-                          style={{ padding: 0, margin: 0 }}
-                        >
-                          <div style={{ paddingTop: '2px', paddingLeft: '20px' }}>
-                            <Space direction="vertical" style={{ width: '100%' }} size={2}>
-                              <div>
-                                <Text strong>תיאור:</Text>
-                                <Paragraph style={{ 
-                                  margin: '2px 0',
-                                  fontSize: '0.9rem'
-                                }}>
-                                  {subTopic.description}
-                                </Paragraph>
-                              </div>
-                              {subTopic.questionTemplate && (
-                                <div>
-                                  <Text strong>שאלות אופייניות:</Text>
-                                  <Paragraph style={{ 
-                                    margin: '2px 0',
-                                    fontSize: '0.9rem'
-                                  }}>
-                                    {subTopic.questionTemplate}
-                                  </Paragraph>
-                                </div>
-                              )}
-                            </Space>
-                          </div>
-                        </Panel>
-                      </Collapse>
-                    </div>
-                  ))}
-                </Space>
-              </Panel>
-            </Collapse>
-          ))}
-        </Space>
-      </div>
+              {topic.name}
+            </Checkbox>
+          </List.Item>
+        )}
+      />
     </Modal>
   );
 }; 

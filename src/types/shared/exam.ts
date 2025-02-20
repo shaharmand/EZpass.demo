@@ -20,6 +20,7 @@
  *   topics: [...]
  * }
  */
+
 export interface FormalExam {
   /** Unique identifier matching ExamData.id */
   id: string;
@@ -48,7 +49,7 @@ export interface FormalExam {
   /** Timestamp when exam was started */
   startedAt?: string;
   /** List of topics with runtime state */
-  topics?: Topic[];
+  topics: Topic[];
 }
 
 /**

@@ -12,21 +12,22 @@ import type {
   SubTopic
 } from '../types/shared/exam';
 import { validateExamData } from '../schemas/exam';
+import type { DifficultyLevel } from '../types/question';
 
 // Import exam data directly
-import bagrutCS from '../../data/exams/bagrut_cs.json';
-import mahatCS from '../../data/exams/mahat_cs.json';
-import bagrutMath from '../../data/exams/bagrut_math.json';
-import mahatCivil from '../../data/exams/mahat_civil.json';
+import bagrutCS from 'data/exams/bagrut_cs.json';
+import mahatCS from 'data/exams/mahat_cs.json';
+import bagrutMath from 'data/exams/bagrut_math.json';
+import mahatCivil from 'data/exams/mahat_civil.json';
 
 // Import subject data
-import csProgrammingFundamentals from '../../data/subjects/cs_programming_fundamentals.json';
-import csDataStructures from '../../data/subjects/cs_data_structures.json';
-import mathSubject from '../../data/subjects/math.json';
-import constructionSafety from '../../data/subjects/construction_safety.json';
+import csProgrammingFundamentals from 'data/subjects/cs_programming_fundamentals.json';
+import csDataStructures from 'data/subjects/cs_data_structures.json';
+import mathSubject from 'data/subjects/math.json';
+import constructionSafety from 'data/subjects/construction_safety.json';
 
 // Import domain data
-import civilEngineering from '../../data/domains/civil_engineering.json';
+import civilEngineering from 'data/domains/civil_engineering.json';
 
 // Transform JSON data to match our types
 function transformTopic(topic: { topicId: string; subTopics: string[] }): Topic {
@@ -135,7 +136,7 @@ function transformExam(exam: {
     code: exam.code,
     names: exam.names,
     exam_type: exam.exam_type === 'bagrut' ? ExamType.BAGRUT : ExamType.MAHAT,
-    difficulty: exam.difficulty,
+    difficulty: exam.difficulty as DifficultyLevel,
     topics: validatedTopics
   };
 }

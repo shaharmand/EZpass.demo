@@ -1,119 +1,78 @@
-import React from 'react';
-import { Space, Typography, Tooltip } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Space, Typography, Tooltip, Spin } from 'antd';
 import { BookOutlined, AppstoreOutlined, SignalFilled, DatabaseOutlined } from '@ant-design/icons';
+import { examService } from '../services/examService';
+import type { Topic, SubTopic } from '../types/shared/exam';
 
 const { Text } = Typography;
 
 interface QuestionMetadataProps {
   metadata: {
-    topic: {
-      main: string;
-      sub?: string;
-    };
+    topicId: string;
+    subtopicId?: string;
     type: string;
     difficulty: string;
-    source?: string;
+    source: {
+      type: 'exam' | 'book' | 'ezpass';
+      examType?: string;
+      year?: number;
+      season?: string;
+      moed?: string;
+      bookName?: string;
+      publisher?: string;
+    } | string;
   };
 }
 
 interface TopicInfo {
   name: string;
   description: string;
+  subTopic?: {
+    name: string;
+    description: string;
+  };
 }
 
-const getTopicInfo = (id: string): TopicInfo => {
-  const topicMap: Record<string, TopicInfo> = {
-    // Safety Management Topics
-    'safety_management': {
-      name: 'ניהול בטיחות',
-      description: 'ניהול מערך הבטיחות באתר בנייה, כולל תכנון, יישום ובקרה'
-    },
-    'safety_regulations': {
-      name: 'תקנות בטיחות',
-      description: 'חוקים ותקנות בטיחות בעבודה באתרי בנייה, דרישות רגולטוריות ותקנים מחייבים'
-    },
-    'risk_assessment': {
-      name: 'הערכת סיכונים',
-      description: 'זיהוי, ניתוח והערכת סיכונים באתר בנייה, קביעת אמצעי בקרה ומניעה'
-    },
-    'safety_planning': {
-      name: 'תכנון בטיחות',
-      description: 'תכנון מערך בטיחות, כולל נהלים, הדרכות ואמצעי בטיחות'
-    },
-    
-    // Work at Height Topics
-    'work_at_height': {
-      name: 'עבודה בגובה',
-      description: 'בטיחות בעבודה בגובה, כולל שימוש בציוד מגן אישי ואמצעי בטיחות'
-    },
-    'scaffolding': {
-      name: 'פיגומים',
-      description: 'הקמה, שימוש ותחזוקה של פיגומים, כולל בדיקות תקופתיות ואמצעי בטיחות'
-    },
-    'fall_protection': {
-      name: 'הגנה מנפילה',
-      description: 'אמצעים למניעת נפילה מגובה, כולל רתמות בטיחות, קווי חיים ומעקות'
-    },
-    
-    // Construction Operations
-    'construction_operations': {
-      name: 'עבודות בנייה',
-      description: 'בטיחות בביצוע עבודות בנייה שונות, כולל חפירות, יציקות והריסות'
-    },
-    'excavation': {
-      name: 'חפירות',
-      description: 'בטיחות בעבודות חפירה, כולל דיפון, תמיכה וניקוז'
-    },
-    'demolition': {
-      name: 'הריסות',
-      description: 'בטיחות בעבודות הריסה, כולל תכנון, ביצוע ופינוי'
-    },
-    
-    // Equipment Safety
-    'equipment_safety': {
-      name: 'בטיחות בציוד',
-      description: 'בטיחות בשימוש בציוד בנייה, כולל ציוד מכני הנדסי וכלי עבודה'
-    },
-    'heavy_equipment': {
-      name: 'ציוד כבד',
-      description: 'בטיחות בהפעלת ציוד מכני הנדסי, כולל מנופים, מחפרים וטרקטורים'
-    },
-    'power_tools': {
-      name: 'כלי עבודה חשמליים',
-      description: 'בטיחות בשימוש בכלי עבודה חשמליים, כולל בדיקות תקופתיות ותחזוקה'
-    }
-  };
+const formatSource = (source: { 
+  type: 'exam' | 'book' | 'ezpass';
+  examType?: string; 
+  year?: number; 
+  season?: string; 
+  moed?: string;
+  bookName?: string;
+  publisher?: string;
+} | string): string => {
+  if (typeof source === 'string') return source;
   
-  return topicMap[id] || { name: id, description: 'תיאור לא זמין' };
+  switch (source.type) {
+    case 'exam':
+      const examParts = [
+        source.examType || '',
+        source.year?.toString() || '',
+        source.season || '',
+        source.moed ? `מועד ${source.moed}` : ''
+      ].filter(Boolean);
+      return examParts.length > 0 ? `מבחן ${examParts.join(' ')}` : 'מבחן';
+    
+    case 'book':
+      const bookParts = [
+        source.bookName || '',
+        source.publisher || ''
+      ].filter(Boolean);
+      return bookParts.length > 0 ? `ספר ${bookParts.join(' - ')}` : 'ספר';
+    
+    case 'ezpass':
+    default:
+      return 'איזיפס';
+  }
 };
 
-const getTopicDisplayName = (id: string): string => {
-  return getTopicInfo(id).name;
-};
-
-const getTopicTooltip = (mainTopic: string, subTopic?: string): React.ReactNode => {
-  const mainTopicInfo = getTopicInfo(mainTopic);
-  const subTopicInfo = subTopic ? getTopicInfo(subTopic) : null;
-
-  return (
-    <div style={{ maxWidth: '300px', direction: 'rtl', color: 'white' }}>
-      <div>
-        <Text strong style={{ color: 'white' }}>נושא ראשי: {mainTopicInfo.name}</Text>
-        <br />
-        <Text style={{ color: 'white' }}>{mainTopicInfo.description}</Text>
-      </div>
-      {subTopicInfo && (
-        <>
-          <div style={{ margin: '8px 0', height: '1px', background: '#4b5563' }} />
-          <div>
-            <Text strong style={{ color: 'white' }}>תת-נושא: {subTopicInfo.name}</Text>
-            <br />
-            <Text style={{ color: 'white' }}>{subTopicInfo.description}</Text>
-          </div>
-        </>
-      )}
-    </div>
-  );
+const getTypeDescription = (type: string): string => {
+  const descriptions: Record<string, string> = {
+    'רב-ברירה': 'שאלה עם מספר אפשרויות תשובה, מתוכן יש לבחור את התשובה הנכונה',
+    'פתוח': 'שאלה הדורשת תשובה מילולית או פתרון מפורט'
+  };
+  return descriptions[type] || 'סוג שאלה לא מוגדר';
 };
 
 const getDifficultyDescription = (level: string): string => {
@@ -127,14 +86,6 @@ const getDifficultyDescription = (level: string): string => {
   return descriptions[level] || 'רמת קושי לא מוגדרת';
 };
 
-const getTypeDescription = (type: string): string => {
-  const descriptions: Record<string, string> = {
-    'רב-ברירה': 'שאלה עם מספר אפשרויות תשובה, מתוכן יש לבחור את התשובה הנכונה',
-    'פתוח': 'שאלה הדורשת תשובה מילולית או פתרון מפורט'
-  };
-  return descriptions[type] || 'סוג שאלה לא מוגדר';
-};
-
 const getSourceDescription = (source: string): string => {
   if (source.startsWith('מבחן')) {
     return 'שאלה מתוך מבחן רשמי קודם';
@@ -146,124 +97,190 @@ const getSourceDescription = (source: string): string => {
   return 'מקור השאלה';
 };
 
+const getTopicTooltip = (topicInfo: TopicInfo): React.ReactNode => {
+  return (
+    <div style={{ maxWidth: '300px', direction: 'rtl', color: 'white' }}>
+      <div>
+        <Text strong style={{ color: 'white' }}>נושא ראשי: {topicInfo.name}</Text>
+        <br />
+        <Text style={{ color: 'white' }}>{topicInfo.description}</Text>
+      </div>
+      {topicInfo.subTopic && (
+        <>
+          <div style={{ margin: '8px 0', height: '1px', background: '#4b5563' }} />
+          <div>
+            <Text strong style={{ color: 'white' }}>תת-נושא: {topicInfo.subTopic.name}</Text>
+            <br />
+            <Text style={{ color: 'white' }}>{topicInfo.subTopic.description}</Text>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const QuestionMetadata: React.FC<QuestionMetadataProps> = ({ metadata }) => {
+  const [topicInfo, setTopicInfo] = useState<TopicInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadTopicInfo = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Load main topic data
+        const mainTopicData = await examService.getTopicData(metadata.topicId);
+        
+        // If we have a subtopic, load its data too
+        let subTopicData = null;
+        if (metadata.subtopicId) {
+          const fullTopicData = await examService.getTopicData(metadata.topicId);
+          subTopicData = fullTopicData.subTopics?.find((st: { id: string; name: string; description: string }) => 
+            st.id === metadata.subtopicId
+          );
+        }
+
+        setTopicInfo({
+          name: mainTopicData.name,
+          description: mainTopicData.description,
+          subTopic: subTopicData ? {
+            name: subTopicData.name,
+            description: subTopicData.description
+          } : undefined
+        });
+      } catch (err) {
+        console.error('Error loading topic info:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load topic information');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTopicInfo();
+  }, [metadata.topicId, metadata.subtopicId]);
+
   return (
     <div style={{ 
-      padding: '8px 24px',
-      backgroundColor: '#ffffff'
+      display: 'flex', 
+      gap: '16px',
+      alignItems: 'center',
+      flexWrap: 'wrap'
     }}>
-      <div style={{ 
-        display: 'flex', 
-        gap: '16px',
-        alignItems: 'center',
-        flexWrap: 'wrap'
-      }}>
-        {/* Topic with Enhanced Tooltip */}
-        <Tooltip 
-          title={getTopicTooltip(metadata.topic.main, metadata.topic.sub)}
-          overlayStyle={{ 
-            maxWidth: '400px',
-            opacity: 1
-          }}
-          overlayInnerStyle={{
-            color: 'white'
-          }}
-          placement="top"
-          color="#1f2937"
-        >
-          <div style={{ 
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 8px',
-            backgroundColor: '#f9fafb',
-            borderRadius: '4px',
-            border: '1px solid #f3f4f6',
-            cursor: 'help'
-          }}>
-            <BookOutlined style={{ fontSize: '14px', color: '#9ca3af' }} />
+      {/* Topic with Enhanced Tooltip */}
+      <Tooltip 
+        title={loading ? 'טוען מידע...' : error ? error : topicInfo ? getTopicTooltip(topicInfo) : 'מידע לא זמין'}
+        overlayStyle={{ 
+          maxWidth: '400px',
+          opacity: 1
+        }}
+        overlayInnerStyle={{
+          color: 'white'
+        }}
+        placement="top"
+        color="#1f2937"
+      >
+        <div style={{ 
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 8px',
+          backgroundColor: '#f9fafb',
+          borderRadius: '4px',
+          border: '1px solid #f3f4f6',
+          cursor: 'help'
+        }}>
+          <BookOutlined style={{ fontSize: '14px', color: '#9ca3af' }} />
+          {loading ? (
+            <Spin size="small" />
+          ) : (
             <Text style={{ color: '#4b5563', fontSize: '14px' }}>
-              {getTopicDisplayName(metadata.topic.main)}
-              {metadata.topic.sub && ` / ${getTopicDisplayName(metadata.topic.sub)}`}
+              {topicInfo ? (
+                <>
+                  {topicInfo.name}
+                  {topicInfo.subTopic && ` / ${topicInfo.subTopic.name}`}
+                </>
+              ) : (
+                metadata.topicId
+              )}
             </Text>
-          </div>
-        </Tooltip>
+          )}
+        </div>
+      </Tooltip>
 
-        {/* Type */}
-        <Tooltip 
-          title={<Text style={{ color: 'white' }}>{getTypeDescription(metadata.type)}</Text>}
-          placement="top"
-          color="#1f2937"
-        >
-          <div style={{ 
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 8px',
-            backgroundColor: '#f9fafb',
-            borderRadius: '4px',
-            border: '1px solid #f3f4f6',
-            cursor: 'help'
-          }}>
-            <AppstoreOutlined style={{ fontSize: '14px', color: '#9ca3af' }} />
-            <Text style={{ color: '#4b5563', fontSize: '14px' }}>
-              {metadata.type}
-            </Text>
-          </div>
-        </Tooltip>
+      {/* Type */}
+      <Tooltip 
+        title={<Text style={{ color: 'white' }}>{getTypeDescription(metadata.type)}</Text>}
+        placement="top"
+        color="#1f2937"
+      >
+        <div style={{ 
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 8px',
+          backgroundColor: '#f9fafb',
+          borderRadius: '4px',
+          border: '1px solid #f3f4f6',
+          cursor: 'help'
+        }}>
+          <AppstoreOutlined style={{ fontSize: '14px', color: '#9ca3af' }} />
+          <Text style={{ color: '#4b5563', fontSize: '14px' }}>
+            {metadata.type}
+          </Text>
+        </div>
+      </Tooltip>
 
-        {/* Difficulty */}
-        <Tooltip 
-          title={<Text style={{ color: 'white' }}>{getDifficultyDescription(metadata.difficulty)}</Text>}
-          placement="top"
-          color="#1f2937"
-        >
-          <div style={{ 
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '4px 8px',
-            backgroundColor: '#f9fafb',
-            borderRadius: '4px',
-            border: '1px solid #f3f4f6',
-            cursor: 'help'
-          }}>
-            <SignalFilled style={{ 
-              fontSize: '14px', 
-              color: '#9ca3af',
-              transform: 'rotate(90deg)'
-            }} />
-            <Text style={{ color: '#4b5563', fontSize: '14px' }}>
-              רמה {metadata.difficulty}
-            </Text>
-          </div>
-        </Tooltip>
+      {/* Difficulty */}
+      <Tooltip 
+        title={<Text style={{ color: 'white' }}>{getDifficultyDescription(metadata.difficulty)}</Text>}
+        placement="top"
+        color="#1f2937"
+      >
+        <div style={{ 
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 8px',
+          backgroundColor: '#f9fafb',
+          borderRadius: '4px',
+          border: '1px solid #f3f4f6',
+          cursor: 'help'
+        }}>
+          <SignalFilled style={{ 
+            fontSize: '14px', 
+            color: '#9ca3af',
+            transform: 'rotate(90deg)'
+          }} />
+          <Text style={{ color: '#4b5563', fontSize: '14px' }}>
+            רמה {metadata.difficulty}
+          </Text>
+        </div>
+      </Tooltip>
 
-        {/* Source */}
-        {metadata.source && (
-          <Tooltip 
-            title={<Text style={{ color: 'white' }}>{getSourceDescription(metadata.source)}</Text>}
-            placement="top"
-            color="#1f2937"
-          >
-            <div style={{ 
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 8px',
-              backgroundColor: '#f9fafb',
-              borderRadius: '4px',
-              border: '1px solid #f3f4f6',
-              cursor: 'help'
-            }}>
-              <DatabaseOutlined style={{ fontSize: '14px', color: '#9ca3af' }} />
-              <Text style={{ color: '#4b5563', fontSize: '14px' }}>
-                {metadata.source}
-              </Text>
-            </div>
-          </Tooltip>
-        )}
-      </div>
+      {/* Source */}
+      <Tooltip 
+        title={<Text style={{ color: 'white' }}>{getSourceDescription(formatSource(metadata.source))}</Text>}
+        placement="top"
+        color="#1f2937"
+      >
+        <div style={{ 
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 8px',
+          backgroundColor: '#f9fafb',
+          borderRadius: '4px',
+          border: '1px solid #f3f4f6',
+          cursor: 'help'
+        }}>
+          <DatabaseOutlined style={{ fontSize: '14px', color: '#9ca3af' }} />
+          <Text style={{ color: '#4b5563', fontSize: '14px' }}>
+            {formatSource(metadata.source)}
+          </Text>
+        </div>
+      </Tooltip>
     </div>
   );
 };

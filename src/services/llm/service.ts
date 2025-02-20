@@ -1,11 +1,15 @@
-import { ChatOpenAI } from "@langchain/openai";
+import OpenAI from 'openai';
 import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import { questionSchema } from "../../schemas/question";
-import type { Question, QuestionFetchParams } from "../../types/question";
-import { SystemMessage, HumanMessage } from "@langchain/core/messages";
+import type { Question, QuestionType, QuestionFetchParams, DifficultyLevel } from "../../types/question";
+
+const openai = new OpenAI({
+  apiKey: process.env.REACT_APP_OPENAI_API_KEY,
+  dangerouslyAllowBrowser: true
+});
 
 export class QuestionService {
-  private llm: ChatOpenAI;
+  private llm: OpenAI;
   private parser: StructuredOutputParser<typeof questionSchema>;
   private requestTracker = {
     lastRequestTime: 0,
@@ -40,11 +44,9 @@ export class QuestionService {
 
     this.parser = StructuredOutputParser.fromZodSchema(questionSchema);
     
-    this.llm = new ChatOpenAI({
-      openAIApiKey: apiKey,
-      modelName: "gpt-4-0125-preview",
-      temperature: 0.7,
-      modelKwargs: { response_format: { type: "json_object" } }
+    this.llm = new OpenAI({
+      apiKey: apiKey,
+      dangerouslyAllowBrowser: true
     });
   }
 
@@ -237,8 +239,7 @@ ${formatInstructions}`;
         educationType: params.educationType
       });
       
-      const systemMessage = new SystemMessage(
-        'You are an expert educator specializing in creating high-quality exam questions. ' +
+      const systemPrompt = 'You are an expert educator specializing in creating high-quality exam questions. ' +
         'IMPORTANT: For ALL code examples in the response:\n' +
         '1. Include code as normal text in the markdown content\n' +
         '2. Do not use any special formatting or backticks\n' +
@@ -249,34 +250,41 @@ ${formatInstructions}`;
         '    public static void main(String[] args) {\n' +
         '        System.out.println("Hello");\n' +
         '    }\n' +
-        '}\n'
-      );
+        '}\n';
 
-      console.log('%c📋 System Message:', 'color: #059669; font-weight: bold', '\n' + systemMessage.content);
+      console.log('%c📋 System Message:', 'color: #059669; font-weight: bold', '\n' + systemPrompt);
       
       const prompt = await this.buildPrompt(params);
       console.log('%c📝 OpenAI Prompt:', 'color: #059669; font-weight: bold', '\n' + prompt);
       
-      const humanMessage = new HumanMessage(prompt);
-      const response = await this.llm.invoke([systemMessage, humanMessage]);
+      const response = await this.llm.chat.completions.create({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        model: "gpt-4-turbo-preview",
+        temperature: 0.7,
+        response_format: { type: "json_object" }
+      });
       
       // PHASE 1: Immediate raw response analysis
-      if (typeof response.content !== 'string') {
+      const content = response.choices[0].message.content;
+      if (!content) {
         throw new Error('Unexpected response format from OpenAI');
       }
 
       // Clean up the response content
-      let cleanContent = response.content
+      let cleanContent = content
         .trim() // Remove leading/trailing whitespace and newlines
         .replace(/^\uFEFF/, ''); // Remove BOM if present
 
       // Log the raw response and any potential issues
       console.log('%c📥 Response Analysis:', 'color: #059669; font-weight: bold', {
-        originalLength: response.content.length,
+        originalLength: content.length,
         cleanedLength: cleanContent.length,
-        hasLeadingWhitespace: response.content.startsWith(' ') || response.content.startsWith('\n'),
-        hasTrailingWhitespace: response.content.endsWith(' ') || response.content.endsWith('\n'),
-        hasBOM: response.content.startsWith('\uFEFF'),
+        hasLeadingWhitespace: content.startsWith(' ') || content.startsWith('\n'),
+        hasTrailingWhitespace: content.endsWith(' ') || content.endsWith('\n'),
+        hasBOM: content.startsWith('\uFEFF'),
         hasBackticks: cleanContent.includes('`'),
         preview: cleanContent.slice(0, 100) + '...'
       });
@@ -394,7 +402,14 @@ ${formatInstructions}`;
         };
 
         // Cache the new question
-        this.questionCache.set(question.id, question);
+        const generatedQuestion = {
+          ...question,
+          metadata: {
+            ...question.metadata,
+            difficulty: question.metadata.difficulty as DifficultyLevel
+          }
+        };
+        this.questionCache.set(generatedQuestion.id, generatedQuestion);
 
         console.log('%c✅ Question Generated Successfully:', 'color: #059669; font-weight: bold', {
           id: question.id,
@@ -407,7 +422,7 @@ ${formatInstructions}`;
           solutionLength: question.solution.text.length
         });
 
-        return question;
+        return generatedQuestion;
       } catch (error) {
         console.error('%c❌ Error generating question:', 'color: #dc2626; font-weight: bold', error);
         const is429Error = error instanceof Error && error.message.includes('429');
@@ -461,22 +476,7 @@ ${formatInstructions}`;
         }
       }
 
-      // Generate new question for valid generated IDs
-      const question = await this.generateQuestion({
-        topic: 'work_safety',
-        difficulty: 3,
-        type: 'multiple_choice',
-        subject: 'Safety',
-        educationType: 'technical_college'
-      });
-
-      // Override the generated ID with the requested ID
-      question.id = questionId;
-      
-      // Cache the question
-      this.questionCache.set(questionId, question);
-      
-      return question;
+      throw new Error('Question not found and cannot be regenerated');
     } catch (error) {
       console.error('Error getting question:', error);
       throw error instanceof Error ? error : new Error('Failed to get question');

@@ -1,4 +1,5 @@
 import type { Question as BaseQuestion } from './question';
+import { DifficultyLevel } from './question';
 
 export interface Topic {
   id: string;
@@ -20,7 +21,7 @@ export interface Exam {
 
 export interface PrepContent {
   selectedTopics: string[];
-  difficulty: string;
+  difficulty: DifficultyLevel;
   progress: number;
 }
 

@@ -1,0 +1,67 @@
+.math-toolbar {
+  padding: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.math-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.math-latex-input {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  direction: ltr;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  padding: 12px;
+  background: #ffffff;
+  resize: none;
+}
+
+.math-latex-input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.math-preview {
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.math-preview:empty::before {
+  content: 'תצוגה מקדימה';
+  color: #a0aec0;
+}
+
+/* Toolbar button hover effects */
+.math-toolbar .ant-btn:hover {
+  background: #e6f7ff;
+  border-color: #1890ff;
+}
+
+.math-toolbar .ant-btn:active {
+  background: #bae7ff;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .math-toolbar .ant-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .math-preview {
+    padding: 12px;
+  }
+} 

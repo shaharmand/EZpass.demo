@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Button, Typography, Space } from 'antd';
+import { Card, Button, Typography, Space, Alert } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { 
   InfoCircleOutlined,
@@ -16,12 +16,12 @@ interface ExamCardProps {
   exam: FormalExam;
 }
 
-export const ExamCard: React.FC<ExamCardProps> = ({ 
-  exam
-}) => {
+export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
   const navigate = useNavigate();
-  const { setActivePrep } = useStudentPrep();
+  const { startPrep, getPrep } = useStudentPrep();
   const [isTopicsDialogOpen, setIsTopicsDialogOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   
   // Calculate topic and subtopic counts
   const topicCount = exam.topics?.length || 0;
@@ -30,21 +30,35 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   // Extract exam code from description (format: "CODE - Full Name")
   const examCode = exam.description.split(' - ')[0];
 
-  const handleStartPractice = () => {
-    // Create a new prep instance with all topics
-    const prepId = `prep_${exam.id}_${Date.now()}`;
-    const prep = {
-      id: prepId,
-      exam,
-      selectedTopics: exam.topics?.flatMap(topic => topic.subTopics.map(st => st.code)) || [],
-      difficulty: 3, // Default difficulty
-      status: 'not_started' as const,
-      startTime: Date.now(),
-    };
+  const handleStartPractice = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click event
+    if (!exam || loading) return;
     
-    // Set active prep and navigate to practice page
-    setActivePrep(prep);
-    navigate(`/practice/${prepId}`);
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('Starting practice session...');
+      
+      // Start the prep and get ID
+      const prepId = await startPrep(exam);
+      console.log('Prep created with ID:', prepId);
+      
+      // Small delay to ensure state updates are complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Navigate immediately to practice page and keep loading true
+      // The loading state will be handled by the practice page
+      navigate(`/practice/${prepId}`, { replace: true });
+    } catch (error) {
+      console.error('Error starting practice:', {
+        error,
+        examId: exam.id,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      setError(error instanceof Error ? error.message : 'Failed to start practice');
+      setLoading(false); // Only reset loading on error
+    }
   };
 
   return (
@@ -118,26 +132,34 @@ export const ExamCard: React.FC<ExamCardProps> = ({
           </div>
 
           {/* Start Practice Button */}
+          {error && (
+            <Alert
+              message="שגיאה"
+              description={error}
+              type="error"
+              showIcon
+              style={{ marginBottom: '16px' }}
+            />
+          )}
           <Button 
             type="primary"
             size="large"
             block
-            onClick={(e) => {
-              e.stopPropagation();
-              handleStartPractice();
-            }}
+            onClick={handleStartPractice}
+            loading={loading}
             style={{ marginTop: '8px' }}
           >
-            התחל תרגול מהיר
+            {loading ? 'מתחיל תרגול...' : 'התחל תרגול מהיר'}
           </Button>
         </div>
       </Card>
 
-      {/* Topics Dialog */}
       <ExamTopicsDialog
         exam={exam}
         open={isTopicsDialogOpen}
         onClose={() => setIsTopicsDialogOpen(false)}
+        startPrep={startPrep}
+        getPrep={getPrep}
       />
     </>
   );

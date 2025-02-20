@@ -1,35 +1,45 @@
 import React, { useState } from 'react';
-import { Card, Space, Button, Typography, Divider, Select } from 'antd';
-import { useExam } from '../contexts/ExamContext';
+import { Card, Space, Button, Typography, Divider, Alert, Tag, Statistic, Row, Col } from 'antd';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
-import QuestionViewer from '../components/QuestionViewer';
 import type { FormalExam } from '../types/shared/exam';
-import type { Question } from '../types/question';
+import type { PrepState } from '../types/prepState';
+import { ClockCircleOutlined, CheckCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
+
+// Helper function to safely get active time
+const getActiveTime = (state: PrepState): number => {
+  if (state.status === 'active') {
+    return state.activeTime + (Date.now() - state.lastTick);
+  }
+  if ('activeTime' in state) {
+    return state.activeTime;
+  }
+  return 0;
+};
 
 const PracticeFlowTestPage: React.FC = () => {
   const { 
-    practiceState,
-    startPractice,
-    submitPracticeAnswer,
-    endPractice,
-    getNextPracticeQuestion,
-    setCurrentQuestion,
-    currentQuestion
-  } = useExam();
+    activePrep,
+    currentQuestion,
+    startPrep,
+    pausePrep,
+    completePrep,
+    getNextQuestion,
+    submitAnswer,
+    setCurrentQuestion
+  } = useStudentPrep();
 
-  const [selectedTopic, setSelectedTopic] = useState<string>('linear_equations');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleStartPractice = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Create a mock exam that matches FormalExam type
+      // Create a mock exam
       const mockExam: FormalExam = {
         id: 'test_exam',
         title: 'Test Exam',
@@ -39,47 +49,50 @@ const PracticeFlowTestPage: React.FC = () => {
           medium: 'Test Exam',
           full: 'Test Exam for Development Purposes'
         },
-        examType: 'bagrut',
+        examType: 'bagrut' as const,
         duration: 120,
         totalQuestions: 10,
-        status: 'not_started',
+        status: 'not_started' as const,
         topics: [
           {
-            id: 'algebra',
-            name: 'Algebra',
-            code: 'algebra_101',
-            topicId: 'algebra_101',
-            description: 'Basic algebra concepts',
+            id: 'safety_management',
+            name: 'Safety Management',
+            code: 'safety_101',
+            topicId: 'safety_management',
+            description: 'Basic safety management concepts',
             order: 0,
             subTopics: [
               {
-                id: 'linear_equations',
-                code: 'linear_eq_101',
-                name: 'Linear Equations',
-                description: 'Solving linear equations',
+                id: 'risk_assessment',
+                code: 'risk_101',
+                name: 'Risk Assessment',
+                description: 'Understanding and performing risk assessments',
                 order: 0
-              },
-              {
-                id: 'quadratic_equations',
-                code: 'quad_eq_101',
-                name: 'Quadratic Equations',
-                description: 'Solving quadratic equations',
-                order: 1
               }
             ]
           }
         ]
       };
 
-      // Start practice with selected topic
-      await startPractice(
-        mockExam,
-        [selectedTopic]
-      );
-
+      // Start practice directly
+      const prepId = await startPrep(mockExam);
+      
       // Get first question
-      const firstQuestion = await getNextPracticeQuestion();
-      setCurrentQuestion(firstQuestion);
+      const firstQuestion = await getNextQuestion();
+      if (firstQuestion) {
+        setCurrentQuestion({
+          question: firstQuestion,
+          state: {
+            status: 'active',
+            startedAt: Date.now(),
+            lastUpdatedAt: Date.now(),
+            helpRequests: [],
+            questionIndex: 0,
+            correctAnswers: 0,
+            averageScore: 0
+          }
+        });
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to start practice');
     } finally {
@@ -87,13 +100,53 @@ const PracticeFlowTestPage: React.FC = () => {
     }
   };
 
-  const handleAnswer = async (answer: string) => {
+  const handlePause = async () => {
     try {
+      if (!activePrep) {
+        throw new Error('No active prep session');
+      }
       setLoading(true);
-      // Add isCorrect parameter (mock value for testing)
-      await submitPracticeAnswer(answer, true);
-      const nextQuestion = await getNextPracticeQuestion();
-      setCurrentQuestion(nextQuestion);
+      setError(null);
+      setFeedback('Pausing practice...');
+
+      pausePrep(activePrep.id);
+      setFeedback('Practice paused');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to pause practice');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    try {
+      if (!activePrep) {
+        throw new Error('No active prep session');
+      }
+      setLoading(true);
+      setError(null);
+      setFeedback('Completing practice...');
+
+      completePrep(activePrep.id);
+      setFeedback('Practice completed');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to complete practice');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitAnswer = async () => {
+    try {
+      if (!activePrep || !currentQuestion) {
+        throw new Error('No active question');
+      }
+      setLoading(true);
+      setError(null);
+      setFeedback('Submitting test answer...');
+
+      await submitAnswer('test_answer', true);
+      setFeedback('Answer submitted and next question loaded');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to submit answer');
     } finally {
@@ -101,72 +154,169 @@ const PracticeFlowTestPage: React.FC = () => {
     }
   };
 
+  // Format time in minutes and seconds
+  const formatTime = (ms: number): string => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div style={{ padding: '24px' }}>
       <Card title="Practice Flow Test">
         <Space direction="vertical" style={{ width: '100%' }} size="large">
-          {/* Controls */}
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Text strong>Select Topic:</Text>
-            <Select
-              value={selectedTopic}
-              onChange={setSelectedTopic}
-              style={{ width: '100%' }}
-            >
-              <Option value="linear_equations">Linear Equations</Option>
-              <Option value="quadratic_equations">Quadratic Equations</Option>
-            </Select>
+          {/* Status Display */}
+          <div style={{ 
+            padding: '16px', 
+            background: '#f8fafc', 
+            borderRadius: '8px',
+            border: '1px solid #e5e7eb'
+          }}>
+            <Row gutter={[24, 24]}>
+              <Col span={8}>
+                <Statistic
+                  title="Practice Status"
+                  value={activePrep ? activePrep.state.status : 'No Active Practice'}
+                  valueStyle={{ 
+                    color: !activePrep ? '#999' :
+                      activePrep.state.status === 'active' ? '#52c41a' :
+                      activePrep.state.status === 'paused' ? '#faad14' :
+                      activePrep.state.status === 'completed' ? '#1890ff' :
+                      '#999'
+                  }}
+                />
+              </Col>
+              {activePrep && activePrep.state.status !== 'initializing' && (
+                <>
+                  <Col span={8}>
+                    <Statistic
+                      title="Active Time"
+                      value={formatTime(getActiveTime(activePrep.state))}
+                      prefix={<ClockCircleOutlined />}
+                    />
+                  </Col>
+                  <Col span={8}>
+                    <Statistic
+                      title="Question Index"
+                      value={currentQuestion?.state.questionIndex || 0}
+                      prefix={<QuestionCircleOutlined />}
+                    />
+                  </Col>
+                </>
+              )}
+            </Row>
+          </div>
+
+          {/* Action Buttons */}
+          <Space wrap>
             <Button 
               type="primary"
               onClick={handleStartPractice}
               loading={loading}
-              style={{ width: '100%' }}
+              disabled={!!activePrep}
             >
-              Start Practice
+              Start New Practice
+            </Button>
+            <Button
+              onClick={handlePause}
+              loading={loading}
+              disabled={!activePrep || activePrep.state.status !== 'active'}
+            >
+              Pause Practice
+            </Button>
+            <Button
+              onClick={handleComplete}
+              loading={loading}
+              disabled={!activePrep || activePrep.state.status !== 'active'}
+            >
+              Complete Practice
+            </Button>
+            <Button
+              onClick={handleSubmitAnswer}
+              loading={loading}
+              disabled={!activePrep || activePrep.state.status !== 'active' || !currentQuestion}
+            >
+              Submit Test Answer
             </Button>
           </Space>
 
+          {/* Feedback Display */}
+          {feedback && (
+            <Alert
+              message="Operation Feedback"
+              description={feedback}
+              type="info"
+              showIcon
+              closable
+              onClose={() => setFeedback(null)}
+            />
+          )}
+
+          {/* Error Display */}
           {error && (
-            <Text type="danger">{error}</Text>
+            <Alert
+              message="Error"
+              description={error}
+              type="error"
+              showIcon
+              closable
+              onClose={() => setError(null)}
+            />
           )}
 
           <Divider />
 
-          {/* Practice State Display */}
-          {practiceState && (
+          {/* Current Question Display */}
+          {currentQuestion && (
+            <Card title="Current Question" size="small">
+              <Row gutter={[16, 16]}>
+                <Col span={12}>
+                  <Text strong>Topic:</Text>
+                  <div>{currentQuestion.question.metadata.topicId}</div>
+                </Col>
+                <Col span={12}>
+                  <Text strong>Status:</Text>
+                  <div>{currentQuestion.state.status}</div>
+                </Col>
+                <Col span={24}>
+                  <Text strong>Content:</Text>
+                  <div style={{ 
+                    marginTop: '8px',
+                    padding: '12px',
+                    background: '#f5f5f5',
+                    borderRadius: '4px'
+                  }}>
+                    {currentQuestion.question.content.text}
+                  </div>
+                </Col>
+              </Row>
+            </Card>
+          )}
+
+          {/* Debug State Display (Collapsible) */}
+          {activePrep && (
             <div>
-              <Title level={5}>Practice State:</Title>
+              <Title level={5}>Debug State:</Title>
               <pre style={{ 
                 background: '#f5f5f5', 
                 padding: '12px', 
                 borderRadius: '4px',
-                maxHeight: '300px',
-                overflow: 'auto'
+                maxHeight: '200px',
+                overflow: 'auto',
+                fontSize: '12px'
               }}>
-                {JSON.stringify(practiceState, null, 2)}
+                {JSON.stringify({
+                  id: activePrep.id,
+                  status: activePrep.state.status,
+                  activeTime: getActiveTime(activePrep.state),
+                  currentQuestion: currentQuestion ? {
+                    id: currentQuestion.question.id,
+                    status: currentQuestion.state.status,
+                    index: currentQuestion.state.questionIndex
+                  } : null
+                }, null, 2)}
               </pre>
-            </div>
-          )}
-
-          {/* Current Question Display */}
-          {currentQuestion && (
-            <div>
-              <Title level={5}>Current Question:</Title>
-              <Card>
-                <QuestionViewer 
-                  question={currentQuestion}
-                  showOptions={true}
-                  showSolution={true}
-                />
-                <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                  <Button 
-                    type="primary"
-                    onClick={() => handleAnswer('test_answer')}
-                  >
-                    Next Question
-                  </Button>
-                </div>
-              </Card>
             </div>
           )}
         </Space>

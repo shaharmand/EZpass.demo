@@ -1,0 +1,108 @@
+.simple-math-input {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.math-symbols-toolbar {
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.math-symbols-toolbar .ant-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.math-symbols-toolbar .ant-btn:hover {
+  background: #e6f7ff;
+  border-color: #1890ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(24, 144, 255, 0.2);
+}
+
+.math-symbols-toolbar .ant-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.math-text-input {
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  resize: none;
+  min-height: 120px;
+  background: #ffffff;
+  transition: all 0.3s ease;
+}
+
+.math-text-input:hover {
+  border-color: #1890ff;
+}
+
+.math-text-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+  outline: none;
+}
+
+/* Helper text */
+.helper-text {
+  font-size: 13px;
+  color: #6b7280;
+  text-align: right;
+  padding: 0 4px;
+}
+
+/* Disabled state */
+.math-text-input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  color: rgba(0, 0, 0, 0.25);
+}
+
+.math-symbols-toolbar .ant-btn:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  color: rgba(0, 0, 0, 0.25);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .math-symbols-toolbar {
+    padding: 8px;
+  }
+
+  .math-symbols-toolbar .ant-btn {
+    min-width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .math-text-input {
+    font-size: 14px;
+    padding: 8px;
+    min-height: 100px;
+  }
+
+  .helper-text {
+    font-size: 12px;
+  }
+} 

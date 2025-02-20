@@ -78,6 +78,15 @@ export interface StudentPrep {
     exam: FormalExam;
     selection: TopicSelection;
     
+    // Study goals
+    goals: {
+      examDate: number;        // Target exam date (timestamp)
+      totalHours: number;      // Total study hours goal (default: 50)
+      weeklyHours: number;     // Weekly study hours goal (totalHours / 4)
+      dailyHours: number;      // Daily study hours goal (totalHours / 28)
+      questionGoal: number;    // Total questions goal based on selected topics
+    };
+    
     // Complete state management
     state: PrepState;
 }
@@ -95,21 +104,57 @@ export type PrepState =
         startedAt: number;      // When this active session started
         activeTime: number;     // Accumulated time from previous active sessions
         lastTick: number;       // Last time we updated activeTime
+        completedQuestions: number; // Track number of completed questions
+        correctAnswers: number;     // Track number of correct answers
+        averageScore: number;       // Track average score
+        questionHistory: Array<{    // Track history of answered questions
+            questionId: string;
+            score: number;
+            isCorrect: boolean;
+            timestamp: number;
+        }>;
       }
     | { 
         status: 'paused';
         activeTime: number;     // Total accumulated active time
         pausedAt: number;       // When we paused
+        completedQuestions: number;
+        correctAnswers: number;
+        averageScore: number;
+        questionHistory: Array<{
+            questionId: string;
+            score: number;
+            isCorrect: boolean;
+            timestamp: number;
+        }>;
       }
     | { 
         status: 'completed';
         activeTime: number;     // Final total active time
         completedAt: number;    // When completed
+        completedQuestions: number;
+        correctAnswers: number;
+        averageScore: number;
+        questionHistory: Array<{
+            questionId: string;
+            score: number;
+            isCorrect: boolean;
+            timestamp: number;
+        }>;
       }
     | {
         status: 'error';
         error: string;
         activeTime: number;     // Keep track of time even in error
+        completedQuestions: number;
+        correctAnswers: number;
+        averageScore: number;
+        questionHistory: Array<{
+            questionId: string;
+            score: number;
+            isCorrect: boolean;
+            timestamp: number;
+        }>;
       };
 
 // Helper to safely get activeTime from any prep state

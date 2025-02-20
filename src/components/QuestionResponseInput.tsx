@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Button, Space, Radio, Typography } from 'antd';
+import { Input, Button, Space, Typography } from 'antd';
 import type { Question } from '../types/question';
-import { MathInput } from './MathInput';
+import { SimpleTextMathInput } from './SimpleTextMathInput';
 import { MonacoEditor } from './MonacoEditor';
+import './QuestionResponseInput.css';
+import { RedoOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -10,7 +12,12 @@ const { Text } = Typography;
 interface QuestionResponseInputProps {
   question: Question;
   onAnswer: (answer: string) => Promise<void>;
+  onRetry: () => void;
   disabled?: boolean;
+  feedback?: {
+    isCorrect: boolean;
+    correctOption?: string;
+  };
 }
 
 // Multiple Choice Input
@@ -19,24 +26,73 @@ const MultipleChoiceInput: React.FC<{
   onChange: (value: string) => void;
   value: string;
   disabled?: boolean;
-}> = ({ question, onChange, value, disabled }) => {
+  feedback?: {
+    isCorrect: boolean;
+    correctOption?: string;
+  };
+}> = ({ question, onChange, value, disabled, feedback }) => {
   if (!question.options) return null;
   
   return (
-    <Radio.Group 
-      onChange={(e) => onChange(e.target.value)}
-      value={value}
-      disabled={disabled}
-      style={{ width: '100%' }}
-    >
-      <Space direction="vertical" style={{ width: '100%' }}>
-        {question.options.map((option, index) => (
-          <Radio key={index} value={String(index + 1)} style={{ width: '100%', padding: '8px' }}>
-            {option.text}
-          </Radio>
-        ))}
-      </Space>
-    </Radio.Group>
+    <div className="options-list">
+      {question.options.map((option, index) => {
+        const optionNumber = index + 1;
+        const isSelected = value === String(optionNumber);
+        
+        // Determine if this option should be marked as correct or incorrect
+        let isCorrect = false;
+        let isIncorrect = false;
+        
+        // Check feedback regardless of disabled state
+        if (feedback && feedback.correctOption) {
+          const isCorrectOption = String(optionNumber) === feedback.correctOption;
+          const wasSelectedWrongly = isSelected && !feedback.isCorrect;
+          
+          isCorrect = isCorrectOption; // Always show correct option in green
+          isIncorrect = wasSelectedWrongly; // Only show selected wrong answer in red
+        }
+
+        // Build class names
+        const optionClasses = [
+          'option-card',
+          isSelected ? 'selected' : '',
+          isCorrect ? 'correct' : '',
+          isIncorrect ? 'incorrect' : '',
+          disabled ? 'disabled' : ''
+        ].filter(Boolean).join(' ');
+
+        const numberClasses = [
+          'option-number',
+          isSelected ? 'selected' : '',
+          isCorrect ? 'correct' : '',
+          isIncorrect ? 'incorrect' : ''
+        ].filter(Boolean).join(' ');
+
+        const textClasses = [
+          'option-text',
+          isSelected ? 'selected' : '',
+          isCorrect ? 'correct' : '',
+          isIncorrect ? 'incorrect' : ''
+        ].filter(Boolean).join(' ');
+        
+        return (
+          <div
+            key={index}
+            className={optionClasses}
+            onClick={() => !disabled && onChange(String(optionNumber))}
+          >
+            <div className="option-content">
+              <div className={numberClasses}>
+                {optionNumber}
+              </div>
+              <Text className={textClasses}>
+                {option.text}
+              </Text>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 };
 
@@ -46,11 +102,10 @@ const OpenTextInput: React.FC<{
   value: string;
   disabled?: boolean;
 }> = ({ onChange, value, disabled }) => (
-  <TextArea
+  <SimpleTextMathInput
     value={value}
-    onChange={(e) => onChange(e.target.value)}
+    onChange={onChange}
     placeholder="הקלד את תשובתך כאן..."
-    autoSize={{ minRows: 3, maxRows: 6 }}
     disabled={disabled}
   />
 );
@@ -61,14 +116,12 @@ const StepByStepInput: React.FC<{
   value: string;
   disabled?: boolean;
 }> = ({ onChange, value, disabled }) => (
-  <Space direction="vertical" style={{ width: '100%' }}>
-    <MathInput
-      value={value}
-      onChange={onChange}
-      disabled={disabled}
-      placeholder="הכנס את תשובתך (ניתן להשתמש ב-LaTeX)"
-    />
-  </Space>
+  <SimpleTextMathInput
+    value={value}
+    onChange={onChange}
+    placeholder="הקלד את תשובתך צעד אחר צעד..."
+    disabled={disabled}
+  />
 );
 
 // Code Input
@@ -77,19 +130,31 @@ const CodeInput: React.FC<{
   onChange: (value: string) => void;
   value: string;
   disabled?: boolean;
-}> = ({ question, onChange, value, disabled }) => (
-  <MonacoEditor
-    value={value}
-    onChange={onChange}
-    language="javascript" // Default to JavaScript, could be made configurable
-    disabled={disabled}
-  />
-);
+}> = ({ question, onChange, value, disabled }) => {
+  // Get the programming language from the question metadata or default to JavaScript
+  const language = question.metadata?.programmingLanguage || 'javascript';
+  
+  // Get code template from question if available
+  const template = question.metadata?.codeTemplate || '';
+
+  return (
+    <MonacoEditor
+      value={value}
+      onChange={onChange}
+      language={language}
+      template={template}
+      disabled={disabled}
+      testCases={question.metadata?.testCases}
+    />
+  );
+};
 
 const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
   question,
   onAnswer,
-  disabled = false
+  onRetry,
+  disabled = false,
+  feedback
 }) => {
   const [answer, setAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,6 +204,7 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
             onChange={handleInputChange}
             value={answer}
             disabled={disabled}
+            feedback={feedback}
           />
         );
       
@@ -175,15 +241,55 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
   return (
     <Space direction="vertical" style={{ width: '100%' }}>
       {renderInput()}
-      <Button
-        type="primary"
-        onClick={handleSubmit}
-        loading={isSubmitting}
-        disabled={disabled || !answer.trim()}
-        style={{ marginTop: '8px' }}
-      >
-        שלח תשובה
-      </Button>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        marginTop: '24px',
+        padding: '16px',
+        borderTop: '1px solid #f0f0f0',
+        gap: '12px'
+      }}>
+        {disabled ? (
+          <Button
+            onClick={onRetry}
+            size="large"
+            style={{
+              minWidth: '160px',
+              height: '48px',
+              fontSize: '16px',
+              borderRadius: '24px',
+              border: '1px solid #1890ff',
+              background: 'white',
+              transition: 'all 0.3s ease'
+            }}
+            className="retry-button"
+            icon={<RedoOutlined />}
+          >
+            נסה שוב
+          </Button>
+        ) : (
+          <Button
+            type="primary"
+            onClick={handleSubmit}
+            loading={isSubmitting}
+            disabled={disabled || !answer.trim()}
+            size="large"
+            style={{
+              minWidth: '200px',
+              height: '48px',
+              fontSize: '16px',
+              borderRadius: '24px',
+              background: 'linear-gradient(45deg, #1890ff, #40a9ff)',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)',
+              transition: 'all 0.3s ease'
+            }}
+            className="submit-button"
+          >
+            {isSubmitting ? 'שולח תשובה...' : 'שלח תשובה'}
+          </Button>
+        )}
+      </div>
     </Space>
   );
 };

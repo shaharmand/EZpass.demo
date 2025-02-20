@@ -12,8 +12,169 @@ code {
     monospace;
 }
 
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Practice Question Animations */
+.practice-question-container {
+  will-change: transform, opacity;
+}
+
+.practice-question-container.exit {
+  animation: fadeOut 0.3s ease-in-out forwards;
+}
+
+.practice-question-container.enter {
+  animation: fadeIn 0.3s ease-in-out forwards;
+}
+
+.practice-question-card {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
 /* RTL Support */
 body[dir="rtl"] {
   direction: rtl;
   text-align: right;
+}
+
+/* Loading States */
+.loading-fade {
+  opacity: 0.7;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.loading-spin {
+  animation: spin 1s linear infinite;
+}
+
+.loading-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Forced Colors Mode */
+@media (forced-colors: active) {
+  /* Global forced colors adjustments */
+  :root {
+    forced-color-adjust: auto;
+  }
+
+  /* Ensure buttons are visible in high contrast */
+  button, 
+  .ant-btn {
+    forced-color-adjust: auto;
+    border: 1px solid ButtonText;
+    background-color: ButtonFace;
+    color: ButtonText;
+  }
+
+  button:hover,
+  .ant-btn:hover {
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  /* Ensure progress bars are visible */
+  .ant-progress-bg {
+    forced-color-adjust: auto;
+    background-color: Highlight !important;
+  }
+
+  .ant-progress-inner {
+    background-color: Canvas !important;
+    border: 1px solid ButtonText;
+  }
+
+  /* Ensure tooltips are readable */
+  .hover-tooltip {
+    forced-color-adjust: auto;
+    background-color: Canvas;
+    color: CanvasText;
+    border: 1px solid ButtonText;
+  }
+
+  /* Ensure code blocks are readable */
+  pre, code {
+    forced-color-adjust: auto;
+    background-color: Canvas !important;
+    color: CanvasText !important;
+    border: 1px solid ButtonText !important;
+  }
+
+  /* Links */
+  a {
+    color: LinkText;
+  }
+
+  a:hover {
+    color: HighlightText;
+    background-color: Highlight;
+  }
+
+  /* Question Display */
+  .question-content {
+    forced-color-adjust: auto;
+    background-color: Canvas !important;
+    border: 1px solid ButtonText !important;
+  }
+
+  .question-metadata {
+    forced-color-adjust: auto;
+    color: CanvasText !important;
+  }
+
+  .question-options {
+    forced-color-adjust: auto;
+  }
+
+  .question-option {
+    forced-color-adjust: auto;
+    border: 1px solid ButtonText !important;
+    background-color: Canvas !important;
+  }
+
+  .question-option:hover {
+    background-color: Highlight !important;
+    color: HighlightText !important;
+  }
+
+  /* Loading States */
+  .ant-spin {
+    forced-color-adjust: auto;
+    color: Highlight !important;
+  }
+
+  .ant-spin-dot-item {
+    background-color: Highlight !important;
+  }
 } 

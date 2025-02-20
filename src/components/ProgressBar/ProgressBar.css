@@ -109,17 +109,17 @@
 
 .progress-bar-section.with-status.red::before,
 .progress-bar-section.with-status.low::before {
-  background-color: #ef4444;
+  background-color: #64748b;
 }
 
 .progress-bar-section.with-status.yellow::before,
 .progress-bar-section.with-status.medium::before {
-  background-color: #f59e0b;
+  background-color: #3b82f6;
 }
 
 .progress-bar-section.with-status.green::before,
 .progress-bar-section.with-status.high::before {
-  background-color: #22c55e;
+  background-color: #34d399;
 }
 
 /* Hover tooltip */

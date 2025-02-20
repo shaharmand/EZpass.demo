@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Card, Space, Button, Typography, Divider, Alert } from 'antd';
-import { useExam } from '../contexts/ExamContext';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
-import LegacyQuestionDisplay from './LegacyQuestionDisplay';
+import PracticeQuestionDisplay from './practice/PracticeQuestionDisplay';
+import type { QuestionState } from '../types/practice';
 
 const { Title, Text } = Typography;
 
@@ -19,14 +19,14 @@ interface ErrorState {
 
 const PracticeFlowTest: React.FC = () => {
   const { 
-    practiceState,
-    startPractice,
-    submitPracticeAnswer,
-    endPractice,
-    getNextPracticeQuestion,
-    setCurrentQuestion,
-    currentQuestion
-  } = useExam();
+    activePrep,
+    currentQuestion,
+    startPrep,
+    submitAnswer,
+    completePrep,
+    getNextQuestion,
+    setCurrentQuestion
+  } = useStudentPrep();
 
   // Simplified loading state
   const [loading, setLoading] = useState<LoadingState>({
@@ -36,6 +36,15 @@ const PracticeFlowTest: React.FC = () => {
   const [error, setError] = useState<ErrorState>({
     type: null,
     message: null
+  });
+
+  // Add state for question state
+  const [questionState, setQuestionState] = useState<QuestionState>({
+    status: 'loading',
+    correctAnswers: 0,
+    averageScore: 0,
+    helpRequests: [],
+    questionIndex: 0
   });
 
   const handleStartPractice = async () => {
@@ -59,25 +68,25 @@ const PracticeFlowTest: React.FC = () => {
         status: 'not_started' as const,
         topics: [
           {
-            id: 'algebra',
-            name: 'Algebra',
-            code: 'algebra_101',
-            topicId: 'algebra_101',
-            description: 'Basic algebra concepts',
+            id: 'safety_management',
+            name: 'Safety Management',
+            code: 'safety_101',
+            topicId: 'safety_management',
+            description: 'Basic safety management concepts',
             order: 0,
             subTopics: [
               {
-                id: 'linear_equations',
-                code: 'linear_eq_101',
-                name: 'Linear Equations',
-                description: 'Solving linear equations',
+                id: 'risk_assessment',
+                code: 'risk_101',
+                name: 'Risk Assessment',
+                description: 'Understanding and performing risk assessments',
                 order: 0
               },
               {
-                id: 'quadratic_equations',
-                code: 'quad_eq_101',
-                name: 'Quadratic Equations',
-                description: 'Solving quadratic equations',
+                id: 'safety_procedures',
+                code: 'proc_101',
+                name: 'Safety Procedures',
+                description: 'Implementing safety procedures',
                 order: 1
               }
             ]
@@ -86,14 +95,27 @@ const PracticeFlowTest: React.FC = () => {
       };
 
       // Start practice with mock data
-      await startPractice(
-        mockExam,
-        ['linear_equations', 'quadratic_equations']
-      );
+      await startPrep(mockExam, {
+        topics: ['safety_management'],
+        subTopics: ['risk_assessment', 'safety_procedures']
+      });
 
       // Get first question
-      const firstQuestion = await getNextPracticeQuestion();
-      setCurrentQuestion(firstQuestion);
+      const firstQuestion = await getNextQuestion();
+      if (firstQuestion) {
+        setCurrentQuestion({
+          question: firstQuestion,
+          state: {
+            status: 'active',
+            startedAt: Date.now(),
+            lastUpdatedAt: Date.now(),
+            helpRequests: [],
+            questionIndex: 0,
+            correctAnswers: 0,
+            averageScore: 0
+          }
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start practice';
       setError({ 
@@ -111,9 +133,7 @@ const PracticeFlowTest: React.FC = () => {
       setError({ type: null, message: null });
       
       // Submit answer and get next question in one operation
-      await submitPracticeAnswer(answer, true);
-      const nextQuestion = await getNextPracticeQuestion();
-      setCurrentQuestion(nextQuestion);
+      await submitAnswer(answer, true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to submit answer';
       setError({ 
@@ -128,7 +148,10 @@ const PracticeFlowTest: React.FC = () => {
     try {
       setLoading({ practice: true });
       setError({ type: null, message: null });
-      await endPractice();
+      
+      if (activePrep) {
+        await completePrep(activePrep.id);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to end practice';
       setError({ 
@@ -141,6 +164,15 @@ const PracticeFlowTest: React.FC = () => {
     }
   };
 
+  const handleHelp = async (action: string) => {
+    console.log('Help requested:', action);
+  };
+
+  const handleSkip = async (reason: 'too_hard' | 'too_easy' | 'not_in_material') => {
+    console.log('Skip requested:', reason);
+    await handleAnswer('skipped');
+  };
+
   return (
     <div style={{ padding: '24px' }}>
       <Card title="Practice Flow Test">
@@ -151,7 +183,7 @@ const PracticeFlowTest: React.FC = () => {
               type="primary" 
               onClick={handleStartPractice}
               loading={loading.practice}
-              disabled={!!practiceState}
+              disabled={!!activePrep}
             >
               Start Practice
             </Button>
@@ -159,7 +191,7 @@ const PracticeFlowTest: React.FC = () => {
               danger 
               onClick={handleEndPractice}
               loading={loading.practice}
-              disabled={!practiceState}
+              disabled={!activePrep}
             >
               End Practice
             </Button>
@@ -187,7 +219,7 @@ const PracticeFlowTest: React.FC = () => {
           <Divider />
 
           {/* Practice State Display */}
-          {practiceState && (
+          {activePrep && (
             <div>
               <Title level={5}>Practice State:</Title>
               <pre style={{ 
@@ -195,19 +227,28 @@ const PracticeFlowTest: React.FC = () => {
                 padding: '12px', 
                 borderRadius: '4px' 
               }}>
-                {JSON.stringify(practiceState, null, 2)}
+                {JSON.stringify(activePrep, null, 2)}
               </pre>
             </div>
           )}
 
-          {/* Current Question Display - Simplified */}
+          {/* Current Question Display */}
           {currentQuestion && (
             <div>
               <Title level={5}>Current Question:</Title>
-              <LegacyQuestionDisplay 
-                question={currentQuestion}
-                onNext={() => handleAnswer('test_answer')}
+              <PracticeQuestionDisplay 
+                question={currentQuestion.question}
+                state={questionState}
+                onHelp={handleHelp}
+                onSkip={handleSkip}
               />
+              <Button 
+                type="primary" 
+                onClick={() => handleAnswer('test_answer')}
+                style={{ marginTop: '16px' }}
+              >
+                Submit Test Answer
+              </Button>
             </div>
           )}
         </Space>

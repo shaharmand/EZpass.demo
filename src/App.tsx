@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import LandingPage from './pages/LandingPage';
 import ExamDashboard from './pages/ExamDashboard';

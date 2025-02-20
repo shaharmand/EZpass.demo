@@ -206,3 +206,66 @@
 .markdown-content a:hover {
   text-decoration: underline;
 }
+
+@media (forced-colors: active) {
+  .markdown-content {
+    forced-color-adjust: auto;
+    color: CanvasText;
+  }
+
+  .markdown-content strong {
+    color: CanvasText;
+  }
+
+  .markdown-content pre > div {
+    background-color: Canvas !important;
+    border: 1px solid ButtonText !important;
+  }
+
+  .markdown-content pre code {
+    color: CanvasText !important;
+    background-color: Canvas !important;
+  }
+
+  .markdown-content :not(pre) > code {
+    color: CanvasText !important;
+    background-color: Canvas !important;
+    border: 1px solid ButtonText !important;
+  }
+
+  .markdown-content th,
+  .markdown-content td {
+    border-color: ButtonText !important;
+  }
+
+  .markdown-content th {
+    background-color: Canvas !important;
+  }
+
+  .markdown-content blockquote {
+    border-color: ButtonText !important;
+    background-color: Canvas !important;
+    color: CanvasText !important;
+  }
+
+  .markdown-content a {
+    color: LinkText !important;
+  }
+
+  .markdown-content a:hover {
+    color: HighlightText !important;
+    background-color: Highlight !important;
+  }
+
+  .markdown-content .token.comment {
+    color: CanvasText !important;
+  }
+
+  .markdown-content .token.string,
+  .markdown-content .token.number,
+  .markdown-content .token.function,
+  .markdown-content .token.keyword,
+  .markdown-content .token.operator {
+    color: CanvasText !important;
+  }
+}

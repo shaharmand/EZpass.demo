@@ -9,6 +9,47 @@
 export type QuestionType = 'multiple_choice' | 'open' | 'code' | 'step_by_step';
 
 /** 
+ * Difficulty level from 1 (easiest) to 5 (hardest)
+ */
+export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
+
+/** 
+ * Feedback for a submitted answer to a question.
+ * Structure is consistent across all question types.
+ */
+export interface QuestionFeedback {
+  /** Whether the answer was correct */
+  isCorrect: boolean;
+
+  /** Score from 0-100 */
+  score: number;
+
+  /** Short immediate feedback message */
+  assessment: string;
+
+  /** Detailed explanation of what was right/wrong */
+  explanation: string;
+
+  /** Type of question this feedback is for */
+  type: QuestionType;
+
+  /** For multiple choice: the correct option text */
+  correctOption?: string;
+
+  /** For multiple choice: explanation why other options are wrong */
+  incorrectExplanations?: string;
+
+  /** Complete step-by-step solution */
+  solution?: string;
+
+  /** Alternative solution approaches */
+  alternativeSolutions?: string;
+
+  /** Specific suggestions for improvement if answer was wrong */
+  improvementSuggestions?: string;
+}
+
+/** 
  * Represents a complete question with content, metadata, and solution.
  * Each type of question has specific requirements for its fields.
  */
@@ -67,7 +108,7 @@ export interface Question {
      * Difficulty level from 1 (easiest) to 5 (hardest).
      * Should match the requested difficulty in generation parameters.
      */
-    difficulty: number;
+    difficulty: DifficultyLevel;
     /** Estimated time to solve in minutes, appropriate for the education level */
     estimatedTime?: number;
     /** Source information for tracking question origin */
@@ -81,6 +122,15 @@ export interface Question {
       /** Specific exam instance (e.g., 'a', 'b') */
       moed?: string;
     };
+    /** Programming language for code questions */
+    programmingLanguage?: string;
+    /** Code template for the student to start with */
+    codeTemplate?: string;
+    /** Test cases for code validation */
+    testCases?: Array<{
+      input: string;
+      expectedOutput: string;
+    }>;
   };
 
   /** 
@@ -143,8 +193,23 @@ export interface Question {
 }
 
 /** 
+ * Filter state for the UI that allows multiple values per field
+ */
+export interface FilterState {
+  difficulty?: DifficultyLevel[];
+  topics?: string[];
+  questionTypes?: string[];
+  timeLimit?: [number, number]; // [min, max] in minutes
+  programmingLanguages?: string[];
+  hasTestCases?: boolean;
+  excludedTopics?: string[];
+}
+
+/** 
  * Parameters for generating a new question.
  * Used when requesting a question from OpenAI.
+ * This is a specific instance of parameters that must match
+ * the FilterState constraints.
  */
 export interface QuestionFetchParams {
   /** Main topic to generate question about (e.g., 'linear_equations') */
@@ -152,11 +217,51 @@ export interface QuestionFetchParams {
   /** Optional subtopic for more specific questions */
   subtopic?: string;
   /** Target difficulty level from 1 (easiest) to 5 (hardest) */
-  difficulty: number;
+  difficulty: DifficultyLevel;
   /** Type of question to generate */
   type: QuestionType;
   /** Subject area (e.g., 'Mathematics', 'Computer Science') */
   subject: string;
   /** Target education level (e.g., 'high_school', 'technical_college') */
   educationType: string;
+  /** Optional programming language for code questions */
+  programmingLanguage?: string;
+  /** Whether to include test cases */
+  includeTestCases?: boolean;
+}
+
+/**
+ * Validates if a set of question parameters satisfies the filter constraints
+ */
+export function satisfiesFilter(params: QuestionFetchParams, filter: FilterState): boolean {
+  // If no filter is set, everything is valid
+  if (Object.keys(filter).length === 0) return true;
+
+  // Check each filter constraint
+  if (filter.difficulty && !filter.difficulty.includes(params.difficulty)) {
+    return false;
+  }
+  
+  if (filter.topics && !filter.topics.includes(params.topic)) {
+    return false;
+  }
+  
+  if (filter.questionTypes && !filter.questionTypes.includes(params.type)) {
+    return false;
+  }
+  
+  if (filter.programmingLanguages && params.programmingLanguage && 
+      !filter.programmingLanguages.includes(params.programmingLanguage)) {
+    return false;
+  }
+  
+  if (filter.hasTestCases && !params.includeTestCases) {
+    return false;
+  }
+  
+  if (filter.excludedTopics && filter.excludedTopics.includes(params.topic)) {
+    return false;
+  }
+
+  return true;
 } 

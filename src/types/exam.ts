@@ -1,4 +1,5 @@
 import { Topic, ExamNames, Exam as ExamSchema } from '../schemas/exam';
+import { DifficultyLevel } from './question';
 
 export type { Topic, ExamNames };
 
@@ -62,7 +63,7 @@ export interface ExamData {
   /** Type of exam (e.g., bagrut, mahat) */
   exam_type: ExamType;
   /** Difficulty level (1-5) */
-  difficulty: number;
+  difficulty: DifficultyLevel;
   /** Programming language for CS exams */
   programming_language?: 'java' | 'c#' | 'python';
   /** List of topics covered in the exam */

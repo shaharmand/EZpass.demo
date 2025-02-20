@@ -18,6 +18,11 @@ import QuestionContent from '../components/QuestionContent';
 import QuestionResponseInput from '../components/QuestionResponseInput';
 import type { QuestionStatus } from '../types/prepState';
 import { PrepStateManager } from '../services/PrepStateManager';
+import type { StudentPrep } from '../types/prepState';
+
+interface ExtendedStudentPrep extends StudentPrep {
+  questions?: PracticeQuestion[];
+}
 
 const PracticePage: React.FC = () => {
   const navigate = useNavigate();
@@ -49,6 +54,78 @@ const PracticePage: React.FC = () => {
 
   // Loading state for questions (both initial and transitions)
   const [isLoadingQuestion, setIsLoadingQuestion] = useState(true);
+
+  // Track current batch of 10 questions
+  const [currentBatch, setCurrentBatch] = useState<Array<{
+    index: number;
+    isCorrect?: boolean;
+    score?: number;
+    status: 'pending' | 'active' | 'completed';
+  }>>([]);
+
+  // Initialize or reset batch when starting new practice
+  useEffect(() => {
+    if (activePrep && (!currentBatch.length || currentBatch.length !== 10)) {
+      setCurrentBatch(Array.from({ length: 10 }, (_, i) => ({
+        index: i,
+        status: i === 0 ? 'active' : 'pending'
+      })));
+    }
+  }, [activePrep]);
+
+  // Update batch when question is answered
+  useEffect(() => {
+    console.log('🔍 Checking for feedback update:', {
+      hasFeedback: Boolean(currentQuestion?.state.feedback),
+      batchLength: currentBatch.length,
+      currentQuestion: currentQuestion?.question.id,
+      feedback: currentQuestion?.state.feedback,
+      batchDetails: currentBatch.map(q => ({
+        index: q.index,
+        status: q.status,
+        isCorrect: q.isCorrect,
+        score: q.score
+      }))
+    });
+
+    if (currentQuestion?.state.feedback && currentBatch.length) {
+      const currentIndex = currentBatch.findIndex(q => q.status === 'active');
+      console.log('📊 Found active question in batch:', {
+        currentIndex,
+        batchStatus: currentBatch.map(q => ({
+          index: q.index,
+          status: q.status,
+          isCorrect: q.isCorrect,
+          score: q.score
+        }))
+      });
+
+      if (currentIndex >= 0) {
+        const newBatch = [...currentBatch];
+        // Update current question but keep it active
+        newBatch[currentIndex] = {
+          ...newBatch[currentIndex],
+          isCorrect: currentQuestion.state.feedback.isCorrect,
+          score: currentQuestion.state.feedback.score,
+          status: 'active' // Keep it active until next is clicked
+        };
+        
+        console.log('✨ Updating batch with feedback:', {
+          updatedIndex: currentIndex,
+          isCorrect: currentQuestion.state.feedback.isCorrect,
+          score: currentQuestion.state.feedback.score,
+          status: 'active',
+          newBatchStatus: newBatch.map(q => ({
+            index: q.index,
+            status: q.status,
+            isCorrect: q.isCorrect,
+            score: q.score
+          }))
+        });
+        setCurrentBatch(newBatch);
+      }
+    }
+  }, [currentQuestion?.state.feedback]);
 
   const handleFilterChange = useCallback((newFilters: FilterState) => {
     // Ensure difficulty is always DifficultyLevel[]
@@ -157,31 +234,18 @@ const PracticePage: React.FC = () => {
     setIsLoadingQuestion(true);
 
     try {
-      console.log('Submitting answer:', {
+      console.log('🔄 Submitting answer:', {
         prepId: activePrep.id,
         questionId: currentQuestion.question.id,
         questionIndex: currentQuestion.state.questionIndex,
         answerLength: answer.length
       });
 
-      // For multiple choice, check if the selected option is correct
-      let isCorrect = false;
-      if (currentQuestion.question.type === 'multiple_choice' && currentQuestion.question.correctOption) {
-        isCorrect = answer === currentQuestion.question.correctOption.toString();
-      }
-
-      // Update correct answers count and average score
-      const newCorrectAnswers = isCorrect ? (currentQuestion.state.correctAnswers || 0) + 1 : (currentQuestion.state.correctAnswers || 0);
-      const currentIndex = currentQuestion.state.questionIndex || 0;
-      const newAverageScore = Math.round((newCorrectAnswers / (currentIndex + 1)) * 100);
-
-      // Create updated question state
-      const updatedQuestion = {
+      // Update current question state to show it's being submitted
+      const submittingQuestion = {
         ...currentQuestion,
         state: {
           ...currentQuestion.state,
-          correctAnswers: newCorrectAnswers,
-          averageScore: newAverageScore,
           status: 'submitted' as QuestionStatus,
           submittedAnswer: {
             text: answer,
@@ -191,14 +255,40 @@ const PracticePage: React.FC = () => {
         }
       };
 
-      // Update the current question state first
-      setCurrentQuestion(updatedQuestion);
+      // Update UI to show submission in progress
+      setCurrentQuestion(submittingQuestion);
+      console.log('📤 Updated question state to submitted:', {
+        status: submittingQuestion.state.status,
+        timestamp: submittingQuestion.state.lastUpdatedAt
+      });
 
-      // Then submit the answer
+      // Submit answer and wait for feedback
+      console.log('📝 Checking answer:', {
+        answer,
+        correctOption: currentQuestion.question.correctOption,
+        type: currentQuestion.question.type
+      });
+
+      let isCorrect = false;
+      if (currentQuestion.question.type === 'multiple_choice') {
+        isCorrect = parseInt(answer) === currentQuestion.question.correctOption;
+      } else {
+        // For other question types, we'll need different validation logic
+        // For now, we'll mark them as incorrect until we implement proper validation
+        isCorrect = false;
+      }
+
       await submitAnswer(answer, isCorrect);
+      console.log('✅ Answer submitted with feedback:', {
+        isCorrect,
+        answer,
+        correctOption: currentQuestion.question.correctOption,
+        type: currentQuestion.question.type
+      });
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error submitting answer';
-      console.error('Error submitting answer:', {
+      console.error('❌ Error submitting answer:', {
         error,
         prepId: activePrep.id,
         questionId: currentQuestion.question.id,
@@ -302,6 +392,108 @@ const PracticePage: React.FC = () => {
     }
   };
 
+  const handleRetry = () => {
+    if (!currentQuestion || !activePrep) return;
+
+    console.log('🔄 Retrying question:', {
+      prepId: activePrep.id,
+      questionId: currentQuestion.question.id,
+      questionIndex: currentQuestion.state.questionIndex,
+      previousHelpRequests: currentQuestion.state.helpRequests.length,
+      currentBatchState: currentBatch.map(q => ({
+        index: q.index,
+        status: q.status,
+        isCorrect: q.isCorrect,
+        score: q.score
+      }))
+    });
+
+    // Find the current question in the batch
+    const currentIndex = currentBatch.findIndex(q => q.status === 'active' || q.status === 'completed');
+    
+    if (currentIndex >= 0) {
+      // Reset the batch state for this question
+      const newBatch = [...currentBatch];
+      newBatch[currentIndex] = {
+        ...newBatch[currentIndex],
+        status: 'active',
+        isCorrect: undefined,
+        score: undefined
+      };
+      
+      // Reset any subsequent questions to pending
+      for (let i = currentIndex + 1; i < newBatch.length; i++) {
+        newBatch[i] = {
+          ...newBatch[i],
+          status: 'pending',
+          isCorrect: undefined,
+          score: undefined
+        };
+      }
+      
+      console.log('🔄 Resetting batch state:', {
+        currentIndex,
+        newBatchStatus: newBatch.map(q => ({
+          index: q.index,
+          status: q.status,
+          isCorrect: q.isCorrect,
+          score: q.score
+        }))
+      });
+      
+      setCurrentBatch(newBatch);
+    }
+
+    // Reset the question state to active
+    setCurrentQuestion({
+      ...currentQuestion,
+      state: {
+        status: 'active',
+        startedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+        helpRequests: currentQuestion.state.helpRequests || [],
+        questionIndex: currentQuestion.state.questionIndex,
+        correctAnswers: currentQuestion.state.correctAnswers || 0,
+        averageScore: currentQuestion.state.averageScore || 0,
+        feedback: undefined,
+        currentAnswer: undefined
+      }
+    });
+
+    console.log('✨ Question reset for retry:', {
+      prepId: activePrep.id,
+      questionId: currentQuestion.question.id,
+      newStartTime: Date.now(),
+      batchState: currentBatch.map(q => ({
+        index: q.index,
+        status: q.status,
+        isCorrect: q.isCorrect,
+        score: q.score
+      }))
+    });
+  };
+
+  const handleClearFilter = () => {
+    setFilters({});
+  };
+
+  // Format metadata for QuestionMetadata
+  const formattedMetadata = currentQuestion ? {
+    topicId: currentQuestion.question.metadata.topicId,
+    subtopicId: currentQuestion.question.metadata.subtopicId,
+    type: currentQuestion.question.type,
+    difficulty: currentQuestion.question.metadata.difficulty.toString(),
+    source: currentQuestion.question.metadata.source ? {
+      type: 'exam',
+      ...currentQuestion.question.metadata.source
+    } : { type: 'ezpass' }
+  } : {
+    topicId: '',
+    type: 'multiple_choice',
+    difficulty: '1',
+    source: { type: 'ezpass' }
+  };
+
   const handleNext = async () => {
     if (!currentQuestion || !activePrep) {
       return;
@@ -310,6 +502,45 @@ const PracticePage: React.FC = () => {
     try {
       requestInProgress.current = true;
       setIsLoading(true);
+
+      console.log('➡️ Moving to next question:', {
+        currentBatchState: currentBatch.map(q => ({
+          index: q.index,
+          status: q.status,
+          isCorrect: q.isCorrect,
+          score: q.score
+        }))
+      });
+
+      // Update batch state first
+      const currentIndex = currentBatch.findIndex(q => q.status === 'active');
+      if (currentIndex >= 0) {
+        const newBatch = [...currentBatch];
+        // Complete current question with its feedback
+        newBatch[currentIndex] = {
+          ...newBatch[currentIndex],
+          status: 'completed',
+          isCorrect: currentQuestion.state.feedback?.isCorrect || false,
+          score: currentQuestion.state.feedback?.score
+        };
+        // Activate next question if available
+        if (currentIndex + 1 < newBatch.length) {
+          newBatch[currentIndex + 1].status = 'active';
+        }
+
+        console.log('✨ Updated batch for next question:', {
+          previousIndex: currentIndex,
+          nextIndex: currentIndex + 1,
+          newBatchStatus: newBatch.map(q => ({
+            index: q.index,
+            status: q.status,
+            isCorrect: q.isCorrect,
+            score: q.score
+          }))
+        });
+
+        setCurrentBatch(newBatch);
+      }
 
       // Move to next question
       const updatedPrep = PrepStateManager.moveToNextQuestion(activePrep);
@@ -335,6 +566,17 @@ const PracticePage: React.FC = () => {
         }
       };
 
+      console.log('✨ Created next question:', {
+        questionId: nextQuestion.question.id,
+        questionIndex: nextQuestion.state.questionIndex,
+        batchState: currentBatch.map(q => ({
+          index: q.index,
+          status: q.status,
+          isCorrect: q.isCorrect,
+          score: q.score
+        }))
+      });
+
       // Update state
       setCurrentQuestion(nextQuestion);
       setIsLoading(false);
@@ -345,60 +587,6 @@ const PracticePage: React.FC = () => {
       setIsLoading(false);
       requestInProgress.current = false;
     }
-  };
-
-  const handleRetry = () => {
-    if (!currentQuestion || !activePrep) return;
-
-    console.log('Retrying question:', {
-      prepId: activePrep.id,
-      questionId: currentQuestion.question.id,
-      questionIndex: currentQuestion.state.questionIndex,
-      previousHelpRequests: currentQuestion.state.helpRequests.length
-    });
-
-    // Reset the question state to active, clearing feedback and current answer
-    setCurrentQuestion({
-      ...currentQuestion,
-      state: {
-        status: 'active',
-        startedAt: Date.now(),
-        lastUpdatedAt: Date.now(),
-        helpRequests: currentQuestion.state.helpRequests || [],
-        questionIndex: currentQuestion.state.questionIndex,
-        correctAnswers: currentQuestion.state.correctAnswers || 0,
-        averageScore: currentQuestion.state.averageScore || 0,
-        feedback: undefined,
-        currentAnswer: undefined
-      }
-    });
-
-    console.log('Question reset for retry:', {
-      prepId: activePrep.id,
-      questionId: currentQuestion.question.id,
-      newStartTime: Date.now()
-    });
-  };
-
-  const handleClearFilter = () => {
-    setFilters({});
-  };
-
-  // Format metadata for QuestionMetadata
-  const formattedMetadata = currentQuestion ? {
-    topicId: currentQuestion.question.metadata.topicId,
-    subtopicId: currentQuestion.question.metadata.subtopicId,
-    type: currentQuestion.question.type,
-    difficulty: currentQuestion.question.metadata.difficulty.toString(),
-    source: currentQuestion.question.metadata.source ? {
-      type: 'exam',
-      ...currentQuestion.question.metadata.source
-    } : { type: 'ezpass' }
-  } : {
-    topicId: '',
-    type: 'multiple_choice',
-    difficulty: '1',
-    source: { type: 'ezpass' }
   };
 
   // Error display with better messaging
@@ -446,7 +634,8 @@ const PracticePage: React.FC = () => {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        minHeight: '300px'
+        minHeight: '100vh',
+        backgroundColor: '#f8fafc'
       }}>
         <Space direction="vertical" align="center">
           <Spin size="large" />
@@ -457,7 +646,14 @@ const PracticePage: React.FC = () => {
   }
 
   if (isLoading) {
-    return <LoadingSpinner />;
+    return (
+      <Layout className="practice-page-layout">
+        <PracticeHeader prep={activePrep} />
+        <Layout.Content className="practice-content">
+          <LoadingSpinner />
+        </Layout.Content>
+      </Layout>
+    );
   }
 
   return (
@@ -498,9 +694,17 @@ const PracticePage: React.FC = () => {
                 state={{
                   status: currentQuestion.state.status || 'loading',
                   feedback: currentQuestion.state.feedback,
-                  questionIndex: ('completedQuestions' in activePrep.state) ? activePrep.state.completedQuestions : 0,
-                  correctAnswers: ('correctAnswers' in activePrep.state) ? activePrep.state.correctAnswers : 0,
-                  averageScore: ('averageScore' in activePrep.state) ? activePrep.state.averageScore : 0
+                  questionIndex: currentBatch.findIndex(q => q.status === 'active'),
+                  correctAnswers: currentBatch.filter(q => q.isCorrect).length,
+                  averageScore: Math.round(
+                    currentBatch.reduce((sum, q) => sum + (q.score || 0), 0) / 
+                    Math.max(1, currentBatch.filter(q => q.status === 'completed').length)
+                  ),
+                  answeredQuestions: currentBatch.map((q, index) => ({
+                    index,
+                    isCorrect: q.isCorrect || false,
+                    score: q.score
+                  }))
                 }}
                 filters={filters}
                 onFiltersChange={handleFilterChange}

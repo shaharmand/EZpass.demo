@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Space, Button, Typography, Input, Select, Divider } from 'antd';
 import { questionService } from '../services/llm/service';
-import type { Question } from '../types/question';
+import type { Question, DifficultyLevel } from '../types/question';
 import QuestionViewer from '../components/QuestionViewer';
 
 const { Title, Text } = Typography;
@@ -23,10 +23,10 @@ const TestGeneration: React.FC = () => {
 
       const generatedQuestion = await questionService.generateQuestion({
         topic,
-        difficulty,
+        difficulty: difficulty as DifficultyLevel,
         type,
         subject: 'Mathematics',
-        educationType: 'high_school'
+        educationType: 'bagrut'
       });
 
       setQuestion(generatedQuestion);

@@ -1,39 +1,9 @@
 import { useMemo } from 'react';
-import { useExam } from '../contexts/ExamContext';
+import { useStudentPrep } from '../contexts/StudentPrepContext';
 import type { ProgressMetric } from '../components/ProgressBar/ProgressBar';
 
 export const usePracticeProgress = () => {
-  const { practiceState } = useExam();
-
-  // Debug logging for practice state
-  console.log('usePracticeProgress:', {
-    hasPracticeState: !!practiceState,
-    practiceDetails: practiceState ? {
-      answers: practiceState.answers.length,
-      selectedTopics: practiceState.selectedTopics.length,
-      currentIndex: practiceState.currentQuestionIndex,
-      startTime: new Date(practiceState.startTime).toISOString()
-    } : null
-  });
-
-  const stats = useMemo(() => {
-    if (!practiceState) return null;
-
-    const correctAnswers = practiceState.answers.filter(a => a.isCorrect).length;
-    const questionsAnswered = practiceState.answers.length;
-    const totalTimeSpent = practiceState.answers.reduce((sum, a) => sum + a.timeTaken, 0);
-    
-    const calculatedStats = {
-      correctAnswers,
-      questionsAnswered,
-      totalTimeSpent
-    };
-
-    // Debug logging for stats calculation
-    console.log('Stats Calculation:', calculatedStats);
-    
-    return calculatedStats;
-  }, [practiceState?.answers]);
+  const { activePrep, currentQuestion } = useStudentPrep();
 
   const getTrafficLight = (value: number, total: number): ProgressMetric['status'] => {
     const percentage = total > 0 ? (value / total) * 100 : 0;
@@ -51,42 +21,43 @@ export const usePracticeProgress = () => {
       : `${remainingMinutes}m`;
   };
 
-  const metrics: ProgressMetric[] | null = useMemo(() => {
-    if (!practiceState || !stats) return null;
+  const metrics = useMemo(() => {
+    if (!activePrep) return null;
 
-    const calculatedMetrics: ProgressMetric[] = [
+    // Get current progress
+    const isCorrect = currentQuestion?.state.feedback?.isCorrect || false;
+    const questionsAnswered = currentQuestion?.state.questionIndex || 0;
+    const timeSpent = activePrep.state.status === 'active' ? activePrep.state.activeTime : 0;
+    const targetQuestionsPerTopic = 3; // 3 questions per topic
+    const totalTargetQuestions = activePrep.selection.topics.length * targetQuestionsPerTopic;
+
+    return [
       {
         title: 'הצלחה',
-        value: stats.correctAnswers,
-        total: stats.questionsAnswered,
-        status: getTrafficLight(stats.correctAnswers, stats.questionsAnswered),
-        tooltipContent: `${stats.correctAnswers} תשובות נכונות מתוך ${stats.questionsAnswered} שאלות`
+        value: isCorrect ? 1 : 0,
+        total: 1,
+        status: getTrafficLight(isCorrect ? 1 : 0, 1),
+        tooltipContent: isCorrect ? 'תשובה נכונה' : 'תשובה שגויה'
       },
       {
         title: 'כיסוי',
-        value: stats.questionsAnswered,
-        total: practiceState.selectedTopics.length * 3, // 3 questions per topic
-        status: getTrafficLight(stats.questionsAnswered, practiceState.selectedTopics.length * 3),
-        tooltipContent: `${stats.questionsAnswered} שאלות מתוך ${practiceState.selectedTopics.length * 3}`
+        value: questionsAnswered,
+        total: totalTargetQuestions,
+        status: getTrafficLight(questionsAnswered, totalTargetQuestions),
+        tooltipContent: `${questionsAnswered} שאלות מתוך ${totalTargetQuestions}`
       },
       {
         title: 'זמן למידה',
-        value: stats.totalTimeSpent,
-        total: practiceState.selectedTopics.length * 300, // 5 minutes (300 seconds) per topic
-        status: 'green' as const,
-        tooltipContent: `זמן למידה כולל: ${formatStudyTime(stats.totalTimeSpent * 1000)}`
+        value: timeSpent,
+        total: activePrep.selection.topics.length * 300000, // 5 minutes (300,000ms) per topic
+        status: 'green',
+        tooltipContent: `זמן למידה כולל: ${formatStudyTime(timeSpent)}`
       }
     ];
-
-    // Debug logging for metrics calculation
-    console.log('Metrics Calculation:', calculatedMetrics);
-
-    return calculatedMetrics;
-  }, [practiceState, stats]);
+  }, [activePrep, currentQuestion]);
 
   return {
     metrics,
-    isLoading: !practiceState,
-    hasProgress: !!stats && stats.questionsAnswered > 0
+    isLoading: !activePrep || activePrep.state.status === 'initializing'
   };
 }; 

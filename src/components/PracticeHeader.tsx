@@ -231,12 +231,14 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
               }} />
             </div>
             <div>
-              <Text strong style={{ fontSize: '18px', color: colors.text.brand }}>
-                EZpass
-              </Text>
-              <Text style={{ fontSize: '12px', color: colors.icon.left, marginRight: '4px' }}>
-                פשוט להצליח
-              </Text>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'start' }}>
+                <Text strong style={{ fontSize: '18px', color: colors.text.brand, lineHeight: '1' }}>
+                  EZpass
+                </Text>
+                <Text style={{ fontSize: '12px', color: colors.icon.left, marginTop: '2px' }}>
+                  פשוט להצליח
+                </Text>
+              </div>
             </div>
           </div>
 

@@ -1,3 +1,5 @@
+import type { QuestionType } from '../question';
+
 /**
  * Runtime exam types representing the dynamic state of exams in the application.
  * These types extend the static ExamData configuration with runtime properties
@@ -50,6 +52,8 @@ export interface FormalExam {
   startedAt?: string;
   /** List of topics with runtime state */
   topics: Topic[];
+  /** Question types included in this exam */
+  questionTypes?: QuestionType[];
 }
 
 /**
@@ -90,6 +94,8 @@ export interface SubTopic {
   order: number;
   /** Template for typical questions in this subtopic */
   questionTemplate?: string;
+  /** List of typical questions for this subtopic */
+  typicalQuestions?: string[];
 }
 
 /**
@@ -157,7 +163,8 @@ export const createFormalExam = (
         description: '', // TODO: Load from subjects/*.json
         order: subIndex
       }))
-    }))
+    })),
+    questionTypes: [] // TODO: Implement questionTypes
   };
 };
 
@@ -260,6 +267,7 @@ export const convertDBExamToFormalExam = (examWithRelations: ExamWithRelations):
         order: subTopic.order,
         questionTemplate: subTopic.questionTemplate
       }))
-    }))
+    })),
+    questionTypes: [] // TODO: Implement questionTypes
   };
 }; 

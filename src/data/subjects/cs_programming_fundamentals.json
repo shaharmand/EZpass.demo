@@ -1,0 +1,28 @@
+{
+  "id": "cs_programming_fundamentals",
+  "name": "יסודות התכנות",
+  "topics": {
+    "control_structures": {
+      "name": "מבני בקרה",
+      "subtopics": {
+        "loops": {
+          "name": "לולאות",
+          "description": "מבני בקרה חזרתיים"
+        },
+        "conditionals": {
+          "name": "תנאים",
+          "description": "משפטי תנאי ובקרת זרימה"
+        }
+      }
+    },
+    "functions": {
+      "name": "פונקציות",
+      "subtopics": {
+        "parameters": {
+          "name": "פרמטרים",
+          "description": "העברת פרמטרים לפונקציות"
+        }
+      }
+    }
+  }
+} 

@@ -1,0 +1,24 @@
+{
+  "id": "cs_data_structures",
+  "name": "מבני נתונים",
+  "topics": {
+    "arrays": {
+      "name": "מערכים",
+      "subtopics": {
+        "dynamic_arrays": {
+          "name": "מערכים דינמיים",
+          "description": "מערכים שגודלם משתנה בזמן ריצה"
+        }
+      }
+    },
+    "linked_lists": {
+      "name": "רשימות מקושרות",
+      "subtopics": {
+        "singly_linked": {
+          "name": "רשימה מקושרת חד כיוונית",
+          "description": "מבנה נתונים של רשימה מקושרת פשוטה"
+        }
+      }
+    }
+  }
+} 

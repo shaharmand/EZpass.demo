@@ -85,7 +85,11 @@ const solutionSchema = z.object({
 - For code: Include complete working solution with complexity analysis
 - For open: Provide model answer and evaluation criteria
 - For step_by_step: Detail each step's solution and progression`),
-  format: z.literal('markdown')
+  format: z.literal('markdown'),
+  answer: z.string().optional().describe(`Optional final answer, present only when there's a distinct final answer separate from solution steps.
+Not needed for questions where:
+- The answer is simple (e.g., multiple choice)
+- The solution steps ARE the answer`)
 });
 
 // Main question schema that matches our Question type exactly

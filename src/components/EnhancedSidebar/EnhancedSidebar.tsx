@@ -85,7 +85,6 @@ export const EnhancedSidebar: React.FC<EnhancedSidebarProps> = ({
       case 'topics':
       case 'questionTypes':
       case 'programmingLanguages':
-      case 'excludedTopics':
         if (typeof value === 'string' && Array.isArray(newFilters[key])) {
           const arrayKey = key;
           newFilters[arrayKey] = newFilters[arrayKey]!.filter(v => v !== value);

@@ -14,7 +14,7 @@ import {
 } from '@ant-design/icons';
 import QuestionViewer from '../components/QuestionViewer';
 import type { Question } from '../types/question';
-import { questionService } from '../services/llm/service';
+import { questionService } from '../services/llm/questionGenerationService';
 
 const { Title, Text } = Typography;
 

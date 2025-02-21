@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Space, Button, Typography, Input, Select, Divider } from 'antd';
-import { questionService } from '../services/llm/service';
+import { questionService } from '../services/llm/questionGenerationService';
 import type { Question, DifficultyLevel } from '../types/question';
 import QuestionViewer from '../components/QuestionViewer';
 

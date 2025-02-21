@@ -6,6 +6,7 @@ import type { StudentPrep } from '../../types/prepState';
 import type { DataNode } from 'antd/es/tree';
 import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import type { Key } from 'antd/es/table/interface';
+import type { Topic, SubTopic } from '../../types/shared/exam';
 
 const { Title, Text } = Typography;
 

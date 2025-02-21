@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card, Space, Button, Typography, Divider, Alert } from 'antd';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import PracticeQuestionDisplay from './practice/PracticeQuestionDisplay';
-import type { QuestionState } from '../types/practice';
+import type { QuestionState, QuestionStatus, HelpType } from '../types/prepState';
+import { logger } from '../utils/logger';
 
 const { Title, Text } = Typography;
 
@@ -38,9 +39,11 @@ const PracticeFlowTest: React.FC = () => {
     message: null
   });
 
-  // Add state for question state
+  // Initialize question state with all required fields
   const [questionState, setQuestionState] = useState<QuestionState>({
-    status: 'loading',
+    status: 'active' as QuestionStatus,
+    startedAt: Date.now(),
+    lastUpdatedAt: Date.now(),
     correctAnswers: 0,
     averageScore: 0,
     helpRequests: [],
@@ -133,7 +136,7 @@ const PracticeFlowTest: React.FC = () => {
       setError({ type: null, message: null });
       
       // Submit answer and get next question in one operation
-      await submitAnswer(answer, true);
+      await submitAnswer(answer);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to submit answer';
       setError({ 
@@ -164,8 +167,23 @@ const PracticeFlowTest: React.FC = () => {
     }
   };
 
-  const handleHelp = async (action: string) => {
-    console.log('Help requested:', action);
+  const handleHelp = () => {
+    logger.info('Help requested', {
+      questionId: currentQuestion?.question.id
+    });
+    
+    // Update question state with help request
+    setQuestionState(prev => ({
+      ...prev,
+      helpRequests: [
+        ...prev.helpRequests,
+        {
+          timestamp: Date.now(),
+          type: 'explanation' as HelpType
+        }
+      ],
+      lastUpdatedAt: Date.now()
+    }));
   };
 
   const handleSkip = async (reason: 'too_hard' | 'too_easy' | 'not_in_material') => {

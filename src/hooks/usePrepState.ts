@@ -3,8 +3,17 @@ import { PrepStateManager } from '../services/PrepStateManager';
 import type { StudentPrep } from '../types/prepState';
 import type { Question, QuestionFeedback } from '../types/question';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
-import { questionService } from '../services/llm/service';
+import { questionService } from '../services/llm/questionGenerationService';
 import { QuestionRotationManager } from '../services/QuestionRotationManager';
+import { MultipleChoiceFeedbackService } from '../services/feedback/multipleChoiceFeedback';
+import { FeedbackService } from '../services/llm/feedbackGenerationService';
+import { logger } from '../utils/logger';
+import { ExamType } from '../types/exam';
+import { examService } from '../services/examService';
+
+// Initialize services
+const multipleChoiceFeedbackService = new MultipleChoiceFeedbackService();
+const feedbackService = new FeedbackService();
 
 export const usePrepState = () => {
     const { 
@@ -20,10 +29,17 @@ export const usePrepState = () => {
 
     const getNextQuestion = useCallback(async () => {
         if (!activePrep) {
+            logger.error('Attempted to get next question without active prep');
             throw new Error('No active prep session');
         }
 
         try {
+            logger.info('Getting next question', {
+                prepId: activePrep.id,
+                examId: activePrep.exam.id,
+                selectedTopics: activePrep.selection.topics
+            });
+
             // Initialize rotation manager
             const rotationManager = new QuestionRotationManager(
                 activePrep.exam,
@@ -32,13 +48,19 @@ export const usePrepState = () => {
 
             // Get next parameters using rotation manager
             const params = rotationManager.getNextParameters();
+            logger.info('Generated question parameters', { params });
 
             // Generate question with rotated parameters
             const question = await questionService.generateQuestion(params);
+            logger.info('Generated new question', {
+                questionId: question.id,
+                type: question.type,
+                topic: question.metadata.topicId
+            });
 
             return question;
         } catch (error) {
-            console.error('Error getting next question:', error);
+            logger.error('Failed to get next question', { error });
             throw error;
         }
     }, [activePrep]);
@@ -54,105 +76,102 @@ export const usePrepState = () => {
         getNextQuestion,
         submitAnswer: async (answer: string) => {
             if (!studentPrepCurrentQuestion) {
+                logger.error('Attempted to submit answer without active question');
                 throw new Error('No active question');
             }
 
-            // For testing purposes, generate rich feedback based on question type
-            const generateFeedback = (answer: string, question: Question): QuestionFeedback => {
-                const isMultipleChoice = question.type === 'multiple_choice';
-                const score = isMultipleChoice ? 
-                    (answer === question.correctOption?.toString() ? 100 : 0) : 
-                    Math.min(100, Math.max(0, parseInt(answer.length > 50 ? '85' : '45')));
-                const isCorrect = score >= 60;
+            const question = studentPrepCurrentQuestion.question;
+            let feedback: QuestionFeedback;
 
-                const baseAssessment = isCorrect ? 
-                    'כל הכבוד! התשובה שלך נכונה ומראה הבנה טובה של החומר.' : 
-                    'התשובה שלך לא מדויקת, אבל זו הזדמנות טובה ללמידה.';
+            try {
+                logger.info('Processing answer submission', {
+                    questionId: question.id,
+                    type: question.type,
+                    answerLength: answer.length
+                });
 
-                switch (question.type) {
-                    case 'multiple_choice':
-                        return {
-                            isCorrect,
-                            score,
-                            type: 'multiple_choice',
-                            assessment: `${baseAssessment} ${isCorrect ? 
-                                'המשך כך!' : 
-                                'בוא נבין למה התשובה הנכונה היא אחרת.'}`,
-                            correctOption: question.correctOption?.toString(),
-                            explanation: question.solution?.text || 'No explanation provided',
-                            incorrectExplanations: question.options
-                                ?.filter((_, i) => i + 1 !== question.correctOption)
-                                .map((opt, i) => `* תשובה ${i + 1} שגויה כי היא לא מדויקת`)
-                                .join('\n') || 'No explanations for incorrect options',
-                            solution: `# פתרון מלא\n\n${question.solution?.text || 'No solution provided'}`
-                        };
+                if (question.type === 'multiple_choice') {
+                    const selectedOption = parseInt(answer);
+                    if (isNaN(selectedOption) || selectedOption < 1 || selectedOption > 4) {
+                        logger.error('Invalid multiple choice answer', { answer });
+                        throw new Error('Invalid multiple choice answer');
+                    }
 
-                    case 'code':
-                        return {
-                            isCorrect,
-                            score,
-                            type: 'code',
-                            assessment: `${baseAssessment} ${isCorrect ? 
-                                'הקוד שלך עומד בכל הדרישות!' : 
-                                'בוא נראה איך אפשר לשפר את הקוד.'}`,
-                            explanation: isCorrect ? 
-                                `הפתרון שלך מצוין! הקוד עומד בכל הדרישות.` :
-                                `יש מספר נקודות לשיפור בקוד.`,
-                            solution: question.solution?.text || 'No solution provided',
-                            improvementSuggestions: !isCorrect ? 
-                                `כדי לשפר את הקוד:\n1. בדוק את הלוגיקה\n2. הוסף טיפול בשגיאות\n3. שפר את הביצועים` : 
-                                undefined
-                        };
+                    logger.info('Generating multiple choice feedback', {
+                        questionId: question.id,
+                        selectedOption
+                    });
 
-                    case 'step_by_step':
-                        return {
-                            isCorrect,
-                            score,
-                            type: 'step_by_step',
-                            assessment: `${baseAssessment} ${isCorrect ? 
-                                'הצעדים שלך מסודרים ומדויקים!' : 
-                                'בוא נעבור על הצעדים ונראה איפה אפשר להשתפר.'}`,
-                            explanation: question.solution?.text || 'No step-by-step explanation provided',
-                            solution: question.solution?.text || 'No solution provided',
-                            improvementSuggestions: !isCorrect ? 
-                                `לשיפור הפתרון:\n1. הצג כל שלב בנפרד\n2. הוסף הסברים\n3. בדוק תוצאות` : 
-                                undefined
-                        };
+                    const mcFeedback = multipleChoiceFeedbackService.generateFeedback(question, selectedOption);
+                    feedback = {
+                        ...mcFeedback,
+                        detailedFeedback: mcFeedback.detailedFeedback || 'No detailed feedback available'
+                    };
 
-                    case 'open':
-                    default:
-                        return {
-                            isCorrect,
-                            score,
-                            type: 'open',
-                            assessment: `${baseAssessment} ${isCorrect ? 
-                                'התשובה שלך מקיפה ומעמיקה!' : 
-                                'בוא נראה איך אפשר להעמיק את התשובה.'}`,
-                            explanation: isCorrect ? 
-                                `תשובתך מצוינת וכוללת את כל הנקודות החשובות.` :
-                                `יש מספר נקודות שכדאי להתייחס אליהן.`,
-                            solution: question.solution?.text || 'No solution provided',
-                            improvementSuggestions: !isCorrect ? 
-                                `להעשרת התשובה:\n1. הוסף הגדרות מדויקות\n2. תן דוגמאות\n3. הרחב הסברים` : 
-                                undefined
-                        };
+                    logger.info('Generated multiple choice feedback', {
+                        questionId: question.id,
+                        isCorrect: feedback.isCorrect,
+                        score: feedback.score
+                    });
+                } else {
+                    logger.info('Generating feedback for non-multiple choice question', {
+                        questionId: question.id,
+                        type: question.type,
+                        topicId: question.metadata.topicId
+                    });
+
+                    // Debug topic data retrieval
+                    let subject: string;
+                    try {
+                        subject = await examService.getSubjectNameForTopic(question.metadata.topicId);
+                        logger.info('Retrieved subject for topic:', {
+                            topicId: question.metadata.topicId,
+                            subject
+                        });
+                    } catch (error) {
+                        logger.error('Failed to get subject for topic:', {
+                            error,
+                            topicId: question.metadata.topicId,
+                            errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                            errorStack: error instanceof Error ? error.stack : undefined
+                        });
+                        throw error; // Re-throw to prevent feedback generation with unknown subject
+                    }
+
+                    feedback = await feedbackService.generateFeedback({
+                        question,
+                        studentAnswer: answer,
+                        formalExamName: activePrep!.exam.names.full,
+                        examType: activePrep!.exam.examType as ExamType,
+                        subject
+                    });
+
+                    logger.info('Generated question feedback', {
+                        questionId: question.id,
+                        isCorrect: feedback.isCorrect,
+                        score: feedback.score,
+                        subject: subject
+                    });
                 }
-            };
 
-            const feedback = generateFeedback(answer, studentPrepCurrentQuestion.question);
-            await contextSubmitAnswer(answer, feedback.isCorrect);
+                await contextSubmitAnswer(answer);
+                logger.info('Answer submitted successfully', {
+                    questionId: question.id,
+                    score: feedback.score
+                });
+
+                return feedback;
+            } catch (error) {
+                logger.error('Failed to generate feedback', {
+                    error,
+                    questionId: question.id,
+                    type: question.type
+                });
+                throw error;
+            }
         },
         getActiveTime: useCallback(() => 
             activePrep ? PrepStateManager.getActiveTime(activePrep) : 0
         , [activePrep])
     };
-};
-
-// Helper function to get feedback message based on score
-const getFeedbackMessage = (score: number): string => {
-    if (score >= 95) return 'תשובה מצוינת! הראית הבנה מעמיקה של החומר';
-    if (score >= 85) return 'תשובה טובה מאוד! כמעט מושלם';
-    if (score >= 75) return 'תשובה טובה, אך יש מקום קטן לשיפור';
-    if (score >= 60) return 'תשובה סבירה, אך יש מספר נקודות לשיפור';
-    return 'תשובה חלקית, כדאי לנסות שוב עם תשומת לב להערות';
-} 
+}; 

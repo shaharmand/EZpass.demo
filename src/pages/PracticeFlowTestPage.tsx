@@ -145,7 +145,7 @@ const PracticeFlowTestPage: React.FC = () => {
       setError(null);
       setFeedback('Submitting test answer...');
 
-      await submitAnswer('test_answer', true);
+      await submitAnswer('test_answer');
       setFeedback('Answer submitted and next question loaded');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to submit answer');

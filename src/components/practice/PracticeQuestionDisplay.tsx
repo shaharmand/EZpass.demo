@@ -3,16 +3,17 @@ import { Card, Space, Button, Typography } from 'antd';
 import { LinkOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { Question } from '../../types/question';
-import type { QuestionState } from '../../types/practice';
+import type { QuestionState } from '../../types/prepState';
 import QuestionContent from '../QuestionContent';
 import QuestionActions from './QuestionActions';
+import { logger } from '../../utils/logger';
 
 const { Text } = Typography;
 
 interface PracticeQuestionDisplayProps {
   question: Question;
   state: QuestionState;
-  onHelp: (action: string) => void;
+  onHelp: () => void;
   onSkip: (reason: 'too_hard' | 'too_easy' | 'not_in_material') => Promise<void>;
 }
 
@@ -30,6 +31,15 @@ const PracticeQuestionDisplay: React.FC<PracticeQuestionDisplayProps> = ({
   const navigate = useNavigate();
   const isLoading = state.status === 'loading';
   const isDisabled = isLoading || state.status === 'submitted' || state.status === 'completed';
+
+  // Handle help click
+  const handleHelp = () => {
+    logger.info('Help requested for question', {
+      questionId: question.id,
+      type: question.type
+    });
+    onHelp();
+  };
 
   return (
     <div className="practice-question-container" style={{ 
@@ -67,7 +77,7 @@ const PracticeQuestionDisplay: React.FC<PracticeQuestionDisplayProps> = ({
 
           {/* Actions (Help & Skip) */}
           <QuestionActions 
-            onHelp={onHelp}
+            onHelp={handleHelp}
             onSkip={onSkip}
             disabled={isDisabled}
           />

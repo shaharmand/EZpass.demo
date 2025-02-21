@@ -32,7 +32,8 @@ export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
   getPrep
 }) => {
   const navigate = useNavigate();
-  const [selectedTopics, setSelectedTopics] = useState<Topic[]>([]);
+  const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
+  const [selectedSubtopics, setSelectedSubtopics] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
@@ -46,10 +47,10 @@ export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
       console.log('Starting practice session with topic selection...');
       
       // If topics are selected, create a TopicSelection
-      const selection: TopicSelection | undefined = selectedTopics.length > 0
+      const selection: TopicSelection | undefined = selectedTopicIds.length > 0
         ? {
-            topics: selectedTopics.map(t => t.topicId),
-            subTopics: selectedTopics.flatMap(t => t.subTopics.map(st => st.id))
+            topics: selectedTopicIds,
+            subTopics: selectedSubtopics
           }
         : undefined;
       
@@ -64,11 +65,27 @@ export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
       console.error('Error starting practice:', {
         error,
         examId: exam.id,
-        selectedTopics: selectedTopics.length,
+        selectedTopics: selectedTopicIds.length,
         stack: error instanceof Error ? error.stack : undefined
       });
       setError(error instanceof Error ? error.message : 'Failed to start practice');
       setLoading(false);
+    }
+  };
+
+  const onTopicChange = (topicId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTopicIds([...selectedTopicIds, topicId]);
+    } else {
+      setSelectedTopicIds(prevTopicIds => prevTopicIds.filter(id => id !== topicId));
+    }
+  };
+
+  const onSubtopicChange = (subtopicId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedSubtopics([...selectedSubtopics, subtopicId]);
+    } else {
+      setSelectedSubtopics(prevSubtopics => prevSubtopics.filter(id => id !== subtopicId));
     }
   };
 
@@ -102,17 +119,24 @@ export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
         renderItem={(topic: Topic) => (
           <List.Item>
             <Checkbox
-              checked={selectedTopics.some(t => t.id === topic.id)}
-              onChange={e => {
-                if (e.target.checked) {
-                  setSelectedTopics([...selectedTopics, topic]);
-                } else {
-                  setSelectedTopics(selectedTopics.filter(t => t.id !== topic.id));
-                }
-              }}
+              checked={selectedTopicIds.includes(topic.topicId)}
+              onChange={(e) => onTopicChange(topic.topicId, e.target.checked)}
             >
               {topic.name}
             </Checkbox>
+            <List
+              dataSource={topic.subTopics}
+              renderItem={(subtopic) => (
+                <List.Item>
+                  <Checkbox
+                    checked={selectedSubtopics.includes(subtopic.id)}
+                    onChange={(e) => onSubtopicChange(subtopic.id, e.target.checked)}
+                  >
+                    {subtopic.name}
+                  </Checkbox>
+                </List.Item>
+              )}
+            />
           </List.Item>
         )}
       />

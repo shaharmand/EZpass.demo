@@ -11,7 +11,9 @@
     "@types/jquery": "^3.5.32",
     "@types/react-katex": "^3.0.4",
     "antd": "^4.24.14",
+    "date-fns": "^4.1.0",
     "dexie": "^4.0.11",
+    "framer-motion": "^12.4.7",
     "jquery": "^3.7.1",
     "katex": "^0.16.21",
     "langchain": "^0.1.0",
@@ -34,6 +36,7 @@
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.15",
     "@types/antd": "^0.12.32",
     "@types/jest": "^29.5.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/katex": "^0.16.7",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
@@ -45,7 +48,7 @@
     "style-loader": "^3.3.2"
   },
   "scripts": {
-    "start": "craco start > dev-server.log 2>&1",
+    "start": "craco start",
     "build": "craco build",
     "test": "craco test",
     "eject": "react-scripts eject",

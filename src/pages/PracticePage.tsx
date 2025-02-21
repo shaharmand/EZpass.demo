@@ -8,7 +8,6 @@ import QuestionInteractionContainer from '../components/practice/QuestionInterac
 import type { PracticeQuestion, SkipReason } from '../types/prepUI';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import { EnhancedSidebar } from '../components/EnhancedSidebar/EnhancedSidebar';
 import type { FilterState, Question, DifficultyLevel } from '../types/question';
 import './PracticePage.css';
 import { QuestionFilter } from '../components/EnhancedSidebar/QuestionFilter';
@@ -19,6 +18,7 @@ import QuestionResponseInput from '../components/QuestionResponseInput';
 import type { QuestionStatus } from '../types/prepState';
 import { PrepStateManager } from '../services/PrepStateManager';
 import type { StudentPrep } from '../types/prepState';
+import type { QuestionState, HelpType } from '../types/prepState';
 
 interface ExtendedStudentPrep extends StudentPrep {
   questions?: PracticeQuestion[];
@@ -241,7 +241,7 @@ const PracticePage: React.FC = () => {
         answerLength: answer.length
       });
 
-      // Update current question state to show it's being submitted
+      // First update the UI to show submitting state
       const submittingQuestion = {
         ...currentQuestion,
         state: {
@@ -255,35 +255,16 @@ const PracticePage: React.FC = () => {
         }
       };
 
-      // Update UI to show submission in progress
+      // Update UI to show submitting state
       setCurrentQuestion(submittingQuestion);
-      console.log('📤 Updated question state to submitted:', {
-        status: submittingQuestion.state.status,
-        timestamp: submittingQuestion.state.lastUpdatedAt
-      });
 
-      // Submit answer and wait for feedback
-      console.log('📝 Checking answer:', {
-        answer,
-        correctOption: currentQuestion.question.correctOption,
-        type: currentQuestion.question.type
-      });
+      // Submit the answer
+      await submitAnswer(answer);
 
-      let isCorrect = false;
-      if (currentQuestion.question.type === 'multiple_choice') {
-        isCorrect = parseInt(answer) === currentQuestion.question.correctOption;
-      } else {
-        // For other question types, we'll need different validation logic
-        // For now, we'll mark them as incorrect until we implement proper validation
-        isCorrect = false;
-      }
-
-      await submitAnswer(answer, isCorrect);
-      console.log('✅ Answer submitted with feedback:', {
-        isCorrect,
-        answer,
-        correctOption: currentQuestion.question.correctOption,
-        type: currentQuestion.question.type
+      console.log('✅ Answer submitted successfully:', {
+        questionId: currentQuestion.question.id,
+        status: 'submitted',
+        timestamp: Date.now()
       });
 
     } catch (error) {
@@ -318,12 +299,13 @@ const PracticePage: React.FC = () => {
       const updatedState = {
         ...currentQuestion.state,
         helpRequests: [
-          ...(currentQuestion.state.helpRequests || []),
+          ...currentQuestion.state.helpRequests,
           {
-            type: 'hint' as const,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            type: 'guidance' as HelpType
           }
-        ]
+        ],
+        lastUpdatedAt: Date.now()
       };
 
       setCurrentQuestion({
@@ -361,7 +343,7 @@ const PracticePage: React.FC = () => {
       setCurrentQuestion(null);
 
       // Get next question
-      const nextQuestionData = await getNextQuestion();
+      const nextQuestionData = await getNextQuestion(filters);
       if (!nextQuestionData) {
         throw new Error('Failed to get next question');
       }
@@ -547,7 +529,7 @@ const PracticePage: React.FC = () => {
       setCurrentQuestion(null);
 
       // Get next question
-      const nextQuestionData = await getNextQuestion();
+      const nextQuestionData = await getNextQuestion(filters);
       if (!nextQuestionData) {
         throw new Error('Failed to get next question');
       }
@@ -709,17 +691,6 @@ const PracticePage: React.FC = () => {
                 filters={filters}
                 onFiltersChange={handleFilterChange}
                 activePrep={activePrep}
-              />
-            )}
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="practice-sidebar practice-sidebar-right">
-            {currentQuestion && (
-              <EnhancedSidebar
-                question={currentQuestion.question}
-                filters={filters}
-                onFiltersChange={handleFilterChange}
               />
             )}
           </div>

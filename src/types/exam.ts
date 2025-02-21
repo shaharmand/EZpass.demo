@@ -30,23 +30,30 @@ export type { Topic, ExamNames };
  * Each type represents a different educational or certification context.
  */
 export enum ExamType {
-  // High School & Technical Education
+  // Core Types
   BAGRUT = 'bagrut',                    // Ministry of Education - High School
   MAHAT = 'mahat',                      // Technical Education
+  ENTRY = 'entry',                      // Entry level exams (e.g. psychometric)
+  GOVERNMENT = 'government',             // All government certifications
+  UNI = 'uni',                          // University exams
   
-  // University Exams
-  UNI_COURSE = 'uni_course',            // University course exams (מבחני קורס)
-  UNI_PSYCHOMETRIC = 'uni_psychometric', // General university entrance
-  UNI_AMIR = 'uni_amir',                // English proficiency
-  UNI_YAEL = 'uni_yael',                // Hebrew proficiency
-  
-  // Government Ministry Certifications
-  MINISTRY_LABOR = 'ministry_labor',     // Ministry of Labor certifications
-  MINISTRY_TRANSPORT = 'ministry_transport', // Ministry of Transport certifications
-  MINISTRY_HEALTH = 'ministry_health',   // Ministry of Health certifications
-  
-  // Other
-  PRIVATE_CERTIFICATION = 'private_certification' // Non-government certification bodies
+  // Legacy Types (Deprecated) - Will be mapped to core types
+  /** @deprecated Use UNI instead */
+  UNI_COURSE = 'uni_course',
+  /** @deprecated Use ENTRY instead */
+  UNI_PSYCHOMETRIC = 'uni_psychometric',
+  /** @deprecated Use ENTRY instead */
+  UNI_AMIR = 'uni_amir',
+  /** @deprecated Use ENTRY instead */
+  UNI_YAEL = 'uni_yael',
+  /** @deprecated Use GOVERNMENT instead */
+  MINISTRY_LABOR = 'ministry_labor',
+  /** @deprecated Use GOVERNMENT instead */
+  MINISTRY_TRANSPORT = 'ministry_transport',
+  /** @deprecated Use GOVERNMENT instead */
+  MINISTRY_HEALTH = 'ministry_health',
+  /** @deprecated Use GOVERNMENT instead */
+  PRIVATE_CERTIFICATION = 'private_certification'
 }
 
 /**

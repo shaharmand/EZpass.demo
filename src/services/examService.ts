@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { 
   ExamType,
   type ExamData, 
@@ -186,84 +187,105 @@ const subjectDataCache = new Map<string, any>();
 class ExamService {
   private examCache: Map<string, ExamData> = new Map();
   private sessionCache: Map<string, ExamSession> = new Map();
+  private topicCache: Map<string, any> = new Map();
+  private subjectCache: Map<string, any> = new Map();
+
+  private readonly subjectMap: Record<string, {
+    id: string;
+    name: string;
+    description: string;
+    topics: Array<{
+      id: string;
+      name: string;
+      description: string;
+      subTopics: Array<{
+        id: string;
+        name: string;
+        description: string;
+        questionTemplate: string;
+      }>;
+    }>;
+  }> = {
+    'cs_programming_fundamentals': csProgrammingFundamentals,
+    'cs_data_structures': csDataStructures,
+    'mathematics': mathSubject,
+    'construction_safety': constructionSafety
+  };
 
   /**
-   * Gets subject data for a topic.
-   * @param subjectId Subject identifier
+   * Gets subject data, using cache if available
    */
   async getSubjectData(subjectId: string): Promise<any> {
     // Check cache first
-    if (subjectDataCache.has(subjectId)) {
-      return subjectDataCache.get(subjectId);
+    if (this.subjectCache.has(subjectId)) {
+      return this.subjectCache.get(subjectId);
     }
 
-    // Load and cache subject data
-    let subjectData;
-    switch (subjectId) {
-      case 'cs_programming_fundamentals':
-        subjectData = csProgrammingFundamentals;
-        break;
-      case 'cs_data_structures':
-        subjectData = csDataStructures;
-        break;
-      case 'mathematics':
-        subjectData = mathSubject;
-        break;
-      case 'construction_safety':
-        subjectData = constructionSafety;
-        break;
-      default:
-        throw new Error(`Unknown subject: ${subjectId}`);
+    const subjectData = this.subjectMap[subjectId];
+    if (!subjectData) {
+      throw new Error(`Unknown subject: ${subjectId}`);
     }
 
-    subjectDataCache.set(subjectId, subjectData);
+    this.subjectCache.set(subjectId, subjectData);
     return subjectData;
   }
 
   /**
-   * Gets topic data directly from subject files
-   * @throws Error if topic is not found or data is invalid
+   * Maps a topic ID to its subject ID
+   */
+  private getSubjectIdForTopic(topicId: string): string {
+    // Check each subject for the topic
+    for (const [subjectId, subjectData] of Object.entries(this.subjectMap)) {
+      if (subjectData.topics.some((t: { id: string }) => t.id === topicId)) {
+        return subjectId;
+      }
+    }
+
+    const allTopics = Object.values(this.subjectMap)
+      .flatMap(subject => subject.topics.map((t: { id: string }) => t.id))
+      .join(', ');
+    
+    throw new Error(`Topic ${topicId} not found in any subject. Available topics: ${allTopics}`);
+  }
+
+  /**
+   * Gets topic data with its subject information
    */
   async getTopicData(topicId: string): Promise<any> {
     if (!topicId) {
       throw new Error('Topic ID is required');
     }
 
-    // First check cache
-    if (subjectDataCache.has(topicId)) {
-      return subjectDataCache.get(topicId);
-    }
-
-    // Find the subject file containing this topic
-    let subjectData;
-    if (csProgrammingFundamentals.topics.some((t: { id: string }) => t.id === topicId)) {
-      subjectData = csProgrammingFundamentals;
-    } else if (csDataStructures.topics.some((t: { id: string }) => t.id === topicId)) {
-      subjectData = csDataStructures;
-    } else if (constructionSafety.topics.some((t: { id: string }) => t.id === topicId)) {
-      subjectData = constructionSafety;
-    } else {
-      const availableTopics = [
-        ...csProgrammingFundamentals.topics.map((t: { id: string }) => t.id),
-        ...csDataStructures.topics.map((t: { id: string }) => t.id),
-        ...constructionSafety.topics.map((t: { id: string }) => t.id)
-      ].join(', ');
-      throw new Error(
-        `Topic ${topicId} not found in any subject file. Available topics are: ${availableTopics}`
-      );
-    }
-
-    const topic = subjectData.topics.find((t: { id: string }) => t.id === topicId);
-    if (!topic) {
-      throw new Error(`Topic ${topicId} not found in subject data`);
+    // Check topic cache first
+    if (this.topicCache.has(topicId)) {
+      return this.topicCache.get(topicId);
     }
 
     try {
-      this.validateTopicData(topic, topicId);
-      subjectDataCache.set(topicId, topic);
-      return topic;
-    } catch (err) {
-      throw new Error(`Found topic ${topicId} but data is invalid: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      // Get the subject ID and data
+      const subjectId = this.getSubjectIdForTopic(topicId);
+      const subjectData = await this.getSubjectData(subjectId);
+      
+      // Find the specific topic
+      const topic = subjectData.topics.find((t: { id: string }) => t.id === topicId);
+      if (!topic) {
+        throw new Error(`Topic ${topicId} not found in subject ${subjectId}`);
+      }
+
+      // Add subject information
+      const topicWithSubject = {
+        ...topic,
+        subject: {
+          id: subjectId,
+          name: subjectData.name
+        }
+      };
+
+      // Cache and return
+      this.topicCache.set(topicId, topicWithSubject);
+      return topicWithSubject;
+    } catch (error) {
+      throw new Error(`Failed to get topic data for ${topicId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -435,31 +457,6 @@ class ExamService {
   }
 
   /**
-   * Maps a topic ID to its subject ID
-   */
-  private getSubjectIdForTopic(topicId: string): string {
-    // First check CS subjects
-    if (csProgrammingFundamentals.topics.some((t: { id: string }) => t.id === topicId)) {
-      return 'cs_programming_fundamentals';
-    }
-    if (csDataStructures.topics.some((t: { id: string }) => t.id === topicId)) {
-      return 'cs_data_structures';
-    }
-
-    // Check math topics
-    if (topicId in mathSubject.topics) {
-      return 'mathematics';
-    }
-
-    // Check construction safety topics
-    if (constructionSafety.topics.some((t: { id: string }) => t.id === topicId)) {
-      return 'construction_safety';
-    }
-
-    throw new Error(`Cannot find subject for topic: ${topicId}`);
-  }
-
-  /**
    * Gets all exams of a specific type.
    * @param examType Type of exams to load (bagrut/mahat)
    */
@@ -508,6 +505,30 @@ class ExamService {
   async updateSession(examId: string, session: ExamSession): Promise<void> {
     this.sessionCache.set(examId, session);
     // TODO: Persist to backend
+  }
+
+  /**
+   * Gets just the subject name for a topic
+   */
+  async getSubjectNameForTopic(topicId: string): Promise<string> {
+    try {
+      const subjectId = this.getSubjectIdForTopic(topicId);
+      const subjectData = await this.getSubjectData(subjectId);
+      
+      logger.info('Retrieved subject name', { 
+        topicId,
+        subjectId,
+        subjectName: subjectData.name
+      });
+
+      return subjectData.name;
+    } catch (error) {
+      logger.error('Failed to get subject name', {
+        topicId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 }
 

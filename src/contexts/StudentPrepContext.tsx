@@ -2,10 +2,15 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import type { FormalExam } from '../types/shared/exam';
 import type { StudentPrep, QuestionState, TopicSelection, PrepState, logPrepStateChange, logQuestionStateChange } from '../types/prepState';
 import type { PracticeQuestion } from '../types/prepUI';
-import type { Question, QuestionType, QuestionFeedback, FilterState } from '../types/question';
+import type { Question, QuestionType, FilterState } from '../types/question';
+import type { QuestionFeedback } from '../types/question';
 import { PrepStateManager } from '../services/PrepStateManager';
-import { questionService } from '../services/llm/service';
+import { questionService } from '../services/llm/questionGenerationService';
 import { QuestionRotationManager } from '../services/QuestionRotationManager';
+import { FeedbackService } from '../services/llm/feedbackGenerationService';
+import { logger } from '../utils/logger';
+import { ExamType } from '../types/exam';
+import { examService } from '../services/examService';
 
 interface StudentPrepContextType {
   activePrep: StudentPrep | null;
@@ -14,7 +19,7 @@ interface StudentPrepContextType {
   pausePrep: (prepId: string) => void;
   completePrep: (prepId: string) => void;
   getNextQuestion: (filters?: FilterState) => Promise<Question>;
-  submitAnswer: (answer: string, isCorrect: boolean) => Promise<void>;
+  submitAnswer: (answer: string) => Promise<void>;
   setCurrentQuestion: (question: PracticeQuestion | null) => void;
   getPrep: (prepId: string) => Promise<StudentPrep | null>;
   setActivePrep: (prep: StudentPrep | null) => void;
@@ -32,9 +37,10 @@ const CURRENT_QUESTION_KEY = 'current_question';
 export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activePrep, setActivePrep] = useState<StudentPrep | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<PracticeQuestion | null>(null);
-  const timeInterval = useRef<NodeJS.Timeout>();
+  const timeInterval = useRef<NodeJS.Timeout | null>(null);
   const isGeneratingQuestion = useRef(false);
   const rotationManager = useRef<QuestionRotationManager | null>(null);
+  const feedbackService = useRef<FeedbackService>(new FeedbackService());
 
   // Get prep by ID and load first question if needed
   const getPrep = useCallback(async (prepId: string): Promise<StudentPrep | null> => {
@@ -109,6 +115,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       // Set current filters
       if (filters) {
+        console.log('Setting filters in rotation manager:', filters);
         rotationManager.current.setFilter(filters);
       }
 
@@ -261,63 +268,108 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, []);
 
-  // Submit answer
-  const submitAnswer = useCallback(async (answer: string, isCorrect: boolean) => {
-    if (!activePrep || !currentQuestion) return;
+  /**
+   * Handles feedback generation for multiple choice questions
+   */
+  const generateMultipleChoiceFeedback = (
+    question: Question,
+    selectedOption: number
+  ): QuestionFeedback => {
+    const isCorrect = selectedOption === question.correctOption;
+    
+    logger.info('Generating multiple choice feedback', {
+      questionId: question.id,
+      selectedOption,
+      correctOption: question.correctOption,
+      isCorrect
+    });
+
+    return {
+      isCorrect,
+      score: isCorrect ? 100 : 0,
+      assessment: isCorrect ? 'תשובה נכונה' : 'תשובה לא נכונה',
+      coreFeedback: question.solution.text,
+      detailedFeedback: undefined // Not used for multiple choice
+    };
+  };
+
+  /**
+   * Handles feedback generation for all question types
+   */
+  const generateFeedback = async (question: Question, answer: string): Promise<QuestionFeedback> => {
+    // For multiple choice questions, handle feedback directly
+    if (question.type === 'multiple_choice') {
+      const selectedOption = parseInt(answer);
+      if (isNaN(selectedOption) || selectedOption < 1 || selectedOption > 4) {
+        throw new Error('Invalid multiple choice answer');
+      }
+      return generateMultipleChoiceFeedback(question, selectedOption);
+    }
+
+    if (!activePrep?.exam) {
+      throw new Error('No active exam in prep session');
+    }
+
+    // For other question types, use the feedback service directly
+    const topicId = question.metadata.topicId;
+    let subject = 'Mathematics'; // Default fallback
 
     try {
-      // Generate feedback based on question type
-      let score: number;
-      switch (currentQuestion.question.type) {
-        case 'multiple_choice':
-          score = isCorrect ? 100 : 0; // Binary scoring for multiple choice
-          break;
-        case 'open':
-        case 'step_by_step':
-          // For open questions, score should come from the question's evaluation criteria
-          // This is a mock - in reality this should come from the question service
-          score = isCorrect ? 100 : 0; // TODO: Replace with actual scoring logic
-          break;
-        case 'code':
-          // For code questions, score should be based on test cases and code quality
-          // This is a mock - in reality this should come from the code evaluation service
-          score = isCorrect ? 100 : 0; // TODO: Replace with actual code evaluation
-          break;
-        default:
-          score = isCorrect ? 100 : 0;
-      }
+      const topicData = await examService.getTopicData(topicId);
+      subject = topicData.subject.name; // Use the name directly from the subject data
+    } catch (error) {
+      logger.warn('Failed to get subject from topic ID, using default', {
+        topicId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
 
-      const feedback: QuestionFeedback = {
-        isCorrect,
-        score,
-        type: currentQuestion.question.type,
-        assessment: isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה. נסה שוב.',
-        explanation: isCorrect 
-          ? 'כל הכבוד! התשובה שלך מדויקת ומראה הבנה טובה של החומר. המשך כך!'
-          : 'אני רואה שיש מקום לשיפור. נסה לחשוב על הבעיה שוב, ואם צריך, אפשר לבקש רמז או הסבר נוסף.',
-        solution: isCorrect 
-          ? 'הפתרון שלך נכון ומדויק.'
-          : 'נסה לחשוב על הבעיה שוב ולפתור אותה צעד אחר צעד.'
-      };
+    return feedbackService.current.generateFeedback({
+      question,
+      studentAnswer: answer,
+      formalExamName: activePrep.exam.names.full,
+      examType: activePrep.exam.examType as ExamType,
+      subject
+    });
+  };
 
-      // Update prep progress with the score and question ID
-      const updatedPrep = PrepStateManager.updateProgress(
-        activePrep, 
-        isCorrect, 
-        score,
-        currentQuestion.question.id
-      );
-      setActivePrep(updatedPrep);
+  const submitAnswer = useCallback(async (answer: string) => {
+    if (!currentQuestion || !activePrep) {
+      throw new Error('No active question or prep session');
+    }
 
-      // Update question state with feedback
-      const updatedState: QuestionState = {
+    try {
+      // First update state to submitted without feedback
+      const submittingState: QuestionState = {
         ...currentQuestion.state,
         status: 'submitted',
         submittedAnswer: {
           text: answer,
           timestamp: Date.now()
         },
-        lastUpdatedAt: Date.now(),
+        lastUpdatedAt: Date.now()
+      };
+
+      setCurrentQuestion({
+        ...currentQuestion,
+        state: submittingState
+      });
+
+      // Generate feedback using our feedback service
+      const feedback = await generateFeedback(currentQuestion.question, answer);
+
+      // Update prep progress with the score and question ID
+      const updatedPrep = PrepStateManager.updateProgress(
+        activePrep, 
+        feedback.isCorrect,
+        feedback.score,
+        currentQuestion.question.id
+      );
+      setActivePrep(updatedPrep);
+
+      // Update question state with feedback
+      const updatedState: QuestionState = {
+        ...submittingState,
         feedback
       };
 
@@ -325,11 +377,17 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
         ...currentQuestion,
         state: updatedState
       });
+
+      logger.info('Answer submitted and feedback generated', {
+        questionId: currentQuestion.question.id,
+        isCorrect: feedback.isCorrect,
+        score: feedback.score
+      });
     } catch (error) {
       console.error('Error submitting answer:', error);
       throw error;
     }
-  }, [activePrep, currentQuestion]);
+  }, [activePrep, currentQuestion, generateFeedback]);
 
   // Time tracking effect
   useEffect(() => {
@@ -351,21 +409,6 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
     };
   }, [activePrep]);
-
-  // Auto-pause on window events
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (activePrep?.state.status === 'active') {
-        pausePrep(activePrep.id);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [activePrep, pausePrep]);
 
   // Update localStorage when current question changes
   useEffect(() => {

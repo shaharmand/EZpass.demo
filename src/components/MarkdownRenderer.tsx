@@ -10,6 +10,8 @@ import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { CSSProperties } from 'react';
+import { logger } from '../utils/logger';
+import { CRITICAL_SECTIONS } from '../utils/logger';
 import 'katex/dist/katex.min.css';
 import './MarkdownRenderer.css';
 
@@ -33,28 +35,40 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   // Pre-process code blocks to preserve newlines and indentation
   const processedContent = React.useMemo(() => {
     if (!content) return '';
+
+    logger.debug('Processing markdown content', {
+      contentLength: content.length,
+      hasLatex: content.includes('$'),
+      hasCodeBlocks: content.includes('```')
+    }, CRITICAL_SECTIONS.LATEX);
     
-    // Convert literal \n strings to actual newlines
-    const contentWithNewlines = content.replace(/\\n/g, '\n');
-    
-    // Fix code block formatting
-    return contentWithNewlines.replace(/```(\w+)?\n([\s\S]*?)```/g, (match: string, language: string | undefined, code: string) => {
-      // Clean up the code block while preserving meaningful whitespace
-      const cleanCode = code
-        .replace(/^\n+/, '') // Remove leading newlines
-        .replace(/\n+$/, '') // Remove trailing newlines
-        .split('\n')
-        .map((line: string) => {
-          // Preserve indentation but remove any common leading whitespace
-          return line.replace(/^[ \t]+/, (indent) => {
-            // Keep indentation but normalize it
-            return ' '.repeat(indent.length);
-          });
-        })
-        .join('\n');
-      
-      return `\`\`\`${language || ''}\n${cleanCode}\n\`\`\``;
-    });
+    try {
+      // Process code blocks
+      const processedWithCode = content.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, language, code) => {
+        logger.debug('Processing code block', {
+          language: language || 'none',
+          codeLength: code.length,
+          hasLatex: code.includes('$')
+        }, CRITICAL_SECTIONS.CODE_BLOCKS);
+
+        const cleanCode = code
+          .replace(/^\n+/, '')
+          .replace(/\n+$/, '')
+          .split('\n')
+          .map((line: string) => line.replace(/^[ \t]+/, (indent) => ' '.repeat(indent.length)))
+          .join('\n');
+        
+        return `\`\`\`${language || ''}\n${cleanCode}\n\`\`\``;
+      });
+
+      return processedWithCode;
+    } catch (error) {
+      logger.error('Error processing markdown content', {
+        error,
+        contentPreview: content.slice(0, 100)
+      }, CRITICAL_SECTIONS.LATEX);
+      return content; // Return original content on error
+    }
   }, [content]);
 
   return (
@@ -150,11 +164,20 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               </div>
             );
           },
-          // Ensure math expressions are properly isolated
+          // Enhanced math handling
           span({node, className, children, ...props}) {
             if (className?.includes('math-inline')) {
               return (
-                <span dir="ltr" style={{ display: 'inline-block', direction: 'ltr' }} {...props}>
+                <span 
+                  dir="ltr" 
+                  style={{ 
+                    display: 'inline-block', 
+                    direction: 'ltr',
+                    verticalAlign: 'middle',
+                    padding: '0 0.2em'
+                  }} 
+                  {...props}
+                >
                   {children}
                 </span>
               );

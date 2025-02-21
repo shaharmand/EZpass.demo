@@ -338,10 +338,14 @@ export class PrepStateManager {
             Math.round(((prep.state.averageScore * (completedQuestions - 1)) + score) / completedQuestions) :
             prep.state.averageScore;
 
+        const now = Date.now();
         const newPrep: StudentPrep = {
             ...prep,
             state: {
-                ...prep.state,
+                status: 'active',
+                startedAt: prep.state.startedAt,
+                activeTime: prep.state.activeTime + (now - prep.state.lastTick),
+                lastTick: now,
                 completedQuestions,
                 correctAnswers,
                 averageScore,

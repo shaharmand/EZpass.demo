@@ -21,32 +21,30 @@ export interface QuestionFeedback {
   /** Whether the answer was correct */
   isCorrect: boolean;
 
+  /** The user's answer */
+  answer?: string;
+
   /** Score from 0-100 */
   score: number;
 
-  /** Short immediate feedback message */
+  /** Short immediate feedback message (no markdown) */
   assessment: string;
 
-  /** Detailed explanation of what was right/wrong */
-  explanation: string;
+  /** 
+   * Core feedback that includes:
+   * - What was correct
+   * - What was wrong
+   * - What to do next
+   * (2-3 sentences, with markdown)
+   */
+  coreFeedback: string;
 
-  /** Type of question this feedback is for */
-  type: QuestionType;
-
-  /** For multiple choice: the correct option text */
-  correctOption?: string;
-
-  /** For multiple choice: explanation why other options are wrong */
-  incorrectExplanations?: string;
-
-  /** Complete step-by-step solution */
-  solution?: string;
-
-  /** Alternative solution approaches */
-  alternativeSolutions?: string;
-
-  /** Specific suggestions for improvement if answer was wrong */
-  improvementSuggestions?: string;
+  /** 
+   * Detailed analysis of mistakes and learning points.
+   * Includes specific mistakes and detailed guidance for improvement.
+   * (with markdown)
+   */
+  detailedFeedback?: string;
 }
 
 /** 
@@ -121,6 +119,8 @@ export interface Question {
       season?: string;
       /** Specific exam instance (e.g., 'a', 'b') */
       moed?: string;
+      /** Author or source of the question */
+      author?: string;
     };
     /** Programming language for code questions */
     programmingLanguage?: string;
@@ -185,10 +185,20 @@ export interface Question {
    * - Common pitfalls at each step
    */
   solution: {
-    /** Complete solution explanation in markdown format */
+    /** Complete solution explanation in markdown format. Contains either:
+     * - For questions requiring only final answer: The answer explanation
+     * - For questions requiring solution steps: The detailed solution process
+     */
     text: string;
     /** Format specification for solution rendering */
     format: 'markdown';
+    /** Optional final answer in markdown format.
+     * Present only when there's a distinct "final answer" separate from the solution steps.
+     * Not needed for questions where:
+     * - The answer is simple (e.g., multiple choice)
+     * - The solution steps ARE the answer
+     */
+    answer?: string;
   };
 }
 
@@ -196,13 +206,19 @@ export interface Question {
  * Filter state for the UI that allows multiple values per field
  */
 export interface FilterState {
-  difficulty?: DifficultyLevel[];
   topics?: string[];
+  subTopics?: string[];
   questionTypes?: string[];
-  timeLimit?: [number, number]; // [min, max] in minutes
+  timeLimit?: [number, number];
+  difficulty?: DifficultyLevel[];
   programmingLanguages?: string[];
   hasTestCases?: boolean;
-  excludedTopics?: string[];
+  source?: {
+    examType: 'bagrut' | 'mahat';
+    year?: number;
+    season?: 'winter' | 'summer';
+    moed?: 'a' | 'b' | 'c';
+  };
 }
 
 /** 
@@ -224,10 +240,16 @@ export interface QuestionFetchParams {
   subject: string;
   /** Target education level (e.g., 'high_school', 'technical_college') */
   educationType: string;
-  /** Optional programming language for code questions */
+  /** Programming language for code questions */
   programmingLanguage?: string;
-  /** Whether to include test cases */
+  /** Whether to include test cases for code questions */
   includeTestCases?: boolean;
+  /** Optional source information */
+  source?: {
+    examType: 'bagrut' | 'mahat';
+    year?: number;
+    season?: 'winter' | 'summer' | 'a' | 'b';
+  };
 }
 
 /**
@@ -238,10 +260,6 @@ export function satisfiesFilter(params: QuestionFetchParams, filter: FilterState
   if (Object.keys(filter).length === 0) return true;
 
   // Check each filter constraint
-  if (filter.difficulty && !filter.difficulty.includes(params.difficulty)) {
-    return false;
-  }
-  
   if (filter.topics && !filter.topics.includes(params.topic)) {
     return false;
   }
@@ -249,19 +267,62 @@ export function satisfiesFilter(params: QuestionFetchParams, filter: FilterState
   if (filter.questionTypes && !filter.questionTypes.includes(params.type)) {
     return false;
   }
-  
-  if (filter.programmingLanguages && params.programmingLanguage && 
-      !filter.programmingLanguages.includes(params.programmingLanguage)) {
-    return false;
+
+  // For code questions, check programming language
+  if (params.type === 'code' && filter.programmingLanguages?.length) {
+    if (!params.programmingLanguage || !filter.programmingLanguages.includes(params.programmingLanguage)) {
+      return false;
+    }
   }
-  
+
+  // Check test cases requirement
   if (filter.hasTestCases && !params.includeTestCases) {
     return false;
   }
-  
-  if (filter.excludedTopics && filter.excludedTopics.includes(params.topic)) {
+
+  // Check difficulty levels
+  if (filter.difficulty?.length && !filter.difficulty.includes(params.difficulty)) {
     return false;
   }
 
+  if (filter.source && params.source) {
+    if (params.source.examType !== filter.source.examType) {
+      return false;
+    }
+    if (filter.source.year && params.source.year !== filter.source.year) {
+      return false;
+    }
+    if (filter.source.season && params.source.season !== filter.source.season) {
+      return false;
+    }
+  }
+
   return true;
-} 
+}
+
+/**
+ * Standard feedback messages and grade translations
+ * Used across the application to ensure consistent messaging
+ */
+export const FeedbackMessages = {
+  correct: 'תשובה נכונה!',
+  incorrect: 'תשובה שגויה',
+  
+  // Grade translations
+  getGradeText(score: number): string {
+    if (score >= 95) return 'מצוין';
+    if (score >= 85) return 'טוב מאוד';
+    if (score >= 75) return 'טוב';
+    if (score >= 60) return 'מספיק';
+    return 'חלש';
+  },
+
+  // Assessment messages
+  getAssessmentText(score: number): string {
+    if (score >= 95) return 'מצוין! המשך כך!';
+    if (score >= 85) return 'כל הכבוד! תשובה טובה מאוד';
+    if (score >= 75) return 'טוב! יש עוד מקום קטן לשיפור';
+    if (score >= 60) return 'מספיק, אבל יש מקום לשיפור';
+    return 'כדאי לחזור על החומר ולנסות שוב';
+  }
+} as const; 

@@ -1,0 +1,28 @@
+{
+  "id": "construction_safety",
+  "name": "בטיחות בבנייה",
+  "topics": {
+    "safety_management": {
+      "name": "ניהול בטיחות",
+      "subtopics": {
+        "height_work_prep": {
+          "name": "הכנה לעבודה בגובה",
+          "description": "נהלים והכנות לעבודה בגובה"
+        },
+        "safety_equipment": {
+          "name": "ציוד מגן אישי",
+          "description": "ציוד בטיחות נדרש לעבודה"
+        }
+      }
+    },
+    "hazardous_materials": {
+      "name": "חומרים מסוכנים",
+      "subtopics": {
+        "handling": {
+          "name": "טיפול בחומרים מסוכנים",
+          "description": "נהלי עבודה עם חומרים מסוכנים"
+        }
+      }
+    }
+  }
+} 

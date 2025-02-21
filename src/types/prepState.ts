@@ -14,7 +14,7 @@
 
 import type { Question, QuestionFeedback } from './question';
 import type { FormalExam } from './shared/exam';
-import type { HelpRequest, PracticeQuestion, SkipReason } from './prepUI';
+import type { PracticeQuestion, SkipReason } from './prepUI';
 
 // Core prep states
 export type PrepStatus = 'initializing' | 'not_started' | 'active' | 'paused' | 'completed' | 'error';
@@ -230,4 +230,11 @@ export const logQuestionStateChange = (
         totalTime: prep ? getActiveTime(prep.state) : 0
     });
     console.groupEnd();
-}; 
+};
+
+export type HelpType = 'explanation' | 'guidance' | 'stuck' | 'teach';
+
+export interface HelpRequest {
+  timestamp: number;
+  type: HelpType;
+} 

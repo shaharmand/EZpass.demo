@@ -1,0 +1,47 @@
+.metadata-horizontal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.metadata-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metadata-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  background-color: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.metadata-pill:hover {
+  background-color: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+.metadata-pill .anticon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .metadata-pill {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .metadata-pill:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+  }
+} 

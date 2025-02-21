@@ -1,118 +1,169 @@
 import React from 'react';
-import { Button, Dropdown, Space } from 'antd';
-import type { MenuProps } from 'antd';
+import { Button, Space, Tooltip, Dropdown, Typography } from 'antd';
 import { 
-  ToolOutlined, 
-  InfoCircleOutlined, 
-  BulbOutlined, 
   QuestionCircleOutlined, 
-  BookOutlined,
-  UpCircleOutlined,
-  DownCircleOutlined,
-  CloseCircleOutlined,
-  DoubleRightOutlined
+  ArrowLeftOutlined,
+  MoreOutlined,
+  ForwardOutlined,
+  ThunderboltOutlined,
+  StopOutlined,
+  BulbOutlined,
+  ReadOutlined,
+  CheckOutlined,
+  BookOutlined
 } from '@ant-design/icons';
+import { logger } from '../../utils/logger';
+import './QuestionActions.css';
+
+const { Text } = Typography;
 
 interface QuestionActionsProps {
-  onHelp?: (action: string) => void;
-  onSkip?: (reason: 'too_hard' | 'too_easy' | 'not_in_material') => Promise<void>;
+  onHelp: (type: string) => void;
+  onSkip?: (reason: 'too_hard' | 'too_easy' | 'not_in_material') => void;
+  onNext?: () => void;
   disabled?: boolean;
+  showNext?: boolean;
 }
 
 const QuestionActions: React.FC<QuestionActionsProps> = ({
   onHelp,
   onSkip,
-  disabled = false
+  onNext,
+  disabled,
+  showNext
 }) => {
-  const helpMenuItems: MenuProps['items'] = [
+  const handleHelp = (type: string) => {
+    logger.info('User clicked help option', { type });
+    onHelp(type);
+  };
+
+  const handleSkip = async (reason: 'too_hard' | 'too_easy' | 'not_in_material') => {
+    logger.info('User clicked skip button', { reason });
+    await onSkip?.(reason);
+  };
+
+  const handleNext = () => {
+    logger.info('User clicked next button');
+    onNext?.();
+  };
+
+  const helpItems = [
+    {
+      key: 'hint',
+      icon: <BulbOutlined style={{ color: '#2563eb' }} />,
+      label: 'רמז'
+    },
     {
       key: 'explanation',
-      icon: <InfoCircleOutlined style={{ color: '#3b82f6' }} />,
-      label: 'הסבר שאלה',
-      disabled: disabled,
-      onClick: () => onHelp?.('explanation')
+      icon: <ReadOutlined style={{ color: '#2563eb' }} />,
+      label: 'הסבר'
     },
     {
-      key: 'guidance',
-      icon: <BulbOutlined style={{ color: '#f59e0b' }} />,
-      label: 'הנחיה לפתרון',
-      disabled: disabled,
-      onClick: () => onHelp?.('guidance')
+      key: 'solution',
+      icon: <CheckOutlined style={{ color: '#2563eb' }} />,
+      label: 'פתרון מלא'
     },
     {
-      key: 'stuck',
-      icon: <QuestionCircleOutlined style={{ color: '#ef4444' }} />,
-      label: 'נתקעתי',
-      disabled: disabled,
-      onClick: () => onHelp?.('stuck')
-    },
-    {
-      key: 'teach',
-      icon: <BookOutlined style={{ color: '#8b5cf6' }} />,
-      label: 'למד אותי לפתור',
-      disabled: disabled,
-      onClick: () => onHelp?.('teach')
+      key: 'resources',
+      icon: <BookOutlined style={{ color: '#2563eb' }} />,
+      label: 'חומר עזר'
     }
   ];
 
-  const skipMenuItems: MenuProps['items'] = [
+  const skipItems = [
     {
       key: 'too_hard',
-      icon: <UpCircleOutlined style={{ color: '#ef4444' }} />,
-      label: 'קשה מדי',
-      disabled: disabled,
-      onClick: () => onSkip?.('too_hard')
+      icon: <ThunderboltOutlined style={{ color: '#ef4444' }} />,
+      label: <Text style={{ color: '#ef4444' }}>קשה מדי</Text>
     },
     {
       key: 'too_easy',
-      icon: <DownCircleOutlined style={{ color: '#22c55e' }} />,
-      label: 'קל מדי',
-      disabled: disabled,
-      onClick: () => onSkip?.('too_easy')
+      icon: <ForwardOutlined style={{ color: '#10b981' }} />,
+      label: <Text style={{ color: '#10b981' }}>קל מדי</Text>
     },
     {
       key: 'not_in_material',
-      icon: <CloseCircleOutlined style={{ color: '#6b7280' }} />,
-      label: 'לא בחומר',
-      disabled: disabled,
-      onClick: () => onSkip?.('not_in_material')
+      icon: <StopOutlined style={{ color: '#6b7280' }} />,
+      label: <Text style={{ color: '#6b7280' }}>לא למדתי</Text>
     }
   ];
 
   return (
-    <Space size="middle" style={{ marginLeft: 'auto' }}>
-      <Dropdown menu={{ items: helpMenuItems }} disabled={disabled}>
-        <Button 
-          icon={<ToolOutlined />}
-          style={{ 
-            borderColor: '#1890ff',
-            color: '#1890ff',
-            height: '40px',
-            fontSize: '15px'
+    <div className="action-buttons">
+      <Space size="small">
+        <Dropdown
+          menu={{
+            items: helpItems,
+            onClick: ({ key }) => handleHelp(key)
           }}
+          disabled={disabled}
         >
-          עזרה
-        </Button>
-      </Dropdown>
-      <Dropdown menu={{ items: skipMenuItems }} disabled={disabled}>
-        <Button
-          style={{ 
-            borderColor: '#1890ff',
-            color: '#1890ff',
-            height: '40px',
-            fontSize: '15px'
-          }}
-        >
-          <Space>
-            דלג
-            <DoubleRightOutlined style={{ 
-              fontSize: '15px',
-              transform: 'rotate(180deg)' // Flip the icon for RTL
-            }} />
-          </Space>
-        </Button>
-      </Dropdown>
-    </Space>
+          <Button 
+            icon={<QuestionCircleOutlined />}
+            type="text"
+            className="action-button"
+          >
+            עזרה
+          </Button>
+        </Dropdown>
+
+        {onSkip && !showNext && (
+          <Dropdown
+            menu={{
+              items: skipItems,
+              onClick: ({ key }) => handleSkip(key as any)
+            }}
+            disabled={disabled}
+          >
+            <Button
+              type="text"
+              className="action-button"
+              icon={<MoreOutlined />}
+            >
+              דלג
+            </Button>
+          </Dropdown>
+        )}
+        
+        {showNext && onNext && (
+          <Button
+            type="text"
+            onClick={handleNext}
+            icon={<ArrowLeftOutlined />}
+            className="action-button"
+          >
+            הבא
+          </Button>
+        )}
+      </Space>
+
+      <style>
+        {`
+          .action-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .action-button {
+            color: #4b5563;
+            font-size: 14px;
+            height: 32px;
+            padding: 0 12px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s ease;
+          }
+
+          .action-button:hover {
+            color: #2563eb;
+            background: #f0f9ff;
+          }
+        `}
+      </style>
+    </div>
   );
 };
 

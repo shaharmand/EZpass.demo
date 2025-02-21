@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, Spin } from 'antd';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface QuestionContentProps {
   content: string;
@@ -25,8 +25,16 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   }
 
   return (
-    <div style={{ fontSize: '16px', lineHeight: 1.6 }}>
-      <ReactMarkdown>{content}</ReactMarkdown>
+    <div className="question-content-text">
+      <MarkdownRenderer content={content} />
+      <style>
+        {`
+          .question-content-text {
+            font-size: 16px;
+            line-height: 1.6;
+          }
+        `}
+      </style>
     </div>
   );
 };

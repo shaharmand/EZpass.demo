@@ -9,10 +9,10 @@ import moment, { Moment } from 'moment';
 import { usePracticeProgress } from '../hooks/usePracticeProgress';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import type { StudentPrep } from '../types/prepState';
-import ProgressBar from './ProgressBar/ProgressBar';
 import { formatTimeUntilExam } from '../utils/dateUtils';
 import { PrepConfigDialog } from './practice/PrepConfigDialog';
 import type { Question } from '../types/question';
+import PracticeHeaderProgress from './PracticeHeaderProgress/PracticeHeaderProgress';
 
 const { Text, Title } = Typography;
 
@@ -287,45 +287,34 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
               <Text>טוען נתונים...</Text>
             </Space>
           ) : (
-            <ProgressBar metrics={{
-              // Success rate should be N/A if no questions answered
+            <PracticeHeaderProgress metrics={{
               successRate: prep.state.status === 'initializing' || 
                 prep.state.status === 'not_started' ||
                 prep.state.completedQuestions === 0
-                ? -1 // Special value to indicate N/A
+                ? -1
                 : Math.round(prep.state.averageScore),
-              
-              // Calculate total questions goal (50 per subtopic)
               totalQuestions: prep.exam.topics.reduce((acc, topic) => 
                 acc + (topic.subTopics?.length || 0), 0) * 50,
-
-              // Use completed questions count from state
               questionsAnswered: prep.state.status === 'initializing' || prep.state.status === 'not_started'
                 ? 0
                 : prep.state.completedQuestions,
-              
-              // Overall progress in hours
               overallProgress: {
                 current: prep.state.status === 'initializing' || prep.state.status === 'not_started'
                   ? 0
-                  : Math.round(prep.state.activeTime / (60 * 60 * 1000)), // Convert ms to hours
+                  : Math.round(prep.state.activeTime / (60 * 60 * 1000)),
                 target: prep.goals.totalHours
               },
-              
-              // Weekly progress in hours
               weeklyProgress: {
                 current: prep.state.status === 'initializing' || prep.state.status === 'not_started'
                   ? 0
-                  : Math.round(prep.state.activeTime / (60 * 60 * 1000)), // Convert ms to hours
+                  : Math.round(prep.state.activeTime / (60 * 60 * 1000)),
                 target: prep.goals.weeklyHours
               },
-              
-              // Daily progress in minutes
               dailyProgress: {
                 current: prep.state.status === 'initializing' || prep.state.status === 'not_started'
                   ? 0
-                  : Math.round((prep.state.activeTime / (60 * 1000))), // Convert ms to minutes
-                target: Math.round(prep.goals.dailyHours * 60) // Convert hours to minutes
+                  : Math.round((prep.state.activeTime / (60 * 1000))),
+                target: Math.round(prep.goals.dailyHours * 60)
               }
             }} />
           )}

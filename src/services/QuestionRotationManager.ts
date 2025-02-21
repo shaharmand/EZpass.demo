@@ -45,10 +45,17 @@ export class QuestionRotationManager {
     // Get next subtopic
     const subtopicId = this.selection.subTopics[this.currentSubtopicIndex];
 
-    console.log('Subtopic selection:', {
-      currentIndex: this.currentSubtopicIndex,
-      allSubtopics: this.selection.subTopics,
-      selectedSubtopicId: subtopicId
+    console.log('DEBUG: Subtopic selection details:', {
+        subtopicId,
+        allSubtopics: this.selection.subTopics,
+        examTopics: this.exam.topics.map(t => ({
+            topicId: t.topicId,
+            subTopics: t.subTopics.map(st => ({
+                id: st.id,
+                code: st.code,
+                name: st.name
+            }))
+        }))
     });
 
     // Find parent topic for this subtopic
@@ -63,13 +70,20 @@ export class QuestionRotationManager {
 
     const parentTopic = this.exam.topics.find(topic => 
       topic.subTopics.some(st => {
-        console.log('Comparing subtopics:', {
-          examSubtopicId: st.id,
-          examSubtopicCode: st.code,
-          selectedSubtopicId: subtopicId,
-          matches: st.id === subtopicId || st.code === subtopicId
+        const matchesId = st.id === subtopicId;
+        const matchesCode = st.code === subtopicId;
+        console.log('DEBUG: Subtopic matching details:', {
+            subtopicToMatch: subtopicId,
+            currentSubtopic: {
+                id: st.id,
+                code: st.code,
+                name: st.name
+            },
+            matchesId,
+            matchesCode,
+            parentTopicId: topic.topicId
         });
-        return st.id === subtopicId || st.code === subtopicId;  // Try matching either ID or code
+        return matchesId || matchesCode;  // Try matching either ID or code
       })
     );
 
@@ -213,7 +227,9 @@ export class QuestionRotationManager {
         subtopic: this.currentSubtopicIndex,
         type: this.currentTypeIndex,
         difficulty: this.currentDifficultyIndex
-      }
+      },
+      selectedSubtopics: this.selection.subTopics,
+      filterSubtopics: this.currentFilter.subTopics
     });
 
     // Try up to 10 times to find parameters that satisfy the filter
@@ -222,10 +238,14 @@ export class QuestionRotationManager {
       const params = this.generateParameters();
       
       const satisfiesFilters = satisfiesFilter(params, this.currentFilter);
-      console.log('Generated parameters:', {
+      console.log('Generated parameters check:', {
         params,
+        currentFilter: this.currentFilter,
         satisfiesFilters,
-        attempt: attempt + 1
+        attempt: attempt + 1,
+        subtopicMatch: this.currentFilter.subTopics ? 
+          this.currentFilter.subTopics.includes(params.subtopic || '') : 
+          'no subtopic filter'
       });
 
       if (satisfiesFilters) {
@@ -244,7 +264,9 @@ export class QuestionRotationManager {
         subtopic: this.currentSubtopicIndex,
         type: this.currentTypeIndex,
         difficulty: this.currentDifficultyIndex
-      }
+      },
+      availableSubtopics: this.selection.subTopics,
+      filterSubtopics: this.currentFilter.subTopics
     });
     throw new Error('Could not find question matching current filters. Please try relaxing some constraints.');
   }

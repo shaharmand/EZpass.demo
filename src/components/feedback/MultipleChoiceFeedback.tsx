@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { Card, Space, Typography, Divider, Progress } from 'antd';
+import { Card, Space, Typography, Divider } from 'antd';
 import { CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
 import { Question, QuestionFeedback, FeedbackMessages } from '../../types/question';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownRenderer } from '../MarkdownRenderer';
 import { logger } from '../../utils/logger';
 import { motion } from 'framer-motion';
 
@@ -21,7 +21,6 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
     logger.info('Rendering multiple choice feedback', {
       questionId: question.id,
       isCorrect: feedback.isCorrect,
-      score: feedback.score,
       feedbackLength: feedback.coreFeedback.length
     });
   }, [question.id, feedback]);
@@ -30,31 +29,14 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
   const selectedOption = question.options?.[parseInt(feedback.answer || '1') - 1]?.text || '';
   const correctOption = question.options?.[question.correctOption ? question.correctOption - 1 : 0]?.text || '';
 
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return '#10b981';
-    if (score >= 80) return '#3b82f6';
-    if (score >= 70) return '#f59e0b';
-    return '#ef4444';
-  };
-
   return (
     <div className="multiple-choice-feedback">
       {/* Score Display */}
       <div className="score-display">
-        <div className="score-circle">
-          <Progress
-            type="circle"
-            percent={feedback.score}
-            format={(percent) => `${percent}%`}
-            width={80}
-            strokeColor={getScoreColor(feedback.score)}
-          />
-        </div>
         <div className="score-text">
           <Title level={4} className={feedback.isCorrect ? 'success' : 'error'}>
             {feedback.isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה'}
           </Title>
-          <Text>{feedback.assessment.replace(/^(תשובה נכונה!?|תשובה שגויה\.?)\s*/i, '')}</Text>
         </div>
       </div>
 
@@ -68,7 +50,7 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
                 <Text strong>התשובה שלך:</Text>
               </div>
               <div className="answer-content">
-                <ReactMarkdown>{selectedOption}</ReactMarkdown>
+                <MarkdownRenderer content={selectedOption} />
               </div>
             </div>
             <div className="answer-box correct">
@@ -77,7 +59,7 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
                 <Text strong>התשובה הנכונה:</Text>
               </div>
               <div className="answer-content">
-                <ReactMarkdown>{correctOption}</ReactMarkdown>
+                <MarkdownRenderer content={correctOption} />
               </div>
             </div>
           </div>
@@ -89,7 +71,7 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
                 <Text strong>התשובה שלך:</Text>
               </div>
               <div className="answer-content">
-                <ReactMarkdown>{selectedOption}</ReactMarkdown>
+                <MarkdownRenderer content={selectedOption} />
               </div>
             </div>
           </div>
@@ -99,7 +81,7 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
       {/* Explanation */}
       <div className="feedback-details">
         <div className="detailed-feedback">
-          <ReactMarkdown>{feedback.coreFeedback}</ReactMarkdown>
+          <MarkdownRenderer content={feedback.coreFeedback} />
         </div>
       </div>
 
@@ -124,16 +106,13 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
             border: 1px solid #e5e7eb;
           }
 
-          .score-circle {
-            flex-shrink: 0;
-          }
-
           .score-text {
             flex: 1;
+            text-align: center;
           }
 
           .score-text h4 {
-            margin: 0 0 8px 0;
+            margin: 0;
             font-size: 26px;
             font-weight: 600;
             line-height: 1.2;
@@ -151,18 +130,6 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
             background: linear-gradient(45deg, #ef4444, #f87171);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-          }
-
-          .score-text .ant-typography {
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.5;
-          }
-
-          /* Make the score circle match the new hierarchy */
-          :global(.ant-progress-text) {
-            font-size: 24px !important;
-            font-weight: 600 !important;
           }
 
           .answer-comparison {

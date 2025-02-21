@@ -260,39 +260,53 @@ export function satisfiesFilter(params: QuestionFetchParams, filter: FilterState
   if (Object.keys(filter).length === 0) return true;
 
   // Check each filter constraint
-  if (filter.topics && !filter.topics.includes(params.topic)) {
+  if (filter.topics?.length && !filter.topics.includes(params.topic)) {
+    console.log('Failed topic filter:', { filterTopics: filter.topics, paramTopic: params.topic });
     return false;
   }
   
+  // Check subtopics filter
+  if (filter.subTopics?.length && !filter.subTopics.includes(params.subtopic || '')) {
+    console.log('Failed subtopic filter:', { filterSubtopics: filter.subTopics, paramSubtopic: params.subtopic });
+    return false;
+  }
+
   if (filter.questionTypes && !filter.questionTypes.includes(params.type)) {
+    console.log('Failed question type filter:', { filterTypes: filter.questionTypes, paramType: params.type });
     return false;
   }
 
   // For code questions, check programming language
   if (params.type === 'code' && filter.programmingLanguages?.length) {
     if (!params.programmingLanguage || !filter.programmingLanguages.includes(params.programmingLanguage)) {
+      console.log('Failed programming language filter');
       return false;
     }
   }
 
   // Check test cases requirement
   if (filter.hasTestCases && !params.includeTestCases) {
+    console.log('Failed test cases filter');
     return false;
   }
 
   // Check difficulty levels
   if (filter.difficulty?.length && !filter.difficulty.includes(params.difficulty)) {
+    console.log('Failed difficulty filter:', { filterDifficulty: filter.difficulty, paramDifficulty: params.difficulty });
     return false;
   }
 
   if (filter.source && params.source) {
     if (params.source.examType !== filter.source.examType) {
+      console.log('Failed exam type filter');
       return false;
     }
     if (filter.source.year && params.source.year !== filter.source.year) {
+      console.log('Failed year filter');
       return false;
     }
     if (filter.source.season && params.source.season !== filter.source.season) {
+      console.log('Failed season filter');
       return false;
     }
   }

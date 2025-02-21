@@ -8,6 +8,7 @@ import PracticePage from './pages/PracticePage';
 import QuestionPage from './pages/QuestionPage';
 import TestGeneration from './pages/TestGeneration';
 import PracticeFlowTestPage from './pages/PracticeFlowTestPage';
+import TestPage from './pages/TestPage';
 import { ExamProvider } from './contexts/ExamContext';
 import { StudentPrepProvider } from './contexts/StudentPrepContext';
 import MainLayout from './layouts/MainLayout';
@@ -26,6 +27,9 @@ const App: React.FC = () => {
 
               {/* Question Routes */}
               <Route path="/questions/:questionId" element={<QuestionPage />} />
+              
+              {/* Test Routes */}
+              <Route path="/test" element={<TestPage />} />
               <Route path="/test/generation" element={<TestGeneration />} />
               <Route path="/test/practice-flow" element={<PracticeFlowTestPage />} />
 

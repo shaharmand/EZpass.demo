@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
-import type { ProgressMetric } from '../components/ProgressBar/ProgressBar';
+import type { ProgressMetrics } from '../components/PracticeHeaderProgress/PracticeHeaderProgress';
+
+type ProgressStatus = 'red' | 'yellow' | 'green';
 
 export const usePracticeProgress = () => {
   const { activePrep, currentQuestion } = useStudentPrep();
 
-  const getTrafficLight = (value: number, total: number): ProgressMetric['status'] => {
+  const getTrafficLight = (value: number, total: number): ProgressStatus => {
     const percentage = total > 0 ? (value / total) * 100 : 0;
     if (percentage < 60) return 'red';
     if (percentage < 80) return 'yellow';

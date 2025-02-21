@@ -239,6 +239,14 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
               disabled={disabled}
             />
           </div>
+        ) : question.type === 'step_by_step' ? (
+          <div className="step-by-step-container">
+            <StepByStepInput
+              onChange={setAnswer}
+              value={answer}
+              disabled={disabled}
+            />
+          </div>
         ) : (
           <div className="text-input-container">
             <TextArea
@@ -319,16 +327,16 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
             border-radius: 24px;
             font-size: 16px;
             font-weight: 500;
-            background: #2196F3;
+            background: #2563eb;  /* Primary blue */
             border: none;
-            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
             transition: all 0.3s ease;
           }
 
           .submit-button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(33, 150, 243, 0.3);
-            background: #1976D2;
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+            background: #2563eb;  /* Keep consistent */
           }
 
           .submit-button:disabled {
@@ -343,17 +351,17 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
             border-radius: 24px;
             font-size: 16px;
             font-weight: 500;
-            background: #2196F3;
+            background: #2563eb;  /* Primary blue */
             border: none;
             color: white;
-            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
             transition: all 0.3s ease;
           }
 
           .retry-button:hover {
             transform: translateY(-2px);
-            background: #1976D2;
-            box-shadow: 0 6px 16px rgba(33, 150, 243, 0.3);
+            background: #2563eb;  /* Keep consistent */
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
           }
 
           .option-card {
@@ -368,14 +376,14 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
           }
 
           .option-card:hover:not(.disabled) {
-            border-color: #2196F3;
-            background: rgba(33, 150, 243, 0.05);
+            border-color: #2563eb;  /* Primary blue */
+            background: rgba(37, 99, 235, 0.05);
             transform: translateY(-1px);
           }
 
           .option-card.selected {
-            border-color: #2196F3;
-            background: rgba(33, 150, 243, 0.1);
+            border-color: #2563eb;  /* Primary blue */
+            background: rgba(37, 99, 235, 0.1);
           }
 
           .option-card.disabled {
@@ -404,7 +412,7 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
           }
 
           .option-number.selected {
-            background: #2196F3;
+            background: #2563eb;  /* Primary blue */
             color: white;
           }
 
@@ -416,7 +424,7 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
           }
 
           .option-text.selected {
-            color: #1976D2;
+            color: #2563eb;  /* Primary blue */
             font-weight: 500;
           }
 
@@ -430,6 +438,13 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
             opacity: 0.85;
             color: #374151;
             background-color: #f9fafb;
+          }
+
+          .step-by-step-container {
+            width: 100%;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
           }
         `}
       </style>

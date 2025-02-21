@@ -1,145 +1,151 @@
-import React, { useState } from 'react';
-import { Modal, Typography, Space, Divider, Card, Button, Collapse, Tag, List, Checkbox, Alert } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Modal, Typography, Space, Card, Tooltip } from 'antd';
 import { 
   BookOutlined, 
-  ClockCircleOutlined, 
-  QuestionCircleOutlined,
-  RightCircleOutlined,
-  CaretRightOutlined,
-  PlayCircleOutlined
+  QuestionCircleOutlined
 } from '@ant-design/icons';
-import type { FormalExam, Topic, SubTopic } from '../../types/shared/exam';
-import type { TopicSelection, StudentPrep } from '../../types/prepState';
-import { useStudentPrep } from '../../contexts/StudentPrepContext';
+import type { FormalExam } from '../../types/shared/exam';
 
-const { Title, Text, Paragraph } = Typography;
-const { Panel } = Collapse;
+const { Title, Text } = Typography;
 
 interface ExamTopicsDialogProps {
   exam: FormalExam;
   open: boolean;
   onClose: () => void;
-  startPrep: (exam: FormalExam, selection?: TopicSelection) => Promise<string>;
-  getPrep: (prepId: string) => Promise<StudentPrep | null>;
 }
 
 export const ExamTopicsDialog: React.FC<ExamTopicsDialogProps> = ({
   exam,
   open,
-  onClose,
-  startPrep,
-  getPrep
+  onClose
 }) => {
-  const navigate = useNavigate();
-  const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
-  const [selectedSubtopics, setSelectedSubtopics] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  
-  const handleSubmit = async () => {
-    if (!exam) return;
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('Starting practice session with topic selection...');
-      
-      // If topics are selected, create a TopicSelection
-      const selection: TopicSelection | undefined = selectedTopicIds.length > 0
-        ? {
-            topics: selectedTopicIds,
-            subTopics: selectedSubtopics
-          }
-        : undefined;
-      
-      // Start practice and get ID
-      const prepId = await startPrep(exam, selection);
-      console.log('Prep created with ID:', prepId);
-      
-      // Close dialog and navigate immediately
-      onClose();
-      navigate(`/practice/${prepId}`, { replace: true });
-    } catch (error) {
-      console.error('Error starting practice:', {
-        error,
-        examId: exam.id,
-        selectedTopics: selectedTopicIds.length,
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      setError(error instanceof Error ? error.message : 'Failed to start practice');
-      setLoading(false);
-    }
-  };
-
-  const onTopicChange = (topicId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedTopicIds([...selectedTopicIds, topicId]);
-    } else {
-      setSelectedTopicIds(prevTopicIds => prevTopicIds.filter(id => id !== topicId));
-    }
-  };
-
-  const onSubtopicChange = (subtopicId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedSubtopics([...selectedSubtopics, subtopicId]);
-    } else {
-      setSelectedSubtopics(prevSubtopics => prevSubtopics.filter(id => id !== subtopicId));
-    }
-  };
-
   return (
     <Modal
-      title="בחר נושאים לתרגול"
+      title={
+        <div style={{ textAlign: 'center' }}>
+          <Title level={4} style={{ margin: 0, marginBottom: '8px' }}>
+            {exam.title}
+          </Title>
+          <Text type="secondary" style={{ fontSize: '14px' }}>
+            {exam.description}
+          </Text>
+        </div>
+      }
       open={open}
       onCancel={onClose}
-      footer={[
-        <Button 
-          key="submit" 
-          type="primary" 
-          onClick={handleSubmit}
-          loading={loading}
-        >
-          התחל תרגול
-        </Button>
-      ]}
+      width={800}
+      footer={null}
+      className="exam-topics-dialog"
     >
-      {error && (
-        <Alert
-          message="שגיאה"
-          description={error}
-          type="error"
-          showIcon
-          style={{ marginBottom: '16px' }}
-        />
-      )}
-      <List
-        dataSource={exam.topics}
-        renderItem={(topic: Topic) => (
-          <List.Item>
-            <Checkbox
-              checked={selectedTopicIds.includes(topic.topicId)}
-              onChange={(e) => onTopicChange(topic.topicId, e.target.checked)}
-            >
-              {topic.name}
-            </Checkbox>
-            <List
-              dataSource={topic.subTopics}
-              renderItem={(subtopic) => (
-                <List.Item>
-                  <Checkbox
-                    checked={selectedSubtopics.includes(subtopic.id)}
-                    onChange={(e) => onSubtopicChange(subtopic.id, e.target.checked)}
-                  >
-                    {subtopic.name}
-                  </Checkbox>
-                </List.Item>
-              )}
-            />
-          </List.Item>
-        )}
-      />
+      {/* Topics List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {exam.topics.map((topic) => (
+          <Card 
+            key={topic.id}
+            size="small"
+            title={
+              <Space>
+                <BookOutlined style={{ color: '#1890ff' }} />
+                <Text strong>{topic.name}</Text>
+              </Space>
+            }
+            style={{ 
+              background: '#fafafa',
+              borderRadius: '8px'
+            }}
+            bodyStyle={{ padding: '12px' }}
+          >
+            {/* Topic Description */}
+            {topic.description && (
+              <Text type="secondary" style={{ 
+                display: 'block',
+                marginBottom: '12px',
+                fontSize: '14px'
+              }}>
+                {topic.description}
+              </Text>
+            )}
+
+            {/* Subtopics */}
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+              gap: '12px'
+            }}>
+              {topic.subTopics.map((subtopic) => (
+                <div
+                  key={subtopic.id}
+                  style={{
+                    padding: '12px 16px',
+                    background: 'white',
+                    borderRadius: '8px',
+                    border: '1px solid #f0f0f0'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Text strong style={{ fontSize: '15px' }}>
+                      {subtopic.name}
+                    </Text>
+                    {subtopic.questionTemplate && (
+                      <Tooltip 
+                        title={
+                          <div>
+                            <Text strong style={{ color: 'white', display: 'block', marginBottom: '4px' }}>
+                              דוגמה לשאלה:
+                            </Text>
+                            <Text style={{ color: 'white' }}>
+                              {subtopic.questionTemplate}
+                            </Text>
+                          </div>
+                        }
+                        placement="top"
+                      >
+                        <QuestionCircleOutlined style={{ color: '#6b7280', cursor: 'help' }} />
+                      </Tooltip>
+                    )}
+                  </div>
+                  
+                  {/* Subtopic Description */}
+                  {subtopic.description && (
+                    <Text type="secondary" style={{ 
+                      display: 'block',
+                      fontSize: '14px',
+                      marginTop: '8px'
+                    }}>
+                      {subtopic.description}
+                    </Text>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <style>{`
+        .exam-topics-dialog .ant-modal-content {
+          border-radius: 12px;
+          overflow: hidden;
+        }
+        .exam-topics-dialog .ant-modal-header {
+          border-bottom: none;
+          padding-bottom: 0;
+        }
+        .exam-topics-dialog .ant-modal-body {
+          padding: 24px;
+        }
+        .exam-topics-dialog .ant-card-head {
+          min-height: unset;
+          padding: 8px 12px;
+          background: #f0f7ff;
+        }
+        .exam-topics-dialog .ant-card-head-title {
+          padding: 0;
+        }
+        .exam-topics-dialog .ant-tooltip-inner {
+          max-width: 300px;
+        }
+      `}</style>
     </Modal>
   );
 }; 

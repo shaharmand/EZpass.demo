@@ -4,7 +4,7 @@ import { MultipleChoiceFeedback } from './MultipleChoiceFeedback';
 import { Card, Space, Button, Tabs, Typography, Progress, Tooltip } from 'antd';
 import { RedoOutlined, InfoCircleOutlined, CheckCircleOutlined, BookOutlined, ArrowLeftOutlined, StarOutlined } from '@ant-design/icons';
 import { logger } from '../../utils/logger';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownRenderer } from '../MarkdownRenderer';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const { Text, Title } = Typography;
@@ -115,7 +115,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
                   ),
                   children: (
                     <div className="feedback-section">
-                      <ReactMarkdown>{feedback.coreFeedback}</ReactMarkdown>
+                      <MarkdownRenderer content={feedback.coreFeedback} />
                     </div>
                   )
                 },
@@ -128,7 +128,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
                   ),
                   children: (
                     <div className="feedback-section">
-                      <ReactMarkdown>{feedback.detailedFeedback || 'אין ניתוח מעמיק זמין.'}</ReactMarkdown>
+                      <MarkdownRenderer content={feedback.detailedFeedback || 'אין ניתוח מעמיק זמין.'} />
                     </div>
                   )
                 },
@@ -150,13 +150,13 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
                       {question.solution ? (
                         <>
                           <div className="solution-steps">
-                            <ReactMarkdown>{question.solution.text}</ReactMarkdown>
+                            <MarkdownRenderer content={question.solution.text} />
                           </div>
                           {question.solution.answer && (
                             <div className="final-answer">
                               <Text strong>התשובה הרשמית:</Text>
                               <div className="final-answer-content">
-                                <ReactMarkdown>{question.solution.answer}</ReactMarkdown>
+                                <MarkdownRenderer content={question.solution.answer} />
                               </div>
                             </div>
                           )}
@@ -339,16 +339,16 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
             border-radius: 20px;
             font-size: 15px;
             font-weight: 500;
-            background: #3b82f6;
+            background: #2563eb;
             border: none;
             color: white;
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           }
 
           .retry-button:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
             background: #2563eb;
           }
 

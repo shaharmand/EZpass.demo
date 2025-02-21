@@ -36,10 +36,13 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   const processedContent = React.useMemo(() => {
     if (!content) return '';
 
-    logger.debug('Processing markdown content', {
+    logger.debug('Starting markdown content processing', {
       contentLength: content.length,
       hasLatex: content.includes('$'),
-      hasCodeBlocks: content.includes('```')
+      hasCodeBlocks: content.includes('```'),
+      hebrewChars: content.match(/[\u0590-\u05FF]/g)?.join(''),
+      dollarSignCount: (content.match(/\$/g) || []).length,
+      contentPreview: content.slice(0, 100)
     }, CRITICAL_SECTIONS.LATEX);
     
     try {
@@ -48,7 +51,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         logger.debug('Processing code block', {
           language: language || 'none',
           codeLength: code.length,
-          hasLatex: code.includes('$')
+          hasLatex: code.includes('$'),
+          hasHebrewInCode: /[\u0590-\u05FF]/.test(code)
         }, CRITICAL_SECTIONS.CODE_BLOCKS);
 
         const cleanCode = code
@@ -61,21 +65,56 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         return `\`\`\`${language || ''}\n${cleanCode}\n\`\`\``;
       });
 
+      // Log potential math expressions
+      const mathExpressions = processedWithCode.match(/\$([^$]+)\$/g) || [];
+      mathExpressions.forEach((expr, index) => {
+        logger.debug(`Potential math expression ${index + 1}`, {
+          expression: expr,
+          hasHebrew: /[\u0590-\u05FF]/.test(expr),
+          length: expr.length,
+          containsDollarSign: expr.includes('$')
+        }, CRITICAL_SECTIONS.LATEX);
+      });
+
       return processedWithCode;
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error processing markdown content', {
         error,
-        contentPreview: content.slice(0, 100)
+        contentPreview: content.slice(0, 100),
+        errorName: error.name,
+        errorMessage: error.message,
+        errorStack: error.stack
       }, CRITICAL_SECTIONS.LATEX);
       return content; // Return original content on error
     }
   }, [content]);
 
+  // Log when component renders
+  React.useEffect(() => {
+    logger.debug('MarkdownRenderer rendered', {
+      originalLength: content?.length,
+      processedLength: processedContent?.length,
+      className,
+      hasProcessedContent: !!processedContent
+    }, CRITICAL_SECTIONS.LATEX);
+  }, [content, processedContent, className]);
+
   return (
     <div className={`markdown-content ${className}`} dir="rtl">
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+        rehypePlugins={[[rehypeKatex, { 
+          strict: true, 
+          trust: true, 
+          macros: {}, 
+          throwOnError: false,
+          errorCallback: (msg: string) => {
+            logger.error('KaTeX error', {
+              message: msg,
+              contentPreview: processedContent.slice(0, 100)
+            }, CRITICAL_SECTIONS.LATEX);
+          }
+        }]]}
         components={{
           code({node, inline, className, children, ...props}: CodeProps) {
             const match = /language-(\w+)/.exec(className || '');

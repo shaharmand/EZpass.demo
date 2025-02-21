@@ -171,23 +171,25 @@ OPEN QUESTION REQUIREMENTS:
 STEP-BY-STEP QUESTION REQUIREMENTS:
 
 1. Question Content:
-   - Complex problem broken into steps in Hebrew
-   - Clear progression of difficulty
-   - All necessary information upfront
-   - Use markdown for formatting
-   - For math: use LaTeX notation
+   - Mathematical/physical problem requiring numerical or formula solution in Hebrew
+   - Clear progression from given values to final answer
+   - All equations, units and constants provided upfront
+   - Use LaTeX for mathematical notation
+   - Include diagrams/figures when relevant
 
 2. Structure:
-   - Logical sequence of steps
-   - Each step builds on previous ones
-   - Clear intermediate goals
-   - Hints or guidance where needed
+   - Break down complex calculation into clear steps
+   - Each step yields intermediate numerical result
+   - Show units and significant figures
+   - Guide student through mathematical reasoning
+   - Provide validation checks for intermediate results
 
 3. Solution:
-   - Complete solution with all steps explained in Hebrew
-   - Clear explanation of the progression
-   - Alternative approaches where relevant
-   - Common pitfalls to avoid
+   - Complete step-by-step calculation in Hebrew
+   - Show all mathematical work and unit conversions
+   - Explain each mathematical operation and formula used
+   - Include numerical answer with correct units
+   - Common calculation mistakes to watch for
 `}
 
 METADATA REQUIREMENTS:

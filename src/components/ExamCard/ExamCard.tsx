@@ -16,6 +16,24 @@ interface ExamCardProps {
   exam: FormalExam;
 }
 
+const colors = {
+  icon: {
+    left: '#ff9800',
+    right: '#3b82f6'
+  },
+  text: {
+    primary: '#1f2937',
+    secondary: '#64748b'
+  },
+  button: {
+    primary: {
+      background: '#3b82f6',
+      hover: '#2563eb',
+      text: '#ffffff'
+    }
+  }
+};
+
 export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
   const navigate = useNavigate();
   const { startPrep, getPrep } = useStudentPrep();
@@ -69,6 +87,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
         style={{ 
           borderRadius: '12px',
           overflow: 'hidden',
+          background: 'linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%)',
+          border: '1px solid #e5e7eb'
         }}
         onClick={() => setIsTopicsDialogOpen(true)}
       >
@@ -90,7 +110,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
                   margin: 0,
                   marginBottom: '4px',
                   fontSize: '1.1rem',
-                  color: '#1f2937'
+                  color: colors.text.primary
                 }}
               >
                 {exam.names.short}
@@ -104,7 +124,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
               type="text"
               icon={<InfoCircleOutlined style={{ 
                 fontSize: '20px', 
-                color: '#1890ff'
+                color: colors.icon.left
               }} />}
               onClick={(e) => {
                 e.stopPropagation();
@@ -125,13 +145,13 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
 
           {/* Topics count */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FolderOutlined style={{ color: '#6b7280' }} />
+            <FolderOutlined style={{ color: colors.text.secondary }} />
             <Text>
               {topicCount} נושאים ({subtopicCount} תתי-נושאים)
             </Text>
           </div>
 
-          {/* Start Practice Button */}
+          {/* Error Alert */}
           {error && (
             <Alert
               message="שגיאה"
@@ -141,13 +161,35 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
               style={{ marginBottom: '16px' }}
             />
           )}
+
+          {/* Start Practice Button */}
           <Button 
             type="primary"
             size="large"
             block
             onClick={handleStartPractice}
             loading={loading}
-            style={{ marginTop: '8px' }}
+            style={{ 
+              marginTop: '8px',
+              background: colors.button.primary.background,
+              borderColor: colors.button.primary.background,
+              height: 'auto',
+              padding: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.2)',
+              transition: 'all 0.3s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = colors.button.primary.hover;
+              e.currentTarget.style.borderColor = colors.button.primary.hover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = colors.button.primary.background;
+              e.currentTarget.style.borderColor = colors.button.primary.background;
+            }}
           >
             {loading ? 'מתחיל תרגול...' : 'התחל תרגול מהיר'}
           </Button>
@@ -158,8 +200,6 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
         exam={exam}
         open={isTopicsDialogOpen}
         onClose={() => setIsTopicsDialogOpen(false)}
-        startPrep={startPrep}
-        getPrep={getPrep}
       />
     </>
   );

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Space, Spin, Typography, Card, Button, Divider, Tooltip, Tag } from 'antd';
-import { FilterOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
+import { Space, Spin, Typography, Card, Button, Divider, Tooltip, Tag, Select } from 'antd';
+import { FilterOutlined, DownOutlined, UpOutlined, StarFilled, ClockCircleOutlined } from '@ant-design/icons';
 import { Question, QuestionFeedback as QuestionFeedbackType, FilterState } from '../../types/question';
 import QuestionContent from '../QuestionContent';
 import QuestionMetadata, { getDifficultyIcons, getQuestionTypeLabel } from '../QuestionMetadata';
@@ -200,6 +200,27 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   const isDailyTimeGoalExceeded = dailyTimeProgress > dailyTimeGoal;
   const isQuestionsGoalExceeded = questionsAnsweredToday > dailyQuestionsGoal;
 
+  // Add difficulty options
+  const difficultyOptions = [
+    { value: 1, label: 'קל מאוד', color: '#f59e0b' },
+    { value: 2, label: 'קל', color: '#f59e0b' },
+    { value: 3, label: 'בינוני', color: '#f59e0b' },
+    { value: 4, label: 'קשה', color: '#f59e0b' },
+    { value: 5, label: 'קשה מאוד', color: '#f59e0b' }
+  ];
+
+  const renderDifficultyOption = (difficulty: number) => {
+    const option = difficultyOptions.find(opt => opt.value === difficulty);
+    return (
+      <Space>
+        {[...Array(difficulty)].map((_, i) => (
+          <StarFilled key={i} style={{ color: option?.color, fontSize: '12px' }} />
+        ))}
+        <Text>{option?.label}</Text>
+      </Space>
+    );
+  };
+
   if (isQuestionLoading) {
     return (
       <div style={{ 
@@ -242,16 +263,17 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
       {/* Progress Bar - Always at Top */}
       <div className="progress-status-bar">
         <QuestionSetProgress
-          totalQuestions={10}
           currentQuestionIndex={state.questionIndex + 1}
-          dailyQuestions={{
-            completed: questionsAnsweredToday,
-            goal: dailyQuestionsGoal
-          }}
-          dailyTime={{
-            completed: dailyTimeProgress,
-            goal: dailyTimeGoal
-          }}
+          totalQuestions={10}
+          questionId={question.id}
+          dailyQuestions={state.answeredQuestions ? {
+            completed: state.answeredQuestions.filter(q => q.isCorrect).length,
+            goal: 10
+          } : undefined}
+          dailyTime={activePrep?.goals?.dailyHours ? {
+            completed: Math.round((activePrep.state.activeTime || 0) / (60 * 1000)),
+            goal: Math.round(activePrep.goals.dailyHours * 60)
+          } : undefined}
         />
       </div>
 
@@ -259,17 +281,19 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
       <div className="filter-bar">
         <Button 
           type="text"
-          icon={isFilterExpanded ? <UpOutlined /> : <DownOutlined />}
           onClick={() => setIsFilterExpanded(!isFilterExpanded)}
           className="filter-toggle"
         >
-          <Space>
-            <FilterOutlined />
-            <Text>סינון</Text>
+          <div className="filter-toggle-content">
+            <FilterOutlined className="filter-icon" />
+            <Text>סינון מתקדם</Text>
             {Object.keys(filters).length > 0 && (
-              <Text type="secondary">({Object.keys(filters).length})</Text>
+              <Tag className="filter-count">
+                {Object.keys(filters).length}
+              </Tag>
             )}
-          </Space>
+            {isFilterExpanded ? <UpOutlined /> : <DownOutlined />}
+          </div>
         </Button>
         
         <AnimatePresence>
@@ -279,13 +303,9 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              style={{ overflow: 'hidden' }}
+              style={{ overflow: 'hidden', width: '100%' }}
               className="filter-content"
             >
-              <FilterSummary 
-                filters={filters}
-                onClearFilter={handleClearFilter}
-              />
               <div className="filter-controls">
                 <QuestionFilter
                   filters={filters}
@@ -422,80 +442,67 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
       <style>
         {`
           .filter-bar {
-            background: white;
-            border-radius: 12px;
+            width: 100%;
+            background: #ffffff;
             border: 1px solid #e5e7eb;
-            overflow: hidden;
-            padding: 4px 12px;  /* Reduced padding */
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            direction: rtl;
           }
 
           .filter-toggle {
             width: 100%;
-            padding: 6px 12px;  /* Reduced padding */
-            height: 32px;  /* Fixed height */
+            padding: 12px 16px;
+            border: none;
+            height: auto;
+            text-align: right;
+          }
+
+          .filter-toggle-content {
             display: flex;
             align-items: center;
-            justify-content: flex-start;  /* Align content to start */
-            color: #4b5563;
-            transition: all 0.2s ease;
-            border-radius: 6px;  /* Smaller radius */
-            font-size: 14px;  /* Smaller font */
+            gap: 8px;
+            width: 100%;
+            justify-content: flex-end;
+            flex-direction: row-reverse;
           }
 
-          .filter-toggle:hover {
-            color: #1f2937;
-            background: #f3f4f6;  /* Subtle hover background */
-          }
-
-          .filter-toggle .anticon {
-            font-size: 12px;  /* Smaller icons */
-            margin-left: 4px;  /* Adjust icon spacing */
-          }
-
-          .filter-toggle .ant-space {
-            gap: 6px;  /* Tighter spacing */
+          .filter-icon {
+            font-size: 16px;
+            color: #2563eb;
+            margin-left: 8px;
           }
 
           .filter-toggle .ant-typography {
-            font-size: 14px;  /* Consistent font size */
-            line-height: 1;  /* Tighter line height */
+            color: #1f2937;
+            font-weight: 500;
+            font-size: 15px;
+            margin: 0;
+          }
+
+          .filter-count {
+            margin: 0 8px;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #60a5fa;
+            color: white;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
           }
 
           .filter-content {
-            padding: 12px 0 0;  /* Reduced padding */
+            width: 100%;
             border-top: 1px solid #e5e7eb;
-            margin-top: 4px;  /* Reduced margin */
-            overflow: hidden;
           }
 
-          .filter-content .filter-controls {
-            padding: 12px;
-            margin-top: 8px;
-          }
-
-          .filter-content .filter-summary {
-            padding: 12px;
-            background: #f8fafc;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
+          .filter-controls {
+            padding: 20px;
             width: 100%;
-          }
-
-          .filter-content .filter-summary .ant-space {
-            width: 100%;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-          }
-
-          .filter-content .filter-summary .ant-tag {
-            margin: 0;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
           }
 
           .question-card {

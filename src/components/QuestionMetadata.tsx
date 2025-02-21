@@ -33,6 +33,14 @@ export const getQuestionTypeLabel = (type: string) => {
   }
 };
 
+const difficultyColors = {
+  1: '#10b981', // Green
+  2: '#34d399', // Light green
+  3: '#3b82f6', // Blue
+  4: '#f59e0b', // Amber/Orange
+  5: '#ef4444'  // Red
+};
+
 export const getDifficultyIcons = (level: string) => {
   const numLevel = parseInt(level);
   const totalStars = 5;
@@ -42,7 +50,11 @@ export const getDifficultyIcons = (level: string) => {
     <span className="difficulty-stars">
       {[...Array(totalStars)].map((_, index) => (
         <span key={index} className={index < filledStars ? 'filled' : 'empty'}>
-          {index < filledStars ? <StarFilled /> : <StarOutlined />}
+          {index < filledStars ? (
+            <StarFilled style={{ color: '#f59e0b' }} />
+          ) : (
+            <StarOutlined style={{ color: '#d1d5db' }} />
+          )}
         </span>
       ))}
     </span>
@@ -148,13 +160,8 @@ const QuestionMetadata: React.FC<QuestionMetadataProps> = ({ metadata, layout = 
             gap: 2px;
           }
 
-          .difficulty-stars .filled {
-            color: #f59e0b;
-            font-size: 14px;
-          }
-
+          .difficulty-stars .filled,
           .difficulty-stars .empty {
-            color: #d1d5db;
             font-size: 14px;
           }
 

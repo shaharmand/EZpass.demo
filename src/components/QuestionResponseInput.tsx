@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Button, Space, Typography } from 'antd';
+import { Input, Button, Typography } from 'antd';
 import type { Question } from '../types/question';
 import { SimpleTextMathInput } from './SimpleTextMathInput';
 import { MonacoEditor } from './MonacoEditor';
+import { QuestionMultipleChoiceInput } from './QuestionMultipleChoiceInput';
+import { RedoOutlined } from '@ant-design/icons';
 import './QuestionResponseInput.css';
-import { RedoOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -19,81 +20,8 @@ interface QuestionResponseInputProps {
     correctOption?: string;
     score?: number;
   };
+  selectedAnswer?: string;
 }
-
-// Multiple Choice Input
-const MultipleChoiceInput: React.FC<{ 
-  question: Question;
-  onChange: (value: string) => void;
-  value: string;
-  disabled?: boolean;
-  feedback?: {
-    isCorrect: boolean;
-    correctOption?: string;
-  };
-}> = ({ question, onChange, value, disabled, feedback }) => {
-  if (!question.options) return null;
-  
-  const getFeedbackStyle = (isCorrect: boolean | undefined) => {
-    if (isCorrect === undefined) return {};
-    return {};  // Remove coloring from answer section
-  };
-
-  return (
-    <div className="options-list">
-      {question.options.map((option, index) => {
-        const optionNumber = index + 1;
-        const isSelected = value === String(optionNumber);
-        const isCorrectOption = feedback?.correctOption === String(optionNumber);
-        const showFeedback = Boolean(feedback);
-        
-        let optionStyle = {};
-        if (showFeedback) {
-          if (isSelected) {
-            optionStyle = getFeedbackStyle(feedback?.isCorrect);
-          } else if (isCorrectOption) {
-            optionStyle = getFeedbackStyle(true);
-          }
-        }
-
-        // Build class names
-        const optionClasses = [
-          'option-card',
-          isSelected ? 'selected' : '',
-          disabled ? 'disabled' : ''
-        ].filter(Boolean).join(' ');
-
-        const numberClasses = [
-          'option-number',
-          isSelected ? 'selected' : ''
-        ].filter(Boolean).join(' ');
-
-        const textClasses = [
-          'option-text',
-          isSelected ? 'selected' : ''
-        ].filter(Boolean).join(' ');
-        
-        return (
-          <div
-            key={index}
-            className={optionClasses}
-            style={optionStyle}
-            onClick={() => !disabled && onChange(String(optionNumber))}
-          >
-            <div className="option-content">
-              <div className={numberClasses}>
-                {optionNumber}
-              </div>
-              <Text className={textClasses}>
-                {option.text}
-              </Text>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
 
 // Open Text Input
 const OpenTextInput: React.FC<{
@@ -131,10 +59,7 @@ const CodeInput: React.FC<{
   value: string;
   disabled?: boolean;
 }> = ({ question, onChange, value, disabled }) => {
-  // Get the programming language from the question metadata or default to JavaScript
   const language = question.metadata?.programmingLanguage || 'javascript';
-  
-  // Get code template from question if available
   const template = question.metadata?.codeTemplate || '';
 
   return (
@@ -154,9 +79,10 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
   onAnswer,
   onRetry,
   disabled = false,
-  feedback
+  feedback,
+  selectedAnswer = ''
 }) => {
-  const [answer, setAnswer] = useState('');
+  const [answer, setAnswer] = useState(selectedAnswer);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -171,6 +97,11 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
       setAnswer('');
     }
   }, [feedback]);
+
+  // Update local answer when selectedAnswer changes
+  useEffect(() => {
+    setAnswer(selectedAnswer);
+  }, [selectedAnswer]);
 
   const handleSubmit = async () => {
     if (!answer.trim() || isSubmitting) return;
@@ -187,42 +118,12 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
 
   const shouldShowRetry = feedback && !feedback.isCorrect && (!feedback.score || feedback.score < 80);
 
-  const renderActionButtons = () => (
-    <div className="action-buttons-container">
-      <div className="action-buttons">
-        {!disabled && !feedback && (
-          <Button
-            type="primary"
-            onClick={handleSubmit}
-            loading={isSubmitting}
-            disabled={!answer.trim()}
-            size="large"
-            className="submit-button"
-          >
-            שלח תשובה
-          </Button>
-        )}
-        {feedback && shouldShowRetry && (
-          <Button
-            type="primary"
-            icon={<RedoOutlined />}
-            onClick={onRetry}
-            size="large"
-            className="retry-button"
-          >
-            נסה שוב
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <div className="question-response-input">
       <div className="input-section">
         {question.type === 'multiple_choice' ? (
           <div className="multiple-choice-container">
-            <MultipleChoiceInput
+            <QuestionMultipleChoiceInput
               question={question}
               onChange={setAnswer}
               value={answer}
@@ -261,7 +162,33 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
         )}
       </div>
 
-      {renderActionButtons()}
+      <div className="action-buttons-container">
+        <div className="action-buttons">
+          {!disabled && !feedback && (
+            <Button
+              type="primary"
+              onClick={handleSubmit}
+              loading={isSubmitting}
+              disabled={!answer.trim()}
+              size="large"
+              className="submit-button"
+            >
+              שלח תשובה
+            </Button>
+          )}
+          {feedback && shouldShowRetry && (
+            <Button
+              type="primary"
+              icon={<RedoOutlined />}
+              onClick={onRetry}
+              size="large"
+              className="retry-button"
+            >
+              נסה שוב
+            </Button>
+          )}
+        </div>
+      </div>
 
       <style>
         {`
@@ -364,87 +291,17 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
             box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
           }
 
-          .option-card {
+          .step-by-step-container {
             width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            margin-bottom: 8px;
             background: #ffffff;
-          }
-
-          .option-card:hover:not(.disabled) {
-            border-color: #2563eb;  /* Primary blue */
-            background: rgba(37, 99, 235, 0.05);
-            transform: translateY(-1px);
-          }
-
-          .option-card.selected {
-            border-color: #2563eb;  /* Primary blue */
-            background: rgba(37, 99, 235, 0.1);
-          }
-
-          .option-card.disabled {
-            cursor: not-allowed;
-            opacity: 0.85;
-          }
-
-          .option-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-          }
-
-          .option-number {
-            min-width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            background: #f3f4f6;
-            color: #6b7280;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            font-size: 14px;
-          }
-
-          .option-number.selected {
-            background: #2563eb;  /* Primary blue */
-            color: white;
-          }
-
-          .option-text {
-            flex: 1;
-            font-size: 15px;
-            color: #374151;
-            line-height: 1.4;
-          }
-
-          .option-text.selected {
-            color: #2563eb;  /* Primary blue */
-            font-weight: 500;
-          }
-
-          /* Ensure disabled text remains readable */
-          .option-card.disabled .option-text {
-            color: #374151;
-            opacity: 0.85;
+            border-radius: 8px;
+            overflow: hidden;
           }
 
           .response-textarea:disabled {
             opacity: 0.85;
             color: #374151;
             background-color: #f9fafb;
-          }
-
-          .step-by-step-container {
-            width: 100%;
-            background: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
           }
         `}
       </style>

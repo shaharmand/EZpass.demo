@@ -143,6 +143,21 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Start a new prep
   const startPrep = useCallback(async (exam: FormalExam, selection?: TopicSelection): Promise<string> => {
     try {
+      // Ensure exam data is fully loaded
+      if (!exam.topics || exam.topics.length === 0) {
+        // Try to load exam data
+        const loadedExam = await examService.getExamById(exam.id);
+        if (!loadedExam) {
+          throw new Error('Failed to load exam data');
+        }
+        exam = loadedExam;
+      }
+
+      // Validate exam has topics after loading
+      if (!exam.topics || exam.topics.length === 0) {
+        throw new Error('Cannot start prep: exam has no topics');
+      }
+
       console.log('Starting new prep:', { 
         examId: exam.id,
         selection 

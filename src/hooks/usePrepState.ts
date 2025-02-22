@@ -87,7 +87,9 @@ export const usePrepState = () => {
                 logger.info('Processing answer submission', {
                     questionId: question.id,
                     type: question.type,
-                    answerLength: answer.length
+                    answerLength: answer.length,
+                    rawAnswer: answer,
+                    answerType: typeof answer
                 });
 
                 if (question.type === 'multiple_choice') {
@@ -99,7 +101,8 @@ export const usePrepState = () => {
 
                     logger.info('Generating multiple choice feedback', {
                         questionId: question.id,
-                        selectedOption
+                        selectedOption,
+                        rawAnswer: answer
                     });
 
                     const mcFeedback = multipleChoiceFeedbackService.generateFeedback(question, selectedOption);
@@ -111,7 +114,8 @@ export const usePrepState = () => {
                     logger.info('Generated multiple choice feedback', {
                         questionId: question.id,
                         isCorrect: feedback.isCorrect,
-                        score: feedback.score
+                        score: feedback.score,
+                        submittedAnswer: answer
                     });
                 } else {
                     logger.info('Generating feedback for non-multiple choice question', {

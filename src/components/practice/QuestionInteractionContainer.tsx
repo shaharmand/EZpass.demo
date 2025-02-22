@@ -44,7 +44,7 @@ interface QuestionInteractionContainerProps {
 
 const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> = ({
   question,
-  onAnswer: handleAnswer,
+  onAnswer,
   onSkip,
   onHelp,
   onNext,
@@ -55,6 +55,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   activePrep
 }) => {
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState('');
   const [topicName, setTopicName] = useState('');
   const lastTimeLogRef = useRef<number>(Date.now());
   const startTimeRef = useRef<number>(Date.now());
@@ -219,6 +220,11 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
         <Text>{option?.label}</Text>
       </Space>
     );
+  };
+
+  const handleAnswerSubmit = async (answer: string) => {
+    setSelectedAnswer(answer);
+    await onAnswer(answer);
   };
 
   if (isQuestionLoading) {
@@ -395,13 +401,17 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
               </div>
               <QuestionResponseInput 
                 question={question}
-                onAnswer={handleAnswer}
-                onRetry={onRetry}
+                onAnswer={handleAnswerSubmit}
+                onRetry={() => {
+                  setSelectedAnswer('');
+                  onRetry();
+                }}
                 disabled={state.status === 'submitted'}
                 feedback={state.feedback ? {
                   isCorrect: state.feedback.isCorrect,
                   score: state.feedback.score
                 } : undefined}
+                selectedAnswer={selectedAnswer}
               />
             </div>
           </motion.div>
@@ -430,8 +440,12 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
                 <FeedbackContainer 
                   question={question}
                   feedback={state.feedback}
-                  onRetry={onRetry}
+                  onRetry={() => {
+                    setSelectedAnswer('');
+                    onRetry();
+                  }}
                   onNext={onNext}
+                  selectedAnswer={selectedAnswer}
                 />
               </div>
             )}

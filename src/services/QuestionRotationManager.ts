@@ -15,6 +15,14 @@ export class QuestionRotationManager {
   private currentFilter: FilterState = {};
 
   constructor(exam: FormalExam, selection: TopicSelection) {
+    // Validate exam has topics
+    if (!exam.topics || exam.topics.length === 0) {
+      throw new Error('Cannot initialize QuestionRotationManager: exam has no topics');
+    }
+    if (!exam.topics.every(t => t.subTopics && t.subTopics.length > 0)) {
+      throw new Error('Cannot initialize QuestionRotationManager: some topics have no subtopics');
+    }
+
     this.exam = exam;
     this.selection = selection;
     console.log('QuestionRotationManager initialized:', {

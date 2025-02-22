@@ -82,6 +82,14 @@ export class PrepStateManager {
 
     // Factory method to create new prep instance
     static createPrep(exam: FormalExam, selectedTopics?: TopicSelection): StudentPrep {
+        // Validate exam has topics
+        if (!exam.topics || exam.topics.length === 0) {
+            throw new Error('Cannot create prep: exam has no topics');
+        }
+        if (!exam.topics.every(t => t.subTopics && t.subTopics.length > 0)) {
+            throw new Error('Cannot create prep: some topics have no subtopics');
+        }
+
         // Load existing preps
         const preps = this.loadPreps();
         

@@ -428,13 +428,7 @@ class ExamService {
 
             // Use just the raw subtopic ID instead of constructing a long one
             const constructedId = subTopicId;
-            console.log('DEBUG: Using simplified subtopic ID:', {
-                examId: examData.id,
-                topicId: topic.topicId,
-                rawSubtopicId: subTopicId,
-                constructedId
-            });
-
+            
             const subTopic: SubTopic = {
               id: constructedId,
               code: subTopicId,

@@ -14,6 +14,7 @@ interface FeedbackContainerProps {
   feedback: QuestionFeedback;
   onRetry?: () => void;
   onNext: () => void;
+  selectedAnswer?: string;
 }
 
 const getScoreColor = (score: number) => {
@@ -35,7 +36,8 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   question,
   feedback,
   onRetry,
-  onNext
+  onNext,
+  selectedAnswer
 }) => {
   const feedbackRef = useRef<HTMLDivElement>(null);
 
@@ -96,6 +98,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
         <MultipleChoiceFeedback
           question={question}
           feedback={feedback}
+          selectedAnswer={selectedAnswer || ''}
         />
       ) : (
         <>

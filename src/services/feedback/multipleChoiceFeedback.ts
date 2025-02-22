@@ -10,6 +10,15 @@ export class MultipleChoiceFeedbackService {
    * Generates feedback for a multiple choice question based on the selected option
    */
   generateFeedback(question: Question, selectedOption: number): QuestionFeedback {
+    // Log raw input data immediately
+    logger.info('Raw input data for feedback:', {
+      rawSelectedOption: selectedOption,
+      rawSelectedOptionType: typeof selectedOption,
+      rawCorrectOption: question.correctOption,
+      rawCorrectOptionType: typeof question.correctOption,
+      rawOptions: question.options?.map((opt, idx) => `${idx + 1}: ${opt.text.substring(0, 30)}...`)
+    });
+
     if (!question.correctOption) {
       throw new Error('Question does not have a correct option defined');
     }

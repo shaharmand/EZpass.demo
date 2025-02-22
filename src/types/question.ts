@@ -21,9 +21,6 @@ export interface QuestionFeedback {
   /** Whether the answer was correct */
   isCorrect: boolean;
 
-  /** The user's answer */
-  answer?: string;
-
   /** Score from 0-100 */
   score: number;
 

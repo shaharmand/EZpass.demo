@@ -11,71 +11,124 @@ const { Text, Title } = Typography;
 interface MultipleChoiceFeedbackProps {
   question: Question;
   feedback: QuestionFeedback;
+  selectedAnswer: string;
 }
 
 export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
   question,
   feedback,
+  selectedAnswer
 }) => {
   useEffect(() => {
-    logger.info('Rendering multiple choice feedback', {
+    // Component mount/update log with more prominent message
+    console.log('🎯 MULTIPLE CHOICE FEEDBACK RECEIVED:', {
       questionId: question.id,
-      isCorrect: feedback.isCorrect,
-      feedbackLength: feedback.coreFeedback.length
+      feedbackData: {
+        isCorrect: feedback?.isCorrect,
+        score: feedback?.score,
+        allFeedbackKeys: Object.keys(feedback || {}),
+        fullFeedback: feedback // Log the entire feedback object
+      },
+      questionData: {
+        correctOption: question.correctOption,
+        totalOptions: question.options?.length,
+        options: question.options?.map((opt, idx) => `${idx + 1}: ${opt.text.substring(0, 30)}...`)
+      }
     });
-  }, [question.id, feedback]);
 
-  // Get the selected and correct answer texts
-  const selectedOption = question.options?.[parseInt(feedback.answer || '1') - 1]?.text || '';
-  const correctOption = question.options?.[question.correctOption ? question.correctOption - 1 : 0]?.text || '';
+    // Log raw incoming data with more detail
+    console.log('📝 RAW FEEDBACK DATA:', {
+      answer: {
+        value: selectedAnswer,
+        type: typeof selectedAnswer,
+        isValid: typeof selectedAnswer === 'string' ? 
+          parseInt(selectedAnswer) >= 1 && parseInt(selectedAnswer) <= 4 : false
+      },
+      correctOption: {
+        value: question.correctOption,
+        type: typeof question.correctOption
+      },
+      isCorrect: feedback?.isCorrect,
+      score: feedback?.score,
+      fullFeedbackObject: JSON.stringify(feedback, null, 2) // Log stringified feedback for better visibility
+    });
+
+    // Get the selected and correct answer texts
+    const selectedOptionIndex = parseInt(selectedAnswer || '1') - 1;
+    const correctOptionIndex = question.correctOption ? question.correctOption - 1 : 0;
+
+    // Log option processing
+    logger.info('Processing options:', {
+      selectedOptionRaw: selectedAnswer,
+      selectedOptionIndex,
+      selectedOptionText: question.options?.[selectedOptionIndex]?.text,
+      correctOptionRaw: question.correctOption,
+      correctOptionIndex,
+      correctOptionText: question.options?.[correctOptionIndex]?.text
+    });
+
+    // Log the actual user choice for debugging
+    logger.info('User choice debug:', {
+      rawAnswer: selectedAnswer,
+      rawAnswerType: typeof selectedAnswer,
+      parsedAnswer: selectedAnswer ? parseInt(selectedAnswer) : 'no answer provided',
+      isNumber: selectedAnswer ? !isNaN(parseInt(selectedAnswer)) : false,
+      answerRange: selectedAnswer ? (parseInt(selectedAnswer) >= 1 && parseInt(selectedAnswer) <= 4) : false,
+      totalOptions: question.options?.length || 0,
+      isCorrect: feedback.isCorrect
+    });
+  }, [question.id, feedback, question.options, question.correctOption, selectedAnswer]);
+
+  // Get the selected and correct answer texts and numbers - with validation
+  const selectedOptionNumber = !isNaN(parseInt(selectedAnswer)) ? parseInt(selectedAnswer) : null;
+  const correctOptionNumber = question.correctOption || 0;
+
+  const selectedOption = selectedOptionNumber !== null && question.options && 
+    selectedOptionNumber > 0 && selectedOptionNumber <= question.options.length
+    ? question.options[selectedOptionNumber - 1]?.text || ''
+    : '';
+  const correctOption = question.options?.[correctOptionNumber - 1]?.text || '';
 
   return (
     <div className="multiple-choice-feedback">
-      {/* Score Display */}
-      <div className="score-display">
-        <div className="score-text">
+      {/* Integrated Title and Answer Section */}
+      <div className="feedback-section">
+        <div className="title-display">
           <Title level={4} className={feedback.isCorrect ? 'success' : 'error'}>
             {feedback.isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה'}
           </Title>
         </div>
-      </div>
 
-      {/* Answer Comparison */}
-      <div className="answer-comparison">
-        {!feedback.isCorrect ? (
-          <div className="answer-item">
-            <div className="answer-box incorrect">
-              <div className="answer-header">
-                <CloseCircleFilled className="error-icon" />
-                <Text strong>התשובה שלך:</Text>
+        <div className="answer-comparison">
+          {!feedback.isCorrect ? (
+            <div className="answer-item">
+              <div className="answer-box">
+                <div className="answer-label">התשובה שלך</div>
+                <div className="answer-content incorrect">
+                  <span className="option-number">{selectedOptionNumber}</span>
+                  <span className="option-text">{selectedOption}</span>
+                </div>
               </div>
-              <div className="answer-content">
-                <MarkdownRenderer content={selectedOption} />
-              </div>
-            </div>
-            <div className="answer-box correct">
-              <div className="answer-header">
-                <CheckCircleFilled className="success-icon" />
-                <Text strong>התשובה הנכונה:</Text>
-              </div>
-              <div className="answer-content">
-                <MarkdownRenderer content={correctOption} />
+              <div className="answer-box">
+                <div className="answer-label">התשובה הנכונה</div>
+                <div className="answer-content correct">
+                  <span className="option-number">{correctOptionNumber}</span>
+                  <span className="option-text">{correctOption}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="answer-item single-answer">
-            <div className="answer-box correct">
-              <div className="answer-header">
-                <CheckCircleFilled className="success-icon" />
-                <Text strong>התשובה שלך:</Text>
-              </div>
-              <div className="answer-content">
-                <MarkdownRenderer content={selectedOption} />
+          ) : (
+            <div className="answer-item single-answer">
+              <div className="answer-box">
+                <div className="answer-label">התשובה שלך</div>
+                <div className="answer-content correct">
+                  <span className="option-number">{selectedOptionNumber}</span>
+                  <span className="option-text">{selectedOption}</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Explanation */}
@@ -88,44 +141,42 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
       <style>
         {`
           .multiple-choice-feedback {
-            padding: 12px;
+            padding: 16px;
             background: #ffffff;
             border-radius: 12px;
-            display: grid;
-            grid-template-columns: minmax(0, 1fr);
-            gap: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
           }
 
-          .score-display {
-            display: flex;
-            align-items: center;
-            gap: 24px;
-            padding: 20px;
+          .feedback-section {
             background: #f8fafc;
             border-radius: 12px;
             border: 1px solid #e5e7eb;
+            overflow: hidden;
           }
 
-          .score-text {
-            flex: 1;
+          .title-display {
+            padding: 20px;
             text-align: center;
+            border-bottom: 1px solid #e5e7eb;
           }
 
-          .score-text h4 {
+          .title-display h4 {
             margin: 0;
             font-size: 26px;
             font-weight: 600;
             line-height: 1.2;
           }
 
-          .score-text h4.success {
+          .title-display h4.success {
             color: #10b981;
             background: linear-gradient(45deg, #10b981, #34d399);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
           }
 
-          .score-text h4.error {
+          .title-display h4.error {
             color: #ef4444;
             background: linear-gradient(45deg, #ef4444, #f87171);
             -webkit-background-clip: text;
@@ -133,7 +184,7 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
           }
 
           .answer-comparison {
-            margin-top: 8px;
+            padding: 16px;
           }
 
           .answer-item {
@@ -147,59 +198,77 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
           }
 
           .answer-box {
-            padding: 12px;
-            border-radius: 8px;
             background: #f8fafc;
-            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
             gap: 8px;
-            min-width: 0;
           }
 
-          .answer-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
+          .answer-label {
+            color: #4b5563;
             font-size: 14px;
-            white-space: nowrap;
+            font-weight: 500;
           }
 
           .answer-content {
-            padding: 8px;
+            padding: 12px;
             font-size: 15px;
             line-height: 1.5;
-            overflow-wrap: break-word;
-            min-height: 24px;
             display: flex;
             align-items: center;
+            gap: 12px;
+            border-radius: 6px;
           }
 
-          .answer-box.correct {
+          .answer-content.correct {
             background: #f0fdf4;
-            border-color: #86efac;
+            border: 1px solid #86efac;
           }
 
-          .answer-box.incorrect {
+          .answer-content.incorrect {
             background: #fef2f2;
-            border-color: #fecaca;
+            border: 1px solid #fecaca;
           }
 
-          .success-icon {
-            font-size: 16px;
+          .option-number {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: 500;
+          }
+
+          .correct .option-number {
+            color: #10b981;
+            background: #dcfce7;
+            border: 1px solid #86efac;
+          }
+
+          .incorrect .option-number {
+            color: #ef4444;
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+          }
+
+          .option-text {
+            flex: 1;
+          }
+
+          .correct .option-text {
             color: #10b981;
           }
 
-          .error-icon {
-            font-size: 16px;
+          .incorrect .option-text {
             color: #ef4444;
           }
 
           .feedback-details {
             background: #f8fafc;
-            border-radius: 8px;
+            border-radius: 12px;
             border: 1px solid #e2e8f0;
             padding: 16px;
           }
@@ -207,11 +276,11 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
           .detailed-feedback {
             color: #1f2937;
             font-size: 15px;
+            line-height: 1.6;
           }
 
           .detailed-feedback p {
             margin: 0;
-            line-height: 1.5;
           }
         `}
       </style>

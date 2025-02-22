@@ -133,6 +133,7 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
 
       {/* Explanation */}
       <div className="feedback-details">
+        <Title level={5} className="explanation-title">הסבר</Title>
         <div className="detailed-feedback">
           <MarkdownRenderer content={feedback.coreFeedback} />
         </div>
@@ -271,12 +272,23 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
             border-radius: 12px;
             border: 1px solid #e2e8f0;
             padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .explanation-title {
+            margin: 0 !important;
+            color: #4b5563 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
           }
 
           .detailed-feedback {
             color: #1f2937;
             font-size: 15px;
             line-height: 1.6;
+            padding-top: 4px;
           }
 
           .detailed-feedback p {

@@ -114,37 +114,40 @@ export class QuestionRotationManager {
     const examTypes = this.exam.questionTypes || QUESTION_TYPES;
     const filterTypes = this.currentFilter.questionTypes;
     
-    console.log('Question type selection:', {
+    console.log('Initial type info:', {
       examId: this.exam.id,
-      examTypes,
-      filterTypes,
-      currentTypeIndex: this.currentTypeIndex,
-      requestedType: filterTypes?.[0]
+      examTypes: examTypes.join(', '),
+      filterTypes: filterTypes ? filterTypes.join(', ') : 'none',
+      defaultTypes: QUESTION_TYPES.join(', ')
     });
 
     const allowedTypes = filterTypes 
       ? filterTypes.filter(type => examTypes.includes(type as QuestionType))
       : examTypes;
 
-    console.log('Allowed question types:', {
-      allowedTypes,
-      filterApplied: !!filterTypes,
-      examTypesLength: examTypes.length,
-      allowedTypesLength: allowedTypes.length
+    console.log('Question type selection details:', {
+      examId: this.exam.id,
+      availableTypes: allowedTypes.join(', '),
+      currentTypeIndex: this.currentTypeIndex,
+      selectionMode: filterTypes ? 'random from filter' : 'random from exam types',
+      poolSize: allowedTypes.length
     });
     
-    // If we have exactly one type in the filter, always use that
+    // Determine question type:
+    // 1. If exactly one type allowed, use it
+    // 2. If filter exists, randomly select from filter types
+    // 3. If no filter, randomly select from all exam types
     const questionType = allowedTypes.length === 1 
       ? (allowedTypes[0] as QuestionType)
-      : !filterTypes 
-        ? allowedTypes[Math.floor(Math.random() * allowedTypes.length)] as QuestionType
-        : allowedTypes[this.currentTypeIndex % allowedTypes.length] as QuestionType;
+      : filterTypes 
+        ? filterTypes[Math.floor(Math.random() * filterTypes.length)] as QuestionType  // Random from filter
+        : examTypes[Math.floor(Math.random() * examTypes.length)] as QuestionType;     // Random from all
 
     console.log('Selected question type:', {
       questionType,
       wasFiltered: allowedTypes.length === 1,
-      currentTypeIndex: this.currentTypeIndex,
-      rotationIndex: this.currentTypeIndex % allowedTypes.length
+      selectedFromFilter: !!filterTypes,
+      availableTypes: filterTypes || examTypes
     });
 
     // Get next difficulty from allowed levels

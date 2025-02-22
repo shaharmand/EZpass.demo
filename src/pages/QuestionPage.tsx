@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Space, Button, Dropdown, Menu, Typography, Tag, Alert, Divider, Spin } from 'antd';
+import { Card, Space, Button, Dropdown, Menu, Typography, Tag, Alert, Divider, Spin, Row, Col, Tooltip } from 'antd';
 import { 
   EditOutlined, 
   ShareAltOutlined, 
@@ -11,7 +11,14 @@ import {
   MoreOutlined,
   PrinterOutlined,
   ExportOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  FileTextOutlined,
+  SettingOutlined,
+  TeamOutlined,
+  BarChartOutlined,
+  HistoryOutlined,
+  LockOutlined,
+  CopyOutlined
 } from '@ant-design/icons';
 import QuestionViewer from '../components/QuestionViewer';
 import QuestionContent from '../components/QuestionContent';
@@ -57,13 +64,7 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
     fetchQuestion();
   }, [questionId]);
 
-  const actionMenuItems = [
-    {
-      key: 'practice',
-      label: 'התחל תרגול',
-      icon: <PlayCircleOutlined />,
-      onClick: () => navigate(`/practice/${questionId}`)
-    },
+  const teacherActionMenuItems = [
     {
       key: 'edit',
       label: 'ערוך שאלה',
@@ -71,9 +72,9 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
       onClick: () => navigate(`/questions/${questionId}/edit`)
     },
     {
-      key: 'add-to-set',
-      label: 'הוסף לסט שאלות',
-      icon: <PlusOutlined />,
+      key: 'duplicate',
+      label: 'שכפל שאלה',
+      icon: <CopyOutlined />,
       onClick: () => {/* TODO */}
     },
     {
@@ -83,8 +84,14 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
       onClick: () => {/* TODO */}
     },
     {
+      key: 'add-to-set',
+      label: 'הוסף לסט שאלות',
+      icon: <PlusOutlined />,
+      onClick: () => {/* TODO */}
+    },
+    {
       key: 'share',
-      label: 'שתף',
+      label: 'שתף עם מורים',
       icon: <ShareAltOutlined />,
       onClick: () => {/* TODO */}
     },
@@ -141,19 +148,31 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Description Section */}
+      {/* Teacher Interface Header */}
       <Card style={{ marginBottom: '2rem' }}>
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Title level={5} style={{ margin: 0 }}>דף שאלה</Title>
-          <Text>דף זה מציג את כל המידע הרלוונטי לשאלה ספציפית, כולל:</Text>
-          <ul style={{ listStyleType: 'none', padding: 0, margin: 0, color: '#666' }}>
-            <li>• תוכן השאלה ופתרון מלא</li>
-            <li>• מטא-דאטה (נושא, תת-נושא, רמת קושי)</li>
-            <li>• מחוון הערכה ודרישות תשובה</li>
-            <li>• סטטיסטיקות ביצועים</li>
-            <li>• שאלות דומות ומקושרות</li>
-          </ul>
-        </Space>
+        <Row align="middle" justify="space-between">
+          <Col>
+            <Title level={3} style={{ margin: 0 }}>
+              <LockOutlined /> ממשק מורה - דף שאלה
+            </Title>
+            <Text type="secondary">
+              צפייה ועריכת שאלה, כולל פתרון מלא, מחוון הערכה וסטטיסטיקות ביצועים
+            </Text>
+          </Col>
+          <Col>
+            <Space>
+              <Button icon={<TeamOutlined />}>
+                שיתוף פעולה
+              </Button>
+              <Button icon={<HistoryOutlined />}>
+                היסטוריית שינויים
+              </Button>
+              <Button type="primary" icon={<EditOutlined />}>
+                ערוך שאלה
+              </Button>
+            </Space>
+          </Col>
+        </Row>
       </Card>
 
       {/* Question Section */}
@@ -161,25 +180,24 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
         className="question-section"
         style={{ marginBottom: '1rem' }}
         title={
-          <Space>
-            <span>שאלה</span>
-            <Tag color="blue">{question.type === 'multiple_choice' ? 'רב-ברירה' : 'פתוח'}</Tag>
-          </Space>
+          <Title level={4} style={{ margin: 0 }}>
+            <FileTextOutlined /> תוכן השאלה
+          </Title>
         }
         extra={
           <Space>
             <Button 
               type="primary"
               icon={<PlayCircleOutlined />}
-              onClick={() => navigate(`/practice/${questionId}`)}
+              onClick={() => {}}
             >
-              התחל תרגול
+              תצוגה מקדימה
             </Button>
             <Dropdown 
               menu={{ 
-                items: actionMenuItems,
+                items: teacherActionMenuItems,
                 onClick: ({ key }) => {
-                  const item = actionMenuItems.find(i => i.key === key);
+                  const item = teacherActionMenuItems.find(i => i.key === key);
                   item?.onClick?.();
                 }
               }} 
@@ -212,10 +230,9 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
         className="solution-section"
         style={{ marginBottom: '1rem' }}
         title={
-          <Space>
-            <CheckCircleOutlined />
-            <span>פתרון מלא</span>
-          </Space>
+          <Title level={4} style={{ margin: 0 }}>
+            <CheckCircleOutlined /> פתרון מלא ומחוון בדיקה
+          </Title>
         }
       >
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -244,10 +261,14 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
         <Card 
           className="rubric-section"
           title={
-            <Space>
-              <StarOutlined />
-              <span>מחוון הערכה</span>
-            </Space>
+            <Title level={4} style={{ margin: 0 }}>
+              <StarOutlined /> מחוון הערכה
+            </Title>
+          }
+          extra={
+            <Button icon={<EditOutlined />}>
+              ערוך מחוון
+            </Button>
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -278,10 +299,14 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
         <Card 
           className="requirements-section"
           title={
-            <Space>
-              <BookOutlined />
-              <span>דרישות תשובה</span>
-            </Space>
+            <Title level={4} style={{ margin: 0 }}>
+              <BookOutlined /> דרישות תשובה
+            </Title>
+          }
+          extra={
+            <Button icon={<EditOutlined />}>
+              ערוך דרישות
+            </Button>
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -317,12 +342,73 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
         </Card>
 
         {/* Statistics Section */}
-        <Card title="סטטיסטיקה">
-          <Space split={<Divider type="vertical" />}>
-            <Text>אחוז הצלחה: 75%</Text>
-            <Text>זמן ממוצע: 4.2 דקות</Text>
-            <Text>מספר נסיונות: 120</Text>
-          </Space>
+        <Card 
+          title={
+            <Title level={4} style={{ margin: 0 }}>
+              <BarChartOutlined /> סטטיסטיקות וביצועים
+            </Title>
+          }
+          extra={
+            <Button icon={<SettingOutlined />}>
+              הגדרות ניתוח
+            </Button>
+          }
+        >
+          <Row gutter={[24, 24]}>
+            <Col span={8}>
+              <Card size="small" title="ביצועי תלמידים">
+                <Space split={<Divider type="vertical" />}>
+                  <Text>אחוז הצלחה: 75%</Text>
+                  <Text>זמן ממוצע: 4.2 דקות</Text>
+                  <Text>מספר נסיונות: 120</Text>
+                </Space>
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card size="small" title="ניתוח טעויות נפוצות">
+                <Text>נתונים יתווספו לאחר שימוש בשאלה</Text>
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card size="small" title="המלצות שיפור">
+                <Button type="link" icon={<BarChartOutlined />}>
+                  צפה בדוח מלא
+                </Button>
+              </Card>
+            </Col>
+          </Row>
+        </Card>
+
+        {/* Teacher Tools Section */}
+        <Card 
+          title={
+            <Title level={4} style={{ margin: 0 }}>
+              <SettingOutlined /> כלי מורה
+            </Title>
+          }
+        >
+          <Row gutter={[16, 16]}>
+            <Col span={6}>
+              <Button block icon={<EditOutlined />}>
+                ערוך שאלה
+              </Button>
+            </Col>
+            <Col span={6}>
+              <Button block icon={<BookOutlined />}>
+                הוסף למבחן
+              </Button>
+            </Col>
+            <Col span={6}>
+              <Button block icon={<TeamOutlined />}>
+                שתף עם מורים
+              </Button>
+            </Col>
+            <Col span={6}>
+              <Button block icon={<HistoryOutlined />}>
+                היסטוריית שינויים
+              </Button>
+            </Col>
+          </Row>
         </Card>
       </Space>
     </div>

@@ -249,10 +249,6 @@ IMPORTANT:
   }
 
   async generateQuestion(params: QuestionFetchParams): Promise<Question> {
-    if (!this.checkRateLimits()) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    }
-
     try {
       console.log('%c🎯 Generating Question:', 'color: #2563eb; font-weight: bold', {
         topic: params.topic,

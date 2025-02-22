@@ -22,96 +22,202 @@ const testQuestions: Question[] = [
       format: "markdown"
     },
     options: [
-      { text: "קסדה בלבד", format: "markdown" },
-      { text: "קסדה ורתמת בטיחות", format: "markdown" },
-      { text: "קסדה, רתמת בטיחות ונעלי בטיחות", format: "markdown" },
-      { text: "רתמת בטיחות בלבד", format: "markdown" }
+      {
+        text: "קסדה ורתמת בטיחות",
+        format: "markdown"
+      },
+      {
+        text: "משקפי מגן וכפפות",
+        format: "markdown"
+      },
+      {
+        text: "נעלי בטיחות וביגוד מגן",
+        format: "markdown"
+      },
+      {
+        text: "כל התשובות נכונות",
+        format: "markdown"
+      }
     ],
-    correctOption: 3,
+    correctOption: 4,
     metadata: {
-      topicId: "safety_management",
+      topicId: "safety_equipment",
       difficulty: 1,
       source: {
-        examType: "בגרות",
-        year: 2024,
-        season: "אביב",
-        moed: "א"
+        examType: "practice"
       }
     },
     solution: {
-      text: "התשובה הנכונה היא קסדה, רתמת בטיחות ונעלי בטיחות. בעבודה בגובה חובה להשתמש בכל פריטי ציוד המגן האישי הנדרשים להגנה מפני נפילה ופגיעה.",
+      text: "התשובה הנכונה היא 'כל התשובות נכונות'. בעבודה בגובה נדרש ציוד מגן מקיף הכולל קסדה, רתמת בטיחות, משקפי מגן, כפפות, נעלי בטיחות וביגוד מגן מתאים.",
       format: "markdown"
+    },
+    rubricAssessment: {
+      criteria: [
+        {
+          name: "Correctness",
+          description: "Selecting the right answer and demonstrating understanding",
+          weight: 60
+        },
+        {
+          name: "Understanding",
+          description: "Showing comprehension of core concepts and why other options are wrong",
+          weight: 40
+        }
+      ]
+    },
+    answerRequirements: {
+      requiredElements: [
+        "Correct option selection",
+        "Understanding of comprehensive safety equipment needs",
+        "Recognition that all listed items are necessary"
+      ]
     }
   },
   {
     id: "test_question_2",
     type: "open",
     content: {
-      text: "הסבר את תהליך הבטיחות בעבודה עם חומרים מסוכנים",
+      text: "הסבר את העקרונות המרכזיים של תכנון בטיחות באתר בנייה. כיצד ניתן ליישם אותם הלכה למעשה?",
       format: "markdown"
     },
     metadata: {
-      topicId: "hazardous_materials",
+      topicId: "safety_planning",
       difficulty: 3,
       source: {
-        examType: "מה״ט",
-        year: 2023,
-        author: "המכון הממשלתי להכשרה טכנולוגית"
+        examType: "practice",
+        year: 2024,
+        author: "מומחה בטיחות"
       }
     },
     solution: {
-      text: "תהליך העבודה עם חומרים מסוכנים כולל...",
+      text: "תכנון בטיחות באתר בנייה מבוסס על מספר עקרונות מרכזיים...",
       format: "markdown"
+    },
+    rubricAssessment: {
+      criteria: [
+        {
+          name: "Accuracy",
+          description: "Correctness of the solution and understanding of safety principles",
+          weight: 40
+        },
+        {
+          name: "Methodology",
+          description: "Proper approach to safety planning and implementation",
+          weight: 30
+        },
+        {
+          name: "Clarity",
+          description: "Clear and organized presentation of safety concepts",
+          weight: 30
+        }
+      ]
+    },
+    answerRequirements: {
+      requiredElements: [
+        "Core safety planning principles",
+        "Practical implementation steps",
+        "Risk assessment methodology",
+        "Safety measure examples"
+      ]
     }
   },
   {
     id: "test_question_3",
     type: "multiple_choice",
     content: {
-      text: "מהו המרחק המינימלי הנדרש בין עובדים בעבודה בגובה?",
+      text: "איזה מהבאים אינו נחשב לגורם סיכון בעבודה בגובה?",
       format: "markdown"
     },
     options: [
-      { text: "1 מטר", format: "markdown" },
-      { text: "2 מטר", format: "markdown" },
-      { text: "3 מטר", format: "markdown" },
-      { text: "4 מטר", format: "markdown" }
+      { text: "רוח חזקה", format: "markdown" },
+      { text: "תאורה מספקת", format: "markdown" },
+      { text: "משטח רטוב", format: "markdown" },
+      { text: "ציוד לא תקין", format: "markdown" }
     ],
     correctOption: 2,
     metadata: {
-      topicId: "safety_management",
+      topicId: "height_safety",
       difficulty: 2,
       source: {
-        examType: "תרגול",
-        author: "מכללת הנדסאים תל אביב"
+        examType: "practice",
+        year: 2024
       }
     },
     solution: {
-      text: "המרחק המינימלי הוא 2 מטר כדי למנוע התנגשויות...",
+      text: "התשובה הנכונה היא 'תאורה מספקת'. בניגוד לשאר האפשרויות, תאורה מספקת היא למעשה אמצעי בטיחות ולא גורם סיכון.",
       format: "markdown"
+    },
+    rubricAssessment: {
+      criteria: [
+        {
+          name: "Correctness",
+          description: "Selecting the right answer and understanding risk factors",
+          weight: 60
+        },
+        {
+          name: "Understanding",
+          description: "Distinguishing between safety measures and risk factors",
+          weight: 40
+        }
+      ]
+    },
+    answerRequirements: {
+      requiredElements: [
+        "Correct identification of non-risk factor",
+        "Understanding of what constitutes a risk factor",
+        "Recognition of safety measures versus hazards"
+      ]
     }
   },
   {
     id: "test_question_4",
     type: "step_by_step",
     content: {
-      text: "תאר את שלבי ההכנה לעבודה בגובה",
+      text: "תאר את תהליך הבדיקה והרכבה של פיגום זקפים לפי התקן. פרט כל שלב.",
       format: "markdown"
     },
     metadata: {
-      topicId: "safety_procedures",
-      subtopicId: "height_work_prep",
+      topicId: "scaffolding_safety",
+      subtopicId: "setup_inspection",
       difficulty: 4,
       source: {
-        examType: "הסמכה",
+        examType: "practice",
         year: 2024,
-        season: "חורף",
-        author: "משרד העבודה - אגף הפיקוח"
+        season: "קיץ",
+        author: "מהנדס בטיחות"
       }
     },
     solution: {
-      text: "שלבי ההכנה כוללים...",
+      text: "1. בדיקת תשתית...\n2. הרכבת בסיס...\n3. התקנת זקפים...",
       format: "markdown"
+    },
+    rubricAssessment: {
+      criteria: [
+        {
+          name: "Process",
+          description: "Following correct inspection and assembly steps in order",
+          weight: 40
+        },
+        {
+          name: "Calculations",
+          description: "Accurate measurements and specifications",
+          weight: 30
+        },
+        {
+          name: "Validation",
+          description: "Proper safety checks and standards compliance",
+          weight: 30
+        }
+      ]
+    },
+    answerRequirements: {
+      requiredElements: [
+        "Complete step sequence",
+        "Safety standard references",
+        "Required measurements",
+        "Inspection criteria",
+        "Assembly procedure details"
+      ]
     }
   }
 ];

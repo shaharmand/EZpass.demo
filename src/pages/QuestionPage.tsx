@@ -10,9 +10,13 @@ import {
   PlayCircleOutlined,
   MoreOutlined,
   PrinterOutlined,
-  ExportOutlined
+  ExportOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons';
 import QuestionViewer from '../components/QuestionViewer';
+import QuestionContent from '../components/QuestionContent';
+import QuestionMetadata from '../components/QuestionMetadata';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import type { Question } from '../types/question';
 import { questionService } from '../services/llm/questionGenerationService';
 
@@ -141,59 +145,27 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
       <Card style={{ marginBottom: '2rem' }}>
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           <Title level={5} style={{ margin: 0 }}>דף שאלה</Title>
-          <Text>
-            דף זה מציג את כל המידע הרלוונטי לשאלה ספציפית, כולל:
-          </Text>
-          <ul style={{ 
-            listStyleType: 'none', 
-            padding: 0, 
-            margin: 0,
-            color: '#666'
-          }}>
+          <Text>דף זה מציג את כל המידע הרלוונטי לשאלה ספציפית, כולל:</Text>
+          <ul style={{ listStyleType: 'none', padding: 0, margin: 0, color: '#666' }}>
             <li>• תוכן השאלה ופתרון מלא</li>
             <li>• מטא-דאטה (נושא, תת-נושא, רמת קושי)</li>
+            <li>• מחוון הערכה ודרישות תשובה</li>
             <li>• סטטיסטיקות ביצועים</li>
             <li>• שאלות דומות ומקושרות</li>
-            <li>• אפשרויות תרגול ועריכה</li>
           </ul>
-          <Text type="secondary" style={{ fontSize: '0.9rem' }}>
-            * חלק מהתכונות עדיין בפיתוח
-          </Text>
         </Space>
       </Card>
 
-      {/* Header Section */}
-      <div style={{ marginBottom: '2rem' }}>
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <Space align="center">
-            <Text strong style={{ fontSize: '1.2rem' }}>
-              {question.id}
-            </Text>
-            {question.metadata.source?.examType && (
-              <Tag color="purple">{question.metadata.source.examType}</Tag>
-            )}
-          </Space>
-          
-          <Space split={<span style={{ margin: '0 8px' }}>•</span>}>
-            <Text type="secondary">{question.metadata.topicId}</Text>
-            {question.metadata.subtopicId && (
-              <Text type="secondary">{question.metadata.subtopicId}</Text>
-            )}
-          </Space>
-          
-          <Space size="middle">
+      {/* Question Section */}
+      <Card 
+        className="question-section"
+        style={{ marginBottom: '1rem' }}
+        title={
+          <Space>
+            <span>שאלה</span>
             <Tag color="blue">{question.type === 'multiple_choice' ? 'רב-ברירה' : 'פתוח'}</Tag>
-            <Tag color="gold">רמה {question.metadata.difficulty}</Tag>
-            {question.metadata.estimatedTime && (
-              <Tag color="green">{question.metadata.estimatedTime} דקות</Tag>
-            )}
           </Space>
-        </Space>
-      </div>
-
-      {/* Main Content */}
-      <Card
-        title="שאלה"
+        }
         extra={
           <Space>
             <Button 
@@ -218,35 +190,138 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
           </Space>
         }
       >
-        <QuestionViewer 
-          question={question}
-          showOptions={true}
-          showSolution={false}
-        />
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          {/* Question Metadata */}
+          <QuestionMetadata 
+            metadata={{
+              topicId: question.metadata.topicId,
+              type: question.type,
+              difficulty: String(question.metadata.difficulty),
+              source: question.metadata.source,
+              subtopicId: question.metadata.subtopicId
+            }} 
+          />
+          
+          {/* Question Content */}
+          <QuestionContent content={question.content.text} />
+        </Space>
       </Card>
 
-      {/* Additional Sections */}
-      <Space direction="vertical" size="large" style={{ width: '100%', marginTop: '2rem' }}>
+      {/* Solution Section */}
+      <Card 
+        className="solution-section"
+        style={{ marginBottom: '1rem' }}
+        title={
+          <Space>
+            <CheckCircleOutlined />
+            <span>פתרון מלא</span>
+          </Space>
+        }
+      >
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <div className="solution-content">
+            <MarkdownRenderer content={question.solution.text} />
+          </div>
+          {question.solution.answer && (
+            <>
+              <Divider>תשובה סופית</Divider>
+              <div className="final-answer" style={{
+                padding: '16px',
+                background: '#f0fdf4',
+                borderRadius: '8px',
+                border: '1px solid #86efac'
+              }}>
+                <MarkdownRenderer content={question.solution.answer} />
+              </div>
+            </>
+          )}
+        </Space>
+      </Card>
+
+      {/* Assessment Requirements Section */}
+      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        {/* Rubric Assessment */}
+        <Card 
+          className="rubric-section"
+          title={
+            <Space>
+              <StarOutlined />
+              <span>מחוון הערכה</span>
+            </Space>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {question.rubricAssessment.criteria.map((criterion, index) => (
+              <div key={index} style={{ 
+                padding: '16px', 
+                background: '#f8fafc',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: '1.1rem' }}>{criterion.name}</Text>
+                    <Tag color="blue" style={{ fontSize: '1rem', padding: '4px 12px' }}>
+                      {criterion.weight}%
+                    </Tag>
+                  </div>
+                  <Text type="secondary" style={{ fontSize: '1rem' }}>
+                    {criterion.description}
+                  </Text>
+                </Space>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Answer Requirements */}
+        <Card 
+          className="requirements-section"
+          title={
+            <Space>
+              <BookOutlined />
+              <span>דרישות תשובה</span>
+            </Space>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {question.answerRequirements.requiredElements.map((element, index) => (
+              <div key={index} style={{
+                padding: '12px 16px',
+                background: '#f0f9ff',
+                borderRadius: '8px',
+                border: '1px solid #bae6fd',
+                fontSize: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <div style={{ 
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: '#0ea5e9',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold'
+                }}>
+                  {index + 1}
+                </div>
+                <Text style={{ color: '#0369a1' }}>{element}</Text>
+              </div>
+            ))}
+          </div>
+        </Card>
+
         {/* Statistics Section */}
-        <Card title="סטטיסטיקה" size="small">
+        <Card title="סטטיסטיקה">
           <Space split={<Divider type="vertical" />}>
             <Text>אחוז הצלחה: 75%</Text>
             <Text>זמן ממוצע: 4.2 דקות</Text>
             <Text>מספר נסיונות: 120</Text>
-          </Space>
-        </Card>
-
-        {/* Related Questions */}
-        <Card title="שאלות דומות" size="small">
-          {/* TODO: Add related questions list */}
-        </Card>
-
-        {/* Tags/Categories */}
-        <Card title="תגיות" size="small">
-          <Space wrap>
-            {question.metadata.source?.examType && (
-              <Tag>{question.metadata.source.examType}</Tag>
-            )}
           </Space>
         </Card>
       </Space>

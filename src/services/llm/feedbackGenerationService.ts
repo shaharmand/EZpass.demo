@@ -256,7 +256,6 @@ export class FeedbackService {
       type: question.type,
       subject
     });
-
     const prompt = buildPrompt(
       `בדיקת תשובה - ${subject}
 
@@ -266,12 +265,20 @@ Please evaluate this ${subject} question and provide detailed feedback.`,
         'Student Answer': studentAnswer,
         'Correct Solution': question.solution.text,
         'Question Type': question.type,
+        'Rubric Assessment': JSON.stringify(question.rubricAssessment),
+        'Required Elements': JSON.stringify(question.answerRequirements.requiredElements),
         'Required Response Format': `{
           "isCorrect": boolean,           // Whether the answer is fundamentally correct
-          "score": number,                // Score between 0-100
-          "assessment": string,           // Short evaluation summary (2-3 sentences, with  markdown)
+          "score": number,                // Score between 0-100, calculated based on rubric weights
+          "assessment": string,           // Short evaluation summary (2-3 sentences, with markdown)
           "coreFeedback": string,         // משוב מפורט עם Markdown, כולל **שימוש חובה** בסמלים מתאימים:\n- ✅ עבור חלקים נכונים\n- ❌ עבור טעויות קריטיות\n- ⚠️ עבור חלקים נכונים חלקית\n- 🔹 עבור תובנות חשובות
-          "detailedFeedback": string      // In-depth analysis of concepts (with markdown)
+          "detailedFeedback": string,     // In-depth analysis of concepts (with markdown)
+          "rubricScores": {               // Individual scores for each rubric criterion
+            [criterionName: string]: {
+              score: number,              // Score 0-100 for this criterion
+              feedback: string            // Specific feedback for this criterion
+            }
+          }
         }`
       }
     );

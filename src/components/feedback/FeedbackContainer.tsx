@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import type { Question, QuestionFeedback } from '../../types/question';
 import { MultipleChoiceFeedback } from './MultipleChoiceFeedback';
+import { RubricFeedback } from './RubricFeedback';
 import { Card, Space, Button, Tabs, Typography, Progress, Tooltip } from 'antd';
 import { RedoOutlined, InfoCircleOutlined, CheckCircleOutlined, BookOutlined, ArrowLeftOutlined, StarOutlined } from '@ant-design/icons';
 import { logger } from '../../utils/logger';
@@ -119,6 +120,12 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
                   children: (
                     <div className="feedback-section">
                       <MarkdownRenderer content={feedback.coreFeedback} />
+                      {feedback.rubricScores && (
+                        <RubricFeedback 
+                          rubricScores={feedback.rubricScores}
+                          rubricAssessment={question.rubricAssessment}
+                        />
+                      )}
                     </div>
                   )
                 },

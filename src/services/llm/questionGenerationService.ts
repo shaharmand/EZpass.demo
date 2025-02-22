@@ -100,6 +100,47 @@ ${params.subtopic ? `- Subtopic: ${params.subtopic}\n` : ''}- Difficulty: Level 
 - Education Type: ${params.educationType}
 - Subject: ${params.subject}
 
+ANSWER REQUIREMENTS:
+You MUST include a list of required elements that must be present in a complete answer. These will be used to evaluate student responses. For example:
+
+For open questions:
+- Key concepts that must be mentioned
+- Required formulas or equations
+- Critical analysis points
+- Important conclusions
+
+For code questions:
+- Required functions/methods
+- Essential algorithms
+- Error handling
+- Input validation
+- Performance considerations
+
+For step-by-step:
+- All required calculation steps
+- Specific formulas used
+- Unit conversions
+- Final answer with units
+
+RUBRIC ASSESSMENT REQUIREMENTS:
+You MUST include assessment criteria that sum to 100%. Include the following for each question:
+
+2. For open questions:
+   - Accuracy (40%): Correctness of the solution
+   - Methodology (30%): Proper problem-solving approach
+   - Clarity (30%): Clear and organized presentation
+
+3. For code questions:
+   - Functionality (40%): Code works as required
+   - Efficiency (20%): Optimal solution and performance
+   - Style (20%): Code organization and readability
+   - Testing (20%): Handling edge cases
+
+4. For step-by-step:
+   - Process (40%): Following correct solution steps
+   - Calculations (30%): Accurate computations
+   - Validation (30%): Checking results at each step
+
 ${params.type === 'multiple_choice' ? `
 MULTIPLE CHOICE QUESTION REQUIREMENTS:
 
@@ -200,7 +241,11 @@ METADATA REQUIREMENTS:
 ${params.subtopic ? `5. SubtopicId: Use "${params.subtopic}"` : ''}
 
 SCHEMA VALIDATION REQUIREMENTS:
-${formatInstructions}`;
+${formatInstructions}
+
+IMPORTANT: 
+1. The response MUST include a rubricAssessment object with criteria that sum to exactly 100% weights.
+2. The response MUST include an answerRequirements object with a list of requiredElements that specify key components needed in a complete answer.`;
   }
 
   async generateQuestion(params: QuestionFetchParams): Promise<Question> {

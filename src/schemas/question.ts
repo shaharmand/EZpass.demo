@@ -92,6 +92,35 @@ Not needed for questions where:
 - The solution steps ARE the answer`)
 });
 
+// Rubric assessment criteria schema
+const rubricCriterionSchema = z.object({
+  name: z.string().min(1).describe('The name of the criterion (e.g., Accuracy, Completeness, Clarity)'),
+  description: z.string().min(1).describe('Description of what this criterion evaluates'),
+  weight: z.number().min(0).max(100).describe('Weight percentage of this criterion')
+});
+
+const rubricAssessmentSchema = z.object({
+  criteria: z.array(rubricCriterionSchema)
+    .min(1)
+    .refine(
+      (criteria) => {
+        const totalWeight = criteria.reduce((sum, criterion) => sum + criterion.weight, 0);
+        return Math.abs(totalWeight - 100) < 0.001; // Allow for small floating point differences
+      },
+      {
+        message: "The sum of all criteria weights must equal 100%"
+      }
+    )
+    .describe('Array of assessment criteria with weights that must sum to 100')
+});
+
+// Answer requirements schema
+const answerRequirementsSchema = z.object({
+  requiredElements: z.array(z.string())
+    .min(1, "Must specify at least one required element")
+    .describe('Array of key elements that must be present in a complete answer')
+});
+
 // Main question schema that matches our Question type exactly
 export const questionSchema = z.object({
   id: z.string().describe('Unique identifier for the question, generated at runtime'),
@@ -99,13 +128,14 @@ export const questionSchema = z.object({
   content: formattedTextSchema.describe(`Question content with requirements varying by type:
 - multiple_choice: Clear, unambiguous text with all necessary information
 - code: Problem specification with input/output requirements and constraints
-- open: Focused problem statement with clear deliverables
 - step_by_step: Progressive problem with clear steps and progression`),
   metadata: metadataSchema,
   options: z.array(formattedTextSchema).length(4).optional()
     .describe('For multiple choice only: Exactly 4 options, all plausible, similar structure, based on common mistakes'),
   correctOption: z.number().int().min(1).max(4).optional()
     .describe('For multiple choice only: The correct option number (1-4)'),
+  rubricAssessment: rubricAssessmentSchema,
+  answerRequirements: answerRequirementsSchema,
   solution: z.object({
     text: z.string().describe('Complete solution explanation in markdown format'),
     format: z.literal('markdown').describe('Format specification for solution rendering')

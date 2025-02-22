@@ -136,7 +136,9 @@ export class QuestionRotationManager {
     // If we have exactly one type in the filter, always use that
     const questionType = allowedTypes.length === 1 
       ? (allowedTypes[0] as QuestionType)
-      : allowedTypes[this.currentTypeIndex % allowedTypes.length] as QuestionType;
+      : !filterTypes 
+        ? allowedTypes[Math.floor(Math.random() * allowedTypes.length)] as QuestionType
+        : allowedTypes[this.currentTypeIndex % allowedTypes.length] as QuestionType;
 
     console.log('Selected question type:', {
       questionType,

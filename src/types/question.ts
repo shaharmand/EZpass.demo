@@ -42,7 +42,17 @@ export interface QuestionFeedback {
    * (with markdown)
    */
   detailedFeedback?: string;
-}
+
+  /**
+   * Individual scores and feedback for each rubric criterion
+   */
+  rubricScores?: {
+    [criterionName: string]: {
+      score: number;      // Score 0-100 for this criterion
+      feedback: string;   // Specific feedback for this criterion
+    };
+  };
+  };
 
 /** 
  * Represents a complete question with content, metadata, and solution.
@@ -151,6 +161,29 @@ export interface Question {
    * Must correspond to the index+1 of the correct option in the options array.
    */
   correctOption?: number;
+
+  /**
+   * Rubric assessment criteria for evaluating answers.
+   * Defines how points are allocated across different aspects.
+   */
+  rubricAssessment: {
+    criteria: Array<{
+      /** The name of the criterion (e.g., Accuracy, Completeness, Clarity) */
+      name: string;
+      /** Description of what this criterion evaluates */
+      description: string;
+      /** Weight percentage of this criterion (should sum to 100 across all criteria) */
+      weight: number;
+    }>;
+  };
+
+  /**
+   * Defines required key elements in the answer.
+   * Ensures AI properly evaluates completeness.
+   */
+  answerRequirements: {
+    requiredElements: string[];
+  };
 
   /** 
    * Solution and explanation for the question.

@@ -4,6 +4,8 @@ import { useStudentPrep } from '../contexts/StudentPrepContext';
 import PracticeQuestionDisplay from './practice/PracticeQuestionDisplay';
 import type { QuestionState, QuestionStatus, HelpType } from '../types/prepState';
 import { logger } from '../utils/logger';
+import { ExamType, ExamTemplate } from '../types/examTemplate';
+import { DifficultyLevel } from '../types/question';
 
 const { Title, Text } = Typography;
 
@@ -56,38 +58,36 @@ const PracticeFlowTest: React.FC = () => {
       setError({ type: null, message: null });
 
       // Create a mock exam that matches FormalExam type
-      const mockExam = {
+      const mockExam: ExamTemplate = {
         id: 'test_exam',
-        title: 'Test Exam',
-        description: 'A test exam for development purposes',
+        code: 'TEST_101',
+        examType: ExamType.BAGRUT_EXAM,
+        difficulty: 3 as DifficultyLevel,
+        subjectId: 'safety',
+        domainId: 'workplace_safety',
+        allowedQuestionTypes: ['multiple_choice', 'open'],
+        duration: 120,
+        totalQuestions: 10,
         names: {
           short: 'Test Exam',
           medium: 'Test Exam',
-          full: 'Test Exam for Development Purposes'
+          full: 'Test Exam for Development'
         },
-        examType: 'bagrut' as const,
-        duration: 120,
-        totalQuestions: 10,
-        status: 'not_started' as const,
         topics: [
           {
             id: 'safety_management',
             name: 'Safety Management',
-            code: 'safety_101',
-            topicId: 'safety_management',
             description: 'Basic safety management concepts',
             order: 0,
             subTopics: [
               {
                 id: 'risk_assessment',
-                code: 'risk_101',
                 name: 'Risk Assessment',
                 description: 'Understanding and performing risk assessments',
                 order: 0
               },
               {
                 id: 'safety_procedures',
-                code: 'proc_101',
                 name: 'Safety Procedures',
                 description: 'Implementing safety procedures',
                 order: 1

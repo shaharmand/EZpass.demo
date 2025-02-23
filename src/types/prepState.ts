@@ -13,7 +13,7 @@
  */
 
 import type { Question, QuestionFeedback } from './question';
-import type { FormalExam } from './shared/exam';
+import type { ExamTemplate } from './examTemplate';
 import type { PracticeQuestion, SkipReason } from './prepUI';
 
 // Core prep states
@@ -75,7 +75,7 @@ export interface StudentPrep {
     id: string;
     
     // Practice context
-    exam: FormalExam;
+    exam: ExamTemplate;
     selection: TopicSelection;
     
     // Study goals

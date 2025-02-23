@@ -1,6 +1,7 @@
-import type { StudentPrep, TopicSelection } from '../types/prepState';
+    import type { StudentPrep, TopicSelection } from '../types/prepState';
 import { logPrepStateChange } from '../types/prepState';
-import type { FormalExam } from '../types/shared/exam';
+import type { ExamTemplate } from '../types/examTemplate';
+import type { Topic } from '../types/subject';
 
 // Key for localStorage
 const PREP_STORAGE_KEY = 'active_preps';
@@ -81,12 +82,12 @@ export class PrepStateManager {
     }
 
     // Factory method to create new prep instance
-    static createPrep(exam: FormalExam, selectedTopics?: TopicSelection): StudentPrep {
+    static createPrep(exam: ExamTemplate, selectedTopics?: TopicSelection): StudentPrep {
         // Validate exam has topics
         if (!exam.topics || exam.topics.length === 0) {
             throw new Error('Cannot create prep: exam has no topics');
         }
-        if (!exam.topics.every(t => t.subTopics && t.subTopics.length > 0)) {
+        if (!exam.topics.every((t: Topic) => t.subTopics && t.subTopics.length > 0)) {
             throw new Error('Cannot create prep: some topics have no subtopics');
         }
 
@@ -106,7 +107,7 @@ export class PrepStateManager {
             id: prepId,
             exam,
             selection: selectedTopics || {
-                topics: exam.topics.map(t => t.topicId),
+                topics: exam.topics.map(t => t.id),
                 subTopics: exam.topics.flatMap(t => t.subTopics.map(st => st.id))
             },
             goals: {

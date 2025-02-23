@@ -123,7 +123,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
                       {feedback.rubricScores && (
                         <RubricFeedback 
                           rubricScores={feedback.rubricScores}
-                          rubricAssessment={question.rubricAssessment}
+                          rubricAssessment={question.evaluation?.rubricAssessment}
                         />
                       )}
                     </div>

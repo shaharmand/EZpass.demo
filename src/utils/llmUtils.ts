@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { StructuredOutputParser } from 'langchain/output_parsers';
 import { logger } from './logger';
-import { ExamType } from '../types/exam';
+import { ExamType } from '../types/examTemplate';
 
 /**
  * Standard formatting instructions for all LLM responses
@@ -61,16 +61,16 @@ export function buildExpertRoleDescription(
   // Exam-specific context - keep this minimal and focused
   let examContext = '';
   switch (examType) {
-    case ExamType.MAHAT:
+    case ExamType.MAHAT_EXAM:
       examContext = `This is a MAHAT exam, a technical college certification exam that requires demonstrating both theoretical knowledge and practical understanding of industry standards.`;
       break;
-    case ExamType.BAGRUT:
+    case ExamType.BAGRUT_EXAM:
       examContext = `This is a Bagrut exam, the Israeli high school matriculation exam that tests comprehensive understanding of the curriculum.`;
       break;
-    case ExamType.UNI:
+    case ExamType.UNI_COURSE_EXAM  :
       examContext = `This is a university-level exam that requires demonstrating in-depth academic understanding.`;
       break;
-    case ExamType.GOVERNMENT:
+    case ExamType.GOVERNMENT_EXAM:
       examContext = `This is a government certification exam that focuses on regulatory requirements and professional standards.`;
       break;
     default:
@@ -115,14 +115,14 @@ export function buildSystemMessage(
   
   // Determine education level based on exam type
   switch (examType) {
-    case ExamType.MAHAT:
-    case ExamType.GOVERNMENT:
+    case ExamType.MAHAT_EXAM:
+    case ExamType.GOVERNMENT_EXAM:
       level = 'technical';
       break;
-    case ExamType.BAGRUT:
+    case ExamType.BAGRUT_EXAM:
       level = 'high_school';
       break;
-    case ExamType.UNI:
+    case ExamType.UNI_COURSE_EXAM:
       level = 'university';
       break;
     default:

@@ -1,7 +1,8 @@
 import type { TopicSelection } from '../types/prepState';
 import type { QuestionType, QuestionFetchParams, FilterState, DifficultyLevel } from '../types/question';
 import { satisfiesFilter } from '../types/question';
-import type { FormalExam } from '../types/shared/exam';
+import type { ExamTemplate } from '../types/examTemplate';
+import { getExamInstitution } from '../types/examTemplate';
 
 const QUESTION_TYPES: QuestionType[] = ['multiple_choice', 'open', 'step_by_step'];
 const DIFFICULTY_LEVELS: DifficultyLevel[] = [1, 2, 3, 4, 5];
@@ -10,11 +11,11 @@ export class QuestionRotationManager {
   private currentSubtopicIndex: number = 0;
   private currentTypeIndex: number = 0;
   private currentDifficultyIndex: number = 0;
-  private exam: FormalExam;
+  private exam: ExamTemplate;
   private selection: TopicSelection;
   private currentFilter: FilterState = {};
 
-  constructor(exam: FormalExam, selection: TopicSelection) {
+  constructor(exam: ExamTemplate, selection: TopicSelection) {
     // Validate exam has topics
     if (!exam.topics || exam.topics.length === 0) {
       throw new Error('Cannot initialize QuestionRotationManager: exam has no topics');
@@ -57,61 +58,48 @@ export class QuestionRotationManager {
         subtopicId,
         allSubtopics: this.selection.subTopics,
         examTopics: this.exam.topics.map(t => ({
-            topicId: t.topicId,
+            topicId: t.id,
             subTopics: t.subTopics.map(st => ({
                 id: st.id,
-                code: st.code,
                 name: st.name
             }))
         }))
     });
 
-    // Find parent topic for this subtopic
-    console.log('Exam topics:', this.exam.topics.map(topic => ({
-      topicId: topic.topicId,
-      subTopics: topic.subTopics.map(st => ({
-        id: st.id,
-        code: st.code,
-        name: st.name
-      }))
-    })));
 
     const parentTopic = this.exam.topics.find(topic => 
       topic.subTopics.some(st => {
         const matchesId = st.id === subtopicId;
-        const matchesCode = st.code === subtopicId;
         console.log('DEBUG: Subtopic matching details:', {
             subtopicToMatch: subtopicId,
             currentSubtopic: {
                 id: st.id,
-                code: st.code,
                 name: st.name
             },
             matchesId,
-            matchesCode,
-            parentTopicId: topic.topicId
+            parentTopicId: topic.id
         });
-        return matchesId || matchesCode;  // Try matching either ID or code
+        return matchesId;  // Try matching either ID or code
       })
     );
 
     if (!parentTopic) {
       console.error('Failed to find parent topic:', {
         subtopicId,
-        availableTopics: this.exam.topics.map(t => t.topicId),
+        availableTopics: this.exam.topics.map(t => t.id),
         allSubtopicsInExam: this.exam.topics.flatMap(t => t.subTopics.map(st => st.id))
       });
       throw new Error(`Could not find parent topic for subtopic ${subtopicId}`);
     }
 
     console.log('Found parent topic:', {
-      topicId: parentTopic.topicId,
+      topicId: parentTopic.id,
       subtopicId,
       allSubtopicsInTopic: parentTopic.subTopics.map(st => st.id)
     });
 
     // Get allowed types based on exam configuration and filter
-    const examTypes = this.exam.questionTypes || QUESTION_TYPES;
+    const examTypes = this.exam.allowedQuestionTypes ;
     const filterTypes = this.currentFilter.questionTypes;
     
     console.log('Initial type info:', {
@@ -170,17 +158,17 @@ export class QuestionRotationManager {
       selectedType: questionType,
       allowedTypes,
       typeIndex: this.currentTypeIndex,
-      topic: parentTopic.topicId,
+      topic: parentTopic.id,
       subtopic: subtopicId
     });
 
     return {
-      topic: parentTopic.topicId,
+      topic: parentTopic.id,
       subtopic: subtopicId,
       type: questionType,
       difficulty,
-      subject: this.exam.title,
-      educationType: this.exam.examType === 'bagrut' ? 'high_school' : 'technical_college',
+      subject: this.exam.subjectId,
+      educationType: getExamInstitution(this.exam.examType),
       programmingLanguage,
       includeTestCases: this.currentFilter.hasTestCases
     };

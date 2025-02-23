@@ -1,9 +1,10 @@
 import React from 'react';
 import { Space, Select, Slider, Switch, Tree, Typography, Divider, Button, Tooltip } from 'antd';
 import { StarFilled, StarOutlined } from '@ant-design/icons';
-import type { FilterState, DifficultyLevel } from '../../types/question';
+import type { FilterState, DifficultyLevel, QuestionType } from '../../types/question';
 import type { DataNode } from 'antd/es/tree';
 import { useStudentPrep } from '../../contexts/StudentPrepContext';
+import { Topic } from '../../types/subject';
 
 const { Text } = Typography;
 
@@ -52,7 +53,7 @@ export const QuestionFilter: React.FC<QuestionFilterProps> = ({
   const getTreeData = (): DataNode[] => {
     if (!activePrep?.exam.topics) return [];
     
-    return activePrep.exam.topics.map(topic => ({
+    return activePrep.exam.topics.map((topic: Topic) => ({
       title: (
         <Tooltip 
           title={topic.description}
@@ -62,7 +63,7 @@ export const QuestionFilter: React.FC<QuestionFilterProps> = ({
           <span>{topic.name}</span>
         </Tooltip>
       ),
-      key: topic.topicId,
+      key: topic.id,
       children: topic.subTopics.map(subTopic => ({
         title: (
           <Tooltip 
@@ -106,7 +107,7 @@ export const QuestionFilter: React.FC<QuestionFilterProps> = ({
     
     selectedKeys.forEach(key => {
       const keyStr = String(key);
-      const isTopic = activePrep?.exam.topics.some(t => t.topicId === keyStr);
+      const isTopic = activePrep?.exam.topics.some((t: Topic) => t.id === keyStr);
       if (isTopic) {
         topics.push(keyStr);
       } else {
@@ -121,11 +122,30 @@ export const QuestionFilter: React.FC<QuestionFilterProps> = ({
     });
   };
 
-  const handleTypeToggle = (type: string) => {
+  const questionTypes = [
+    { label: 'סגורות', value: 'multiple_choice' as QuestionType },
+    { label: 'פתוח', value: 'open' as QuestionType },
+    { label: 'קוד', value: 'code' as QuestionType },
+    { label: 'חישובית', value: 'step_by_step' as QuestionType }
+  ];
+
+  const getAvailableQuestionTypes = () => {
+    const allowedTypes = activePrep?.exam.allowedQuestionTypes || [];
+    return questionTypes.filter(type => allowedTypes.includes(type.value));
+  };
+
+  const handleTypeToggle = (type: QuestionType) => {
     const currentTypes = filters.questionTypes || [];
     const newTypes = currentTypes.includes(type)
       ? currentTypes.filter(t => t !== type)
       : [...currentTypes, type];
+    
+    // If no types selected, remove the questionTypes filter entirely
+    if (newTypes.length === 0) {
+      const { questionTypes, ...restFilters } = filters;
+      onChange(restFilters);  // This removes questionTypes completely instead of setting it to []
+      return;
+    }
     
     onChange({ ...filters, questionTypes: newTypes });
   };
@@ -139,25 +159,9 @@ export const QuestionFilter: React.FC<QuestionFilterProps> = ({
     }
   };
 
-  const questionTypes = [
-    { label: 'סגורות', value: 'multiple_choice' },
-    { label: 'פתוח', value: 'open' },
-    { label: 'קוד', value: 'code' },
-    { label: 'חישובית', value: 'step_by_step' }
-  ];
-
-  // TODO: Filter available question types based on exam type
-  const getAvailableQuestionTypes = (examType?: 'bagrut' | 'mahat') => {
-    if (!examType) return questionTypes;
-    
-    // TODO: Implement filtering logic based on exam type
-    // For now, return all types except 'code' for formal exams
-    return examType ? questionTypes.filter(t => t.value !== 'code') : questionTypes;
-  };
-
   // Check if we're showing all types (no filter)
   const isShowingAllTypes = !filters.questionTypes || filters.questionTypes.length === 0 ||
-    filters.questionTypes.length === getAvailableQuestionTypes(filters.source?.examType).length;
+    filters.questionTypes.length === getAvailableQuestionTypes().length;
 
   return (
     <div className="question-filter">
@@ -181,16 +185,21 @@ export const QuestionFilter: React.FC<QuestionFilterProps> = ({
           <Text strong>סוג שאלה</Text>
           <div className="type-buttons">
             <Button.Group className="type-button-group">
-              {questionTypes.map(type => (
-                <Button
-                  key={type.value}
-                  type={(filters.questionTypes || []).includes(type.value) ? 'primary' : 'default'}
-                  onClick={() => handleTypeToggle(type.value)}
-                  className="type-button"
-                >
-                  {type.label}
-                </Button>
-              ))}
+              {questionTypes.map(type => {
+                const allowedTypes = activePrep?.exam.allowedQuestionTypes || [];
+                const isAllowed = allowedTypes.includes(type.value);
+                return (
+                  <Button
+                    key={type.value}
+                    type={(filters.questionTypes || []).includes(type.value) ? 'primary' : 'default'}
+                    onClick={() => handleTypeToggle(type.value)}
+                    disabled={!isAllowed}
+                    className="type-button"
+                  >
+                    {type.label}
+                  </Button>
+                );
+              })}
             </Button.Group>
           </div>
         </Space>

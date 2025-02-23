@@ -6,7 +6,7 @@ import type { StudentPrep } from '../../types/prepState';
 import type { DataNode } from 'antd/es/tree';
 import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import type { Key } from 'antd/es/table/interface';
-import type { Topic, SubTopic } from '../../types/shared/exam';
+import type { Topic, SubTopic } from '../../types/subject';
 
 const { Title, Text } = Typography;
 
@@ -62,7 +62,7 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
   const getTreeData = (): DataNode[] => {
     return prep.exam.topics.map(topic => ({
       title: topic.name,
-      key: topic.topicId,
+      key: topic.id,
       children: topic.subTopics.map(subTopic => ({
         title: subTopic.name,
         key: subTopic.id,
@@ -116,7 +116,7 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
         },
         selection: {
           topics: values.selectedNodes.filter((key: string) => 
-            prep.exam.topics.some(t => t.topicId === key)
+            prep.exam.topics.some(t => t.id === key)
           ),
           subTopics: values.selectedNodes.filter((key: string) => 
             prep.exam.topics.some(t => 

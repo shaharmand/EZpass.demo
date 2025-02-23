@@ -1,6 +1,6 @@
 import type { Question, QuestionFeedback } from '../../types/question';
 import { logger } from '../../utils/logger';
-import { feedbackSchema } from '../../schemas/feedback';
+import { feedbackSchema } from '../../schemas/feedbackSchema';
 
 /**
  * Service for generating feedback for multiple choice questions

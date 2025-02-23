@@ -1,8 +1,6 @@
 {
-  "id": "construction_safety",
-  "name": "בטיחות בבנייה",
-  "domain": "construction_safety",
-  "subject": "civil_engineering",
+  "domainID": "construction_safety",
+  "subjectID": "civil_engineering",
   "description": "בטיחות בעבודות בנייה והנדסה אזרחית",
   "topics": [
     {
@@ -27,6 +25,18 @@
           "name": "תכנון בטיחות",
           "description": "תכנון מערך בטיחות באתר בנייה",
           "questionTemplate": "תכנון אמצעי בטיחות ונהלים"
+        },
+        {
+          "id": "protective_equipment",
+          "name": "ציוד מגן אישי",
+          "description": "בחירה ושימוש נכון בציוד מגן אישי",
+          "questionTemplate": "זיהוי והתאמת ציוד מגן אישי למשימות שונות"
+        },
+        {
+          "id": "emergency_procedures",
+          "name": "נהלי חירום",
+          "description": "תכנון והכנה למצבי חירום באתר בנייה",
+          "questionTemplate": "תכנון ויישום נהלי חירום באתר"
         }
       ]
     },
@@ -131,4 +141,4 @@
       ]
     }
   ]
-} 
+}

@@ -1,538 +1,259 @@
+import { type DifficultyLevel } from '../types/question';
+import { ExamType, type ExamTemplate } from '../types/examTemplate';
+import { type SubTopic, type Topic } from '../types/subject';
 import { logger } from '../utils/logger';
-import { 
-  ExamType,
-  type ExamData, 
-  type BagrutExams, 
-  type MahatExams,
-  type Topic
-} from '../types/exam';
-import type { 
-  FormalExam,
-  ExamSession,
-  Topic as FormalTopic,
-  SubTopic
-} from '../types/shared/exam';
-import { validateExamData } from '../schemas/exam';
-import type { DifficultyLevel } from '../types/question';
+import { validateExamTemplate, examTemplateSchema } from '../schemas/examTemplateSchema';
+import { universalTopics } from './universalTopics';
 
 // Import exam data directly
 import bagrutCS from 'data/exams/bagrut_cs.json';
 import mahatCS from 'data/exams/mahat_cs.json';
-import bagrutMath from 'data/exams/bagrut_math.json';
+//import bagrutMath from 'data/exams/bagrut_math.json';
 import mahatCivil from 'data/exams/mahat_civil.json';
 
-// Import subject data
-import csProgrammingFundamentals from 'data/subjects/cs_programming_fundamentals.json';
-import csDataStructures from 'data/subjects/cs_data_structures.json';
-import mathSubject from 'data/subjects/math.json';
-import constructionSafety from 'data/subjects/construction_safety.json';
-
-// Import domain data
-import civilEngineering from 'data/domains/civil_engineering.json';
-
-// Transform JSON data to match our types
-function transformTopic(topic: { topicId: string; subTopics: string[] }): Topic {
-  return {
-    topicId: topic.topicId,
-    subTopics: topic.subTopics
-  };
+// Raw data interfaces
+interface RawSubTopic {
+  id: string;
+  name?: string;
+  description?: string;
+  order?: number;
 }
 
-/**
- * Validates that all topics in an exam exist in subject files and returns only valid topics
- * @throws Error if no valid topics remain
- * @returns Array of validated topics
- */
-function validateExamTopics(exam: { id: string; topics: any[] }): any[] {
-  if (!exam.topics || !Array.isArray(exam.topics)) {
-    throw new Error(`Exam ${exam.id} is missing required topics array`);
-  }
-
-  // Filter and validate topics
-  const validTopics = exam.topics.filter(topic => {
-    const topicId = topic.topicId;
-    if (!topicId) {
-      console.error(`Exam ${exam.id} contains a topic missing topicId - skipping`);
-      return false;
-    }
-
-    // Find the subject file containing this topic
-    let subjectData;
-    if (csProgrammingFundamentals.topics.some((t: { id: string }) => t.id === topicId)) {
-      subjectData = csProgrammingFundamentals;
-    } else if (csDataStructures.topics.some((t: { id: string }) => t.id === topicId)) {
-      subjectData = csDataStructures;
-    } else if (constructionSafety.topics.some((t: { id: string }) => t.id === topicId)) {
-      subjectData = constructionSafety;
-    } else {
-      console.error(
-        `Exam ${exam.id} references topic "${topicId}" which does not exist in any subject file - skipping`
-      );
-      return false;
-    }
-
-    const topicDef = subjectData.topics.find((t: { id: string }) => t.id === topicId);
-    if (!topicDef) {
-      console.error(`Could not find topic ${topicId} in its subject file - skipping`);
-      return false;
-    }
-
-    const subTopics = topic.subTopics;
-    if (!Array.isArray(subTopics)) {
-      console.error(`Topic ${topicId} in exam ${exam.id} is missing subTopics array - skipping`);
-      return false;
-    }
-
-    // Validate and filter subtopics
-    const validSubTopicIds = new Set(topicDef.subTopics.map((st: { id: string }) => st.id));
-    const validSubTopics = subTopics.filter(subTopicId => {
-      if (!validSubTopicIds.has(subTopicId)) {
-        console.error(
-          `Exam ${exam.id}, topic ${topicId} references invalid subtopic "${subTopicId}". ` +
-          `Available subtopics: ${Array.from(validSubTopicIds).join(', ')} - skipping`
-        );
-        return false;
-      }
-      return true;
-    });
-
-    // Only keep topics that have at least one valid subtopic
-    if (validSubTopics.length === 0) {
-      console.error(`Topic ${topicId} in exam ${exam.id} has no valid subtopics - skipping entire topic`);
-      return false;
-    }
-
-    // Return the topic with only valid subtopics
-    return {
-      ...topic,
-      topicId, // Normalize to topicId
-      subTopics: validSubTopics // Only include valid subtopics
-    };
-  });
-
-  if (validTopics.length === 0) {
-    throw new Error(`Exam ${exam.id} has no valid topics after validation`);
-  }
-
-  return validTopics;
+interface RawTopic {
+  id: string;
+  name?: string;
+  description?: string;
+  order?: number;
+  subTopics: RawSubTopic[];
 }
 
-function transformExam(exam: { 
-  id: string; 
-  topics: any[]; 
-  exam_type: string;
+interface RawExam {
+  id: string;
   code: string;
   names: {
     short: string;
     medium: string;
     full: string;
   };
-  difficulty: number;
-}): ExamData {
-  // Validate and transform topics
-  const validatedTopics = exam.topics.map(transformTopic);
-
-  return {
-    id: exam.id,
-    code: exam.code,
-    names: exam.names,
-    exam_type: exam.exam_type === 'bagrut' ? ExamType.BAGRUT : ExamType.MAHAT,
-    difficulty: exam.difficulty as DifficultyLevel,
-    topics: validatedTopics
-  };
+  examType: ExamType;
+  difficulty: DifficultyLevel;
+  maxDifficulty?: DifficultyLevel;
+  subjectId: string;
+  domainId: string;
+  topics: RawTopic[];
+  allowedQuestionTypes: string[];
+  duration: number;
+  totalQuestions: number;
 }
-
-// Validate and transform imported JSON
-let bagrutExams: BagrutExams;
-let mahatExams: MahatExams;
-
-try {
-  // First validate all topics exist before transforming
-  const allExams = [
-    ...bagrutCS.exams,
-    ...mahatCS.exams,
-    ...bagrutMath.exams,
-    ...mahatCivil.exams
-  ];
-  
-  // Validate all exams first
-  const validatedBagrutExams = validateExamData(bagrutCS, 'bagrut').exams;
-  const validatedMahatExams = [
-    ...validateExamData(mahatCS, 'mahat').exams,
-    ...validateExamData(mahatCivil, 'mahat').exams
-  ];
-
-  // Now transform the exams
-  bagrutExams = {
-    exams: validatedBagrutExams.map(transformExam)
-  };
-
-  mahatExams = {
-    faculty: mahatCS.faculty,
-    exams: validatedMahatExams.map(transformExam)
-  };
-} catch (error) {
-  // Log the error and re-throw to prevent the app from loading with invalid data
-  console.error('Failed to load exam data:', error);
-  throw error;
-}
-
-// Cache for subject data
-const subjectDataCache = new Map<string, any>();
 
 /**
  * Service for loading and managing exam data.
  * Handles loading exam configurations and converting them to runtime formats.
  */
 class ExamService {
-  private examCache: Map<string, ExamData> = new Map();
-  private sessionCache: Map<string, ExamSession> = new Map();
-  private topicCache: Map<string, any> = new Map();
-  private subjectCache: Map<string, any> = new Map();
+  private examsByType: Map<ExamType, ExamTemplate[]> = new Map();
+  private examsByDomain: Map<string, ExamTemplate[]> = new Map();
+  private examsBySubject: Map<string, ExamTemplate[]> = new Map();
+  private examCache: Map<string, ExamTemplate> = new Map();
 
-  private readonly subjectMap: Record<string, {
-    id: string;
-    name: string;
-    description: string;
-    topics: Array<{
-      id: string;
-      name: string;
-      description: string;
-      subTopics: Array<{
-        id: string;
-        name: string;
-        description: string;
-        questionTemplate: string;
-      }>;
-    }>;
-  }> = {
-    'cs_programming_fundamentals': csProgrammingFundamentals,
-    'cs_data_structures': csDataStructures,
-    'mathematics': mathSubject,
-    'construction_safety': constructionSafety
-  };
-
-  /**
-   * Gets subject data, using cache if available
-   */
-  async getSubjectData(subjectId: string): Promise<any> {
-    // Check cache first
-    if (this.subjectCache.has(subjectId)) {
-      return this.subjectCache.get(subjectId);
-    }
-
-    const subjectData = this.subjectMap[subjectId];
-    if (!subjectData) {
-      throw new Error(`Unknown subject: ${subjectId}`);
-    }
-
-    this.subjectCache.set(subjectId, subjectData);
-    return subjectData;
-  }
-
-  /**
-   * Maps a topic ID to its subject ID
-   */
-  private getSubjectIdForTopic(topicId: string): string {
-    // Check each subject for the topic
-    for (const [subjectId, subjectData] of Object.entries(this.subjectMap)) {
-      if (subjectData.topics.some((t: { id: string }) => t.id === topicId)) {
-        return subjectId;
-      }
-    }
-
-    const allTopics = Object.values(this.subjectMap)
-      .flatMap(subject => subject.topics.map((t: { id: string }) => t.id))
-      .join(', ');
-    
-    throw new Error(`Topic ${topicId} not found in any subject. Available topics: ${allTopics}`);
-  }
-
-  /**
-   * Gets topic data with its subject information
-   */
-  async getTopicData(topicId: string): Promise<any> {
-    if (!topicId) {
-      throw new Error('Topic ID is required');
-    }
-
-    // Check topic cache first
-    if (this.topicCache.has(topicId)) {
-      return this.topicCache.get(topicId);
-    }
+  constructor() {
+   
 
     try {
-      // Get the subject ID and data
-      const subjectId = this.getSubjectIdForTopic(topicId);
-      const subjectData = await this.getSubjectData(subjectId);
-      
-      // Find the specific topic
-      const topic = subjectData.topics.find((t: { id: string }) => t.id === topicId);
-      if (!topic) {
-        throw new Error(`Topic ${topicId} not found in subject ${subjectId}`);
-      }
+      // Collect all raw exams with their metadata
+      const allRawExams = [
+        ...bagrutCS.exams.map(exam => exam as RawExam),
+        ...mahatCS.exams.map(exam => exam as RawExam),
+        ...mahatCivil.exams.map(exam => exam as RawExam)
+      ];
 
-      // Add subject information
-      const topicWithSubject = {
-        ...topic,
-        subject: {
-          id: subjectId,
-          name: subjectData.name
+      // Initialize collections
+      this.examCache = new Map<string, ExamTemplate>();
+      this.examsByType = new Map<ExamType, ExamTemplate[]>();
+      this.examsBySubject = new Map<string, ExamTemplate[]>();
+      this.examsByDomain = new Map<string, ExamTemplate[]>();
+
+      // Transform and organize exams
+      allRawExams.forEach(rawExam => {
+        // First transform topics to match expected structure with default values
+        const transformedExam = {
+          ...rawExam,
+          topics: rawExam.topics.map(topic => ({
+            id: topic.id,
+            name: topic.name || '',  // Ensure string
+            description: topic.description || '',  // Ensure string
+            order: topic.order ?? 0,  // Ensure number
+            subTopics: topic.subTopics.map(st => ({
+              id: st.id,
+              name: st.name || '',  // Ensure string
+              description: st.description || '',  // Ensure string
+              order: st.order ?? 0  // Ensure number
+            }))
+          })) as Topic[]
+        };
+
+        // Validate and transform exam data using schema
+        const exam = validateExamTemplate(transformedExam);
+        
+        // Transform topics to match expected structure with default values
+        const baseTopics: Topic[] = exam.topics.map(topic => ({
+          id: topic.id,
+          name: topic.name,  // Already validated as string
+          description: topic.description,  // Already validated as string
+          order: topic.order,  // Already validated as number
+          subTopics: topic.subTopics.map(st => ({
+            id: st.id,
+            name: st.name,  // Already validated as string
+            description: st.description,  // Already validated as string
+            order: st.order,  // Already validated as number
+            questionTemplate: undefined,  // Default undefined
+            typicalQuestions: undefined  // Default undefined
+          }))
+        }));
+
+        // Enrich with universal topic data
+        const enrichedTopics = universalTopics.enrichTopicsArray(baseTopics);
+        exam.topics = enrichedTopics;
+
+        // Store by ID
+        this.examCache.set(exam.id, exam);
+
+        // Store by exam type
+        if (!this.examsByType.has(exam.examType)) {
+          this.examsByType.set(exam.examType, []);
         }
-      };
+        this.examsByType.get(exam.examType)?.push(exam);
 
-      // Cache and return
-      this.topicCache.set(topicId, topicWithSubject);
-      return topicWithSubject;
+        // Store by subject
+        const subjectId = exam.subjectId;
+        if (!this.examsBySubject.has(subjectId)) {
+          this.examsBySubject.set(subjectId, []);
+        }
+        this.examsBySubject.get(subjectId)?.push(exam);
+
+        // Store by domain
+        const domainId = exam.domainId;
+        if (!this.examsByDomain.has(domainId)) {
+          this.examsByDomain.set(domainId, []);
+        }
+        this.examsByDomain.get(domainId)?.push(exam);
+      });
+
+      // High-level summary
+      logger.info('📚 ExamService initialized successfully', {
+        totalExams: this.examCache.size,
+        examTypes: Array.from(this.examsByType.keys())
+      });
+
+      // High-level subject summary
+      Array.from(this.examsBySubject.entries()).forEach(([subjectId, exams]) => {
+        logger.info(`📘 Subject: ${subjectId}`, {
+          totalExams: exams.length,
+          examTypes: Array.from(new Set(exams.map(e => e.examType))),
+          domains: Array.from(new Set(exams.map(e => e.domainId)))
+        });
+      });
+
+      // High-level domain summary
+      Array.from(this.examsByDomain.entries()).forEach(([domainId, exams]) => {
+        logger.info(`🏷️ Domain: ${domainId}`, {
+          totalExams: exams.length,
+          examTypes: Array.from(new Set(exams.map(e => e.examType))),
+          subjects: Array.from(new Set(exams.map(e => e.subjectId)))
+        });
+      });
+
+      // Detailed information (collapsed by default)
+      console.groupCollapsed('🔍 Detailed Information');
+      
+      // Detailed subject info
+      console.groupCollapsed('📚 Subjects');
+      Array.from(this.examsBySubject.entries()).forEach(([subjectId, exams]) => {
+        console.groupCollapsed(`${subjectId}`);
+        exams.forEach(exam => {
+          console.log(`${exam.names.short} (${exam.id})`);
+          console.log('  Topics:', exam.topics.map(t => t.name).join(', '));
+          console.log('  Total Subtopics:', exam.topics.reduce((sum, t) => sum + t.subTopics.length, 0));
+        });
+        console.groupEnd();
+      });
+      console.groupEnd();
+
+      // Detailed domain info
+      console.groupCollapsed('🏷️ Domains');
+      Array.from(this.examsByDomain.entries()).forEach(([domainId, exams]) => {
+        console.groupCollapsed(`${domainId}`);
+        exams.forEach(exam => {
+          console.log(`${exam.names.short} (${exam.id})`);
+          console.log('  Subject:', exam.subjectId);
+          console.log('  Type:', exam.examType);
+        });
+        console.groupEnd();
+      });
+      console.groupEnd();
+
+      // Detailed exam type info
+      console.groupCollapsed('📝 Exam Types');
+      Array.from(this.examsByType.entries()).forEach(([type, exams]) => {
+        console.groupCollapsed(`${type}`);
+        exams.forEach(exam => {
+          console.log(`${exam.names.short} (${exam.id})`);
+          console.log('  Subject:', exam.subjectId);
+          console.log('  Domain:', exam.domainId);
+        });
+        console.groupEnd();
+      });
+      console.groupEnd();
+
+      console.groupEnd();
+
     } catch (error) {
-      throw new Error(`Failed to get topic data for ${topicId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to initialize ExamService:', { error: errorMessage });
+      throw new Error(`ExamService initialization failed: ${errorMessage}`);
     }
   }
-
   /**
-   * Validates topic data structure
-   * @throws Error if data is invalid
+   * Gets all exams for a given subject ID
    */
-  private validateTopicData(topic: any, topicId: string): void {
-    if (!topic.name || typeof topic.name !== 'string') {
-      throw new Error(`Topic ${topicId} is missing required name field`);
+  async getExamsBySubject(subjectId: string): Promise<ExamTemplate[]> {
+    const exams = this.examsBySubject.get(subjectId);
+    if (!exams) {
+      throw new Error(`No exams found for subject: ${subjectId}`);
     }
-    if (!topic.description || typeof topic.description !== 'string') {
-      throw new Error(`Topic ${topicId} is missing required description field`);
-    }
-    if (!Array.isArray(topic.subTopics)) {
-      throw new Error(`Topic ${topicId} is missing required subTopics array`);
-    }
-    
-    topic.subTopics.forEach((subTopic: any, index: number) => {
-      if (!subTopic.id || typeof subTopic.id !== 'string') {
-        throw new Error(`Subtopic ${index} in topic ${topicId} is missing required id field`);
-      }
-      if (!subTopic.name || typeof subTopic.name !== 'string') {
-        throw new Error(`Subtopic ${subTopic.id} in topic ${topicId} is missing required name field`);
-      }
-      if (!subTopic.description || typeof subTopic.description !== 'string') {
-        throw new Error(`Subtopic ${subTopic.id} in topic ${topicId} is missing required description field`);
-      }
-    });
-  }
-
-  /**
-   * Gets topic and subtopic information from subject files
-   * @throws Error if topic or subtopic data is invalid or missing
-   */
-  private getTopicInfo(topicId: string, subTopicId?: string) {
-    // Find the subject file that contains this topic
-    let subjectData;
-    if (csProgrammingFundamentals.topics.some((t: { id: string }) => t.id === topicId)) {
-      subjectData = csProgrammingFundamentals;
-    } else if (csDataStructures.topics.some((t: { id: string }) => t.id === topicId)) {
-      subjectData = csDataStructures;
-    } else if (constructionSafety.topics.some((t: { id: string }) => t.id === topicId)) {
-      subjectData = constructionSafety;
-    } else {
-      throw new Error(`Topic ${topicId} not found in any subject file`);
-    }
-
-    const topic = subjectData.topics.find((t: any) => t.id === topicId);
-    
-    if (!topic) {
-      throw new Error(`Topic ${topicId} not found in subject data`);
-    }
-
-    if (!subTopicId) {
-      return {
-        name: topic.name,
-        description: topic.description
-      };
-    }
-
-    const subTopic = topic.subTopics?.find((st: any) => st.id === subTopicId);
-    if (!subTopic) {
-      throw new Error(`Subtopic ${subTopicId} not found in topic ${topicId}`);
-    }
-
-    return {
-      name: topic.name,
-      description: topic.description,
-      subTopic: {
-        name: subTopic.name,
-        description: subTopic.description
-      }
-    };
-  }
-
-  /**
-   * Creates a formal exam with proper topic names and descriptions
-   * @throws Error if topic data is invalid or missing
-   */
-  private async createFormalExam(examData: ExamData, session?: ExamSession): Promise<FormalExam> {
-    if (!examData?.id) {
-      throw new Error('Invalid exam data: missing exam ID');
-    }
-
-    if (!Array.isArray(examData.topics)) {
-      throw new Error(`Exam ${examData.id} is missing required topics array`);
-    }
-
-    // First validate and normalize topics
-    const validTopics = examData.topics.filter(topic => {
-      if (!topic.topicId || !Array.isArray(topic.subTopics)) {
-        console.error(`Skipping invalid topic in exam ${examData.id}: missing required fields`);
-        return false;
-      }
-      return true;
-    });
-
-    if (validTopics.length === 0) {
-      throw new Error(`Exam ${examData.id} has no valid topics`);
-    }
-
-    // Load complete topic data from subject files
-    const topics: FormalTopic[] = await Promise.all(validTopics.map(async (topic, index) => {
-      // Find the subject file containing this topic
-      let subjectData;
-      try {
-        subjectData = await this.getSubjectData(this.getSubjectIdForTopic(topic.topicId));
-      } catch (err: unknown) {
-        const error = err instanceof Error ? err.message : String(err);
-        throw new Error(`Failed to load subject data for topic ${topic.topicId}: ${error}`);
-      }
-
-      // Get complete topic data from the subject
-      const topicData = subjectData.topics.find((t: { id: string }) => t.id === topic.topicId);
-      if (!topicData) {
-        throw new Error(`Topic ${topic.topicId} not found in subject data`);
-      }
-
-      // Validate topic data
-      if (!topicData.name || !topicData.description || !Array.isArray(topicData.subTopics)) {
-        throw new Error(`Invalid topic data structure for ${topic.topicId}`);
-      }
-
-      // Map subtopics with complete data
-      return {
-        id: `${examData.id}_${topic.topicId}`,
-        code: topic.topicId,
-        topicId: topic.topicId,
-        name: topicData.name,
-        description: topicData.description,
-        order: index,
-        subTopics: topic.subTopics
-          .map(subTopicId => {
-            const subTopicData = topicData.subTopics.find((st: { id: string }) => st.id === subTopicId);
-            if (!subTopicData) {
-              console.error(`Skipping invalid subtopic ${subTopicId} in topic ${topic.topicId}`);
-              return null;
-            }
-
-            // Use just the raw subtopic ID instead of constructing a long one
-            const constructedId = subTopicId;
-            
-            const subTopic: SubTopic = {
-              id: constructedId,
-              code: subTopicId,
-              name: subTopicData.name,
-              description: subTopicData.description,
-              questionTemplate: subTopicData.questionTemplate,
-              order: topic.subTopics.indexOf(subTopicId)
-            };
-            return subTopic;
-          })
-          .filter((subTopic): subTopic is NonNullable<typeof subTopic> => subTopic !== null)
-      };
-    }));
-
-    return {
-      id: examData.id,
-      title: examData.names.medium,
-      description: `${examData.code} - ${examData.names.full}`,
-      names: examData.names,
-      duration: 180,
-      totalQuestions: topics.reduce((total, topic) => total + topic.subTopics.length, 0),
-      examType: examData.exam_type === ExamType.BAGRUT ? 'bagrut' : 'mahat',
-      status: session?.status,
-      score: session?.score,
-      startedAt: session?.startedAt,
-      completedAt: session?.completedAt,
-      topics
-    };
+    return exams;
   }
 
   /**
    * Gets all exams of a specific type.
    * @param examType Type of exams to load (bagrut/mahat)
    */
-  async getExamsByType(examType: ExamType): Promise<FormalExam[]> {
-    // Load from imported JSON
-    const data = examType === ExamType.BAGRUT ? bagrutExams : mahatExams;
-    
-    // Cache exam data for future use
-    data.exams.forEach(exam => this.examCache.set(exam.id, exam));
-    
-    // Convert to formal exams with any existing session data
-    return Promise.all(data.exams.map(exam => 
-      this.createFormalExam(exam, this.sessionCache.get(exam.id))
-    ));
+  async getExamsByType(examType: ExamType): Promise<ExamTemplate[]> {
+    const exams = this.examsByType.get(examType) || [];
+    return exams;
+  }
+  
+  /**
+   * Gets all exams of a specific domain.
+   * @param domainId Domain ID to load exams for
+   */
+  async getExamsByDomain(domainId: string): Promise<ExamTemplate[]> {
+    const exams = this.examsByDomain.get(domainId) || [];
+    return exams;
   }
 
   /**
    * Gets a specific exam by ID.
    * @param examId Unique exam identifier
    */
-  async getExamById(examId: string): Promise<FormalExam | null> {
-    // Try cache first
-    let examData = this.examCache.get(examId);
-    
-    if (!examData) {
-      // Load from appropriate data based on ID prefix
-      const [examType] = examId.split('_');
-      const data = examType === 'bagrut' ? bagrutExams : mahatExams;
-      examData = data.exams.find(exam => exam.id === examId);
-      
-      if (!examData) {
-        return null;
-      }
-      
-      this.examCache.set(examId, examData);
-    }
-    
-    return this.createFormalExam(examData, this.sessionCache.get(examId));
+  async getExamById(examId: string): Promise<ExamTemplate | null> {
+    const examData = this.examCache.get(examId);
+    if (!examData) return null;
+    return examData;
   }
 
-  /**
-   * Creates or updates an exam session.
-   * @param examId Exam identifier
-   * @param session Session data
-   */
-  async updateSession(examId: string, session: ExamSession): Promise<void> {
-    this.sessionCache.set(examId, session);
-    // TODO: Persist to backend
-  }
-
-  /**
-   * Gets just the subject name for a topic
-   */
-  async getSubjectNameForTopic(topicId: string): Promise<string> {
-    try {
-      const subjectId = this.getSubjectIdForTopic(topicId);
-      const subjectData = await this.getSubjectData(subjectId);
-      
-      logger.info('Retrieved subject name', { 
-        topicId,
-        subjectId,
-        subjectName: subjectData.name
-      });
-
-      return subjectData.name;
-    } catch (error) {
-      logger.error('Failed to get subject name', {
-        topicId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
-    }
-  }
+ 
 }
 
+// Export a singleton instance
 export const examService = new ExamService(); 

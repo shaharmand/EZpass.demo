@@ -1,4 +1,17 @@
 import { z } from 'zod';
+import { DifficultyLevel, ProgrammingLanguage, QuestionType } from '../types/question';
+
+// Core validation schemas for question-related types
+export const difficultySchema = z.number()
+  .min(1)
+  .max(5)
+  .transform((n): DifficultyLevel => n as DifficultyLevel);
+
+export const programmingLanguageSchema = z.enum(['java', 'c#', 'python'] as const);
+
+export const questionTypeSchema = z.enum(['multiple_choice', 'open', 'code', 'step_by_step'] as const);
+
+// More question-specific schemas can be added here...
 
 // Common schema for text with markdown format
 const formattedTextSchema = z.object({
@@ -42,20 +55,11 @@ const formattedTextSchema = z.object({
   format: z.literal('markdown').describe('Format specification for content rendering')
 });
 
-// Question type-specific requirements
-const questionTypeSchema = z.enum(['multiple_choice', 'open', 'code', 'step_by_step'])
-  .describe(`Question type that determines structure and requirements:
-- multiple_choice: Exactly 4 options with one correct answer (1-4)
-- open: Free-form answer with evaluation criteria
-- code: Programming problem with input/output specs
-- step_by_step: Progressive problem solving with intermediate steps`);
-
 // Metadata schema with specific requirements
 const metadataSchema = z.object({
   topicId: z.string().describe('Main topic identifier from the curriculum (e.g., "linear_equations", "data_structures")'),
   subtopicId: z.string().optional().describe('Optional subtopic for more specific categorization'),
-  difficulty: z.number().min(1).max(5)
-    .describe('Difficulty level from 1 (easiest) to 5 (hardest). Should match the requested difficulty.'),
+  difficulty: difficultySchema,
   estimatedTime: z.number().optional()
     .describe('Estimated time to solve in minutes, appropriate for the education level'),
   source: z.object({
@@ -128,6 +132,7 @@ export const questionSchema = z.object({
   content: formattedTextSchema.describe(`Question content with requirements varying by type:
 - multiple_choice: Clear, unambiguous text with all necessary information
 - code: Problem specification with input/output requirements and constraints
+- open: Focused problem statement with clear deliverables
 - step_by_step: Progressive problem with clear steps and progression`),
   metadata: metadataSchema,
   options: z.array(formattedTextSchema).length(4).optional()
@@ -135,7 +140,6 @@ export const questionSchema = z.object({
   correctOption: z.number().int().min(1).max(4).optional()
     .describe('For multiple choice only: The correct option number (1-4)'),
   rubricAssessment: rubricAssessmentSchema,
-  answerRequirements: answerRequirementsSchema,
   solution: z.object({
     text: z.string().describe('Complete solution explanation in markdown format'),
     format: z.literal('markdown').describe('Format specification for solution rendering')

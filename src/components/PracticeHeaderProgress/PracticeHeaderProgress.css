@@ -96,6 +96,21 @@
   color: #ef4444;
 }
 
+/* No attempts state */
+.success-metric.no-attempts {
+  background: #e2e8f0;
+  border: 1px solid #94a3b8;
+}
+
+.success-metric.no-attempts .metric-icon,
+.success-metric.no-attempts .metric-label {
+  color: #334155;
+}
+
+.success-metric.no-attempts .success-value {
+  color: #1e293b;
+}
+
 /* Questions group */
 .questions-group {
   display: flex;

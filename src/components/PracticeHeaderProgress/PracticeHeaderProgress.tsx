@@ -36,6 +36,7 @@ interface PracticeHeaderProgressProps {
 
 const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({ metrics }) => {
   const getSuccessRateClass = (rate: number) => {
+    if (rate === -1) return 'no-attempts';
     if (rate >= 80) return 'high';
     if (rate >= 60) return 'medium';
     return 'low';

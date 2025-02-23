@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Space, Button, Typography, Divider, Alert, Tag, Statistic, Row, Col } from 'antd';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
-import type { FormalExam } from '../types/shared/exam';
+import { ExamTemplate, ExamType } from '../types/examTemplate';
 import type { PrepState } from '../types/prepState';
 import { ClockCircleOutlined, CheckCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 
@@ -40,31 +40,30 @@ const PracticeFlowTestPage: React.FC = () => {
       setError(null);
 
       // Create a mock exam
-      const mockExam: FormalExam = {
+      const mockExam: ExamTemplate = {
         id: 'test_exam',
-        title: 'Test Exam',
-        description: 'A test exam for development purposes',
+        examType: ExamType.BAGRUT_EXAM,
+        duration: 120,
+        totalQuestions: 10,
         names: {
           short: 'Test Exam',
           medium: 'Test Exam',
           full: 'Test Exam for Development Purposes'
         },
-        examType: 'bagrut' as const,
-        duration: 120,
-        totalQuestions: 10,
-        status: 'not_started' as const,
+        code: 'test_exam',
+        difficulty: 5,
+        subjectId: 'test_subject',
+        domainId: 'test_domain',
+        allowedQuestionTypes: ['multiple_choice', 'open', 'code', 'step_by_step'],
         topics: [
           {
             id: 'safety_management',
             name: 'Safety Management',
-            code: 'safety_101',
-            topicId: 'safety_management',
             description: 'Basic safety management concepts',
             order: 0,
             subTopics: [
               {
                 id: 'risk_assessment',
-                code: 'risk_101',
                 name: 'Risk Assessment',
                 description: 'Understanding and performing risk assessments',
                 order: 0

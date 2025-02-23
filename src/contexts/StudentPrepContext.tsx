@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import type { FormalExam } from '../types/shared/exam';
+import type { ExamTemplate } from '../types/examTemplate';
 import type { StudentPrep, QuestionState, TopicSelection, PrepState, logPrepStateChange, logQuestionStateChange } from '../types/prepState';
 import type { PracticeQuestion } from '../types/prepUI';
 import type { Question, QuestionType, FilterState } from '../types/question';
@@ -9,13 +9,14 @@ import { questionService } from '../services/llm/questionGenerationService';
 import { QuestionRotationManager } from '../services/QuestionRotationManager';
 import { FeedbackService } from '../services/llm/feedbackGenerationService';
 import { logger } from '../utils/logger';
-import { ExamType } from '../types/exam';
+import { ExamType } from '../types/examTemplate';
 import { examService } from '../services/examService';
+import { universalTopics } from '../services/universalTopics';
 
 interface StudentPrepContextType {
   activePrep: StudentPrep | null;
   currentQuestion: PracticeQuestion | null;
-  startPrep: (exam: FormalExam, selection?: TopicSelection) => Promise<string>;
+  startPrep: (exam: ExamTemplate, selection?: TopicSelection) => Promise<string>;
   pausePrep: (prepId: string) => void;
   completePrep: (prepId: string) => void;
   getNextQuestion: (filters?: FilterState) => Promise<Question>;
@@ -141,7 +142,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [activePrep]);
 
   // Start a new prep
-  const startPrep = useCallback(async (exam: FormalExam, selection?: TopicSelection): Promise<string> => {
+  const startPrep = useCallback(async (exam: ExamTemplate, selection?: TopicSelection): Promise<string> => {
     try {
       // Ensure exam data is fully loaded
       if (!exam.topics || exam.topics.length === 0) {
@@ -327,16 +328,21 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     // For other question types, use the feedback service directly
     const topicId = question.metadata.topicId;
-    let subject = 'Mathematics'; // Default fallback
+    let subject: string;
 
     try {
-      const topicData = await examService.getTopicData(topicId);
-      subject = topicData.subject.name; // Use the name directly from the subject data
-    } catch (error) {
-      logger.warn('Failed to get subject from topic ID, using default', {
+      subject = universalTopics.getSubjectName(topicId);
+      logger.info('Successfully retrieved subject name:', {
         topicId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        subjectName: subject
       });
+    } catch (error) {
+      logger.error('Failed to get subject name:', {
+        error,
+        topicId,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
 
     return feedbackService.current.generateFeedback({

@@ -1,0 +1,115 @@
+{
+  "description": "This JSON structure contains a list of subjects, each with a list of associated domains. Each subject represents a field of study, and each domain represents a specific area within that field.",
+  "Subjects": [
+    {
+      "id": "civil_engineering",
+      "name": "הנדסה אזרחית", 
+      "description": "Civil engineering subject",
+      "domains": [
+        {
+          "id": "construction_safety",
+          "name": "בטיחות בבנייה",
+          "description": "בטיחות בבניה"
+        }
+      ]
+    },
+    {
+      "id": "computer_science_hsp", 
+      "name": "מדעי המחשב לתיכון והנדסאים",
+      "description": "מדעי המחשב לתיכון והנדסאים",
+      "domains": [
+        {
+          "id": "data_structures_hsp",
+          "name": "מבני נתונים",
+          "description": "מבני נתונים ואלגוריתמים בסיסיים"
+        },
+        {
+          "id": "programming_fundamentals_hsp",
+          "name": "תכנות",
+          "description": "עקרונות התכנות ומימוש בשפות תכנות"
+        }
+      ]
+    },
+    {
+      "id": "physics_hsp",
+      "name": "Physics",
+      "description": "Physics domain",
+      "domains": [
+        {
+          "id": "classical_mechanics_hsp",
+          "name": "Classical Mechanics",
+          "description": "Newton's laws, kinematics, dynamics"
+        },
+        {
+          "id": "electromagnetism_hsp", 
+          "name": "Electromagnetism",
+          "description": "Electric and magnetic fields, Maxwell's equations"
+        },
+        {
+          "id": "thermodynamics_hsp",
+          "name": "Thermodynamics", 
+          "description": "Heat, energy, entropy, thermodynamic laws"
+        },
+        {
+          "id": "quantum_mechanics_hsp",
+          "name": "Quantum Mechanics",
+          "description": "Wave functions, quantum states, operators"
+        }
+      ]
+    },
+    {
+      "id": "mathematics_uni",
+      "name": "University Mathematics",
+      "description": "Advanced university-level mathematics courses", 
+      "domains": [
+        {
+          "id": "calculus_uni",
+          "name": "Advanced Calculus",
+          "description": "Multivariable calculus, vector calculus, complex analysis"
+        },
+        {
+          "id": "linear_algebra_uni", 
+          "name": "Linear Algebra",
+          "description": "Vectors, matrices, linear transformations"
+        },
+        {
+          "id": "probability_uni",
+          "name": "Probability & Statistics",
+          "description": "Probability theory, statistical analysis"
+        },
+        {
+          "id": "discrete_math_uni",
+          "name": "Discrete Mathematics", 
+          "description": "Logic, sets, combinatorics, graph theory"
+        }
+      ]
+    },
+    {
+      "id": "mathematics_hsp",
+      "name": "High School Mathematics",
+      "description": "High school level mathematics",
+      "domains": [
+        {
+          "id": "algebra_hsp",
+          "name": "Algebra",
+          "description": "Equations, functions, polynomials"
+        },
+        {
+          "id": "geometry_hsp", 
+          "name": "Geometry",
+          "description": "Euclidean geometry, trigonometry"
+        },
+        {
+          "id": "calculus_hsp",
+          "name": "Basic Calculus",
+          "description": "Introduction to derivatives and integrals"
+        },
+        {
+          "id": "statistics_hsp",
+          "name": "Statistics", 
+          "description": "Basic statistical concepts and analysis"
+        }
+      ]
+    }
+  ]
+}

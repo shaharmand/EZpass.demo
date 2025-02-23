@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { StructuredOutputParser } from "@langchain/core/output_parsers";
-import { questionSchema } from "../../schemas/question";
+import { questionSchema } from "../../schemas/questionSchema";
 import type { Question, QuestionType, QuestionFetchParams, DifficultyLevel } from "../../types/question";
 
 const openai = new OpenAI({
@@ -417,7 +417,15 @@ IMPORTANT:
         // Add runtime ID
         const question = {
           ...parsed,
-          id: `generated_${Date.now()}`
+          id: `generated_${Date.now()}`,
+          answerRequirements: {
+            requiredElements: [
+              "Key concepts that must be mentioned",
+              "Required formulas or equations",
+              "Critical analysis points",
+              "Important conclusions"
+            ]
+          }
         };
 
         // Cache the new question

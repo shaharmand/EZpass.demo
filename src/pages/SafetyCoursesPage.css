@@ -1,0 +1,21 @@
+.courses-grid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(4, minmax(280px, 1fr));
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1400px) {
+  .courses-grid {
+    grid-template-columns: repeat(2, minmax(300px, 1fr));
+    gap: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .courses-grid {
+    grid-template-columns: minmax(300px, 1fr);
+    gap: 20px;
+  }
+} 

@@ -13,6 +13,8 @@ import { formatTimeUntilExam } from '../utils/dateUtils';
 import { PrepConfigDialog } from './practice/PrepConfigDialog';
 import type { Question } from '../types/question';
 import PracticeHeaderProgress from './PracticeHeaderProgress/PracticeHeaderProgress';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 const { Text, Title } = Typography;
 
@@ -63,6 +65,7 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
   const defaultUserName = 'אורח';
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState(defaultUserName);
+  const navigate = useNavigate();
 
   // Calculate topic counts
   const topicCount = prep.exam.topics?.length || 0;
@@ -79,35 +82,50 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
       position: 'sticky' as const,
       top: 0,
       zIndex: 1000,
-      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+      display: 'flex',
+      flexDirection: 'column' as const,
+      minHeight: 'fit-content',
+      overflow: 'visible'
     },
     content: {
       maxWidth: '1600px',
       margin: '0 auto',
+      width: '100%',
       display: 'flex',
       flexDirection: 'column' as const,
+      overflow: 'visible'
     },
     topRow: {
-      padding: '16px 24px',
+      padding: '12px 40px',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       borderBottom: `1px solid ${colors.border.separator}`,
-      backgroundColor: colors.background.header
+      backgroundColor: colors.background.header,
+      minHeight: '72px',
+      overflow: 'visible'
     },
     metricsRow: {
-      padding: '16px 24px',
+      padding: '12px 40px',
       backgroundColor: colors.background.metrics,
-      borderBottom: `1px solid ${colors.border.light}`
+      borderBottom: `1px solid ${colors.border.light}`,
+      minHeight: '64px',
+      display: 'flex',
+      alignItems: 'center',
+      position: 'relative' as const,
+      zIndex: 900
     },
     logo: {
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
+      flexDirection: 'column' as const,
+      gap: '4px',
+      minWidth: '200px'
     },
     examTitle: {
       margin: 0,
-      fontSize: '18px',
+      fontSize: '20px',
       color: colors.text.primary,
       maxWidth: '400px',
       overflow: 'hidden',
@@ -208,42 +226,76 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
           {/* Logo */}
           <div style={headerStyle.logo}>
             <div style={{
-              position: 'relative',
-              width: '32px',
-              height: '32px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              gap: '16px'
             }}>
-              <ExperimentFilled style={{ 
-                fontSize: '24px',
-                color: colors.icon.left,
-                position: 'absolute',
-                left: 0,
-                clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)',
-              }} />
-              <ExperimentFilled style={{ 
-                fontSize: '24px',
-                color: colors.icon.right,
-                position: 'absolute',
-                right: 0,
-                clipPath: 'polygon(50% 0, 100% 0, 100% 100%, 50% 100%)',
-              }} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'start' }}>
-                <Text strong style={{ fontSize: '18px', color: colors.text.brand, lineHeight: '1' }}>
-                  EZpass
-                </Text>
-                <Text style={{ fontSize: '12px', color: colors.icon.left, marginTop: '2px' }}>
-                  פשוט להצליח
-                </Text>
-              </div>
+              <motion.div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  cursor: 'pointer',
+                  padding: '8px 16px',
+                  borderRadius: '12px',
+                  transition: 'all 0.3s ease'
+                }}
+                whileHover={{ 
+                  scale: 1.02,
+                  backgroundColor: 'rgba(255, 255, 255, 0.8)'
+                }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate('/')}
+              >
+                <motion.img
+                  src="/EZpass_A6_cut.png"
+                  alt="איזיפס - פשוט להצליח"
+                  style={{
+                    height: '48px',
+                    width: 'auto',
+                    objectFit: 'contain'
+                  }}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                />
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                  style={{
+                    height: '32px',
+                    borderRight: '2px solid #e5e7eb',
+                  }}
+                />
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                >
+                  <Text style={{ 
+                    fontSize: '16px',
+                    color: '#ff9800',
+                    fontWeight: 500,
+                    letterSpacing: '0.5px',
+                    whiteSpace: 'nowrap',
+                    marginRight: '8px'
+                  }}>
+                    פשוט להצליח
+                  </Text>
+                </motion.div>
+              </motion.div>
             </div>
           </div>
 
           {/* Center Section */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '24px',
+            flex: 1,
+            justifyContent: 'center'
+          }}>
             <Title level={4} style={headerStyle.examTitle}>
               {prep.exam.names.medium}
             </Title>
@@ -252,7 +304,7 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
               onClick={() => setIsDatePickerOpen(true)}
               style={headerStyle.dateButton}
             >
-              <CalendarOutlined style={{ fontSize: '16px' }} />
+              <CalendarOutlined style={{ fontSize: '18px' }} />
               <Text>{formatTimeUntilExam(targetDate.toDate())}</Text>
             </Button>
           </div>
@@ -290,28 +342,38 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
             <PracticeHeaderProgress metrics={{
               successRate: prep.state.status === 'initializing' || 
                 prep.state.status === 'not_started' ||
+                !('completedQuestions' in prep.state) ||
+                !('averageScore' in prep.state) ||
                 prep.state.completedQuestions === 0
                 ? -1
                 : Math.round(prep.state.averageScore),
               totalQuestions: prep.exam.topics.reduce((acc, topic) => 
                 acc + (topic.subTopics?.length || 0), 0) * 50,
-              questionsAnswered: prep.state.status === 'initializing' || prep.state.status === 'not_started'
+              questionsAnswered: prep.state.status === 'initializing' || 
+                prep.state.status === 'not_started' ||
+                !('completedQuestions' in prep.state)
                 ? 0
                 : prep.state.completedQuestions,
               overallProgress: {
-                current: prep.state.status === 'initializing' || prep.state.status === 'not_started'
+                current: prep.state.status === 'initializing' || 
+                  prep.state.status === 'not_started' ||
+                  !('activeTime' in prep.state)
                   ? 0
                   : Math.round(prep.state.activeTime / (60 * 60 * 1000)),
                 target: prep.goals.totalHours
               },
               weeklyProgress: {
-                current: prep.state.status === 'initializing' || prep.state.status === 'not_started'
+                current: prep.state.status === 'initializing' || 
+                  prep.state.status === 'not_started' ||
+                  !('activeTime' in prep.state)
                   ? 0
                   : Math.round(prep.state.activeTime / (60 * 60 * 1000)),
                 target: prep.goals.weeklyHours
               },
               dailyProgress: {
-                current: prep.state.status === 'initializing' || prep.state.status === 'not_started'
+                current: prep.state.status === 'initializing' || 
+                  prep.state.status === 'not_started' ||
+                  !('activeTime' in prep.state)
                   ? 0
                   : Math.round((prep.state.activeTime / (60 * 1000))),
                 target: Math.round(prep.goals.dailyHours * 60)

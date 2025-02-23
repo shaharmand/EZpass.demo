@@ -3,52 +3,64 @@
   "exams": [
     {
       "id": "mahat_cs_basic_java",
-      "code": "61101",
+      "code": "M101",
       "names": {
-        "short": "אלגוריתמיקה Java",
-        "medium": "אלגוריתמיקה ותכנות Java - מה\"ט",
-        "full": "בחינת מה\"ט - אלגוריתמיקה ותכנות בסיסי בשפת Java"
+        "short": "יסודות מדמ\"ח Java",
+        "medium": "יסודות מדעי המחשב Java - מה\"ט",
+        "full": "בחינת מה\"ט - יסודות מדעי המחשב ותכנות בסיסי בשפת Java"
       },
-      "exam_type": "mahat",
+      "examType": "mahat_exam",
       "difficulty": 3,
-      "programming_language": "java",
+      "maxDifficulty": 4,
+      "programmingLanguage": "java",
+      "subjectId": "computer_science",
+      "domainId": "programming_fundamentals",
+      "duration": 180,
+      "totalQuestions": 5,
+      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
       "topics": [
         {
-          "topicId": "basic_programming",
+          "id": "basic_programming_hsp",
           "subTopics": [
-            "basic_io",
-            "variables_and_types",
-            "control_structures",
-            "functions",
-            "arrays_1d",
-            "arrays_2d",
-            "strings"
+            { "id": "basic_io_hsp" },
+            { "id": "variables_and_types_hsp" },
+            { "id": "control_structures_hsp" },
+            { "id": "functions_hsp" },
+            { "id": "arrays_1d_hsp" },
+            { "id": "arrays_2d_hsp" },
+            { "id": "strings_hsp" }
           ]
         }
       ]
     },
     {
       "id": "mahat_cs_basic_csharp",
-      "code": "61102",
+      "code": "M101",
       "names": {
-        "short": "אלגוריתמיקה #C",
-        "medium": "אלגוריתמיקה ותכנות #C - מה\"ט",
-        "full": "בחינת מה\"ט - אלגוריתמיקה ותכנות בסיסי בשפת #C"
+        "short": "יסודות מדמ\"ח #C",
+        "medium": "יסודות מדעי המחשב #C - מה\"ט",
+        "full": "בחינת מה\"ט - יסודות מדעי המחשב ותכנות בסיסי בשפת #C"
       },
-      "exam_type": "mahat",
+      "examType": "mahat_exam",
       "difficulty": 3,
-      "programming_language": "c#",
+      "maxDifficulty": 4,
+      "programmingLanguage": "c#",
+      "subjectId": "computer_science",
+      "domainId": "programming_fundamentals",
+      "duration": 180,
+      "totalQuestions": 5,
+      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
       "topics": [
         {
-          "topicId": "basic_programming",
+          "id": "basic_programming_hsp",
           "subTopics": [
-            "basic_io",
-            "variables_and_types",
-            "control_structures",
-            "functions",
-            "arrays_1d",
-            "arrays_2d",
-            "strings"
+            { "id": "basic_io_hsp" },
+            { "id": "variables_and_types_hsp" },
+            { "id": "control_structures_hsp" },
+            { "id": "functions_hsp" },
+            { "id": "arrays_1d_hsp" },
+            { "id": "arrays_2d_hsp" },
+            { "id": "strings_hsp" }
           ]
         }
       ]
@@ -61,110 +73,112 @@
         "medium": "אלגוריתמיקה ותכנות Python - מה\"ט",
         "full": "בחינת מה\"ט - אלגוריתמיקה ותכנות בסיסי בשפת Python"
       },
-      "exam_type": "mahat",
+      "examType": "mahat_exam",
       "difficulty": 3,
-      "programming_language": "python",
+      "maxDifficulty": 4,
+      "subjectId": "computer_science_hsp",
+      "domainId": "programming_fundamentals_hsp",
+      "duration": 180,
+      "totalQuestions": 6,
+      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
+      "programmingLanguage": "python",
       "topics": [
         {
-          "topicId": "basic_programming",
+          "id": "basic_programming_hsp",
           "subTopics": [
-            "basic_io",
-            "variables_and_types",
-            "control_structures",
-            "functions",
-            "arrays_1d",
-            "arrays_2d",
-            "strings"
+            { "id": "basic_io_hsp" },
+            { "id": "variables_and_types_hsp" },
+            { "id": "control_structures_hsp" },
+            { "id": "functions_hsp" },
+            { "id": "arrays_1d_hsp" },
+            { "id": "arrays_2d_hsp" },
+            { "id": "strings_hsp" }
           ]
         }
       ]
     },
     {
       "id": "mahat_cs_data_structures_java",
-      "code": "61201",
+      "code": "M102",
       "names": {
         "short": "מבני נתונים Java",
         "medium": "מבני נתונים ואלגוריתמים Java - מה\"ט",
         "full": "בחינת מה\"ט - מבני נתונים ואלגוריתמיקה מתקדמת בשפת Java"
       },
-      "exam_type": "mahat",
+      "examType": "mahat_exam",
       "difficulty": 3,
-      "programming_language": "java",
+      "maxDifficulty": 5,
+      "programmingLanguage": "java",
+      "subjectId": "computer_science",
+      "domainId": "data_structures",
+      "duration": 180,
+      "totalQuestions": 5,
+      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
       "topics": [
         {
-          "topicId": "complexity_analysis",
+          "id": "complexity_analysis_hsp",
           "subTopics": [
-            "time_complexity",
-            "space_complexity",
-            "asymptotic_notation",
-            "algorithm_comparison"
+            { "id": "time_complexity_hsp" },
+            { "id": "space_complexity_hsp" },
+            { "id": "asymptotic_notation_hsp" },
+            { "id": "algorithm_comparison_hsp" }
           ]
         },
         {
-          "topicId": "linear_structures",
+          "id": "linear_structures_hsp",
           "subTopics": [
-            "linked_lists",
-            "stacks",
-            "queues"
+            { "id": "linked_lists_hsp" },
+            { "id": "stacks_hsp" },
+            { "id": "queues_hsp" }
           ]
         },
         {
-          "topicId": "tree_structures",
+          "id": "tree_structures_hsp",
           "subTopics": [
-            "binary_trees",
-            "heap"
-          ]
-        },
-        {
-          "topicId": "hash_tables",
-          "subTopics": [
-            "hashing",
-            "collision_resolution"
+            { "id": "binary_trees_hsp" }
           ]
         }
       ]
     },
     {
       "id": "mahat_cs_data_structures_csharp",
-      "code": "61202",
+      "code": "M102",
       "names": {
         "short": "מבני נתונים #C",
         "medium": "מבני נתונים ואלגוריתמים #C - מה\"ט",
         "full": "בחינת מה\"ט - מבני נתונים ואלגוריתמיקה מתקדמת בשפת #C"
       },
-      "exam_type": "mahat",
+      "examType": "mahat_exam",
       "difficulty": 3,
-      "programming_language": "c#",
+      "maxDifficulty": 5,
+      "programmingLanguage": "c#",
+      "subjectId": "computer_science",
+      "domainId": "data_structures",
+      "duration": 180,
+      "totalQuestions": 5,
+      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
       "topics": [
         {
-          "topicId": "complexity_analysis",
+          "id": "complexity_analysis_hsp",
           "subTopics": [
-            "time_complexity",
-            "space_complexity",
-            "asymptotic_notation",
-            "algorithm_comparison"
+            { "id": "time_complexity_hsp" },
+            { "id": "space_complexity_hsp" },
+            { "id": "asymptotic_notation_hsp" },
+            { "id": "algorithm_comparison_hsp" }
           ]
         },
         {
-          "topicId": "linear_structures",
+          "id": "linear_structures_hsp",
           "subTopics": [
-            "linked_lists",
-            "stacks",
-            "queues"
+            { "id": "linked_lists_hsp" },
+            { "id": "stacks_hsp" },
+            { "id": "queues_hsp" }
           ]
         },
         {
-          "topicId": "tree_structures",
+          "id": "tree_structures_hsp",
           "subTopics": [
-            "binary_trees",
-            "heap"
-          ]
-        },
-        {
-          "topicId": "hash_tables",
-          "subTopics": [
-            "hashing",
-            "collision_resolution"
+            { "id": "binary_trees_hsp" }
           ]
         }
       ]
@@ -177,42 +191,48 @@
         "medium": "מבני נתונים ואלגוריתמים Python - מה\"ט",
         "full": "בחינת מה\"ט - מבני נתונים ואלגוריתמיקה מתקדמת בשפת Python"
       },
-      "exam_type": "mahat",
+      "examType": "mahat_exam",
       "difficulty": 3,
-      "programming_language": "python",
+      "maxDifficulty": 5,
+      "subjectId": "computer_science",
+      "domainId": "data_structures",
+      "duration": 180,
+      "totalQuestions": 7,
+      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
+      "programmingLanguage": "python",
       "topics": [
         {
-          "topicId": "complexity_analysis",
+          "id": "complexity_analysis_hsp",
           "subTopics": [
-            "time_complexity",
-            "space_complexity",
-            "asymptotic_notation",
-            "algorithm_comparison"
+            { "id": "time_complexity_hsp" },
+            { "id": "space_complexity_hsp" },
+            { "id": "asymptotic_notation_hsp" },
+            { "id": "algorithm_comparison_hsp" }
           ]
         },
         {
-          "topicId": "linear_structures",
+          "id": "linear_structures_hsp",
           "subTopics": [
-            "linked_lists",
-            "stacks",
-            "queues"
+            { "id": "linked_lists_hsp" },
+            { "id": "stacks_hsp" },
+            { "id": "queues_hsp" }
           ]
         },
         {
-          "topicId": "tree_structures",
+          "id": "tree_structures_hsp",
           "subTopics": [
-            "binary_trees",
-            "heap"
+            { "id": "binary_trees_hsp" },
+            { "id": "heap_hsp" }
           ]
         },
         {
-          "topicId": "hash_tables",
+          "id": "hash_tables_hsp",
           "subTopics": [
-            "hashing",
-            "collision_resolution"
+            { "id": "hashing_hsp" },
+            { "id": "collision_resolution_hsp" }
           ]
         }
       ]
     }
   ]
-} 
+}

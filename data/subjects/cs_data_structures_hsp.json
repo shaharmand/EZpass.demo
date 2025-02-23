@@ -1,34 +1,32 @@
 {
-  "id": "cs_data_structures",
-  "name": "מבני נתונים",
-  "subject": "computer_science",
-  "description": "מבני נתונים מתקדמים ואלגוריתמים",
+  "domainID": "data_structures_hsp",
+  "subjectID": "computer_science_hsp",
   "topics": [
     {
-      "id": "complexity_analysis",
+      "id": "complexity_analysis_hsp",
       "name": "ניתוח סיבוכיות",
       "description": "ניתוח סיבוכיות זמן ומקום של אלגוריתמים",
       "subTopics": [
         {
-          "id": "time_complexity",
+          "id": "time_complexity_hsp",
           "name": "סיבוכיות זמן",
           "description": "ניתוח זמן ריצה, סימון O גדול, מקרה גרוע וממוצע",
           "questionTemplate": "ניתוח סיבוכיות זמן של אלגוריתמים"
         },
         {
-          "id": "space_complexity",
+          "id": "space_complexity_hsp",
           "name": "סיבוכיות מקום",
           "description": "ניתוח צריכת זיכרון, מקום נוסף, רקורסיה",
           "questionTemplate": "ניתוח סיבוכיות מקום של אלגוריתמים"
         },
         {
-          "id": "asymptotic_notation",
+          "id": "asymptotic_notation_hsp",
           "name": "סימונים אסימפטוטיים",
           "description": "O, Ω, Θ, סדרי גודל, השוואת פונקציות",
           "questionTemplate": "שימוש בסימונים אסימפטוטיים"
         },
         {
-          "id": "algorithm_comparison",
+          "id": "algorithm_comparison_hsp",
           "name": "השוואת אלגוריתמים",
           "description": "השוואת יעילות, מקרי קיצון, אופטימיזציה",
           "questionTemplate": "השוואת יעילות אלגוריתמים"
@@ -36,24 +34,24 @@
       ]
     },
     {
-      "id": "linear_structures",
+      "id": "linear_structures_hsp",
       "name": "מבנים לינאריים",
       "description": "מבני נתונים לינאריים והמימוש שלהם",
       "subTopics": [
         {
-          "id": "linked_lists",
+          "id": "linked_lists_hsp",
           "name": "רשימות מקושרות",
           "description": "רשימה מקושרת חד-כיוונית, דו-כיוונית, מעגלית",
           "questionTemplate": "מימוש פעולות, מעבר על רשימה, אלגוריתמים על רשימות"
         },
         {
-          "id": "stacks",
+          "id": "stacks_hsp",
           "name": "מחסניות",
           "description": "מחסנית ושימושיה, מימוש במערך וברשימה",
           "questionTemplate": "מימוש מחסנית, שימושים, אלגוריתמים עם מחסניות"
         },
         {
-          "id": "queues",
+          "id": "queues_hsp",
           "name": "תורים",
           "description": "תור רגיל, תור מעגלי, תור עדיפויות",
           "questionTemplate": "מימוש תור, שימושים, אלגוריתמים עם תורים"
@@ -61,24 +59,24 @@
       ]
     },
     {
-      "id": "tree_structures",
+      "id": "tree_structures_hsp",
       "name": "עצים",
       "description": "מבני עץ שונים ואלגוריתמים",
       "subTopics": [
         {
-          "id": "binary_trees",
+          "id": "binary_trees_hsp",
           "name": "עצים בינאריים",
           "description": "עץ בינארי, עץ חיפוש בינארי, איזון",
           "questionTemplate": "מימוש עץ, חיפוש, הוספה ומחיקה, מעבר על עץ"
         },
         {
-          "id": "balanced_trees",
+          "id": "balanced_trees_hsp",
           "name": "עצים מאוזנים",
           "description": "עצי AVL, עצי אדום-שחור",
           "questionTemplate": "איזון עצים, ניתוח יעילות, מימוש פעולות"
         },
         {
-          "id": "heap",
+          "id": "heap_hsp",
           "name": "ערימה",
           "description": "ערימת מקסימום, ערימת מינימום, בניית ערימה",
           "questionTemplate": "מימוש ערימה, heapify, heap sort"
@@ -86,18 +84,18 @@
       ]
     },
     {
-      "id": "hash_tables",
+      "id": "hash_tables_hsp",
       "name": "טבלאות גיבוב",
       "description": "מבני גיבוב ופתרון התנגשויות",
       "subTopics": [
         {
-          "id": "hashing",
+          "id": "hashing_hsp",
           "name": "פונקציות גיבוב",
           "description": "פונקציות גיבוב, התנגשויות, פקטור העמסה",
           "questionTemplate": "תכנון פונקציות גיבוב, ניתוח יעילות"
         },
         {
-          "id": "collision_resolution",
+          "id": "collision_resolution_hsp",
           "name": "טיפול בהתנגשויות",
           "description": "שרשור, כתובת פתוחה, גיבוב כפול",
           "questionTemplate": "מימוש שיטות שונות, השוואת יעילות"
@@ -105,24 +103,24 @@
       ]
     },
     {
-      "id": "graphs",
+      "id": "graphs_hsp",
       "name": "גרפים",
       "description": "ייצוג גרפים ואלגוריתמים בסיסיים",
       "subTopics": [
         {
-          "id": "graph_representation",
+          "id": "graph_representation_hsp",
           "name": "ייצוג גרפים",
           "description": "מטריצת סמיכויות, רשימת שכנויות",
           "questionTemplate": "מימוש ייצוגים שונים, המרה בין ייצוגים"
         },
         {
-          "id": "graph_traversal",
+          "id": "graph_traversal_hsp",
           "name": "מעבר על גרף",
           "description": "חיפוש לרוחב, חיפוש לעומק, קישוריות",
           "questionTemplate": "מימוש אלגוריתמי חיפוש, ניתוח תוצאות"
         },
         {
-          "id": "shortest_paths",
+          "id": "shortest_paths_hsp",
           "name": "מסלולים קצרים ביותר",
           "description": "אלגוריתם דייקסטרה, פלויד-וורשל",
           "questionTemplate": "מציאת מסלול קצר ביותר, ניתוח יעילות"

@@ -2,60 +2,237 @@
   "faculty": "civil_engineering",
   "exams": [
     {
-      "id": "mahat_construction_safety",
-      "domain": "construction_safety",
-      "field": "construction_management",
-      "subject": "civil_engineering",
-      "exam_type": "mahat",
-      "code": "70178",
+      "id": "mahat_civil_safety",
+      "code": "M101",
       "names": {
         "short": "בטיחות בבנייה",
-        "medium": "בטיחות בבנייה - מה״ט",
-        "full": "בחינת מה״ט - בטיחות בבנייה"
+        "medium": "בטיחות בבנייה - מה\"ט",
+        "full": "בחינת מה\"ט - בטיחות בעבודות בנייה והנדסה אזרחית"
       },
-      "difficulty": 4,
+      "examType": "mahat_exam",
+      "difficulty": 3,
+      "maxDifficulty": 5,
+      "subjectId": "civil_engineering",
+      "domainId": "construction_safety",
+      "duration": 180,
+      "totalQuestions": 5,
+      "allowedQuestionTypes": ["multiple_choice", "step_by_step","open"],
       "topics": [
         {
-          "topicId": "safety_management",
+          "id": "safety_management",
           "subTopics": [
-            "safety_regulations",
-            "risk_assessment",
-            "safety_planning"
+            { "id": "risk_assessment" },
+            { "id": "safety_regulations" },
+            { "id": "protective_equipment" },
+            { "id": "emergency_procedures" }
           ]
         },
         {
-          "topicId": "work_at_height",
+          "id": "work_at_height",
           "subTopics": [
-            "scaffolding",
-            "fall_protection",
-            "ladders"
+            { "id": "scaffolding" },
+            { "id": "fall_protection" },
+            { "id": "ladders" }
           ]
         },
         {
-          "topicId": "construction_operations",
+          "id": "construction_operations",
           "subTopics": [
-            "excavation",
-            "demolition",
-            "concrete_work"
+            { "id": "excavation" },
+            { "id": "demolition" },
+            { "id": "concrete_work" }
           ]
         },
         {
-          "topicId": "equipment_safety",
+          "id": "equipment_safety",
           "subTopics": [
-            "heavy_equipment",
-            "lifting_equipment",
-            "power_tools"
+            { "id": "heavy_equipment" },
+            { "id": "lifting_equipment" },
+            { "id": "power_tools" }
           ]
         },
         {
-          "topicId": "special_risks",
+          "id": "special_risks",
           "subTopics": [
-            "hazardous_materials",
-            "confined_spaces",
-            "fire_safety"
+            { "id": "hazardous_materials" },
+            { "id": "confined_spaces" },
+            { "id": "fire_safety" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "construction_manager_certification",
+      "code": "M102",
+      "names": {
+        "short": "וועדת הסמכה למנהל עבודה",
+        "medium": "וועדת הסמכה למנהל עבודה",
+        "full": "וועדת הסמכה למנהל עבודה - מבחן הסמכה"
+      },
+      "examType": "government_exam",
+      "difficulty": 3,
+      "maxDifficulty": 5,
+      "subjectId": "civil_engineering",
+      "domainId": "construction_safety",
+      "duration": 30,
+      "totalQuestions": 5,
+      "allowedQuestionTypes": ["open"],
+      "topics": [
+        {
+          "id": "safety_management",
+          "subTopics": [
+            { "id": "risk_assessment" },
+            { "id": "safety_regulations" },
+            { "id": "protective_equipment" },
+            { "id": "emergency_procedures" }
+          ]
+        },
+        {
+          "id": "work_at_height",
+          "subTopics": [
+            { "id": "scaffolding" },
+            { "id": "fall_protection" },
+            { "id": "ladders" }
+          ]
+        },
+        {
+          "id": "construction_operations",
+          "subTopics": [
+            { "id": "excavation" },
+            { "id": "demolition" },
+            { "id": "concrete_work" }
+          ]
+        },
+        {
+          "id": "equipment_safety",
+          "subTopics": [
+            { "id": "heavy_equipment" },
+            { "id": "lifting_equipment" },
+            { "id": "power_tools" }
+          ]
+        },
+        {
+          "id": "special_risks",
+          "subTopics": [
+            { "id": "hazardous_materials" },
+            { "id": "confined_spaces" },
+            { "id": "fire_safety" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "construction_manager_safety_full",
+      "code": "M103",
+      "names": {
+        "short": "מבחן בטיחות למנהל עבודה",
+        "medium": "מבחן בטיחות למנהל עבודה - מסלול מלא",
+        "full": "מבחן בטיחות למנהל עבודה - מסלול מלא"
+      },
+      "examType": "government_exam",
+      "difficulty": 3,
+      "maxDifficulty": 4,
+      "subjectId": "civil_engineering",
+      "domainId": "construction_safety",
+      "duration": 180,
+      "totalQuestions": 50,
+      "allowedQuestionTypes": ["multiple_choice"],
+      "topics": [
+        {
+          "id": "safety_management",
+          "subTopics": [
+            { "id": "risk_assessment" },
+            { "id": "safety_regulations" },
+            { "id": "protective_equipment" },
+            { "id": "emergency_procedures" }
+          ]
+        },
+        {
+          "id": "work_at_height",
+          "subTopics": [
+            { "id": "scaffolding" },
+            { "id": "fall_protection" },
+            { "id": "ladders" }
+          ]
+        },
+        {
+          "id": "construction_operations",
+          "subTopics": [
+            { "id": "excavation" },
+            { "id": "demolition" },
+            { "id": "concrete_work" }
+          ]
+        },
+        {
+          "id": "equipment_safety",
+          "subTopics": [
+            { "id": "heavy_equipment" },
+            { "id": "lifting_equipment" },
+            { "id": "power_tools" }
+          ]
+        },
+        {
+          "id": "special_risks",
+          "subTopics": [
+            { "id": "hazardous_materials" },
+            { "id": "confined_spaces" },
+            { "id": "fire_safety" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "renovation_contractor_131",
+      "code": "M104",
+      "names": {
+        "short": "קבלן שיפוצים 131",
+        "medium": "מבחן בטיחות - קבלן שיפוצים 131",
+        "full": "מבחן בטיחות בעבודה - קבלן שיפוצים סיווג 131"
+      },
+      "examType": "government_exam",
+      "difficulty": 2,
+      "maxDifficulty": 3,
+      "subjectId": "civil_engineering",
+      "domainId": "construction_safety",
+      "duration": 120,
+      "totalQuestions": 30,
+      "allowedQuestionTypes": ["multiple_choice"],
+      "topics": [
+        {
+          "id": "safety_management",
+          "subTopics": [
+            { "id": "risk_assessment" },
+            { "id": "safety_regulations" },
+            { "id": "protective_equipment" }
+          ]
+        },
+        {
+          "id": "work_at_height",
+          "subTopics": [
+            { "id": "scaffolding" },
+            { "id": "ladders" }
+          ]
+        },
+        {
+          "id": "construction_operations",
+          "subTopics": [
+            { "id": "concrete_work" }
+          ]
+        },
+        {
+          "id": "equipment_safety",
+          "subTopics": [
+            { "id": "power_tools" }
+          ]
+        },
+        {
+          "id": "special_risks",
+          "subTopics": [
+            { "id": "hazardous_materials" },
+            { "id": "fire_safety" }
           ]
         }
       ]
     }
   ]
-} 
+}

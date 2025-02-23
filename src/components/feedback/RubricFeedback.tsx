@@ -11,7 +11,7 @@ interface RubricFeedbackProps {
       feedback: string;
     };
   };
-  rubricAssessment: {
+  rubricAssessment?: {
     criteria: Array<{
       name: string;
       description: string;
@@ -55,6 +55,10 @@ export const RubricFeedback: React.FC<RubricFeedbackProps> = ({
   rubricScores,
   rubricAssessment
 }) => {
+  if (!rubricAssessment) {
+    return null;
+  }
+
   return (
     <div style={{
       marginTop: '16px'

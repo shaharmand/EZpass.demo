@@ -1,76 +1,117 @@
 {
   "exams": [
     {
-      "id": "bagrut_math_3",
-      "name": "בגרות מתמטיקה 3 יחידות",
-      "institution": "BAGRUT",
+      "id": "bagrut_math_3_units",
+      "code": "035803",
+      "names": {
+        "short": "מתמטיקה 3 יח\"ל",
+        "medium": "מתמטיקה 3 יחידות - בגרות",
+        "full": "בחינת בגרות - מתמטיקה 3 יחידות לימוד"
+      },
+      "examType": "bagrut_exam",
+      "difficulty": 2,
+      "maxDifficulty": 3,
+      "subjectId": "mathematics",
+      "domainId": "basic_math",
+      "duration": 180,
+      "totalQuestions": 6,
+      "allowedQuestionTypes": ["multiple_choice", "step_by_step"],
+      "topics": [
+        {
+          "id": "algebra_hsp",
+          "subTopics": [
+            { "id": "equations_hsp" },
+            { "id": "inequalities_hsp" },
+            { "id": "word_problems_hsp" }
+          ]
+        },
+        {
+          "id": "geometry_hsp",
+          "subTopics": [
+            { "id": "triangles_hsp" },
+            { "id": "circles_hsp" },
+            { "id": "area_perimeter_hsp" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bagrut_math_4_units",
+      "code": "035804",
+      "names": {
+        "short": "מתמטיקה 4 יח\"ל",
+        "medium": "מתמטיקה 4 יחידות - בגרות",
+        "full": "בחינת בגרות - מתמטיקה 4 יחידות לימוד"
+      },
+      "examType": "bagrut_exam",
       "difficulty": 3,
+      "maxDifficulty": 4,
+      "subjectId": "mathematics",
+      "domainId": "advanced_math",
+      "duration": 180,
+      "totalQuestions": 7,
+      "allowedQuestionTypes": ["multiple_choice", "step_by_step"],
       "topics": [
-        "algebra_quadratic",
-        "trigonometry"
-      ]
-    },
-    {
-      "id": "bagrut_math_4",
-      "name": "בגרות מתמטיקה 4 יחידות",
-      "institution": "BAGRUT",
-      "difficulty": 4,
-      "topics": [
-        "algebra_quadratic",
-        "exponents_logs",
-        "trigonometry",
-        "derivatives"
-      ]
-    },
-    {
-      "id": "bagrut_math_5",
-      "name": "בגרות מתמטיקה 5 יחידות",
-      "institution": "BAGRUT",
-      "difficulty": 5,
-      "topics": [
-        "algebra_quadratic",
-        "exponents_logs",
-        "trigonometry",
-        "derivatives",
-        "integrals"
+        {
+          "id": "algebra_hsp",
+          "subTopics": [
+            { "id": "equations_hsp" },
+            { "id": "inequalities_hsp" },
+            { "id": "functions_hsp" }
+          ]
+        },
+        {
+          "id": "geometry_hsp",
+          "subTopics": [
+            { "id": "triangles_hsp" },
+            { "id": "circles_hsp" },
+            { "id": "trigonometry_hsp" }
+          ]
+        }
       ]
     },
     {
       "id": "bagrut_math_5_units",
-      "code": "581",
+      "code": "035805",
       "names": {
         "short": "מתמטיקה 5 יח\"ל",
         "medium": "מתמטיקה 5 יחידות - בגרות",
         "full": "בחינת בגרות - מתמטיקה 5 יחידות לימוד"
       },
-      "exam_type": "bagrut",
+      "examType": "bagrut_exam",
       "difficulty": 5,
+      "maxDifficulty": 5,
+      "subjectId": "mathematics",
+      "domainId": "advanced_math",
+      "duration": 180,
+      "totalQuestions": 8,
+      "allowedQuestionTypes": ["multiple_choice", "open", "step_by_step"],
       "topics": [
         {
-          "topicId": "algebra",
+          "id": "algebra_hsp",
           "subTopics": [
-            "equations",
-            "inequalities",
-            "functions"
+            { "id": "equations_hsp" },
+            { "id": "inequalities_hsp" },
+            { "id": "functions_hsp" }
           ]
         },
         {
-          "topicId": "calculus",
+          "id": "calculus_hsp",
           "subTopics": [
-            "derivatives",
-            "integrals",
-            "limits"
+            { "id": "derivatives_hsp" },
+            { "id": "integrals_hsp" },
+            { "id": "limits_hsp" }
           ]
         },
         {
-          "topicId": "trigonometry",
+          "id": "trigonometry_hsp",
           "subTopics": [
-            "triangles",
-            "identities",
-            "equations"
+            { "id": "triangles_hsp" },
+            { "id": "identities_hsp" },
+            { "id": "equations_hsp" }
           ]
         }
       ]
     }
   ]
-} 
+}

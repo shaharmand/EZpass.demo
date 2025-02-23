@@ -1,326 +1,402 @@
 // Main dashboard for exam selection and practice
 // Contains exam cards and development tools in development mode
 
-import React from 'react';
-import { Typography, Space, Spin, Card } from 'antd';
-import { useExam } from '../contexts/ExamContext';
-import { ExamCard } from '../components/ExamCard/ExamCard';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { Typography, Card, Spin, Alert } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  BookOutlined, 
-  ExperimentFilled,
-  RocketOutlined
-} from '@ant-design/icons';
+  HardHat,
+  GraduationCap,
+  Books,
+  ArrowLeft
+} from "@phosphor-icons/react";
+import Footer from '../components/Footer/Footer';
+import { examService } from '../services/examService';
+import { ExamType, type ExamTemplate } from '../types/examTemplate';
+import { useStudentPrep } from '../contexts/StudentPrepContext';
 
 const { Title, Text } = Typography;
 
-// Enhanced color scheme
-const colors = {
-  icon: {
-    left: '#ff9800',
-    right: '#3b82f6'
-  },
-  text: {
-    brand: '#3b82f6',
-    primary: '#1e293b',
-    secondary: '#64748b'
-  },
-  gradients: {
-    blue: 'linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%)',
-    orange: 'linear-gradient(135deg, #fff7ed 0%, #ffffff 100%)',
-    mixed: 'linear-gradient(135deg, #f0f7ff 0%, #fff7ed 100%)'
-  }
-};
-
 const ExamDashboard: React.FC = () => {
-  const { bagrutExams, mahatExams, loading } = useExam();
+  const navigate = useNavigate();
+  const { startPrep } = useStudentPrep();
+  const [flippedCard, setFlippedCard] = useState<string | null>(null);
+  const [examsByType, setExamsByType] = useState<Record<string, ExamTemplate[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (loading) {
-    return (
-      <div style={{ 
-        height: '80vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '16px',
-        background: 'linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%)'
-      }}>
-        <motion.div
-          animate={{ 
-            scale: [1, 1.2, 1],
-            rotate: [0, 180, 360]
-          }}
-          transition={{ 
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        >
-          <Spin size="large" />
-        </motion.div>
-        <Text style={{ color: colors.text.brand, fontSize: '18px', fontWeight: 500 }}>
-          טוען את המבחנים שלך...
-        </Text>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const loadExams = async () => {
+      try {
+        setLoading(true);
+        const [safetyExams, mahatExams, bagrutExams] = await Promise.all([
+          examService.getExamsByType(ExamType.GOVERNMENT_EXAM),
+          examService.getExamsByType(ExamType.MAHAT_EXAM),
+          examService.getExamsByType(ExamType.BAGRUT_EXAM)
+        ]);
 
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 }
-  };
+        // Manually add safety-related exams to safety section
+        const safetyRelatedIds = ['mahat_civil_safety', 'construction_manager_certification', 'construction_manager_safety_full', 'renovation_contractor_131'];
+        const allSafetyExams = [...safetyExams];
+        
+        // Add any matching exams from mahat section
+        mahatExams.forEach(exam => {
+          if (safetyRelatedIds.includes(exam.id)) {
+            allSafetyExams.push(exam);
+          }
+        });
+
+        setExamsByType({
+          safety: allSafetyExams,
+          mahat: mahatExams,
+          bagrut: bagrutExams
+        });
+      } catch (error) {
+        console.error('Error loading exams:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadExams();
+  }, []);
+
+  const examTypes = [
+    {
+      id: 'safety',
+      title: 'בטיחות',
+      icon: <HardHat weight="duotone" />,
+      color: '#3b82f6',
+      description: 'מנהל עבודה, ממונה בטיחות, קבלן שיפוצים'
+    },
+    {
+      id: 'mahat',
+      title: 'מה״ט',
+      icon: <GraduationCap weight="duotone" />,
+      color: '#10b981',
+      description: 'הנדסת תוכנה, הנדסה אזרחית'
+    },
+    {
+      id: 'bagrut',
+      title: 'בגרות',
+      icon: <Books weight="duotone" />,
+      color: '#6366f1',
+      description: 'מתמטיקה, פיזיקה, מחשבים'
+    }
+  ];
 
   return (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-      transition={{ duration: 0.5 }}
-      style={{ 
-        padding: '48px 24px',
-        maxWidth: '1200px', 
-        margin: '0 auto',
-        background: '#ffffff'
-      }}
-    >
-      {/* Platform Branding */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        style={{ 
-          display: 'flex', 
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '48px',
-          gap: '16px'
-        }}
-      >
-        <div style={{
-          position: 'relative',
-          width: '42px',
-          height: '42px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '4px'
-        }}>
-          <motion.div
-            animate={{ 
-              rotate: [0, 5, -5, 0],
-              scale: [1, 1.1, 1]
-            }}
-            transition={{ 
-              duration: 2,
-              repeat: Infinity,
-              repeatDelay: 3
-            }}
-          >
-            <ExperimentFilled style={{ 
-              fontSize: '42px',
-              color: colors.icon.left,
-              position: 'absolute',
-              left: 0,
-              clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)',
-              lineHeight: 1
-            }} />
-            <ExperimentFilled style={{ 
-              fontSize: '42px',
-              color: colors.icon.right,
-              position: 'absolute',
-              right: 0,
-              clipPath: 'polygon(50% 0, 100% 0, 100% 100%, 50% 100%)',
-              lineHeight: 1
-            }} />
-          </motion.div>
-        </div>
-        <div style={{ 
-          textAlign: 'right',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
-          <Title style={{ 
-            margin: 0, 
-            fontSize: '42px',
-            color: colors.text.brand,
-            lineHeight: 1,
-            height: '42px',
-            display: 'flex',
-            alignItems: 'center'
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ padding: '40px 24px', background: '#ffffff', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            gap: '16px',
+            marginBottom: '32px'
           }}>
-            איזיפס
+            <img
+              src="/EZpass_A6_cut.png"
+              alt="איזיפס"
+              style={{ height: '64px' }}
+            />
+            <div style={{
+              width: '2px',
+              height: '40px',
+              background: '#e5e7eb'
+            }} />
+            <Text style={{ 
+              fontSize: '28px', 
+              color: '#ff9800',
+              fontWeight: 400,
+              margin: 0
+            }}>
+              פשוט להצליח
+            </Text>
+          </div>
+          <Title level={2} style={{ fontSize: '48px', margin: 0 }}>
+            בחר בחינה והתחל לתרגל עכשיו.
           </Title>
-          <Text style={{ 
-            fontSize: '18px',
-            color: colors.icon.left,
-            display: 'block',
-            marginTop: '4px',
-            fontWeight: 500
-          }}>
-            פשוט להצליח
-          </Text>
         </div>
-      </motion.div>
+      </div>
 
-      {/* Welcome Section */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        style={{
-          marginBottom: '48px',
-          textAlign: 'center',
-          background: colors.gradients.mixed,
-          padding: '40px',
-          borderRadius: '16px',
-          border: '1px solid #e5e7eb',
-          boxShadow: '0 4px 6px -1px rgba(148, 163, 184, 0.05)'
-        }}
-      >
-        <Title level={2} style={{ 
-          color: colors.text.primary,
-          fontSize: '2.2rem',
-          marginBottom: '16px',
-          fontWeight: 600
-        }}>
-          <RocketOutlined style={{ 
-            marginLeft: '12px', 
-            color: colors.icon.right,
-            fontSize: '2rem'
-          }} />
-          בחר מבחן והתחל לתרגל
-        </Title>
-        <Text style={{ 
-          fontSize: '1.2rem',
-          color: colors.text.secondary,
-          maxWidth: '700px',
-          display: 'block',
+      {/* Main Content */}
+      <div style={{ 
+        flex: 1, 
+        padding: '48px 24px', 
+        background: 'linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%)',
+        position: 'relative',
+        minHeight: 'calc(100vh - 400px)'
+      }}>
+        <div style={{ 
+          maxWidth: '1200px', 
           margin: '0 auto',
-          lineHeight: 1.6
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 350px)',
+          justifyContent: 'center',
+          gap: '32px',
+          padding: '24px',
+          position: 'relative',
+          minHeight: '600px'
         }}>
-          בחר את המבחן שברצונך לתרגל ונתאים עבורך תכנית אימון אישית
-        </Text>
-      </motion.div>
-
-      {/* Exam Sections */}
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {/* Bagrut Section */}
-        {bagrutExams.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-              marginBottom: '24px',
-              background: colors.gradients.blue,
-              padding: '20px 24px',
-              borderRadius: '12px',
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 2px 4px rgba(148, 163, 184, 0.05)'
-            }}>
-              <div style={{
-                background: '#ffffff',
-                padding: '12px',
-                borderRadius: '50%',
-                boxShadow: '0 2px 4px rgba(148, 163, 184, 0.1)'
-              }}>
-                <BookOutlined style={{ 
-                  fontSize: '24px',
-                  color: colors.icon.right
-                }} />
-              </div>
-              <Title level={2} style={{ 
-                margin: 0,
-                color: colors.text.primary,
-                fontSize: '1.5rem',
-                fontWeight: 600
-              }}>
-                בחינות בגרות
-              </Title>
-            </div>
-            <div style={{ 
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: '24px'
-            }}>
-              {bagrutExams.map((exam, index) => (
+          <AnimatePresence>
+            {examTypes.map((type, index) => (
+              <motion.div 
+                key={type.id}
+                layout
+                style={{
+                  perspective: '2000px',
+                  width: '350px',
+                  position: 'relative',
+                  gridColumn: flippedCard === type.id ? '1 / -1' : 'auto',
+                  gridRow: flippedCard === type.id ? '1' : 'auto',
+                  justifySelf: flippedCard === type.id ? 'center' : 'auto',
+                  alignSelf: flippedCard === type.id ? 'start' : 'auto'
+                }}
+                animate={{ 
+                  opacity: flippedCard ? (flippedCard === type.id ? 1 : 0) : 1,
+                  y: flippedCard ? (
+                    flippedCard === type.id ? 0 : 100
+                  ) : 0,
+                  scale: 1,
+                  zIndex: flippedCard === type.id ? 10 : 1
+                }}
+                transition={{ 
+                  layout: { duration: 0.6, ease: [0.4, 0, 0.2, 1] },
+                  opacity: { duration: 0.3 },
+                  y: { 
+                    duration: 0.5,
+                    ease: [0.4, 0, 0.2, 1],
+                    delay: flippedCard === type.id ? 0 : index * 0.1
+                  }
+                }}
+              >
                 <motion.div
-                  key={exam.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 * index }}
+                  initial={false}
+                  animate={{ 
+                    rotateY: flippedCard === type.id ? 180 : 0,
+                    height: flippedCard === type.id ? 'auto' : 500
+                  }}
+                  transition={{ 
+                    rotateY: {
+                      duration: 0.8,
+                      type: "spring",
+                      stiffness: 60,
+                      damping: 15,
+                      delay: flippedCard === type.id ? 0.3 : 0
+                    },
+                    height: {
+                      duration: 0.5,
+                      ease: [0.4, 0, 0.2, 1],
+                      delay: 1.1
+                    }
+                  }}
+                  style={{
+                    width: '350px',
+                    minHeight: '500px',
+                    position: 'relative',
+                    transformStyle: 'preserve-3d',
+                    cursor: 'pointer'
+                  }}
                 >
-                  <ExamCard exam={exam} />
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
+                  {/* Front of Card */}
+                  <motion.div
+                    style={{
+                      position: 'absolute',
+                      width: '350px',
+                      height: flippedCard === type.id ? '100%' : '500px',
+                      backfaceVisibility: 'hidden',
+                      backgroundColor: '#ffffff',
+                      borderRadius: '24px',
+                      border: '1px solid #e5e7eb',
+                      padding: '48px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '32px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                      WebkitBackfaceVisibility: 'hidden',
+                      transformOrigin: 'center',
+                      transformStyle: 'preserve-3d'
+                    }}
+                    onClick={() => setFlippedCard(type.id)}
+                    whileHover={!flippedCard ? { y: -8 } : {}}
+                  >
+                    <div style={{
+                      width: '120px',
+                      height: '120px',
+                      borderRadius: '28px',
+                      background: `${type.color}15`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '72px',
+                      color: type.color
+                    }}>
+                      {type.icon}
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <Title level={2} style={{ 
+                        margin: 0,
+                        marginBottom: '12px',
+                        fontSize: '32px',
+                        color: type.color,
+                        fontWeight: 600
+                      }}>
+                        {type.title}
+                      </Title>
+                      <Text style={{ 
+                        fontSize: '16px',
+                        color: '#64748b',
+                        display: 'block',
+                        lineHeight: '1.5',
+                        maxWidth: '280px',
+                        margin: '0 auto'
+                      }}>
+                        {type.description}
+                      </Text>
+                    </div>
+                  </motion.div>
 
-        {/* Mahat Section */}
-        {mahatExams.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-              marginBottom: '24px',
-              background: colors.gradients.orange,
-              padding: '20px 24px',
-              borderRadius: '12px',
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 2px 4px rgba(148, 163, 184, 0.05)'
-            }}>
-              <div style={{
-                background: '#ffffff',
-                padding: '12px',
-                borderRadius: '50%',
-                boxShadow: '0 2px 4px rgba(148, 163, 184, 0.1)'
-              }}>
-                <BookOutlined style={{ 
-                  fontSize: '24px',
-                  color: colors.icon.left
-                }} />
-              </div>
-              <Title level={2} style={{ 
-                margin: 0,
-                color: colors.text.primary,
-                fontSize: '1.5rem',
-                fontWeight: 600
-              }}>
-                בחינות מה״ט
-              </Title>
-            </div>
-            <div style={{ 
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: '24px'
-            }}>
-              {mahatExams.map((exam, index) => (
-                <motion.div
-                  key={exam.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 * index }}
-                >
-                  <ExamCard exam={exam} />
+                  {/* Back of Card */}
+                  <motion.div
+                    style={{
+                      position: 'absolute',
+                      width: '350px',
+                      height: flippedCard === type.id ? '100%' : '500px',
+                      backfaceVisibility: 'hidden',
+                      backgroundColor: '#ffffff',
+                      borderRadius: '24px',
+                      border: '1px solid #e5e7eb',
+                      padding: '24px 20px',
+                      transform: 'rotateY(180deg)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                      WebkitBackfaceVisibility: 'hidden',
+                      transformOrigin: 'center',
+                      transformStyle: 'preserve-3d',
+                      overflow: 'auto'
+                    }}
+                  >
+                    <motion.div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFlippedCard(null);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        width: 'fit-content',
+                        marginBottom: '8px'
+                      }}
+                      whileHover={{ x: -5 }}
+                    >
+                      <ArrowLeft weight="bold" size={20} />
+                      <Text style={{ fontSize: '14px' }}>חזרה</Text>
+                    </motion.div>
+
+                    {examsByType[type.id]?.map((exam, index) => (
+                      <motion.div
+                        key={exam.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            setError(null);
+                            // Create new prep session
+                            const prepId = await startPrep(exam);
+                            // Navigate to practice with the prep ID
+                            navigate(`/practice/${prepId}`, { replace: true });
+                          } catch (error) {
+                            console.error('Failed to start practice:', error);
+                            setError(error instanceof Error ? error.message : 'Failed to start practice');
+                          }
+                        }}
+                        style={{
+                          padding: '10px 16px',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          background: '#ffffff',
+                          border: '1px solid #e5e7eb',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px'
+                        }}
+                        whileHover={{
+                          backgroundColor: '#f8fafc',
+                          scale: 1.02,
+                          borderColor: type.color,
+                          transition: { duration: 0.2 }
+                        }}
+                      >
+                        <Text strong style={{ 
+                          fontSize: '16px', 
+                          color: type.color,
+                          flex: 1,
+                          minWidth: 0,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {exam.names.short}
+                        </Text>
+                        <ArrowLeft weight="bold" style={{ 
+                          color: type.color,
+                          flexShrink: 0,
+                          fontSize: '16px'
+                        }} />
+                      </motion.div>
+                    ))}
+                    {loading && (
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        padding: '20px'
+                      }}>
+                        <Spin />
+                      </div>
+                    )}
+                  </motion.div>
                 </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </Space>
-    </motion.div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      <Footer />
+
+      {error && (
+        <div style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: '16px',
+          background: '#fff',
+          borderTop: '1px solid #e5e7eb',
+          zIndex: 1000
+        }}>
+          <Alert message={error} type="error" showIcon />
+        </div>
+      )}
+
+      <style>{`
+        * {
+          box-sizing: border-box;
+        }
+      `}</style>
+    </div>
   );
 };
 

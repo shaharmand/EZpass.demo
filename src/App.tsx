@@ -1,7 +1,6 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
-import LandingPage from './pages/LandingPage';
 import ExamDashboard from './pages/ExamDashboard';
 import SafetyCoursesPage from './pages/SafetyCoursesPage';
 import PracticePage from './pages/PracticePage';
@@ -19,23 +18,21 @@ const App: React.FC = () => {
       <StudentPrepProvider>
         <ExamProvider>
           <Routes>
+            {/* All routes under MainLayout */}
             <Route element={<MainLayout />}>
-              {/* Main navigation */}
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/dashboard" element={<ExamDashboard />} />
               <Route path="/safety-courses" element={<SafetyCoursesPage />} />
-
-              {/* Question Routes */}
               <Route path="/questions/:questionId" element={<QuestionPage />} />
-              
-              {/* Test Routes */}
               <Route path="/test" element={<TestPage />} />
               <Route path="/test/generation" element={<TestGeneration />} />
               <Route path="/test/practice-flow" element={<PracticeFlowTestPage />} />
-
-              {/* Practice Routes */}
               <Route path="/practice/:prepId" element={<PracticePage />} />
             </Route>
+
+            {/* ExamDashboard as homepage */}
+            <Route path="/" element={<ExamDashboard />} />
+            
+            {/* Catch-all route to redirect to homepage */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ExamProvider>
       </StudentPrepProvider>
@@ -43,4 +40,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App; 
+export default App;

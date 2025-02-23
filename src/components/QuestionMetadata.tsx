@@ -9,6 +9,7 @@ import {
   SafetyCertificateOutlined,
   ExperimentOutlined
 } from '@ant-design/icons';
+import { getQuestionTypeLabel } from 'src/utils/questionUtils';
 
 const { Text } = Typography;
 
@@ -23,15 +24,6 @@ interface QuestionMetadataProps {
   layout?: 'vertical' | 'horizontal';
 }
 
-export const getQuestionTypeLabel = (type: string) => {
-  switch(type) {
-    case 'multiple_choice': return 'סגורה';
-    case 'open': return 'פתוחה';
-    case 'code': return 'תכנות';
-    case 'step_by_step': return 'חישובית';
-    default: return type;
-  }
-};
 
 const difficultyColors = {
   1: '#10b981', // Green

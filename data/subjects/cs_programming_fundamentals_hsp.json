@@ -1,52 +1,50 @@
 {
-  "id": "cs_programming_fundamentals",
-  "name": "יסודות מדעי המחשב",
-  "subject": "computer_science",
-  "description": "יסודות התכנות ומדעי המחשב",
+  "subjectID": "computer_science_hsp",
+  "domainID": "programming_fundamentals_hsp",
   "topics": [
     {
-      "id": "basic_programming",
+      "id": "basic_programming_hsp",
       "name": "תכנות בסיסי",
       "description": "יסודות התכנות",
       "subTopics": [
         {
-          "id": "basic_io",
+          "id": "basic_io_hsp",
           "name": "קלט ופלט",
           "description": "קלט ופלט בסיסי",
           "questionTemplate": "כתיבת תוכנית עם קלט ופלט"
         },
         {
-          "id": "variables_and_types",
+          "id": "variables_and_types_hsp",
           "name": "משתנים וטיפוסים",
           "description": "הגדרת משתנים וטיפוסי נתונים",
           "questionTemplate": "שימוש במשתנים וטיפוסי נתונים"
         },
         {
-          "id": "control_structures",
+          "id": "control_structures_hsp",
           "name": "מבני בקרה",
           "description": "תנאים (if-else), לולאות (for, while, do-while), מבני switch, תנאים מקוצרים",
           "questionTemplate": "כתיבת תנאים, לולאות, תרגילי מעקב"
         },
         {
-          "id": "functions",
+          "id": "functions_hsp",
           "name": "פונקציות",
           "description": "הגדרת פונקציות, פרמטרים, החזרת ערכים, scope, העמסת פונקציות (overloading)",
           "questionTemplate": "כתיבת פונקציות, העברת פרמטרים, מעקב אחר קוד, תרגילי דיבוג"
         },
         {
-          "id": "arrays_1d",
+          "id": "arrays_1d_hsp",
           "name": "מערכים חד-ממדיים",
           "description": "הגדרת מערכים חד-ממדיים, לולאות על מערכים, אלגוריתמים בסיסיים",
           "questionTemplate": "עבודה עם מערכים חד-ממדיים, חיפוש, מיון בסיסי"
         },
         {
-          "id": "arrays_2d",
+          "id": "arrays_2d_hsp",
           "name": "מערכים דו-ממדיים",
           "description": "הגדרת מערכים דו-ממדיים, לולאות מקוננות, אלגוריתמים על מטריצות",
           "questionTemplate": "עבודה עם מערכים דו-ממדיים, אלכסונים, שורות ועמודות"
         },
         {
-          "id": "strings",
+          "id": "strings_hsp",
           "name": "מחרוזות",
           "description": "עבודה עם מחרוזות, פעולות בסיסיות, מניפולציות",
           "questionTemplate": "עיבוד מחרוזות, חיפוש תווים, חיתוך והדבקה"
@@ -54,30 +52,30 @@
       ]
     },
     {
-      "id": "basic_algorithms",
+      "id": "basic_algorithms_hsp",
       "name": "אלגוריתמים בסיסיים",
       "description": "אלגוריתמים ומבני נתונים בסיסיים",
       "subTopics": [
         {
-          "id": "searching",
+          "id": "searching_hsp",
           "name": "חיפוש",
           "description": "חיפוש לינארי, חיפוש בינארי",
           "questionTemplate": "יישום אלגוריתמי חיפוש, השוואת יעילות"
         },
         {
-          "id": "sorting",
+          "id": "sorting_hsp",
           "name": "מיון",
           "description": "מיון בועות, מיון הכנסה, מיון בחירה",
           "questionTemplate": "יישום אלגוריתמי מיון, מעקב אחר ביצוע"
         },
         {
-          "id": "basic_complexity",
+          "id": "basic_complexity_hsp",
           "name": "סיבוכיות בסיסית",
           "description": "הבנת סיבוכיות זמן בסיסית, השוואת אלגוריתמים",
           "questionTemplate": "ניתוח סיבוכיות, השוואת אלגוריתמים פשוטים"
         },
         {
-          "id": "recursion",
+          "id": "recursion_hsp",
           "name": "רקורסיה",
           "description": "פתרון בעיות באופן רקורסיבי, עץ רקורסיה",
           "questionTemplate": "כתיבת פונקציות רקורסיביות, ניתוח רקורסיה"
@@ -85,30 +83,30 @@
       ]
     },
     {
-      "id": "oop_basics",
+      "id": "oop_basics_hsp",
       "name": "תכנות מונחה עצמים",
       "description": "עקרונות בסיסיים בתכנות מונחה עצמים",
       "subTopics": [
         {
-          "id": "classes_objects",
+          "id": "classes_objects_hsp",
           "name": "מחלקות ואובייקטים",
           "description": "הגדרת מחלקות, יצירת אובייקטים, תכונות ומתודות",
           "questionTemplate": "כתיבת מחלקות, שימוש באובייקטים"
         },
         {
-          "id": "inheritance",
+          "id": "inheritance_hsp",
           "name": "ירושה",
           "description": "ירושה בסיסית, העמסת מתודות (overloading), דריסת מתודות (override)",
           "questionTemplate": "יצירת היררכיית מחלקות, שימוש בירושה"
         },
         {
-          "id": "encapsulation",
+          "id": "encapsulation_hsp",
           "name": "כימוס",
           "description": "הסתרת מידע, מודיפיקטורי גישה",
           "questionTemplate": "יישום כימוס, שימוש בגטרים וסטרים"
         },
         {
-          "id": "polymorphism",
+          "id": "polymorphism_hsp",
           "name": "פולימורפיזם",
           "description": "פולימורפיזם בזמן ריצה, ממשקים, מחלקות מופשטות",
           "questionTemplate": "יישום פולימורפיזם, שימוש בממשקים"
@@ -116,24 +114,24 @@
       ]
     },
     {
-      "id": "advanced_concepts",
+      "id": "advanced_concepts_hsp",
       "name": "נושאים מתקדמים",
       "description": "נושאים מתקדמים בתכנות",
       "subTopics": [
         {
-          "id": "file_handling",
+          "id": "file_handling_hsp",
           "name": "טיפול בקבצים",
           "description": "קריאה וכתיבה לקבצים, עבודה עם זרמים",
           "questionTemplate": "קריאה וכתיבה לקבצים, עיבוד מידע מקבצים"
         },
         {
-          "id": "error_handling",
+          "id": "error_handling_hsp",
           "name": "טיפול בשגיאות",
           "description": "תפיסת חריגים, זריקת חריגים, ניהול שגיאות",
           "questionTemplate": "כתיבת קוד לטיפול בשגיאות, שימוש בחריגים"
         },
         {
-          "id": "concurrent_programming",
+          "id": "concurrent_programming_hsp",
           "name": "תכנות מקבילי",
           "description": "תהליכים ותהליכונים, סנכרון, תקשורת בין תהליכים",
           "questionTemplate": "יצירת תהליכונים, סנכרון, פתרון בעיות מקביליות"

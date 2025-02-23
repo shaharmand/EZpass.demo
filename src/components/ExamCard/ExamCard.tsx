@@ -5,7 +5,7 @@ import {
   InfoCircleOutlined,
   FolderOutlined,
 } from '@ant-design/icons';
-import type { FormalExam } from '../../types/shared/exam';
+import type { ExamTemplate } from '../../types/examTemplate';
 import { ExamTopicsDialog } from './ExamTopicsDialog';
 import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import './ExamCard.css';
@@ -13,7 +13,7 @@ import './ExamCard.css';
 const { Title, Text } = Typography;
 
 interface ExamCardProps {
-  exam: FormalExam;
+  exam: ExamTemplate;
 }
 
 const colors = {
@@ -46,7 +46,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
   const subtopicCount = exam.topics?.reduce((sum, topic) => sum + (topic.subTopics?.length || 0), 0) || 0;
 
   // Extract exam code from description (format: "CODE - Full Name")
-  const examCode = exam.description.split(' - ')[0];
+  const examCode = exam.code;
 
   const handleStartPractice = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click event
@@ -87,7 +87,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
         style={{ 
           borderRadius: '12px',
           overflow: 'hidden',
-          background: 'linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%)',
+          background: '#F7F9FC',
           border: '1px solid #e5e7eb'
         }}
         onClick={() => setIsTopicsDialogOpen(true)}
@@ -124,7 +124,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
               type="text"
               icon={<InfoCircleOutlined style={{ 
                 fontSize: '20px', 
-                color: colors.icon.left
+                color: '#1e40af'
               }} />}
               onClick={(e) => {
                 e.stopPropagation();
@@ -151,6 +151,53 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
             </Text>
           </div>
 
+          {/* Question Types */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px',
+            flexWrap: 'wrap'
+          }}>
+            {exam.allowedQuestionTypes.map((type) => (
+              <div
+                key={type}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 12px',
+                  background: type === 'open' ? 'rgba(16, 185, 129, 0.1)' :
+                            type === 'multiple_choice' ? 'rgba(99, 102, 241, 0.1)' :
+                            type === 'step_by_step' ? 'rgba(245, 158, 11, 0.1)' :
+                            'rgba(236, 72, 153, 0.1)',
+                  borderRadius: '12px',
+                  fontSize: '14px'
+                }}
+              >
+                <div style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: type === 'open' ? '#10b981' :
+                             type === 'multiple_choice' ? '#6366f1' :
+                             type === 'step_by_step' ? '#f59e0b' :
+                             '#ec4899'
+                }} />
+                <Text style={{ 
+                  color: type === 'open' ? '#065f46' :
+                          type === 'multiple_choice' ? '#3730a3' :
+                          type === 'step_by_step' ? '#92400e' :
+                          '#831843',
+                  fontSize: '14px'
+                }}>
+                  {type === 'open' ? 'פתוחות' :
+                   type === 'multiple_choice' ? 'סגורות' :
+                   type === 'step_by_step' ? 'חישוביות' :
+                   'קוד'}
+                </Text>
+              </div>
+            ))}
+          </div>
+
           {/* Error Alert */}
           {error && (
             <Alert
@@ -169,29 +216,24 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
             block
             onClick={handleStartPractice}
             loading={loading}
+            className="practice-button"
             style={{ 
               marginTop: '8px',
-              background: colors.button.primary.background,
-              borderColor: colors.button.primary.background,
-              height: 'auto',
-              padding: '12px',
+              height: '48px',
+              borderRadius: '24px',
+              fontSize: '16px',
+              fontWeight: 500,
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              border: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.2)',
-              transition: 'all 0.3s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = colors.button.primary.hover;
-              e.currentTarget.style.borderColor = colors.button.primary.hover;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = colors.button.primary.background;
-              e.currentTarget.style.borderColor = colors.button.primary.background;
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)',
+              transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
           >
-            {loading ? 'מתחיל תרגול...' : 'התחל תרגול מהיר'}
+            {loading ? 'מתחיל תרגול...' : 'תרגל עכשיו'}
           </Button>
         </div>
       </Card>

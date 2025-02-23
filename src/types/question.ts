@@ -12,6 +12,7 @@ export type QuestionType = 'multiple_choice' | 'open' | 'code' | 'step_by_step';
  * Difficulty level from 1 (easiest) to 5 (hardest)
  */
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
+export type ProgrammingLanguage = 'java' | 'c#' | 'python';
 
 /** 
  * Feedback for a submitted answer to a question.
@@ -53,6 +54,34 @@ export interface QuestionFeedback {
     };
   };
   };
+
+/** 
+ * Represents the evaluation criteria for a question.
+ */
+export interface Evaluation {
+  /** 
+   * Rubric assessment criteria for evaluating answers.
+   * Defines how points are allocated across different aspects.
+   */
+  rubricAssessment: {
+    criteria: Array<{
+      /** The name of the criterion (e.g., Accuracy, Completeness, Clarity) */
+      name: string;
+      /** Description of what this criterion evaluates */
+      description: string;
+      /** Weight percentage of this criterion (should sum to 100 across all criteria) */
+      weight: number;
+    }>;
+  };
+
+  /**
+   * Defines required key elements in the answer.
+   * Ensures AI properly evaluates completeness.
+   */
+  answerRequirements: {
+    requiredElements: string[];
+  };
+}
 
 /** 
  * Represents a complete question with content, metadata, and solution.
@@ -162,28 +191,11 @@ export interface Question {
    */
   correctOption?: number;
 
-  /**
-   * Rubric assessment criteria for evaluating answers.
-   * Defines how points are allocated across different aspects.
+  /** 
+   * Evaluation structure that includes both rubric and answer requirements.
+   * This field is now optional.
    */
-  rubricAssessment: {
-    criteria: Array<{
-      /** The name of the criterion (e.g., Accuracy, Completeness, Clarity) */
-      name: string;
-      /** Description of what this criterion evaluates */
-      description: string;
-      /** Weight percentage of this criterion (should sum to 100 across all criteria) */
-      weight: number;
-    }>;
-  };
-
-  /**
-   * Defines required key elements in the answer.
-   * Ensures AI properly evaluates completeness.
-   */
-  answerRequirements: {
-    requiredElements: string[];
-  };
+  evaluation?: Evaluation;
 
   /** 
    * Solution and explanation for the question.
@@ -301,7 +313,8 @@ export function satisfiesFilter(params: QuestionFetchParams, filter: FilterState
     return false;
   }
 
-  if (filter.questionTypes && !filter.questionTypes.includes(params.type)) {
+  // Empty questionTypes array means no filter - accept all types
+  if (filter.questionTypes?.length && !filter.questionTypes.includes(params.type)) {
     console.log('Failed question type filter:', { filterTypes: filter.questionTypes, paramType: params.type });
     return false;
   }

@@ -272,7 +272,7 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {question.rubricAssessment.criteria.map((criterion, index) => (
+            {question.evaluation?.rubricAssessment?.criteria.map((criterion, index: number) => (
               <div key={index} style={{ 
                 padding: '16px', 
                 background: '#f8fafc',
@@ -310,7 +310,7 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {question.answerRequirements.requiredElements.map((element, index) => (
+            {question.evaluation?.answerRequirements?.requiredElements.map((element: string, index: number) => (
               <div key={index} style={{
                 padding: '12px 16px',
                 background: '#f0f9ff',

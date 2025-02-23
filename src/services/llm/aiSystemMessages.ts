@@ -1,4 +1,4 @@
-import { ExamType } from '../../types/exam';
+import { ExamType } from '../../types/examTemplate';
 
 /**
  * Markdown formatting requirements that apply to all AI outputs
@@ -141,11 +141,6 @@ Keep mathematical symbols and LaTeX in English.
 
 Maintain right-to-left (RTL) formatting for all Hebrew text.
 
-Communication Style:
-- Address the student directly in a personal, friendly tone
-- Use encouraging and supportive language
-- Maintain a positive, motivating approach even when pointing out mistakes
-- Make feedback feel like a conversation with a helpful mentor
 `;
 
 /**
@@ -193,19 +188,11 @@ When evaluating student answers, focus on:
  * Exam-specific context descriptions
  */
 export const EXAM_CONTEXT: Record<ExamType, string> = {
-  [ExamType.MAHAT]: 'This is a MAHAT exam, a technical college certification exam that requires demonstrating both theoretical knowledge and practical understanding of industry standards.',
-  [ExamType.BAGRUT]: 'This is a Bagrut exam, the Israeli high school matriculation exam that tests comprehensive understanding of the curriculum.',
-  [ExamType.UNI]: 'This is a university-level exam that requires demonstrating in-depth academic understanding.',
-  [ExamType.GOVERNMENT]: 'This is a government certification exam that focuses on regulatory requirements and professional standards.',
-  [ExamType.UNI_COURSE]: 'This is a university course exam that requires demonstrating in-depth academic understanding.',
-  [ExamType.ENTRY]: 'This is an entry exam that evaluates foundational knowledge and readiness for advanced studies.',
-  [ExamType.MINISTRY_LABOR]: 'This is a professional certification exam focusing on labor regulations and industry standards.',
-  [ExamType.MINISTRY_TRANSPORT]: 'This is a professional certification exam focusing on transportation regulations and safety standards.',
-  [ExamType.MINISTRY_HEALTH]: 'This is a professional certification exam focusing on healthcare regulations and professional standards.',
-  [ExamType.PRIVATE_CERTIFICATION]: 'This is a professional certification exam that evaluates practical knowledge and industry standards.',
-  [ExamType.UNI_PSYCHOMETRIC]: 'This is a university entrance exam that evaluates academic aptitude and readiness.',
-  [ExamType.UNI_AMIR]: 'This is an English proficiency exam for academic studies.',
-  [ExamType.UNI_YAEL]: 'This is a Hebrew proficiency exam for academic studies.'
+  [ExamType.MAHAT_EXAM]: 'This is a MAHAT exam, a technical college certification exam that requires demonstrating both theoretical knowledge and practical understanding of industry standards.',
+  [ExamType.BAGRUT_EXAM]: 'This is a Bagrut exam, the Israeli high school matriculation exam that tests comprehensive understanding of the curriculum.',
+  [ExamType.UNI_COURSE_EXAM]: 'This is a university-level exam that requires demonstrating in-depth academic understanding.',
+  [ExamType.ENTRY_EXAM]: 'This is an entry exam that evaluates foundational knowledge and readiness for advanced studies.',
+  [ExamType.GOVERNMENT_EXAM]: 'This is a government certification exam that focuses on regulatory requirements and professional standards.'
 };
 
 /**

@@ -4,8 +4,9 @@ import { logger } from '../../utils/logger';
 import { buildPrompt, OPENAI_MODELS } from '../../utils/llmUtils';
 import { buildFeedbackSystemMessage } from './aiSystemMessages';
 import { HEBREW_LANGUAGE_REQUIREMENTS } from '../../utils/llmUtils';
-import { ExamType } from '../../types/exam';
-import { feedbackSchema } from '../../schemas/feedback';
+import { ExamType } from '../../types/examTemplate';
+import { feedbackSchema } from '../../schemas/feedbackSchema';
+import { getExamInstitution } from '../../types/examTemplate';
 
 interface FeedbackParams {
   question: Question;
@@ -22,23 +23,6 @@ export class FeedbackService {
     this.openAI = openAI || new OpenAIService(process.env.REACT_APP_OPENAI_API_KEY || '');
   }
 
-  /**
-   * Maps exam type to education level
-   */
-  private getEducationType(examType: ExamType): 'high_school' | 'technical_college' | 'university' {
-    switch (examType) {
-      case ExamType.MAHAT:
-        return 'technical_college';
-      case ExamType.UNI:
-      case ExamType.UNI_COURSE:
-        return 'university';
-      case ExamType.BAGRUT:
-      case ExamType.ENTRY:
-      case ExamType.GOVERNMENT:
-      default:
-        return 'high_school';
-    }
-  }
 
   /**
    * Generates feedback for a student's attempt at a question
@@ -58,7 +42,7 @@ export class FeedbackService {
       'Language': question.metadata.programmingLanguage || 'N/A',
       'Exam': formalExamName,
       'Subject': subject,
-      'Education Type': this.getEducationType(examType)
+      'Education Type': getExamInstitution(examType)
     });
 
     console.groupEnd();
@@ -82,7 +66,7 @@ export class FeedbackService {
         topic: question.metadata.topicId,
         difficulty: question.metadata.difficulty,
         subject,
-        educationType: this.getEducationType(examType)
+        educationType: getExamInstitution(examType)
       });
 
       // Send request to OpenAI
@@ -201,32 +185,6 @@ export class FeedbackService {
     return true;
   }
 
-  /**
-   * Maps legacy exam types to core types
-   */
-  private mapExamType(examType?: string): ExamType {
-    if (!examType) return ExamType.BAGRUT; // Default to BAGRUT if no type specified
-    
-    switch (examType) {
-      case ExamType.UNI_COURSE:
-        return ExamType.UNI;
-      case ExamType.UNI_PSYCHOMETRIC:
-      case ExamType.UNI_AMIR:
-      case ExamType.UNI_YAEL:
-        return ExamType.ENTRY;
-      case ExamType.MINISTRY_LABOR:
-      case ExamType.MINISTRY_TRANSPORT:
-      case ExamType.MINISTRY_HEALTH:
-      case ExamType.PRIVATE_CERTIFICATION:
-        return ExamType.GOVERNMENT;
-      default:
-        // If it's already a core type, return as is
-        if (Object.values(ExamType).includes(examType as ExamType)) {
-          return examType as ExamType;
-        }
-        return ExamType.BAGRUT; // Default fallback
-    }
-  }
 
   /**
    * Selects appropriate model configuration based on question characteristics
@@ -265,8 +223,8 @@ Please evaluate this ${subject} question and provide detailed feedback.`,
         'Student Answer': studentAnswer,
         'Correct Solution': question.solution.text,
         'Question Type': question.type,
-        'Rubric Assessment': JSON.stringify(question.rubricAssessment),
-        'Required Elements': JSON.stringify(question.answerRequirements.requiredElements),
+        'Rubric Assessment': JSON.stringify(question.evaluation?.rubricAssessment || null),
+        'Required Elements': JSON.stringify(question.evaluation?.answerRequirements?.requiredElements || []),
         'Required Response Format': `{
           "isCorrect": boolean,           // Whether the answer is fundamentally correct
           "score": number,                // Score between 0-100, calculated based on rubric weights

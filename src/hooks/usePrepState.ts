@@ -8,8 +8,9 @@ import { QuestionRotationManager } from '../services/QuestionRotationManager';
 import { MultipleChoiceFeedbackService } from '../services/feedback/multipleChoiceFeedback';
 import { FeedbackService } from '../services/llm/feedbackGenerationService';
 import { logger } from '../utils/logger';
-import { ExamType } from '../types/exam';
+import { ExamType } from '../types/examTemplate';   
 import { examService } from '../services/examService';
+import { universalTopics } from '../services/universalTopics';
 
 // Initialize services
 const multipleChoiceFeedbackService = new MultipleChoiceFeedbackService();
@@ -127,7 +128,7 @@ export const usePrepState = () => {
                     // Debug topic data retrieval
                     let subject: string;
                     try {
-                        subject = await examService.getSubjectNameForTopic(question.metadata.topicId);
+                        subject = universalTopics.getSubjectName(question.metadata.topicId);
                         logger.info('Retrieved subject for topic:', {
                             topicId: question.metadata.topicId,
                             subject

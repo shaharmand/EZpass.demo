@@ -1,5 +1,14 @@
 export const formatTimeUntilExam = (targetDate: Date): string => {
   const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset time to start of day
+  const examDate = new Date(targetDate);
+  examDate.setHours(0, 0, 0, 0); // Reset time to start of day
+  
+  // Check if exam is today
+  if (examDate.getTime() === today.getTime()) {
+    return 'הבחינה שלך היום!';
+  }
+  
   const diffTime = Math.abs(targetDate.getTime() - today.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   

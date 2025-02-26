@@ -38,9 +38,7 @@ export class MultipleChoiceFeedbackService {
     const feedback = {
       isCorrect,
       score,
-      assessment: this.generateAssessment(isCorrect, selectedOption, question.correctOption),
-      coreFeedback: this.generateCoreFeedback(isCorrect, selectedOption, question),
-      detailedFeedback: this.generateDetailedFeedback(question, selectedOption)
+      assessment: isCorrect ? 'תשובה נכונה!' : 'תשובה לא נכונה'
     };
 
     // Validate using Zod schema

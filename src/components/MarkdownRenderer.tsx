@@ -15,6 +15,15 @@ import { CRITICAL_SECTIONS } from '../utils/logger';
 import 'katex/dist/katex.min.css';
 import './MarkdownRenderer.css';
 
+// Debug flag - set to true when debugging KaTeX/Hebrew issues
+const DEBUG_KATEX = false;
+
+// Custom error handler for KaTeX - suppress all errors silently
+const errorHandler = (_msg: string, _err: any) => {
+  // Suppress all KaTeX errors silently
+  return;
+};
+
 interface MarkdownRendererProps {
   content: string;
   className?: string;
@@ -36,24 +45,28 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   const processedContent = React.useMemo(() => {
     if (!content) return '';
 
-    logger.debug('Starting markdown content processing', {
-      contentLength: content.length,
-      hasLatex: content.includes('$'),
-      hasCodeBlocks: content.includes('```'),
-      hebrewChars: content.match(/[\u0590-\u05FF]/g)?.join(''),
-      dollarSignCount: (content.match(/\$/g) || []).length,
-      contentPreview: content.slice(0, 100)
-    }, CRITICAL_SECTIONS.LATEX);
+    if (DEBUG_KATEX) {
+      logger.debug('Starting markdown content processing', {
+        contentLength: content.length,
+        hasLatex: content.includes('$'),
+        hasCodeBlocks: content.includes('```'),
+        hebrewChars: content.match(/[\u0590-\u05FF]/g)?.join(''),
+        dollarSignCount: (content.match(/\$/g) || []).length,
+        contentPreview: content.slice(0, 100)
+      }, CRITICAL_SECTIONS.LATEX);
+    }
     
     try {
       // Process code blocks
       const processedWithCode = content.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, language, code) => {
-        logger.debug('Processing code block', {
-          language: language || 'none',
-          codeLength: code.length,
-          hasLatex: code.includes('$'),
-          hasHebrewInCode: /[\u0590-\u05FF]/.test(code)
-        }, CRITICAL_SECTIONS.CODE_BLOCKS);
+        if (DEBUG_KATEX) {
+          logger.debug('Processing code block', {
+            language: language || 'none',
+            codeLength: code.length,
+            hasLatex: code.includes('$'),
+            hasHebrewInCode: /[\u0590-\u05FF]/.test(code)
+          }, CRITICAL_SECTIONS.CODE_BLOCKS);
+        }
 
         const cleanCode = code
           .replace(/^\n+/, '')
@@ -67,54 +80,84 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
       // Log potential math expressions
       const mathExpressions = processedWithCode.match(/\$([^$]+)\$/g) || [];
-      mathExpressions.forEach((expr, index) => {
-        logger.debug(`Potential math expression ${index + 1}`, {
-          expression: expr,
-          hasHebrew: /[\u0590-\u05FF]/.test(expr),
-          length: expr.length,
-          containsDollarSign: expr.includes('$')
-        }, CRITICAL_SECTIONS.LATEX);
-      });
+      if (DEBUG_KATEX) {
+        mathExpressions.forEach((expr, index) => {
+          const hebrewChars = expr.match(/[\u0590-\u05FF]/g) || [];
+          const specialChars = expr.match(/[^\w\s$]/g) || [];
+          
+          logger.debug(`Math expression ${index + 1} analysis`, {
+            expression: expr,
+            hasHebrew: hebrewChars.length > 0,
+            hebrewCharacters: hebrewChars,
+            length: expr.length,
+            position: {
+              start: processedWithCode.indexOf(expr),
+              end: processedWithCode.indexOf(expr) + expr.length
+            },
+            surroundingContext: {
+              before: processedWithCode.slice(Math.max(0, processedWithCode.indexOf(expr) - 20), processedWithCode.indexOf(expr)),
+              after: processedWithCode.slice(processedWithCode.indexOf(expr) + expr.length, processedWithCode.indexOf(expr) + expr.length + 20)
+            },
+            specialCharacters: specialChars,
+            characterBreakdown: Array.from(expr).map(char => ({
+              char,
+              code: char.charCodeAt(0),
+              isHebrew: /[\u0590-\u05FF]/.test(char)
+            })),
+            hasDollarSign: expr.includes('$')
+          }, CRITICAL_SECTIONS.LATEX);
+        });
+      }
 
       return processedWithCode;
     } catch (error: any) {
-      logger.error('Error processing markdown content', {
-        error,
-        contentPreview: content.slice(0, 100),
-        errorName: error.name,
-        errorMessage: error.message,
-        errorStack: error.stack
-      }, CRITICAL_SECTIONS.LATEX);
+      if (DEBUG_KATEX) {
+        logger.error('Error processing markdown content', {
+          error,
+          contentPreview: content.slice(0, 100),
+          errorName: error.name,
+          errorMessage: error.message,
+          errorStack: error.stack
+        }, CRITICAL_SECTIONS.LATEX);
+      }
       return content; // Return original content on error
     }
   }, [content]);
 
   // Log when component renders
   React.useEffect(() => {
-    logger.debug('MarkdownRenderer rendered', {
-      originalLength: content?.length,
-      processedLength: processedContent?.length,
-      className,
-      hasProcessedContent: !!processedContent
-    }, CRITICAL_SECTIONS.LATEX);
+    if (DEBUG_KATEX) {
+      logger.debug('MarkdownRenderer rendered', {
+        originalLength: content?.length,
+        processedLength: processedContent?.length,
+        className,
+        hasProcessedContent: !!processedContent
+      }, CRITICAL_SECTIONS.LATEX);
+    }
   }, [content, processedContent, className]);
 
   return (
     <div className={`markdown-content ${className}`} dir="rtl">
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
-        rehypePlugins={[[rehypeKatex, { 
-          strict: true, 
-          trust: true, 
-          macros: {}, 
-          throwOnError: false,
-          errorCallback: (msg: string) => {
-            logger.error('KaTeX error', {
-              message: msg,
-              contentPreview: processedContent.slice(0, 100)
-            }, CRITICAL_SECTIONS.LATEX);
-          }
-        }]]}
+        rehypePlugins={[
+          [rehypeKatex, { 
+            strict: false,
+            trust: true,
+            throwOnError: false,
+            errorColor: '#FF0000',
+            globalGroup: true,
+            output: 'html',  // Prevent console logging
+            maxSize: 100,
+            maxExpand: 1000,
+            minRuleThickness: 0.04,
+            errorHandler: (msg: string, err: any) => {
+              // Completely suppress all KaTeX errors
+              return;
+            },
+            macros: {},
+          }]
+        ]}
         components={{
           code({node, inline, className, children, ...props}: CodeProps) {
             const match = /language-(\w+)/.exec(className || '');

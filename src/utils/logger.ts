@@ -39,7 +39,8 @@ const DEFAULT_DEV_FILTERS: LogFilters = {
   showOnly: [
     'error',
     'feedback generation',
-    'answer submission'
+    'answer submission',
+    'Question type selection'
   ],
   minLevel: 'info'
 };
@@ -69,6 +70,7 @@ export const CRITICAL_SECTIONS = {
   LATEX: 'latex-rendering',
   CODE_BLOCKS: 'code-blocks',
   RACE_CONDITIONS: 'race-conditions',
+  QUESTION_TYPE_SELECTION: 'question-type-selection'
 } as const;
 
 // Predefined configurations for critical sections
@@ -111,6 +113,11 @@ const CRITICAL_SECTION_CONFIGS: Record<string, Omit<ScopedLogOptions, 'context'>
     minLevel: 'debug',
     showOnly: ['race', 'async', 'concurrent', 'timing', 'state update'],
     ignorePatterns: ['Warning: Prop']
+  },
+  [CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION]: {
+    minLevel: 'debug',
+    showOnly: ['type', 'selection', 'filter', 'change'],
+    ignorePatterns: []
   }
 };
 

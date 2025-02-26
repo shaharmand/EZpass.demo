@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Typography, Space, Form, Input, DatePicker, InputNumber, Tree, Button, Alert, Tooltip } from 'antd';
-import { CalendarOutlined, ClockCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { CalendarOutlined, ClockCircleOutlined, QuestionCircleOutlined, AimOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import type { StudentPrep } from '../../types/prepState';
 import type { DataNode } from 'antd/es/tree';
-import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import type { Key } from 'antd/es/table/interface';
 import type { Topic, SubTopic } from '../../types/subject';
+import { PrepStateManager } from '../../services/PrepStateManager';
 
 const { Title, Text } = Typography;
 
@@ -23,11 +23,11 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
   open,
   onClose,
 }) => {
-  const { setActivePrep } = useStudentPrep();
   const [form] = Form.useForm();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedNodes, setSelectedNodes] = useState<string[]>(getSelectedKeys());
+  const [currentPrep, setCurrentPrep] = useState<StudentPrep | null>(null);
+  const [focusedTopic, setFocusedTopic] = useState<string | null>(null);
 
   // Generate default name based on exam name and date
   const getDefaultPrepName = (date: moment.Moment) => {
@@ -47,21 +47,61 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
       'December': 'דצמבר'
     };
     const monthName = hebrewMonths[date.format('MMMM')] || date.format('MMMM');
-    return `${prep.exam.names.medium} (${monthName})`;
+    return `${currentPrep?.exam.names.medium} (${monthName})`;
   };
 
   // Calculate recommended questions based on selected subtopics
   const getRecommendedQuestions = (selectedKeys: string[]) => {
+    if (!currentPrep) return 0;
     const selectedSubTopicsCount = selectedKeys.filter(key => 
-      prep.exam.topics.some(t => t.subTopics.some(st => st.id === key))
+      currentPrep.exam.topics.some(t => t.subTopics.some(st => st.id === key))
     ).length;
     return selectedSubTopicsCount * 50;
   };
 
   // Convert exam topics to Tree data structure
   const getTreeData = (): DataNode[] => {
-    return prep.exam.topics.map(topic => ({
-      title: topic.name,
+    if (!currentPrep) return [];
+
+    console.log('Building tree data:', {
+      allTopics: currentPrep.exam.topics.length,
+      allSubTopics: currentPrep.exam.topics.reduce((acc, topic) => acc + topic.subTopics.length, 0),
+      selectedSubTopics: currentPrep.selection.subTopics.length,
+      currentSelection: {
+        subTopics: currentPrep.selection.subTopics
+      }
+    });
+
+    return currentPrep.exam.topics.map(topic => ({
+      title: (
+        <div 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            gap: '8px',
+            padding: '4px 8px',
+            margin: '-4px -8px',
+            borderRadius: '4px',
+            background: focusedTopic === topic.id ? '#e0f2fe' : 'transparent',
+            border: focusedTopic === topic.id ? '1px solid #7dd3fc' : '1px solid transparent',
+          }}
+        >
+          <span>{topic.name}</span>
+          <AimOutlined 
+            style={{ 
+              color: '#0ea5e9',
+              cursor: 'pointer',
+              fontSize: '16px',
+              opacity: focusedTopic === topic.id ? 1 : 0.5,
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              // TODO: Open TopicSelectionDialog
+              console.log('Opening topic selection dialog for:', topic.id);
+            }}
+          />
+        </div>
+      ),
       key: topic.id,
       children: topic.subTopics.map(subTopic => ({
         title: subTopic.name,
@@ -69,21 +109,6 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
         isLeaf: true
       }))
     }));
-  };
-
-  // Get initially selected keys from prep.selection
-  function getSelectedKeys(): string[] {
-    return [...(prep.selection.topics || []), ...(prep.selection.subTopics || [])];
-  }
-
-  // Handle tree selection changes
-  const handleTreeSelect = (checked: { checked: Key[]; halfChecked: Key[]; } | Key[], info?: any) => {
-    const newKeys = Array.isArray(checked) ? checked : checked.checked;
-    setSelectedNodes(newKeys as string[]);
-    form.setFieldsValue({
-      selectedNodes: newKeys,
-      questionGoal: getRecommendedQuestions(newKeys as string[])
-    });
   };
 
   // Update form when date changes
@@ -104,9 +129,15 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
       
       const values = await form.validateFields();
       
-      // Update prep with new values
+      // Get current prep state
+      const freshPrep = PrepStateManager.getPrep(prep.id);
+      if (!freshPrep) {
+        throw new Error('Prep not found');
+      }
+
+      // Update prep with new selection (only subtopics)
       const updatedPrep: StudentPrep = {
-        ...prep,
+        ...freshPrep,
         goals: {
           examDate: values.examDate.valueOf(),
           totalHours: values.hourlyGoal,
@@ -115,18 +146,18 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
           questionGoal: values.questionGoal
         },
         selection: {
-          topics: values.selectedNodes.filter((key: string) => 
-            prep.exam.topics.some(t => t.id === key)
-          ),
           subTopics: values.selectedNodes.filter((key: string) => 
-            prep.exam.topics.some(t => 
+            freshPrep.exam.topics.some(t => 
               t.subTopics.some(st => st.id === key)
             )
           )
         }
       };
 
-      setActivePrep(updatedPrep);
+      // Save updated prep
+      PrepStateManager.updatePrep(updatedPrep);
+      setCurrentPrep(updatedPrep);
+
       onClose();
     } catch (error) {
       console.error('Error updating prep config:', error);
@@ -139,16 +170,33 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
   // Set initial values when dialog opens
   useEffect(() => {
     if (open) {
-      const examDate = moment(prep.goals.examDate);
+      // Get latest prep state from storage
+      const freshPrep = PrepStateManager.getPrep(prep.id);
+      console.log('Dialog Opening - Current Prep State:', {
+        prepId: prep.id,
+        freshPrep,
+        hasSelection: freshPrep?.selection != null,
+        subTopics: freshPrep?.selection?.subTopics,
+        subTopicsCount: freshPrep?.selection?.subTopics?.length
+      });
+
+      if (!freshPrep) return;
+
+      // Set current prep
+      setCurrentPrep(freshPrep);
+
+      // Set form values
+      const examDate = moment(freshPrep.goals.examDate);
+      
       form.setFieldsValue({
         prepName: getDefaultPrepName(examDate),
         examDate,
-        hourlyGoal: prep.goals.totalHours,
-        questionGoal: getRecommendedQuestions(getSelectedKeys()),
-        selectedNodes: getSelectedKeys()
+        hourlyGoal: freshPrep.goals.totalHours,
+        questionGoal: freshPrep.goals.questionGoal,
+        selectedNodes: freshPrep.selection.subTopics
       });
     }
-  }, [open]);
+  }, [open, prep.id]);
 
   return (
     <Modal
@@ -271,7 +319,9 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
             rules={[{ required: true, message: 'נא להזין יעד שאלות' }]}
             help={
               <Text type="secondary">
-                מומלץ: <Text strong style={{ color: '#3b82f6' }}>{getRecommendedQuestions(selectedNodes)}</Text> שאלות
+                מומלץ: <Text strong style={{ color: '#3b82f6' }}>
+                  {currentPrep ? getRecommendedQuestions(currentPrep.selection.subTopics) : 0}
+                </Text> שאלות
               </Text>
             }
             style={{ flex: 1 }}
@@ -307,7 +357,69 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
             checkable
             defaultExpandAll
             treeData={getTreeData()}
-            onCheck={handleTreeSelect}
+            checkedKeys={currentPrep?.selection.subTopics || []}
+            onCheck={(checked, { node }) => {
+              if (!currentPrep) return;
+              
+              const checkedKeys = Array.isArray(checked) ? checked : checked.checked;
+              
+              // Find if this is a topic or subtopic
+              const clickedTopic = currentPrep.exam.topics.find(t => t.id === node.key);
+              
+              let newSubTopics: string[];
+              if (clickedTopic) {
+                // If clicking a topic, toggle all its subtopics
+                const isTopicChecked = checkedKeys.includes(clickedTopic.id);
+                
+                if (isTopicChecked) {
+                  // Add all subtopics that aren't already selected
+                  const newSubTopicsArray = [
+                    ...currentPrep.selection.subTopics,
+                    ...clickedTopic.subTopics
+                      .map(st => st.id)
+                      .filter(id => !currentPrep.selection.subTopics.includes(id))
+                  ];
+                  newSubTopics = newSubTopicsArray;
+                } else {
+                  // Remove all subtopics of this topic
+                  newSubTopics = currentPrep.selection.subTopics.filter(id => 
+                    !clickedTopic.subTopics.some(st => st.id === id)
+                  );
+                }
+              } else {
+                // If clicking a subtopic, toggle just that one
+                const isSubtopicChecked = checkedKeys.includes(String(node.key));
+                
+                if (isSubtopicChecked) {
+                  newSubTopics = [...currentPrep.selection.subTopics, String(node.key)];
+                } else {
+                  newSubTopics = currentPrep.selection.subTopics.filter(id => id !== node.key);
+                }
+              }
+
+              // Update form
+              form.setFieldsValue({
+                selectedNodes: newSubTopics,
+                questionGoal: getRecommendedQuestions(newSubTopics)
+              });
+
+              // Update currentPrep to reflect changes immediately
+              setCurrentPrep({
+                ...currentPrep,
+                selection: {
+                  subTopics: newSubTopics
+                }
+              });
+
+              console.log('Selection updated:', {
+                checkedKeys,
+                newSubTopics,
+                subTopicsCount: newSubTopics.length,
+                recommendedQuestions: getRecommendedQuestions(newSubTopics),
+                isTopicClick: !!clickedTopic,
+                clickedKey: node.key
+              });
+            }}
             style={{
               background: '#f8fafc',
               padding: '20px',
@@ -318,15 +430,6 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
               overflowY: 'visible'
             }}
             className="topics-tree"
-            titleRender={(nodeData: DataNode) => (
-              <span style={{ 
-                fontSize: '15px',
-                padding: '4px 0',
-                display: 'block'
-              }}>
-                {nodeData.title as string}
-              </span>
-            )}
           />
         </Form.Item>
       </Form>

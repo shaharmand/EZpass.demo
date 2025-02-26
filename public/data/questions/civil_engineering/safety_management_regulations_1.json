@@ -1,0 +1,29 @@
+{
+  "id": "safety_management_regulations_1",
+  "type": "multiple_choice",
+  "content": {
+    "text": "על פי תקנות הבטיחות בעבודה, מי אחראי למנות ממונה בטיחות באתר בנייה?",
+    "format": "markdown"
+  },
+  "metadata": {
+    "topicId": "safety_management/safety_regulations",
+    "difficulty": 2,
+    "source": {
+      "examType": "safety_certification",
+      "author": "system",
+      "year": 2024
+    },
+    "tags": ["regulations", "safety_officer", "management"]
+  },
+  "options": [
+    { "text": "מנהל העבודה באתר", "format": "markdown" },
+    { "text": "מהנדס הביצוע", "format": "markdown" },
+    { "text": "הקבלן המבצע", "format": "markdown" },
+    { "text": "ועד העובדים", "format": "markdown" }
+  ],
+  "correctOption": 3,
+  "solution": {
+    "text": "על פי תקנות הבטיחות בעבודה (עבודות בנייה), הקבלן המבצע הוא האחראי למנות ממונה בטיחות מוסמך באתר. זוהי חובה חוקית שמטרתה להבטיח ניהול בטיחות מקצועי באתר הבנייה.",
+    "format": "markdown"
+  }
+} 

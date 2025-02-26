@@ -5,8 +5,8 @@ import type { ProgressMetrics } from '../components/PracticeHeaderProgress/Pract
 type ProgressStatus = 'red' | 'yellow' | 'green';
 
 export const usePracticeProgress = () => {
-  const { activePrep, currentQuestion } = useStudentPrep();
-
+  const { currentQuestion } = useStudentPrep();
+  
   const getTrafficLight = (value: number, total: number): ProgressStatus => {
     const percentage = total > 0 ? (value / total) * 100 : 0;
     if (percentage < 60) return 'red';
@@ -24,14 +24,14 @@ export const usePracticeProgress = () => {
   };
 
   const metrics = useMemo(() => {
-    if (!activePrep) return null;
+    if (!currentQuestion) return null;
 
     // Get current progress
-    const isCorrect = currentQuestion?.state.feedback?.isCorrect || false;
-    const questionsAnswered = currentQuestion?.state.questionIndex || 0;
-    const timeSpent = activePrep.state.status === 'active' ? activePrep.state.activeTime : 0;
+    const isCorrect = currentQuestion.state.feedback?.isCorrect || false;
+    const questionsAnswered = currentQuestion.state.questionIndex || 0;
+    const timeSpent = currentQuestion.state.startedAt ? Date.now() - currentQuestion.state.startedAt : 0;
     const targetQuestionsPerTopic = 3; // 3 questions per topic
-    const totalTargetQuestions = activePrep.selection.topics.length * targetQuestionsPerTopic;
+    const totalTargetQuestions = 10; // Fixed to 10 questions per practice session
 
     return [
       {
@@ -51,15 +51,15 @@ export const usePracticeProgress = () => {
       {
         title: 'זמן למידה',
         value: timeSpent,
-        total: activePrep.selection.topics.length * 300000, // 5 minutes (300,000ms) per topic
+        total: 1800000, // 30 minutes target time
         status: 'green',
         tooltipContent: `זמן למידה כולל: ${formatStudyTime(timeSpent)}`
       }
     ];
-  }, [activePrep, currentQuestion]);
+  }, [currentQuestion]);
 
   return {
     metrics,
-    isLoading: !activePrep || activePrep.state.status === 'initializing'
+    isLoading: false // Never show loading in the header - let PracticePage handle loading states
   };
 }; 

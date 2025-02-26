@@ -22,13 +22,13 @@ interface ErrorState {
 
 const PracticeFlowTest: React.FC = () => {
   const { 
-    activePrep,
     currentQuestion,
     startPrep,
     submitAnswer,
     completePrep,
     getNextQuestion,
-    setCurrentQuestion
+    setCurrentQuestion,
+    getPrep
   } = useStudentPrep();
 
   // Simplified loading state
@@ -99,7 +99,6 @@ const PracticeFlowTest: React.FC = () => {
 
       // Start practice with mock data
       await startPrep(mockExam, {
-        topics: ['safety_management'],
         subTopics: ['risk_assessment', 'safety_procedures']
       });
 
@@ -135,8 +134,18 @@ const PracticeFlowTest: React.FC = () => {
     try {
       setError({ type: null, message: null });
       
-      // Submit answer and get next question in one operation
-      await submitAnswer(answer);
+      // Get current prep before submitting answer
+      if (!currentQuestion) {
+        throw new Error('No active question');
+      }
+      
+      const prep = await getPrep(currentQuestion.question.id);
+      if (!prep) {
+        throw new Error('Practice session not found');
+      }
+      
+      // Submit answer with prep
+      await submitAnswer(answer, prep);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to submit answer';
       setError({ 
@@ -152,8 +161,8 @@ const PracticeFlowTest: React.FC = () => {
       setLoading({ practice: true });
       setError({ type: null, message: null });
       
-      if (activePrep) {
-        await completePrep(activePrep.id);
+      if (currentQuestion) {
+        await completePrep(currentQuestion.question.id);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to end practice';
@@ -201,7 +210,7 @@ const PracticeFlowTest: React.FC = () => {
               type="primary" 
               onClick={handleStartPractice}
               loading={loading.practice}
-              disabled={!!activePrep}
+              disabled={!!currentQuestion}
             >
               Start Practice
             </Button>
@@ -209,7 +218,7 @@ const PracticeFlowTest: React.FC = () => {
               danger 
               onClick={handleEndPractice}
               loading={loading.practice}
-              disabled={!activePrep}
+              disabled={!currentQuestion}
             >
               End Practice
             </Button>
@@ -237,7 +246,7 @@ const PracticeFlowTest: React.FC = () => {
           <Divider />
 
           {/* Practice State Display */}
-          {activePrep && (
+          {currentQuestion && (
             <div>
               <Title level={5}>Practice State:</Title>
               <pre style={{ 
@@ -245,7 +254,7 @@ const PracticeFlowTest: React.FC = () => {
                 padding: '12px', 
                 borderRadius: '4px' 
               }}>
-                {JSON.stringify(activePrep, null, 2)}
+                {JSON.stringify(currentQuestion, null, 2)}
               </pre>
             </div>
           )}

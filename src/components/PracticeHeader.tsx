@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Typography, Button, Space, Spin, Dropdown, DatePicker, notification, Drawer } from 'antd';
 import type { MenuProps } from 'antd';
 import { 
@@ -11,10 +11,12 @@ import { useStudentPrep } from '../contexts/StudentPrepContext';
 import type { StudentPrep } from '../types/prepState';
 import { formatTimeUntilExam } from '../utils/dateUtils';
 import { PrepConfigDialog } from './practice/PrepConfigDialog';
+import { ExamContentDialog } from './practice/ExamContentDialog';
 import type { Question } from '../types/question';
 import PracticeHeaderProgress from './PracticeHeaderProgress/PracticeHeaderProgress';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { PrepStateManager } from '../services/PrepStateManager';
 
 const { Text, Title } = Typography;
 
@@ -53,20 +55,50 @@ interface PracticeQuestion {
 }
 
 interface PracticeHeaderProps {
-  prep: StudentPrep;
+  prepId: string;
 }
 
-export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
+export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prepId }) => {
+  const { getPrep } = useStudentPrep();
+  const [prep, setPrep] = useState<StudentPrep | null>(null);
   const { metrics, isLoading } = usePracticeProgress();
-  const { startPrep, getPrep } = useStudentPrep();
+  const { startPrep } = useStudentPrep();
   const [configOpen, setConfigOpen] = useState(false);
-  const [targetDate, setTargetDate] = useState<Moment>(moment().add(4, 'weeks'));
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const defaultUserName = 'אורח';
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState(defaultUserName);
   const navigate = useNavigate();
+  const [examContentOpen, setExamContentOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
+  useEffect(() => {
+    const loadPrep = async () => {
+      // Get fresh prep state from storage
+      const freshPrep = PrepStateManager.getPrep(prepId);
+      if (freshPrep) {
+        // Only update if the state has actually changed
+        if (!prep || 
+            freshPrep.state.status !== prep.state.status ||
+            ('activeTime' in freshPrep.state && 'activeTime' in prep.state && freshPrep.state.activeTime !== prep.state.activeTime) ||
+            ('completedQuestions' in freshPrep.state && 'completedQuestions' in prep.state && freshPrep.state.completedQuestions !== prep.state.completedQuestions)
+        ) {
+          setPrep(freshPrep);
+        }
+      }
+    };
+    
+    // Load immediately
+    loadPrep();
+
+    // Set up interval to refresh prep state - use 2 seconds instead of 1
+    const refreshInterval = setInterval(loadPrep, 2000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(refreshInterval);
+  }, [prepId, prep]); // Add prep as dependency to compare states
+
+  if (!prep) return null; // Return nothing if no prep
+  
   // Calculate topic counts
   const topicCount = prep.exam.topics?.length || 0;
   const subTopicCount = prep.exam.topics?.reduce(
@@ -207,14 +239,29 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
 
   const handleDateChange = (date: Moment | null) => {
     if (date && date.isValid()) {
-      setTargetDate(date);
       setIsDatePickerOpen(false);
-      notification.success({
-        message: 'תאריך היעד עודכן',
-        description: formatTimeUntilExam(date.toDate()),
-        placement: 'topLeft',
-        duration: 2,
-      });
+
+      // Update prep state with new exam date
+      if (prep) {
+        const updatedPrep: StudentPrep = {
+          ...prep,
+          goals: {
+            ...prep.goals,
+            examDate: date.startOf('day').valueOf() // Ensure consistent time of day
+          }
+        };
+        
+        // Save to storage and update local state
+        PrepStateManager.updatePrep(updatedPrep);
+        setPrep(updatedPrep);
+
+        notification.success({
+          message: 'תאריך היעד עודכן',
+          description: formatTimeUntilExam(date.toDate()),
+          placement: 'topLeft',
+          duration: 2,
+        });
+      }
     }
   };
 
@@ -291,22 +338,75 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
           {/* Center Section */}
           <div style={{ 
             display: 'flex', 
-            alignItems: 'center', 
-            gap: '24px',
-            flex: 1,
-            justifyContent: 'center'
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1
           }}>
-            <Title level={4} style={headerStyle.examTitle}>
-              {prep.exam.names.medium}
-            </Title>
-            <Button 
-              type="text"
-              onClick={() => setIsDatePickerOpen(true)}
-              style={headerStyle.dateButton}
-            >
-              <CalendarOutlined style={{ fontSize: '18px' }} />
-              <Text>{formatTimeUntilExam(targetDate.toDate())}</Text>
-            </Button>
+            <Space size={16} align="center">
+              <Title level={4} style={headerStyle.examTitle}>
+                {prep.exam.names.medium}
+              </Title>
+              
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <Button 
+                  type="text"
+                  onClick={() => setIsDatePickerOpen(true)}
+                  style={{
+                    ...headerStyle.dateButton,
+                    backgroundColor: '#f0f9ff',
+                    borderColor: '#bae6fd',
+                    color: '#0369a1',
+                    height: '40px',
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <CalendarOutlined style={{ fontSize: '18px' }} />
+                  <Text>{formatTimeUntilExam(new Date(prep.goals.examDate))}</Text>
+                </Button>
+                <DatePicker
+                  open={isDatePickerOpen}
+                  value={moment(prep.goals.examDate)}
+                  onChange={handleDateChange}
+                  onOpenChange={(open) => setIsDatePickerOpen(open)}
+                  allowClear={false}
+                  disabledDate={(current) => current && current.isBefore(moment().startOf('day'))}
+                  style={{
+                    position: 'absolute',
+                    opacity: 0,
+                    width: 0,
+                    height: 0,
+                    pointerEvents: 'none',
+                    right: 0
+                  }}
+                  dropdownAlign={{
+                    points: ['tc', 'bc'],
+                    offset: [-100, 8],
+                    overflow: { adjustX: true, adjustY: true }
+                  }}
+                  getPopupContainer={(trigger) => trigger.parentNode as HTMLElement}
+                  direction="rtl"
+                />
+              </div>
+
+              <Button
+                type="text"
+                onClick={() => setExamContentOpen(true)}
+                style={{
+                  ...headerStyle.dateButton,
+                  backgroundColor: '#f0f9ff',
+                  borderColor: '#bae6fd',
+                  color: '#0369a1',
+                  height: '40px',
+                  display: 'inline-flex',
+                  alignItems: 'center'
+                }}
+              >
+                <Text>
+                  {prep.selection.subTopics.length}/{subTopicCount} נושאים
+                </Text>
+              </Button>
+            </Space>
           </div>
 
           {/* User Section */}
@@ -359,7 +459,7 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
                   prep.state.status === 'not_started' ||
                   !('activeTime' in prep.state)
                   ? 0
-                  : Math.round(prep.state.activeTime / (60 * 60 * 1000)),
+                  : Math.round(prep.state.activeTime / (60 * 60 * 1000)), // Convert ms to hours
                 target: prep.goals.totalHours
               },
               weeklyProgress: {
@@ -367,16 +467,16 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
                   prep.state.status === 'not_started' ||
                   !('activeTime' in prep.state)
                   ? 0
-                  : Math.round(prep.state.activeTime / (60 * 60 * 1000)),
-                target: prep.goals.weeklyHours
+                  : Math.round(prep.state.activeTime / (60 * 60 * 1000)), // Convert ms to hours
+                target: Math.ceil(prep.goals.totalHours / moment(prep.goals.examDate).diff(moment(), 'weeks'))
               },
               dailyProgress: {
                 current: prep.state.status === 'initializing' || 
                   prep.state.status === 'not_started' ||
                   !('activeTime' in prep.state)
                   ? 0
-                  : Math.round((prep.state.activeTime / (60 * 1000))),
-                target: Math.round(prep.goals.dailyHours * 60)
+                  : Math.round(prep.state.activeTime / (60 * 1000)), // Convert ms to minutes and round
+                target: Math.ceil((prep.goals.totalHours * 60) / Math.max(1, moment(prep.goals.examDate).diff(moment(), 'days'))) // Calculate daily minutes based on remaining days
               }
             }} />
           )}
@@ -406,15 +506,19 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prep }) => {
         </Space>
       </Drawer>
 
-      {/* Hidden DatePicker */}
-      <DatePicker
-        open={isDatePickerOpen}
-        onOpenChange={setIsDatePickerOpen}
-        onChange={handleDateChange}
-        value={targetDate}
-        allowClear={false}
-        style={{ display: 'none' }}
-        disabledDate={(current) => current && current < moment().startOf('day')}
+      {/* Add ExamContentDialog */}
+      <ExamContentDialog
+        exam={prep.exam}
+        open={examContentOpen}
+        onClose={() => {
+          setExamContentOpen(false);
+          // Refresh prep state after dialog closes
+          const freshPrep = PrepStateManager.getPrep(prepId);
+          if (freshPrep) {
+            setPrep(freshPrep);
+          }
+        }}
+        prepId={prepId}
       />
     </div>
   );

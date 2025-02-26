@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import ExamDashboard from './pages/ExamDashboard';
 import SafetyCoursesPage from './pages/SafetyCoursesPage';
@@ -11,6 +11,11 @@ import TestPage from './pages/TestPage';
 import { ExamProvider } from './contexts/ExamContext';
 import { StudentPrepProvider } from './contexts/StudentPrepContext';
 import MainLayout from './layouts/MainLayout';
+import AdminLayout from './layouts/AdminLayout';
+import AdminDashboard from './pages/admin/Dashboard';
+import { QuestionLibrary } from './pages/admin/questions/QuestionLibrary';
+import { QuestionEditor } from './pages/admin/questions/QuestionEditor';
+import { QuestionImport } from './pages/admin/questions/QuestionImport';
 
 const App: React.FC = () => {
   return (
@@ -18,7 +23,18 @@ const App: React.FC = () => {
       <StudentPrepProvider>
         <ExamProvider>
           <Routes>
-            {/* All routes under MainLayout */}
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminLayout><Outlet /></AdminLayout>}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="questions">
+                <Route index element={<QuestionLibrary />} />
+                <Route path="new" element={<QuestionEditor />} />
+                <Route path=":id" element={<QuestionEditor />} />
+                <Route path="import" element={<QuestionImport />} />
+              </Route>
+            </Route>
+
+            {/* Main App Routes */}
             <Route element={<MainLayout />}>
               <Route path="/safety-courses" element={<SafetyCoursesPage />} />
               <Route path="/questions/:questionId" element={<QuestionPage />} />

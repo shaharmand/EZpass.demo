@@ -18,7 +18,6 @@ const feedbackService = new FeedbackService();
 
 export const usePrepState = () => {
     const { 
-        activePrep,
         startPrep,
         pausePrep,
         completePrep,
@@ -28,23 +27,34 @@ export const usePrepState = () => {
         submitAnswer: contextSubmitAnswer
     } = useStudentPrep();
 
-    const getNextQuestion = useCallback(async () => {
-        if (!activePrep) {
-            logger.error('Attempted to get next question without active prep');
+    const [currentPrepId, setCurrentPrepId] = useState<string | null>(null);
+
+    const getCurrentPrep = useCallback(async () => {
+        if (!currentPrepId) {
             throw new Error('No active prep session');
         }
+        const prep = await getPrep(currentPrepId);
+        if (!prep) {
+            throw new Error('Practice session not found');
+        }
+        return prep;
+    }, [currentPrepId, getPrep]);
 
+    const getNextQuestion = useCallback(async () => {
         try {
+            const prep = await getCurrentPrep();
+
             logger.info('Getting next question', {
-                prepId: activePrep.id,
-                examId: activePrep.exam.id,
-                selectedTopics: activePrep.selection.topics
+                prepId: prep.id,
+                examId: prep.exam.id,
+                selectedTopics: prep.selection.subTopics
             });
 
-            // Initialize rotation manager
+            // Initialize rotation manager with required prepId
             const rotationManager = new QuestionRotationManager(
-                activePrep.exam,
-                activePrep.selection
+                prep.exam,
+                prep.selection,
+                prep.id
             );
 
             // Get next parameters using rotation manager
@@ -64,12 +74,17 @@ export const usePrepState = () => {
             logger.error('Failed to get next question', { error });
             throw error;
         }
-    }, [activePrep]);
+    }, [getCurrentPrep]);
+
+    const handleStartPrep = useCallback(async (...args: Parameters<typeof startPrep>) => {
+        const prepId = await startPrep(...args);
+        setCurrentPrepId(prepId);
+        return prepId;
+    }, [startPrep]);
 
     return {
-        prep: activePrep,
         currentQuestion: studentPrepCurrentQuestion,
-        startPrep,
+        startPrep: handleStartPrep,
         pausePrep,
         completePrep,
         setCurrentQuestion: handleSetCurrentQuestion,
@@ -81,6 +96,7 @@ export const usePrepState = () => {
                 throw new Error('No active question');
             }
 
+            const prep = await getCurrentPrep();
             const question = studentPrepCurrentQuestion.question;
             let feedback: QuestionFeedback;
 
@@ -146,8 +162,8 @@ export const usePrepState = () => {
                     feedback = await feedbackService.generateFeedback({
                         question,
                         studentAnswer: answer,
-                        formalExamName: activePrep!.exam.names.full,
-                        examType: activePrep!.exam.examType as ExamType,
+                        formalExamName: prep.exam.names.full,
+                        examType: prep.exam.examType as ExamType,
                         subject
                     });
 
@@ -159,7 +175,7 @@ export const usePrepState = () => {
                     });
                 }
 
-                await contextSubmitAnswer(answer);
+                await contextSubmitAnswer(answer, prep);
                 logger.info('Answer submitted successfully', {
                     questionId: question.id,
                     score: feedback.score
@@ -175,8 +191,13 @@ export const usePrepState = () => {
                 throw error;
             }
         },
-        getActiveTime: useCallback(() => 
-            activePrep ? PrepStateManager.getActiveTime(activePrep) : 0
-        , [activePrep])
+        getActiveTime: useCallback(async () => {
+            try {
+                const prep = await getCurrentPrep();
+                return PrepStateManager.getActiveTime(prep);
+            } catch {
+                return 0;
+            }
+        }, [getCurrentPrep])
     };
 }; 

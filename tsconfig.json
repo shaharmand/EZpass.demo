@@ -22,7 +22,8 @@
     "listFiles": true,
     "baseUrl": ".",
     "paths": {
-      "data/*": ["data/*"]
+      "data/*": ["data/*"],
+      "*": ["src/types/*"]
     }
   },
   "include": ["src", "data"]

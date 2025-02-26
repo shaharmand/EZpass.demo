@@ -1,5 +1,36 @@
 import { z } from 'zod';
-import { DifficultyLevel, ProgrammingLanguage, QuestionType } from '../types/question';
+import { DifficultyLevel, ProgrammingLanguage, QuestionType, SourceType } from '../types/question';
+import { universalTopics } from '../services/universalTopics';
+
+// Centralized math formatting rules
+export const MATH_FORMATTING_RULES = {
+  rules: [
+    'Keep Hebrew text outside math delimiters',
+    'Use English/Latin characters for variable names and math symbols',
+    'Use \\text{} only for English text within math',
+    'For units, write them in Hebrew outside the math delimiters',
+    'For display equations, use \\begin{align*} with &= for alignment',
+    'For inline equations, use single $ delimiters',
+    'For multi-line equations, use \\begin{align*} and \\end{align*}'
+  ],
+  examples: {
+    displayEquation: '$$\\begin{align*} F_{max} &= \\frac{W}{FS} \\end{align*}$$',
+    inlineEquation: 'כאשר $F_{max}$ הוא הכוח המקסימלי',
+    units: '$F = 100$ ניוטון',
+    badUnits: '$F = 100\\text{ ניוטון}$',
+    multiLine: `$$\\begin{align*}
+F_{max} &= \\frac{W}{FS} \\\\
+&= 500 \\text{ N}
+\\end{align*}$$`
+  },
+  validationChecks: {
+    hebrewInMath: /[\u0590-\u05FF]/,
+    hebrewInText: /\\text\{[^}]*[\u0590-\u05FF][^}]*\}/,
+    hebrewInSubscript: /_{[^}]*[\u0590-\u05FF][^}]*}/,
+    displayMath: /\$\$[\s\S]*?\$\$/g,
+    inlineMath: /\$[^\$]*?\$/g
+  }
+};
 
 // Core validation schemas for question-related types
 export const difficultySchema = z.number()
@@ -51,11 +82,84 @@ const formattedTextSchema = z.object({
         message: "Text must be valid markdown with properly formatted code blocks"
       }
     )
+    .refine(
+      (text) => {
+        // Find all math expressions (both inline and display)
+        const mathRegex = MATH_FORMATTING_RULES.validationChecks.displayMath;
+        const inlineMathRegex = MATH_FORMATTING_RULES.validationChecks.inlineMath;
+        const mathMatches = [...(text.match(mathRegex) || []), ...(text.match(inlineMathRegex) || [])];
+        let hasIssues = false;
+
+        // Check each math expression
+        for (const math of mathMatches) {
+          // Remove the delimiters
+          const content = math.replace(/^\$\$|\$\$$/g, '').replace(/^\$|\$$/g, '');
+          
+          // Check for Hebrew characters inside math
+          if (MATH_FORMATTING_RULES.validationChecks.hebrewInMath.test(content)) {
+            console.warn('Math validation warning: Hebrew characters found inside math delimiters', {
+              mathExpression: math,
+              content,
+              suggestion: 'Move Hebrew text outside math delimiters',
+              example: MATH_FORMATTING_RULES.examples.units,
+              fix: 'Write Hebrew text before or after the math expression'
+            });
+            hasIssues = true;
+          }
+
+          // Check for \text{hebrew} pattern
+          if (MATH_FORMATTING_RULES.validationChecks.hebrewInText.test(content)) {
+            console.warn('Math validation warning: Hebrew text found in \\text command', {
+              mathExpression: math,
+              content,
+              suggestion: 'Write Hebrew text outside math delimiters',
+              example: MATH_FORMATTING_RULES.examples.units,
+              fix: 'Remove \\text{} and write Hebrew text outside the math expression'
+            });
+            hasIssues = true;
+          }
+
+          // Check for Hebrew in subscripts
+          if (MATH_FORMATTING_RULES.validationChecks.hebrewInSubscript.test(content)) {
+            console.warn('Math validation warning: Hebrew text found in subscript', {
+              mathExpression: math,
+              content,
+              suggestion: 'Use English subscripts and explain in Hebrew outside',
+              example: '$v_{final}$ (מהירות סופית)',
+              fix: 'Use English subscripts and provide Hebrew translation after'
+            });
+            hasIssues = true;
+          }
+        }
+
+        if (hasIssues) {
+          console.info('Math validation guidelines:', {
+            rules: MATH_FORMATTING_RULES.rules,
+            examples: MATH_FORMATTING_RULES.examples,
+            criticalRules: [
+              'NEVER put Hebrew text inside $...$ or $$...$$',
+              'NEVER use \\text{} with Hebrew inside math',
+              'Write all units in Hebrew AFTER the math block',
+              'Use English subscripts for variables'
+            ]
+          });
+        }
+
+        // Always return true to not fail validation
+        return true;
+      },
+      {
+        message: "Math expressions should not contain Hebrew text. This is a warning only."
+      }
+    )
     .describe('Content text in markdown format. Use LaTeX within $$ for math formulas, code blocks with language specification for code.'),
   format: z.literal('markdown').describe('Format specification for content rendering')
 });
 
-// Metadata schema with specific requirements
+// Source type schema
+const sourceTypeSchema = z.nativeEnum(SourceType);
+
+// Metadata schema with specific requirements and topic validation
 const metadataSchema = z.object({
   topicId: z.string().describe('Main topic identifier from the curriculum (e.g., "linear_equations", "data_structures")'),
   subtopicId: z.string().optional().describe('Optional subtopic for more specific categorization'),
@@ -63,11 +167,35 @@ const metadataSchema = z.object({
   estimatedTime: z.number().optional()
     .describe('Estimated time to solve in minutes, appropriate for the education level'),
   source: z.object({
-    examType: z.string().describe('Origin of the question (e.g., "practice", "bagrut", "mahat")'),
+    sourceType: sourceTypeSchema.describe('Type of the source'),
+    examTemplateId: z.string().optional().describe('ID of the exam template if source is exam'),
     year: z.number().optional().describe('Year the question was used/created'),
     season: z.string().optional().describe('Season/term (e.g., "winter", "summer")'),
-    moed: z.string().optional().describe('Specific exam instance (e.g., "a", "b")')
-  }).optional().describe('Source information for tracking question origin')
+    moed: z.string().optional().describe('Specific exam instance (e.g., "a", "b")'),
+    authorName: z.string().optional().describe('Author name if source is author'),
+    bookName: z.string().optional().describe('Book name if source is book'),
+    bookLocation: z.string().optional().describe('Book location/reference if source is book')
+  })
+  .refine(
+    (source) => {
+      switch (source.sourceType) {
+        case 'exam':
+          return !!source.examTemplateId;
+        case 'book':
+          return !!source.bookName;
+        case 'author':
+          return !!source.authorName;
+        case 'ezpass':
+          return true;
+        default:
+          return false;
+      }
+    },
+    {
+      message: "Required fields missing for the specified source type"
+    }
+  )
+  .describe('Source information for tracking question origin')
 });
 
 // Multiple choice specific schema

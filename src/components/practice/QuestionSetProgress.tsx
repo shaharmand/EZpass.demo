@@ -1,8 +1,11 @@
-import React from 'react';
-import { Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Typography, Tooltip } from 'antd';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowLeftOutlined } from '@ant-design/icons';
+import { useStudentPrep } from '../../contexts/StudentPrepContext';
+import { PrepStateManager } from '../../services/PrepStateManager';
+import type { StudentPrep } from '../../types/prepState';
 import './QuestionSetProgress.css';
 
 const { Text } = Typography;
@@ -10,26 +13,57 @@ const { Text } = Typography;
 interface QuestionSetProgressProps {
   currentQuestionIndex: number;
   totalQuestions: number;
-  dailyQuestions?: {
-    completed: number;
-    goal: number;
-  };
-  dailyTime?: {
-    completed: number;
-    goal: number;
-  };
   questionId?: string;
+  prepId: string;
 }
 
 const QuestionSetProgress: React.FC<QuestionSetProgressProps> = ({
   currentQuestionIndex,
   totalQuestions,
-  dailyQuestions,
-  dailyTime,
-  questionId
+  questionId,
+  prepId
 }) => {
+  const { getPrep } = useStudentPrep();
+  const [progress, setProgress] = useState<ReturnType<typeof PrepStateManager.getProgress> | null>(null);
+  
+  // Update progress every second if active
+  useEffect(() => {
+    let isMounted = true;
+
+    const updateProgress = async () => {
+      try {
+        const prep = await getPrep(prepId);
+        if (prep && isMounted) {
+          setProgress(PrepStateManager.getProgress(prep));
+        }
+      } catch (error) {
+        console.error('Failed to update progress:', error);
+      }
+    };
+
+    // Initial update
+    updateProgress();
+
+    // Only set interval if we have progress and status is active
+    if (progress?.metrics.status === 'active') {
+      const interval = setInterval(updateProgress, 1000);
+      return () => {
+        isMounted = false;
+        clearInterval(interval);
+      };
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [prepId, getPrep, progress?.metrics.status]);
+  
   // Adjust for 0-based index
   const displayIndex = currentQuestionIndex;
+  
+  if (!progress) return null;
+
+  const { daily } = progress;
   
   return (
     <div className="question-set-progress">
@@ -47,52 +81,49 @@ const QuestionSetProgress: React.FC<QuestionSetProgressProps> = ({
         )}
         
         {/* Daily Progress Bars */}
-        {(dailyQuestions || dailyTime) && (
-          <div className="daily-progress">
-            <div className="daily-header">
-              <Text className="daily-title">מעקב יומי</Text>
-            </div>
-            <div className="daily-metrics">
-              {dailyQuestions && (
-                <div className="daily-metric">
-                  <div className="daily-metric-header">
-                    <Text className="daily-label">שאלות</Text>
-                    <Text className="daily-value">{dailyQuestions.completed}/{dailyQuestions.goal}</Text>
-                  </div>
-                  <div className="daily-bar-container">
-                    <motion.div 
-                      className="daily-bar questions"
-                      initial={{ width: 0 }}
-                      animate={{ 
-                        width: `${Math.min((dailyQuestions.completed / dailyQuestions.goal) * 100, 100)}%`
-                      }}
-                      transition={{ duration: 0.5, ease: "easeOut" }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {dailyTime && (
-                <div className="daily-metric">
-                  <div className="daily-metric-header">
-                    <Text className="daily-label">דקות</Text>
-                    <Text className="daily-value">{dailyTime.completed}/{dailyTime.goal}</Text>
-                  </div>
-                  <div className="daily-bar-container">
-                    <motion.div 
-                      className="daily-bar time"
-                      initial={{ width: 0 }}
-                      animate={{ 
-                        width: `${Math.min((dailyTime.completed / dailyTime.goal) * 100, 100)}%`
-                      }}
-                      transition={{ duration: 0.5, ease: "easeOut" }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+        <div className="daily-progress">
+          <div className="daily-header">
+            <Text className="daily-title">מעקב יומי</Text>
           </div>
-        )}
+          
+          <Tooltip title="כמות השאלות שפתרת היום לעומת היעד המומלץ להצלחה במבחן">
+            <div className="daily-metric">
+              <div className="daily-metric-header">
+                <Text className="daily-label">שאלות</Text>
+                <Text className="daily-value">{daily.questions.completed}/{daily.questions.goal}</Text>
+              </div>
+              <div className="daily-bar-container">
+                <motion.div 
+                  className="daily-bar questions"
+                  initial={{ width: 0 }}
+                  animate={{ 
+                    width: `${Math.min((daily.questions.completed / daily.questions.goal) * 100, 100)}%`
+                  }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                />
+              </div>
+            </div>
+          </Tooltip>
+
+          <Tooltip title="כמות הדקות שלמדת היום לעומת היעד המומלץ להצלחה במבחן">
+            <div className="daily-metric">
+              <div className="daily-metric-header">
+                <Text className="daily-label">דקות</Text>
+                <Text className="daily-value">{daily.time.completed}/{daily.time.goal}</Text>
+              </div>
+              <div className="daily-bar-container">
+                <motion.div 
+                  className="daily-bar time"
+                  initial={{ width: 0 }}
+                  animate={{ 
+                    width: `${Math.min((daily.time.completed / daily.time.goal) * 100, 100)}%`
+                  }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                />
+              </div>
+            </div>
+          </Tooltip>
+        </div>
       </div>
 
       <div className="progress-segments">
@@ -111,4 +142,4 @@ const QuestionSetProgress: React.FC<QuestionSetProgressProps> = ({
   );
 };
 
-export { QuestionSetProgress }; 
+export default QuestionSetProgress;

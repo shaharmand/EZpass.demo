@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import Editor, { useMonaco } from '@monaco-editor/react';
 import { Space, Button, Spin, Tabs, Card, Typography, Divider } from 'antd';
-import { PlayCircleOutlined, CodeOutlined, BugOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, CodeOutlined, BugOutlined, ThunderboltOutlined } from '@ant-design/icons/lib/icons';
 
 const { Text } = Typography;
+
 
 interface MonacoEditorProps {
   value: string;
@@ -22,8 +23,8 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   onChange,
   language,
   template,
-  disabled,
-  testCases
+  disabled = false,
+  testCases = []
 }) => {
   const monaco = useMonaco();
   const [activeTab, setActiveTab] = useState('code');
@@ -99,7 +100,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       key: 'code',
       label: (
         <span>
-          <CodeOutlined /> קוד
+          <PlayCircleOutlined /> קוד
         </span>
       ),
       children: (
@@ -228,13 +229,10 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   ];
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        items={items}
-        tabBarExtraContent={
-          <Button
+    <Card>
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <Space>
+          <Button 
             type="primary"
             icon={<PlayCircleOutlined />}
             onClick={handleRunTests}
@@ -243,8 +241,32 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
           >
             הרץ בדיקות
           </Button>
-        }
-      />
-    </Space>
+          <Button 
+            icon={<CodeOutlined />}
+            onClick={() => {}}
+          >
+            סדר קוד
+          </Button>
+          <Button 
+            icon={<BugOutlined />}
+            onClick={() => {}}
+          >
+            דבג
+          </Button>
+          <Button 
+            icon={<ThunderboltOutlined />}
+            onClick={() => {}}
+          >
+            בדוק
+          </Button>
+        </Space>
+        <Tabs
+          defaultActiveKey="code"
+          items={items}
+          tabPosition="left"
+          style={{ height: '100%' }}
+        />
+      </Space>
+    </Card>
   );
 }; 

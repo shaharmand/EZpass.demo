@@ -12,7 +12,6 @@ interface QuestionMultipleChoiceInputProps {
   disabled?: boolean;
   feedback?: {
     isCorrect: boolean;
-    correctOption?: string;
   };
 }
 
@@ -24,51 +23,43 @@ export const QuestionMultipleChoiceInput: React.FC<QuestionMultipleChoiceInputPr
   feedback
 }) => {
   if (!question.options) return null;
-  
-  const getFeedbackStyle = (isCorrect: boolean | undefined) => {
-    if (isCorrect === undefined) return {};
-    return {};  // Remove coloring from answer section
-  };
 
   return (
     <div className="options-list">
       {question.options.map((option, index) => {
         const optionNumber = index + 1;
         const isSelected = value === String(optionNumber);
-        const isCorrectOption = feedback?.correctOption === String(optionNumber);
-        const showFeedback = Boolean(feedback);
+        const isCorrectOption = feedback && question.correctOption === optionNumber;
         
-        let optionStyle = {};
-        if (showFeedback) {
-          if (isSelected) {
-            optionStyle = getFeedbackStyle(feedback?.isCorrect);
-          } else if (isCorrectOption) {
-            optionStyle = getFeedbackStyle(true);
-          }
-        }
-
-        // Build class names
+        // Build class names - Show correct answer only after feedback
         const optionClasses = [
           'option-card',
           isSelected ? 'selected' : '',
-          disabled ? 'disabled' : ''
+          disabled ? 'disabled' : '',
+          // Show incorrect only on selected wrong answer
+          feedback && isSelected && !feedback.isCorrect ? 'incorrect' : '',
+          // Show correct on either correct selection or correct answer after feedback
+          feedback && (isCorrectOption || (isSelected && feedback.isCorrect)) ? 'correct' : ''
         ].filter(Boolean).join(' ');
 
         const numberClasses = [
           'option-number',
-          isSelected ? 'selected' : ''
+          isSelected ? 'selected' : '',
+          feedback && isSelected && !feedback.isCorrect ? 'incorrect' : '',
+          feedback && (isCorrectOption || (isSelected && feedback.isCorrect)) ? 'correct' : ''
         ].filter(Boolean).join(' ');
 
         const textClasses = [
           'option-text',
-          isSelected ? 'selected' : ''
+          isSelected ? 'selected' : '',
+          feedback && isSelected && !feedback.isCorrect ? 'incorrect' : '',
+          feedback && (isCorrectOption || (isSelected && feedback.isCorrect)) ? 'correct' : ''
         ].filter(Boolean).join(' ');
         
         return (
           <div
             key={index}
             className={optionClasses}
-            style={optionStyle}
             onClick={() => !disabled && onChange(String(optionNumber))}
           >
             <div className="option-content">

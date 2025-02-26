@@ -67,23 +67,25 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({ metrics
 
       {/* Questions Group */}
       <div className="questions-group">
-        <div className="progress-metric">
-          <div className="metric-header">
-            <CheckCircleOutlined className="metric-icon" />
-            <Text className="metric-label">סה״כ שאלות</Text>
+        <Tooltip title="כמות השאלות שפתרת לעומת היעד המומלץ להצלחה במבחן">
+          <div className="progress-metric">
+            <div className="metric-header">
+              <CheckCircleOutlined className="metric-icon" />
+              <Text className="metric-label">סה״כ שאלות</Text>
+            </div>
+            <Text className="metric-value">
+              {metrics.questionsAnswered}/{metrics.totalQuestions}
+            </Text>
+            <div className="progress-bar-container">
+              <motion.div 
+                className="progress-bar questions"
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min((metrics.questionsAnswered / metrics.totalQuestions) * 100, 100)}%` }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+              />
+            </div>
           </div>
-          <Text className="metric-value">
-            {metrics.questionsAnswered}/{metrics.totalQuestions}
-          </Text>
-          <div className="progress-bar-container">
-            <motion.div 
-              className="progress-bar questions"
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min((metrics.questionsAnswered / metrics.totalQuestions) * 100, 100)}%` }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            />
-          </div>
-        </div>
+        </Tooltip>
       </div>
 
       {/* Hours Group */}
@@ -93,17 +95,21 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({ metrics
             <ClockCircleOutlined className="metric-icon" />
             <Text className="metric-label">סה״כ שעות</Text>
           </div>
-          <Text className="metric-value">
-            {metrics.overallProgress.current}/{metrics.overallProgress.target}
-          </Text>
-          <div className="progress-bar-container">
-            <motion.div 
-              className="progress-bar hours"
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min((metrics.overallProgress.current / metrics.overallProgress.target) * 100, 100)}%` }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            />
-          </div>
+          <Tooltip title="כמות השעות שלמדת לעומת היעד המומלץ להצלחה במבחן">
+            <div>
+              <Text className="metric-value">
+                {metrics.overallProgress.current}/{metrics.overallProgress.target}
+              </Text>
+              <div className="progress-bar-container">
+                <motion.div 
+                  className="progress-bar hours"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min((metrics.overallProgress.current / metrics.overallProgress.target) * 100, 100)}%` }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                />
+              </div>
+            </div>
+          </Tooltip>
         </div>
       </div>
     </div>

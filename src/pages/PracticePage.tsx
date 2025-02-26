@@ -1,703 +1,374 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useExam } from '../contexts/ExamContext';
-import { Alert, Space, Button, Spin, Typography, Layout } from 'antd';
+import { Alert, Space, Button, Layout, Typography } from 'antd';
 import { HomeOutlined } from '@ant-design/icons';
 import { PracticeHeader } from '../components/PracticeHeader';
 import QuestionInteractionContainer from '../components/practice/QuestionInteractionContainer';
+import { WelcomeScreen } from '../components/practice/WelcomeScreen';
 import type { PracticeQuestion, SkipReason } from '../types/prepUI';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import type { FilterState, Question, DifficultyLevel } from '../types/question';
-import './PracticePage.css';
-import { QuestionFilter } from '../components/EnhancedSidebar/QuestionFilter';
-import QuestionMetadata from '../components/QuestionMetadata';
-import { FilterSummary } from '../components/EnhancedSidebar/FilterSummary';
-import QuestionContent from '../components/QuestionContent';
-import QuestionResponseInput from '../components/QuestionResponseInput';
+import type { FilterState, Question } from '../types/question';
 import type { QuestionStatus } from '../types/prepState';
-import { PrepStateManager } from '../services/PrepStateManager';
 import type { StudentPrep } from '../types/prepState';
-import type { QuestionState, HelpType } from '../types/prepState';
+import { logger, CRITICAL_SECTIONS } from '../utils/logger';
+import './PracticePage.css';
+import { memo } from 'react';
+import moment from 'moment';
 
-interface ExtendedStudentPrep extends StudentPrep {
-  questions?: PracticeQuestion[];
+interface PageState {
+  error?: string;
+  filters: FilterState;
+  prep?: StudentPrep;
+  isLoading: boolean;
 }
 
 const PracticePage: React.FC = () => {
+  const { prepId } = useParams<{ prepId: string }>();
   const navigate = useNavigate();
-  const { prepId } = useParams();
-  const [error, setError] = useState<string | null>(null);
-  const requestInProgress = useRef(false);
-  const isComponentMounted = useRef(true);
-  const { findExamById } = useExam();
-  const {
-    activePrep,
-    getPrep,
-    currentQuestion,
-    startPrep,
-    submitAnswer,
-    pausePrep,
-    setCurrentQuestion,
-    getNextQuestion,
-    setActivePrep
-  } = useStudentPrep();
-  const [isLoading, setIsLoading] = useState(true);
-  const [filters, setFilters] = useState<FilterState>({});
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
-
-  // Track user progress
-  const [userProgress, setUserProgress] = useState({
-    completedContent: [] as string[],
-    currentContent: undefined as string | undefined
+  const { getPrep, getNextQuestion, skipQuestion, setCurrentQuestion, submitAnswer, currentQuestion } = useStudentPrep();
+  const [state, setState] = useState<PageState>({
+    filters: {},
+    isLoading: false
   });
+  const hasInitialized = useRef(false);
 
-  // Loading state for questions (both initial and transitions)
-  const [isLoadingQuestion, setIsLoadingQuestion] = useState(true);
-
-  // Track current batch of 10 questions
-  const [currentBatch, setCurrentBatch] = useState<Array<{
-    index: number;
-    isCorrect?: boolean;
-    score?: number;
-    status: 'pending' | 'active' | 'completed';
-  }>>([]);
-
-  // Initialize or reset batch when starting new practice
-  useEffect(() => {
-    if (activePrep && (!currentBatch.length || currentBatch.length !== 10)) {
-      setCurrentBatch(Array.from({ length: 10 }, (_, i) => ({
-        index: i,
-        status: i === 0 ? 'active' : 'pending'
-      })));
-    }
-  }, [activePrep]);
-
-  // Update batch when question is answered
-  useEffect(() => {
-    console.log('🔍 Checking for feedback update:', {
-      hasFeedback: Boolean(currentQuestion?.state.feedback),
-      batchLength: currentBatch.length,
-      currentQuestion: currentQuestion?.question.id,
-      feedback: currentQuestion?.state.feedback,
-      batchDetails: currentBatch.map(q => ({
-        index: q.index,
-        status: q.status,
-        isCorrect: q.isCorrect,
-        score: q.score
-      }))
-    });
-
-    if (currentQuestion?.state.feedback && currentBatch.length) {
-      const currentIndex = currentBatch.findIndex(q => q.status === 'active');
-      console.log('📊 Found active question in batch:', {
-        currentIndex,
-        batchStatus: currentBatch.map(q => ({
-          index: q.index,
-          status: q.status,
-          isCorrect: q.isCorrect,
-          score: q.score
-        }))
-      });
-
-      if (currentIndex >= 0) {
-        const newBatch = [...currentBatch];
-        // Update current question but keep it active
-        newBatch[currentIndex] = {
-          ...newBatch[currentIndex],
-          isCorrect: currentQuestion.state.feedback.isCorrect,
-          score: currentQuestion.state.feedback.score,
-          status: 'active' // Keep it active until next is clicked
-        };
-        
-        console.log('✨ Updating batch with feedback:', {
-          updatedIndex: currentIndex,
-          isCorrect: currentQuestion.state.feedback.isCorrect,
-          score: currentQuestion.state.feedback.score,
-          status: 'active',
-          newBatchStatus: newBatch.map(q => ({
-            index: q.index,
-            status: q.status,
-            isCorrect: q.isCorrect,
-            score: q.score
-          }))
-        });
-        setCurrentBatch(newBatch);
+  // Helper function to create new question state
+  const createQuestionState = useCallback((question: Question, prevQuestion?: PracticeQuestion): PracticeQuestion => {
+    return {
+      question,
+      state: {
+        status: 'active' as QuestionStatus,
+        startedAt: Date.now(),
+        lastUpdatedAt: Date.now(),
+        helpRequests: [],
+        correctAnswers: prevQuestion?.state.correctAnswers || 0,
+        averageScore: prevQuestion?.state.averageScore || 0,
+        questionIndex: (prevQuestion?.state.questionIndex || 0) + 1
       }
-    }
-  }, [currentQuestion?.state.feedback]);
-
-  const handleFilterChange = useCallback((newFilters: FilterState) => {
-    // Ensure difficulty is always DifficultyLevel[]
-    if (newFilters.difficulty) {
-      newFilters.difficulty = newFilters.difficulty.map(d => 
-        typeof d === 'string' ? parseInt(d) as DifficultyLevel : d
-      );
-    }
-    setFilters(newFilters);
-  }, []);
-
-  // Set mounted flag
-  useEffect(() => {
-    isComponentMounted.current = true;
-    return () => {
-      isComponentMounted.current = false;
     };
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-    const initialize = async () => {
-      if (!prepId) {
-        console.warn('Practice initialization failed:', { 
-          reason: 'Missing prepId',
-          prepId 
-        });
-        if (mounted) {
-          setError('מזהה תרגול לא תקין');
-          setIsLoading(false);
-          setIsLoadingQuestion(false);
-        }
+  // Shared utility for handling question transitions
+  const handleQuestionTransition = useCallback(async (
+    operation: 'skip' | 'next' | 'retry',
+    filters?: FilterState,
+    validateFn?: () => { canProceed: boolean; reason?: string }
+  ) => {
+    // Check loading state first
+    if (state.isLoading) {
+      console.log(`⚠️ Cannot ${operation}: loading in progress`);
+      return;
+    }
+
+    // Run operation-specific validation if provided
+    if (validateFn) {
+      const { canProceed, reason } = validateFn();
+      if (!canProceed) {
+        console.log(`⚠️ Cannot ${operation}: ${reason}`);
         return;
       }
-
-      try {
-        console.log('Initializing practice:', { prepId });
-        if (mounted) {
-          setIsLoading(true);
-          setIsLoadingQuestion(true);
-        }
-        
-        // Set requestInProgress only when making the request
-        requestInProgress.current = true;
-        const prep = await getPrep(prepId);
-        
-        if (!mounted) return;
-
-        if (!prep) {
-          console.error('Practice not found:', { prepId });
-          setError('לא נמצא מידע על התרגול המבוקש');
-          return;
-        }
-
-        console.log('Practice loaded:', { 
-          prepId, 
-          status: prep.state.status,
-          exam: prep.exam 
-        });
-
-        // Only restore from localStorage if this is NOT a new prep
-        const isNewPrep = prep.state.status === 'active' && 
-                         prep.state.startedAt && 
-                         Date.now() - prep.state.startedAt < 5000;
-        
-        if (isNewPrep) {
-          localStorage.removeItem('current_question');
-          setCurrentQuestion(null);
-        }
-
-        setIsLoading(false);
-        requestInProgress.current = false;
-
-      } catch (error) {
-        if (mounted) {
-          const errorMessage = error instanceof Error ? error.message : 'אירעה שגיאה בטעינת התרגול';
-          console.error('Practice initialization error:', error);
-          setError(errorMessage);
-          setIsLoadingQuestion(false);
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-          requestInProgress.current = false;
-        }
-      }
-    };
-
-    initialize();
-
-    return () => {
-      mounted = false;
-    };
-  }, [prepId, getPrep]);
-
-  // Effect to handle question loading states
-  useEffect(() => {
-    if (currentQuestion) {
-      setIsLoadingQuestion(false);
     }
-  }, [currentQuestion]);
-
-  const handleAnswer = async (answer: string) => {
-    if (requestInProgress.current || !currentQuestion || !activePrep) return;
-    requestInProgress.current = true;
-    setIsLoadingQuestion(true);
 
     try {
-      console.log('🔄 Submitting answer:', {
-        prepId: activePrep.id,
-        questionId: currentQuestion.question.id,
-        questionIndex: currentQuestion.state.questionIndex,
-        answerLength: answer.length
-      });
-
-      // First update the UI to show submitting state
-      const submittingQuestion = {
-        ...currentQuestion,
-        state: {
-          ...currentQuestion.state,
-          status: 'submitted' as QuestionStatus,
-          submittedAnswer: {
-            text: answer,
-            timestamp: Date.now()
-          },
-          lastUpdatedAt: Date.now()
-        }
-      };
-
-      // Update UI to show submitting state
-      setCurrentQuestion(submittingQuestion);
-
-      // Submit the answer
-      await submitAnswer(answer);
-
-      console.log('✅ Answer submitted successfully:', {
-        questionId: currentQuestion.question.id,
-        status: 'submitted',
-        timestamp: Date.now()
-      });
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error submitting answer';
-      console.error('❌ Error submitting answer:', {
-        error,
-        prepId: activePrep.id,
-        questionId: currentQuestion.question.id,
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      setError(errorMessage);
+      setState(prev => ({ ...prev, isLoading: true }));
+      setCurrentQuestion(null); // Clear current question to show loading state
+      
+      const nextQuestion = await getNextQuestion(filters);
+      
+      if (nextQuestion) {
+        console.log(`✅ ${operation} successful:`, nextQuestion.id);
+        setCurrentQuestion(createQuestionState(nextQuestion, currentQuestion || undefined));
+      }
+    } catch (err) {
+      console.error(`Failed to ${operation}:`, err);
+      setState(prev => ({ 
+        ...prev,
+        error: err instanceof Error ? err.message : `Failed to ${operation}`
+      }));
     } finally {
-      if (isComponentMounted.current) {
-        requestInProgress.current = false;
-        setIsLoadingQuestion(false);
-      }
+      setState(prev => ({ ...prev, isLoading: false }));
     }
-  };
+  }, [state.isLoading, getNextQuestion, setCurrentQuestion, createQuestionState, currentQuestion]);
 
-  const handleHelp = async () => {
-    if (!currentQuestion || !activePrep) return;
+  // Operation-specific handlers
+  const handleSkip = useCallback(async (reason: SkipReason, skipFilters?: FilterState) => {
+    console.log('FORCE LOG - PracticePage handleSkip:', {
+      reason,
+      currentFilters: state.filters,
+      skipFilters,
+      questionId: currentQuestion?.question.id,
+      timestamp: new Date().toISOString()
+    });
 
-    try {
-      console.log('Requesting help:', {
-        prepId: activePrep.id,
-        questionId: currentQuestion.question.id,
-        questionIndex: currentQuestion.state.questionIndex,
-        previousHelpRequests: currentQuestion.state.helpRequests.length
-      });
-
-      // Just update the state with the help request
-      const updatedState = {
-        ...currentQuestion.state,
-        helpRequests: [
-          ...currentQuestion.state.helpRequests,
-          {
-            timestamp: Date.now(),
-            type: 'guidance' as HelpType
-          }
-        ],
-        lastUpdatedAt: Date.now()
-      };
-
-      setCurrentQuestion({
-        ...currentQuestion,
-        state: updatedState
-      });
-
-      console.log('Help request recorded:', {
-        prepId: activePrep.id,
-        questionId: currentQuestion.question.id,
-        totalHelpRequests: updatedState.helpRequests.length
-      });
-    } catch (error) {
-      console.error('Error requesting help:', {
-        error,
-        prepId: activePrep.id,
-        questionId: currentQuestion.question.id,
-        stack: error instanceof Error ? error.stack : undefined
-      });
-    }
-  };
-
-  const handleSkip = async (reason: SkipReason) => {
-    if (!currentQuestion || !activePrep) {
+    if (state.isLoading) {
+      console.log('⚠️ Cannot skip: loading in progress');
       return;
     }
 
     try {
-      requestInProgress.current = true;
-      setIsLoading(true);
-
-      // Skip question without counting it
-      const updatedPrep = PrepStateManager.skipQuestion(activePrep);
-      setActivePrep(updatedPrep);
-      setCurrentQuestion(null);
-
-      // Get next question
-      const nextQuestionData = await getNextQuestion(filters);
-      if (!nextQuestionData) {
-        throw new Error('Failed to get next question');
-      }
-
-      // Create practice question with current state values
-      const nextQuestion: PracticeQuestion = {
-        question: nextQuestionData,
-        state: {
-          status: 'active',
-          startedAt: Date.now(),
-          lastUpdatedAt: Date.now(),
-          helpRequests: [],
-          questionIndex: currentQuestion.state.questionIndex || 0,
-          correctAnswers: currentQuestion.state.correctAnswers || 0,
-          averageScore: currentQuestion.state.averageScore || 0
-        }
-      };
-
-      // Update state
-      setCurrentQuestion(nextQuestion);
-      setIsLoading(false);
-      requestInProgress.current = false;
-    } catch (error) {
-      console.error('Failed to get next question:', error);
-      setError('Failed to get next question');
-      setIsLoading(false);
-      requestInProgress.current = false;
-    }
-  };
-
-  const handleRetry = () => {
-    if (!currentQuestion || !activePrep) return;
-
-    console.log('🔄 Retrying question:', {
-      prepId: activePrep.id,
-      questionId: currentQuestion.question.id,
-      questionIndex: currentQuestion.state.questionIndex,
-      previousHelpRequests: currentQuestion.state.helpRequests.length,
-      currentBatchState: currentBatch.map(q => ({
-        index: q.index,
-        status: q.status,
-        isCorrect: q.isCorrect,
-        score: q.score
-      }))
-    });
-
-    // Find the current question in the batch
-    const currentIndex = currentBatch.findIndex(q => q.status === 'active' || q.status === 'completed');
-    
-    if (currentIndex >= 0) {
-      // Reset the batch state for this question
-      const newBatch = [...currentBatch];
-      newBatch[currentIndex] = {
-        ...newBatch[currentIndex],
-        status: 'active',
-        isCorrect: undefined,
-        score: undefined
-      };
+      setState(prev => ({ ...prev, isLoading: true }));
+      setCurrentQuestion(null); // Clear current question to show loading state
       
-      // Reset any subsequent questions to pending
-      for (let i = currentIndex + 1; i < newBatch.length; i++) {
-        newBatch[i] = {
-          ...newBatch[i],
-          status: 'pending',
-          isCorrect: undefined,
-          score: undefined
-        };
-      }
-      
-      console.log('🔄 Resetting batch state:', {
-        currentIndex,
-        newBatchStatus: newBatch.map(q => ({
-          index: q.index,
-          status: q.status,
-          isCorrect: q.isCorrect,
-          score: q.score
-        }))
+      console.log('FORCE LOG - PracticePage calling skipQuestion:', {
+        reason,
+        filters: skipFilters || state.filters,
+        timestamp: new Date().toISOString()
       });
       
-      setCurrentBatch(newBatch);
+      const nextQuestion = await skipQuestion(reason, skipFilters || state.filters);
+      
+      if (nextQuestion) {
+        console.log('FORCE LOG - PracticePage skip successful:', {
+          nextQuestionId: nextQuestion.id,
+          timestamp: new Date().toISOString()
+        });
+        setCurrentQuestion(createQuestionState(nextQuestion, currentQuestion || undefined));
+      }
+    } catch (err) {
+      console.error('FORCE LOG - PracticePage skip failed:', err);
+      setState(prev => ({ 
+        ...prev,
+        error: err instanceof Error ? err.message : 'Failed to skip'
+      }));
+    } finally {
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, [state.isLoading, state.filters, skipQuestion, setCurrentQuestion, createQuestionState, currentQuestion]);
+
+  const handleNext = useCallback(async (filters?: FilterState) => {
+    console.log('👤 USER ACTION - Next Question:', {
+      filters,
+      currentQuestionId: currentQuestion?.question.id,
+      hasAnswered: Boolean(currentQuestion?.state.feedback),
+      timestamp: new Date().toISOString()
+    });
+    await handleQuestionTransition('next', filters, () => ({
+      canProceed: Boolean(currentQuestion?.state.feedback),
+      reason: !currentQuestion ? 'no current question' : 
+              !currentQuestion.state.feedback ? 'question not completed' : undefined
+    }));
+  }, [currentQuestion, handleQuestionTransition]);
+
+  const handleRetry = useCallback(async () => {
+    console.log('👤 USER ACTION - Retry Question:', {
+      questionId: currentQuestion?.question.id,
+      currentStatus: currentQuestion?.state.status,
+      hasFeedback: Boolean(currentQuestion?.state.feedback),
+      timestamp: new Date().toISOString()
+    });
+
+    if (!currentQuestion) {
+      console.log('⚠️ Cannot retry: no current question');
+      return;
     }
 
-    // Reset the question state to active
+    // Instead of getting a new question, reset the current one
     setCurrentQuestion({
-      ...currentQuestion,
+      question: currentQuestion.question,
       state: {
         status: 'active',
         startedAt: Date.now(),
         lastUpdatedAt: Date.now(),
-        helpRequests: currentQuestion.state.helpRequests || [],
         questionIndex: currentQuestion.state.questionIndex,
-        correctAnswers: currentQuestion.state.correctAnswers || 0,
-        averageScore: currentQuestion.state.averageScore || 0,
-        feedback: undefined,
-        currentAnswer: undefined
+        correctAnswers: currentQuestion.state.correctAnswers,
+        averageScore: currentQuestion.state.averageScore,
+        helpRequests: []
       }
     });
+  }, [currentQuestion, setCurrentQuestion]);
 
-    console.log('✨ Question reset for retry:', {
-      prepId: activePrep.id,
-      questionId: currentQuestion.question.id,
-      newStartTime: Date.now(),
-      batchState: currentBatch.map(q => ({
-        index: q.index,
-        status: q.status,
-        isCorrect: q.isCorrect,
-        score: q.score
-      }))
+  const handleAnswerSubmit = useCallback(async (answer: string) => {
+    console.log('👤 USER ACTION - Submit Answer:', {
+      questionId: currentQuestion?.question.id,
+      answerLength: answer.length,
+      currentStatus: currentQuestion?.state.status,
+      timestamp: new Date().toISOString()
     });
-  };
 
-  const handleClearFilter = () => {
-    setFilters({});
-  };
-
-  // Format metadata for QuestionMetadata
-  const formattedMetadata = currentQuestion ? {
-    topicId: currentQuestion.question.metadata.topicId,
-    subtopicId: currentQuestion.question.metadata.subtopicId,
-    type: currentQuestion.question.type,
-    difficulty: currentQuestion.question.metadata.difficulty.toString(),
-    source: currentQuestion.question.metadata.source ? {
-      type: 'exam',
-      ...currentQuestion.question.metadata.source
-    } : { type: 'ezpass' }
-  } : {
-    topicId: '',
-    type: 'multiple_choice',
-    difficulty: '1',
-    source: { type: 'ezpass' }
-  };
-
-  const handleNext = async () => {
-    if (!currentQuestion || !activePrep) {
+    if (!currentQuestion || currentQuestion.state.status !== 'active' || !prepId) {
+      console.log('⚠️ Cannot submit answer:', {
+        reason: !currentQuestion ? 'no question active' : 
+                !prepId ? 'no prep id' :
+                'question not in active state'
+      });
       return;
     }
 
     try {
-      requestInProgress.current = true;
-      setIsLoading(true);
-
-      console.log('➡️ Moving to next question:', {
-        currentBatchState: currentBatch.map(q => ({
-          index: q.index,
-          status: q.status,
-          isCorrect: q.isCorrect,
-          score: q.score
-        }))
-      });
-
-      // Update batch state first
-      const currentIndex = currentBatch.findIndex(q => q.status === 'active');
-      if (currentIndex >= 0) {
-        const newBatch = [...currentBatch];
-        // Complete current question with its feedback
-        newBatch[currentIndex] = {
-          ...newBatch[currentIndex],
-          status: 'completed',
-          isCorrect: currentQuestion.state.feedback?.isCorrect || false,
-          score: currentQuestion.state.feedback?.score
-        };
-        // Activate next question if available
-        if (currentIndex + 1 < newBatch.length) {
-          newBatch[currentIndex + 1].status = 'active';
-        }
-
-        console.log('✨ Updated batch for next question:', {
-          previousIndex: currentIndex,
-          nextIndex: currentIndex + 1,
-          newBatchStatus: newBatch.map(q => ({
-            index: q.index,
-            status: q.status,
-            isCorrect: q.isCorrect,
-            score: q.score
-          }))
-        });
-
-        setCurrentBatch(newBatch);
+      console.log('📝 Submitting answer...');
+      const prep = await getPrep(prepId);
+      if (!prep) {
+        throw new Error('Practice session not found');
       }
-
-      // Move to next question
-      const updatedPrep = PrepStateManager.moveToNextQuestion(activePrep);
-      setCurrentQuestion(null);
-
-      // Get next question
-      const nextQuestionData = await getNextQuestion(filters);
-      if (!nextQuestionData) {
-        throw new Error('Failed to get next question');
-      }
-
-      // Create practice question
-      const nextQuestion: PracticeQuestion = {
-        question: nextQuestionData,
-        state: {
-          status: 'active',
-          startedAt: Date.now(),
-          lastUpdatedAt: Date.now(),
-          helpRequests: [],
-          questionIndex: (currentQuestion.state.questionIndex || 0) + 1,
-          correctAnswers: currentQuestion.state.correctAnswers || 0,
-          averageScore: currentQuestion.state.averageScore || 0
-        }
-      };
-
-      console.log('✨ Created next question:', {
-        questionId: nextQuestion.question.id,
-        questionIndex: nextQuestion.state.questionIndex,
-        batchState: currentBatch.map(q => ({
-          index: q.index,
-          status: q.status,
-          isCorrect: q.isCorrect,
-          score: q.score
-        }))
-      });
-
-      // Update state
-      setCurrentQuestion(nextQuestion);
-      setIsLoading(false);
-      requestInProgress.current = false;
-    } catch (error) {
-      console.error('Failed to get next question:', error);
-      setError('Failed to get next question');
-      setIsLoading(false);
-      requestInProgress.current = false;
+      await submitAnswer(answer, prep);
+      console.log('✅ Answer submitted successfully');
+    } catch (err) {
+      console.error('Failed to submit answer:', err);
+      setState(prev => ({ 
+        ...prev,
+        error: err instanceof Error ? err.message : 'Failed to submit answer'
+      }));
     }
-  };
+  }, [currentQuestion, prepId, getPrep, submitAnswer]);
 
-  // Error display with better messaging
-  if (!prepId || error) {
-    return (
-      <div style={{ 
-        padding: '24px',
-        maxWidth: '600px',
-        margin: '0 auto',
-        marginTop: '32px'
-      }}>
-        <Alert
-          message="שגיאה בטעינת התרגול"
-          description={error || 'לא נמצא מידע על התרגול המבוקש'}
-          type="error"
-          showIcon
-          action={
-            <Space>
-              <Button 
-                icon={<HomeOutlined />} 
-                onClick={() => navigate('/')}
-                type="default"
-              >
-                חזרה לדף הבית
-              </Button>
-              {error?.includes('המערכת עמוסה') && (
-                <Button 
-                  type="primary" 
-                  onClick={() => window.location.reload()}
-                >
-                  נסה שוב
-                </Button>
-              )}
-            </Space>
-          }
-        />
-      </div>
-    );
-  }
+  const handleExamDateChange = useCallback((date: moment.Moment) => {
+    if (!state.prep) return;
+    
+    // Update prep goals with new exam date
+    const updatedPrep = {
+      ...state.prep,
+      goals: {
+        ...state.prep.goals,
+        examDate: date.valueOf()
+      }
+    };
+    
+    setState(prev => ({ ...prev, prep: updatedPrep }));
+  }, [state.prep]);
 
-  // Loading state
-  if (!activePrep) {
-    return (
-      <div style={{ 
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '100vh',
-        backgroundColor: '#f8fafc'
-      }}>
-        <Space direction="vertical" align="center">
-          <Spin size="large" />
-          <Typography.Text>טוען מידע...</Typography.Text>
-        </Space>
-      </div>
-    );
-  }
+  const handleStartPractice = useCallback(async () => {
+    if (!state.prep) return;
+    
+    try {
+      setState(prev => ({ ...prev, isLoading: true }));
+      const nextQuestion = await getNextQuestion();
+      if (nextQuestion) {
+        setCurrentQuestion(createQuestionState(nextQuestion));
+      }
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to start practice'
+      }));
+    } finally {
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, [state.prep, getNextQuestion, setCurrentQuestion, createQuestionState]);
 
-  if (isLoading) {
-    return (
-      <Layout className="practice-page-layout">
-        <PracticeHeader prep={activePrep} />
-        <Layout.Content className="practice-content">
-          <LoadingSpinner />
-        </Layout.Content>
-      </Layout>
-    );
-  }
+  // First effect: Handle prep loading
+  useEffect(() => {
+    const loadPrep = async () => {
+      if (!prepId) return;
+
+      console.log('FORCE LOG - Loading prep:', {
+        prepId,
+        hasInitialized: hasInitialized.current,
+        timestamp: new Date().toISOString()
+      });
+
+      try {
+        const prep = await getPrep(prepId);
+        if (!prep) {
+          console.error('Practice session not found');
+          return;
+        }
+
+        setState(prev => ({ ...prev, prep }));
+      } catch (error) {
+        console.error('Failed to load practice session:', error);
+        setState(prev => ({ 
+          ...prev,
+          error: error instanceof Error ? error.message : 'Failed to load practice session'
+        }));
+      }
+    };
+
+    loadPrep();
+  }, [prepId, getPrep]);
+
+  // Second effect: Handle question initialization after prep is loaded
+  useEffect(() => {
+    const initializeQuestion = async () => {
+      // Only initialize if we have a prep and haven't initialized yet
+      if (!state.prep || hasInitialized.current || state.isLoading) {
+        return;
+      }
+
+      // Don't automatically load a question - wait for user to start
+      hasInitialized.current = true;
+    };
+
+    initializeQuestion();
+  }, [state.prep, state.isLoading]);
+
+  // Logger configuration effect remains the same
+  useEffect(() => {
+    logger.configure({
+      filters: {
+        minLevel: 'debug',
+        showOnly: [],
+        ignorePatterns: []
+      },
+      isDevelopment: true
+    });
+    
+    logger.enableDebugging([
+      CRITICAL_SECTIONS.EXAM_STATE,
+      CRITICAL_SECTIONS.QUESTION_GENERATION,
+      CRITICAL_SECTIONS.RACE_CONDITIONS,
+      CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION
+    ]);
+
+    return () => {
+      logger.disableDebugging([
+        CRITICAL_SECTIONS.EXAM_STATE,
+        CRITICAL_SECTIONS.QUESTION_GENERATION,
+        CRITICAL_SECTIONS.RACE_CONDITIONS,
+        CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION
+      ]);
+    };
+  }, []);
 
   return (
-    <Layout className="practice-page-layout">
-      <PracticeHeader prep={activePrep} />
-      
-      <Layout.Content className="practice-content">
-        <div className="practice-container">
-          {/* Main Content Area */}
-          <div className="practice-main">
-            {error ? (
-              <Alert
-                message="שגיאה"
-                description={error}
-                type="error"
-                showIcon
-                action={
-                  <Button 
-                    onClick={() => navigate('/')}
-                    icon={<HomeOutlined />}
-                  >
-                    חזור לדף הבית
-                  </Button>
-                }
-              />
-            ) : isLoading ? (
-              <LoadingSpinner />
-            ) : !currentQuestion ? (
-              <LoadingSpinner />
-            ) : (
+    <Layout style={{ minHeight: '100vh' }}>
+      <PracticeHeader prepId={prepId || ''} />
+      <Layout.Content style={{ padding: '24px' }}>
+        {state.error ? (
+          <Alert
+            message="Error"
+            description={state.error}
+            type="error"
+            showIcon
+          />
+        ) : !state.prep ? (
+          <LoadingSpinner text="טוען..." />
+        ) : !hasInitialized.current || (!currentQuestion && !state.isLoading) ? (
+          <WelcomeScreen
+            prep={state.prep}
+            onStart={handleStartPractice}
+            onExamDateChange={handleExamDateChange}
+          />
+        ) : currentQuestion ? (
+          <div className="practice-container">
+            <div className="practice-main">
               <QuestionInteractionContainer
                 question={currentQuestion.question}
-                onAnswer={handleAnswer}
+                onAnswer={handleAnswerSubmit}
                 onSkip={handleSkip}
-                onHelp={handleHelp}
-                onNext={handleNext}
+                onHelp={() => {}}
+                onNext={() => handleNext()}
                 onRetry={handleRetry}
                 state={{
-                  status: currentQuestion.state.status || 'loading',
+                  status: currentQuestion.state.status,
                   feedback: currentQuestion.state.feedback,
-                  questionIndex: currentBatch.findIndex(q => q.status === 'active'),
-                  correctAnswers: currentBatch.filter(q => q.isCorrect).length,
-                  averageScore: Math.round(
-                    currentBatch.reduce((sum, q) => sum + (q.score || 0), 0) / 
-                    Math.max(1, currentBatch.filter(q => q.status === 'completed').length)
-                  ),
-                  answeredQuestions: currentBatch.map((q, index) => ({
-                    index,
-                    isCorrect: q.isCorrect || false,
-                    score: q.score
-                  }))
+                  questionIndex: currentQuestion.state.questionIndex || 0,
+                  correctAnswers: currentQuestion.state.correctAnswers || 0,
+                  averageScore: currentQuestion.state.averageScore || 0
                 }}
-                filters={filters}
-                onFiltersChange={handleFilterChange}
-                activePrep={activePrep}
+                filters={state.filters}
+                onFiltersChange={(filters) => setState(prev => ({ ...prev, filters }))}
+                prep={state.prep}
+                isQuestionLoading={state.isLoading}
               />
-            )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <LoadingSpinner text="טוען שאלה..." />
+        )}
       </Layout.Content>
     </Layout>
   );
 };
 
-export default PracticePage; 
+export default memo(PracticePage); 

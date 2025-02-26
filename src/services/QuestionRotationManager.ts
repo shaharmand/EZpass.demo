@@ -3,272 +3,317 @@ import type { QuestionType, QuestionFetchParams, FilterState, DifficultyLevel } 
 import { satisfiesFilter } from '../types/question';
 import type { ExamTemplate } from '../types/examTemplate';
 import { getExamInstitution } from '../types/examTemplate';
+import { logger, CRITICAL_SECTIONS } from '../utils/logger';
 
 const QUESTION_TYPES: QuestionType[] = ['multiple_choice', 'open', 'step_by_step'];
 const DIFFICULTY_LEVELS: DifficultyLevel[] = [1, 2, 3, 4, 5];
 
+interface StudentSubTopicProgress {
+  subtopicId: string;
+  currentDifficulty: DifficultyLevel;
+  // We can add more fields later like:
+  // questionsAttempted: number;
+  // correctAnswers: number;
+  // lastAttemptDate: Date;
+}
+
 export class QuestionRotationManager {
-  private currentSubtopicIndex: number = 0;
-  private currentTypeIndex: number = 0;
-  private currentDifficultyIndex: number = 0;
   private exam: ExamTemplate;
   private selection: TopicSelection;
-  private currentFilter: FilterState = {};
+  private currentSubtopicIndex: number = -1;
+  private studentProgress: Map<string, StudentSubTopicProgress> = new Map();
+  private prepId: string;
 
-  constructor(exam: ExamTemplate, selection: TopicSelection) {
-    // Validate exam has topics
-    if (!exam.topics || exam.topics.length === 0) {
-      throw new Error('Cannot initialize QuestionRotationManager: exam has no topics');
-    }
-    if (!exam.topics.every(t => t.subTopics && t.subTopics.length > 0)) {
-      throw new Error('Cannot initialize QuestionRotationManager: some topics have no subtopics');
-    }
-
-    this.exam = exam;
-    this.selection = selection;
-    console.log('QuestionRotationManager initialized:', {
-      examId: exam.id,
-      selectedTopics: selection.topics,
-      selectedSubtopics: selection.subTopics
-    });
-  }
-
-  public setFilter(filter: FilterState) {
-    console.log('Setting new filter:', {
-      oldFilter: this.currentFilter,
-      newFilter: filter,
-      oldTypeIndex: this.currentTypeIndex,
-      oldDifficultyIndex: this.currentDifficultyIndex
-    });
-
-    // Reset indices when filter changes
-    if (JSON.stringify(filter) !== JSON.stringify(this.currentFilter)) {
-      this.currentTypeIndex = 0;
-      this.currentDifficultyIndex = 0;
-      console.log('Filter changed, reset indices');
-    }
-    this.currentFilter = filter;
-  }
-
-  private generateParameters(): QuestionFetchParams {
-    // Get next subtopic
-    const subtopicId = this.selection.subTopics[this.currentSubtopicIndex];
-
-    console.log('DEBUG: Subtopic selection details:', {
-        subtopicId,
-        allSubtopics: this.selection.subTopics,
-        examTopics: this.exam.topics.map(t => ({
-            topicId: t.id,
-            subTopics: t.subTopics.map(st => ({
-                id: st.id,
-                name: st.name
-            }))
-        }))
-    });
-
-
-    const parentTopic = this.exam.topics.find(topic => 
-      topic.subTopics.some(st => {
-        const matchesId = st.id === subtopicId;
-        console.log('DEBUG: Subtopic matching details:', {
-            subtopicToMatch: subtopicId,
-            currentSubtopic: {
-                id: st.id,
-                name: st.name
-            },
-            matchesId,
-            parentTopicId: topic.id
-        });
-        return matchesId;  // Try matching either ID or code
-      })
-    );
-
-    if (!parentTopic) {
-      console.error('Failed to find parent topic:', {
-        subtopicId,
-        availableTopics: this.exam.topics.map(t => t.id),
-        allSubtopicsInExam: this.exam.topics.flatMap(t => t.subTopics.map(st => st.id))
+  constructor(exam: ExamTemplate, selection: TopicSelection, prepId: string) {
+    if (!exam.topics?.length) {
+      const error = new Error('Cannot initialize QuestionRotationManager: exam has no topics');
+      console.error('FORCE ERROR - ROTATION MANAGER INIT FAILED:', {
+        error,
+        exam,
+        selection,
+        prepId,
+        timestamp: new Date().toISOString()
       });
+      throw error;
+    }
+    if (!exam.topics.every(t => t.subTopics?.length)) {
+      const error = new Error('Cannot initialize QuestionRotationManager: some topics have no subtopics');
+      console.error('FORCE ERROR - ROTATION MANAGER INIT FAILED:', {
+        error,
+        exam,
+        selection,
+        prepId,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+    if (!exam.allowedQuestionTypes?.length) {
+      const error = new Error('Cannot initialize QuestionRotationManager: exam has no question types');
+      console.error('FORCE ERROR - ROTATION MANAGER INIT FAILED:', {
+        error,
+        exam,
+        selection,
+        prepId,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+
+    // Force all logs to show
+    logger.configure({
+      filters: {
+        minLevel: 'debug',
+        showOnly: [],
+        ignorePatterns: []
+      },
+      isDevelopment: true
+    });
+
+    console.log('FORCE LOG - ROTATION MANAGER CONSTRUCTOR:', {
+      examId: exam.id,
+      allowedTypes: exam.allowedQuestionTypes,
+      selectedSubtopics: selection.subTopics,
+      subTopicsCount: selection.subTopics.length,
+      prepId,
+      timestamp: new Date().toISOString()
+    });
+
+    this.exam = {
+      ...exam,
+      allowedQuestionTypes: exam.allowedQuestionTypes as QuestionType[]
+    };
+    this.selection = selection;
+    this.prepId = prepId;
+    
+    // Initialize student progress for all selected subtopics
+    selection.subTopics.forEach(subtopicId => {
+      this.studentProgress.set(subtopicId, {
+        subtopicId,
+        currentDifficulty: 1 as DifficultyLevel
+      });
+    });
+
+    // Log initial state with console.log to ensure it shows
+    console.log('FORCE LOG - ROTATION MANAGER INITIALIZED:', {
+      examId: exam.id,
+      allowedTypes: exam.allowedQuestionTypes,
+      selectedSubtopics: selection.subTopics,
+      subTopicsCount: selection.subTopics.length,
+      prepId,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  public getPrepId(): string {
+    return this.prepId;
+  }
+
+  public getNextParameters(filter: FilterState = {}): QuestionFetchParams {
+    // Force log incoming filter state
+    console.log('FORCE LOG - ROTATION MANAGER getNextParameters ENTRY:', {
+      incomingFilter: filter,
+      currentIndex: this.currentSubtopicIndex,
+      timestamp: new Date().toISOString()
+    });
+
+    // Step 1: Get active subtopics from filter
+    const activeSubtopics = filter.subTopics?.length 
+      ? filter.subTopics.filter(st => this.selection.subTopics.includes(st))
+      : [...this.selection.subTopics];
+
+    if (!activeSubtopics.length) {
+      throw new Error('No active subtopics available');
+    }
+
+    // Step 2: Get next subtopic (keeping rotation)
+    this.currentSubtopicIndex = (this.currentSubtopicIndex + 1) % activeSubtopics.length;
+    const subtopicId = activeSubtopics[this.currentSubtopicIndex];
+
+    console.log('FORCE LOG - ROTATION MANAGER subtopic selection:', {
+      previousIndex: this.currentSubtopicIndex,
+      selectedSubtopicId: subtopicId,
+      timestamp: new Date().toISOString()
+    });
+
+    // Log current subtopic progress before getting difficulty
+    const currentProgress = this.studentProgress.get(subtopicId);
+    console.log('FORCE LOG - ROTATION MANAGER current subtopic progress:', {
+      subtopicId,
+      currentProgress: currentProgress ? {
+        currentDifficulty: currentProgress.currentDifficulty,
+        subtopicId: currentProgress.subtopicId
+      } : 'not found',
+      timestamp: new Date().toISOString()
+    });
+
+    // Step 3: Get question type from filter
+    let questionType: QuestionType;
+    
+    console.log('FORCE LOG - ROTATION MANAGER type selection START:', {
+      filterState: {
+        hasTypes: Boolean(filter.questionTypes?.length),
+        types: filter.questionTypes,
+        requestedType: filter.questionTypes?.[0]
+      },
+      examState: {
+        allowedTypes: this.exam.allowedQuestionTypes
+      }
+    });
+    
+    if (filter.questionTypes?.length === 1) {
+      const requestedType = filter.questionTypes[0] as QuestionType;
+      console.log('FORCE LOG - ROTATION MANAGER processing requested type:', {
+        requestedType,
+        isAllowed: this.exam.allowedQuestionTypes.includes(requestedType)
+      });
+
+      // Validate requested type is allowed
+      if (this.exam.allowedQuestionTypes.includes(requestedType)) {
+        questionType = requestedType;
+        console.log('FORCE LOG - ROTATION MANAGER using requested type:', {
+          requestedType,
+          isAllowed: true
+        });
+      } else {
+        console.warn('FORCE LOG - ROTATION MANAGER requested type not allowed:', {
+          requestedType,
+          allowedTypes: this.exam.allowedQuestionTypes
+        });
+        // Fall back to random allowed type
+        questionType = this.exam.allowedQuestionTypes[
+          Math.floor(Math.random() * this.exam.allowedQuestionTypes.length)
+        ];
+      }
+    } else {
+      console.log('FORCE LOG - ROTATION MANAGER no specific type requested:', {
+        allowedTypes: this.exam.allowedQuestionTypes
+      });
+      // No specific type requested, pick random allowed type
+      questionType = this.exam.allowedQuestionTypes[
+        Math.floor(Math.random() * this.exam.allowedQuestionTypes.length)
+      ];
+    }
+
+    console.log('FORCE LOG - ROTATION MANAGER final type selection:', {
+      requestedType: filter.questionTypes?.[0],
+      selectedType: questionType,
+      wasRequested: filter.questionTypes?.length === 1,
+      allowedTypes: this.exam.allowedQuestionTypes
+    });
+
+    // Step 4: Get difficulty from filter or progress
+    const difficulty = filter.difficulty?.length
+      ? filter.difficulty[0]
+      : this.studentProgress.get(subtopicId)?.currentDifficulty || 1;
+
+    // Step 5: Find parent topic
+    const parentTopic = this.exam.topics.find(topic => 
+      topic.subTopics.some(st => st.id === subtopicId)
+    );
+    if (!parentTopic) {
       throw new Error(`Could not find parent topic for subtopic ${subtopicId}`);
     }
 
-    console.log('Found parent topic:', {
-      topicId: parentTopic.id,
-      subtopicId,
-      allSubtopicsInTopic: parentTopic.subTopics.map(st => st.id)
-    });
-
-    // Get allowed types based on exam configuration and filter
-    const examTypes = this.exam.allowedQuestionTypes ;
-    const filterTypes = this.currentFilter.questionTypes;
-    
-    console.log('Initial type info:', {
-      examId: this.exam.id,
-      examTypes: examTypes.join(', '),
-      filterTypes: filterTypes ? filterTypes.join(', ') : 'none',
-      defaultTypes: QUESTION_TYPES.join(', ')
-    });
-
-    const allowedTypes = filterTypes 
-      ? filterTypes.filter(type => examTypes.includes(type as QuestionType))
-      : examTypes;
-
-    console.log('Question type selection details:', {
-      examId: this.exam.id,
-      availableTypes: allowedTypes.join(', '),
-      currentTypeIndex: this.currentTypeIndex,
-      selectionMode: filterTypes ? 'random from filter' : 'random from exam types',
-      poolSize: allowedTypes.length
-    });
-    
-    // Determine question type:
-    // 1. If exactly one type allowed, use it
-    // 2. If filter exists, randomly select from filter types
-    // 3. If no filter, randomly select from all exam types
-    const questionType = allowedTypes.length === 1 
-      ? (allowedTypes[0] as QuestionType)
-      : filterTypes 
-        ? filterTypes[Math.floor(Math.random() * filterTypes.length)] as QuestionType  // Random from filter
-        : examTypes[Math.floor(Math.random() * examTypes.length)] as QuestionType;     // Random from all
-
-    console.log('Selected question type:', {
-      questionType,
-      wasFiltered: allowedTypes.length === 1,
-      selectedFromFilter: !!filterTypes,
-      availableTypes: filterTypes || examTypes
-    });
-
-    // Get next difficulty from allowed levels
-    const allowedDifficulties = this.currentFilter.difficulty || DIFFICULTY_LEVELS;
-    const difficulty = allowedDifficulties[this.currentDifficultyIndex % allowedDifficulties.length];
-
-    // For code questions, handle programming language
-    const programmingLanguage = questionType === 'code' && this.currentFilter.programmingLanguages?.length
-      ? this.currentFilter.programmingLanguages[0]  // Use first allowed language
-      : undefined;
-
-    // Log the parameters for debugging
-    console.log('Generating question parameters:', {
-      currentIndices: {
-        subtopic: this.currentSubtopicIndex,
-        type: this.currentTypeIndex,
-        difficulty: this.currentDifficultyIndex
-      },
-      filter: this.currentFilter,
-      selectedType: questionType,
-      allowedTypes,
-      typeIndex: this.currentTypeIndex,
-      topic: parentTopic.id,
-      subtopic: subtopicId
-    });
-
-    return {
+    // Step 6: Create and return parameters
+    const params: QuestionFetchParams = {
       topic: parentTopic.id,
       subtopic: subtopicId,
       type: questionType,
       difficulty,
       subject: this.exam.subjectId,
       educationType: getExamInstitution(this.exam.examType),
-      programmingLanguage,
-      includeTestCases: this.currentFilter.hasTestCases
-    };
-  }
-
-  private rotateIndices(): void {
-    const allowedTypes = this.currentFilter.questionTypes || QUESTION_TYPES;
-    const allowedDifficulties = this.currentFilter.difficulty || DIFFICULTY_LEVELS;
-
-    const oldIndices = {
-      subtopic: this.currentSubtopicIndex,
-      type: this.currentTypeIndex,
-      difficulty: this.currentDifficultyIndex
+      includeTestCases: filter.hasTestCases
     };
 
-    this.currentSubtopicIndex = (this.currentSubtopicIndex + 1) % this.selection.subTopics.length;
-    this.currentTypeIndex = (this.currentTypeIndex + 1) % allowedTypes.length;
-    this.currentDifficultyIndex = (this.currentDifficultyIndex + 1) % allowedDifficulties.length;
-
-    console.log('Rotating indices:', {
-      old: oldIndices,
-      new: {
-        subtopic: this.currentSubtopicIndex,
-        type: this.currentTypeIndex,
-        difficulty: this.currentDifficultyIndex
-      },
-      allowedTypesLength: allowedTypes.length,
-      allowedDifficultiesLength: allowedDifficulties.length
+    console.log('FORCE LOG - ROTATION MANAGER final parameters:', {
+      params,
+      originalFilter: filter,
+      selectedType: questionType,
+      allowedTypes: this.exam.allowedQuestionTypes,
+      filterTypes: filter.questionTypes,
+      timestamp: new Date().toISOString()
     });
+
+    return params;
   }
 
-  public reset(): void {
-    const oldIndices = {
-      subtopic: this.currentSubtopicIndex,
-      type: this.currentTypeIndex,
-      difficulty: this.currentDifficultyIndex
-    };
-
-    this.currentSubtopicIndex = 0;
-    this.currentTypeIndex = 0;
-    this.currentDifficultyIndex = 0;
-
-    console.log('Reset indices:', {
-      old: oldIndices,
-      new: {
-        subtopic: 0,
-        type: 0,
-        difficulty: 0
-      }
-    });
-  }
-
-  public getNextParameters(): QuestionFetchParams {
-    console.log('Getting next parameters, current state:', {
-      currentFilter: this.currentFilter,
-      currentIndices: {
-        subtopic: this.currentSubtopicIndex,
-        type: this.currentTypeIndex,
-        difficulty: this.currentDifficultyIndex
-      },
-      selectedSubtopics: this.selection.subTopics,
-      filterSubtopics: this.currentFilter.subTopics
+  public increaseDifficulty(subtopicId: string) {
+    const progress = this.studentProgress.get(subtopicId);
+    console.log('FORCE LOG - ROTATION MANAGER accessing difficulty map:', {
+      action: 'increaseDifficulty',
+      subtopicId,
+      currentProgress: progress ? {
+        currentDifficulty: progress.currentDifficulty,
+        subtopicId: progress.subtopicId
+      } : 'not found',
+      currentIndex: this.currentSubtopicIndex
     });
 
-    // Try up to 10 times to find parameters that satisfy the filter
-    for (let attempt = 0; attempt < 10; attempt++) {
-      console.log(`Attempt ${attempt + 1} of 10`);
-      const params = this.generateParameters();
+    if (progress && progress.currentDifficulty < 5) {
+      const oldDifficulty = progress.currentDifficulty;
+      progress.currentDifficulty = Math.min(5, progress.currentDifficulty + 1) as DifficultyLevel;
+      this.studentProgress.set(subtopicId, progress);
       
-      const satisfiesFilters = satisfiesFilter(params, this.currentFilter);
-      console.log('Generated parameters check:', {
-        params,
-        currentFilter: this.currentFilter,
-        satisfiesFilters,
-        attempt: attempt + 1,
-        subtopicMatch: this.currentFilter.subTopics ? 
-          this.currentFilter.subTopics.includes(params.subtopic || '') : 
-          'no subtopic filter'
+      // Decrease index by 1 to repeat the current subtopic with new difficulty
+      this.currentSubtopicIndex = Math.max(-1, this.currentSubtopicIndex - 1);
+      
+      console.log('FORCE LOG - ROTATION MANAGER difficulty changed:', {
+        action: 'increaseDifficulty',
+        subtopicId,
+        oldDifficulty,
+        newDifficulty: progress.currentDifficulty,
+        currentSubtopicIndex: this.currentSubtopicIndex,
+        timestamp: new Date().toISOString()
       });
-
-      if (satisfiesFilters) {
-        return params;
-      }
-      
-      // Rotate indices for next attempt
-      this.rotateIndices();
     }
+  }
 
-    // If we couldn't find matching parameters after 10 attempts,
-    // throw an error - the filter might be too restrictive
-    console.error('Failed to find matching parameters after 10 attempts', {
-      currentFilter: this.currentFilter,
-      finalIndices: {
-        subtopic: this.currentSubtopicIndex,
-        type: this.currentTypeIndex,
-        difficulty: this.currentDifficultyIndex
-      },
-      availableSubtopics: this.selection.subTopics,
-      filterSubtopics: this.currentFilter.subTopics
+  public decreaseDifficulty(subtopicId: string) {
+    const progress = this.studentProgress.get(subtopicId);
+    console.log('FORCE LOG - ROTATION MANAGER accessing difficulty map:', {
+      action: 'decreaseDifficulty',
+      subtopicId,
+      currentProgress: progress ? {
+        currentDifficulty: progress.currentDifficulty,
+        subtopicId: progress.subtopicId
+      } : 'not found',
+      currentIndex: this.currentSubtopicIndex
     });
-    throw new Error('Could not find question matching current filters. Please try relaxing some constraints.');
+
+    if (progress && progress.currentDifficulty > 1) {
+      const oldDifficulty = progress.currentDifficulty;
+      progress.currentDifficulty = Math.max(1, progress.currentDifficulty - 1) as DifficultyLevel;
+      this.studentProgress.set(subtopicId, progress);
+      
+      // Decrease index by 1 to repeat the current subtopic with new difficulty
+      this.currentSubtopicIndex = Math.max(-1, this.currentSubtopicIndex - 1);
+      
+      console.log('FORCE LOG - ROTATION MANAGER difficulty changed:', {
+        action: 'decreaseDifficulty',
+        subtopicId,
+        oldDifficulty,
+        newDifficulty: progress.currentDifficulty,
+        currentSubtopicIndex: this.currentSubtopicIndex,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  public getSubtopicProgress(subtopicId: string): StudentSubTopicProgress | undefined {
+    const progress = this.studentProgress.get(subtopicId);
+    console.log('FORCE LOG - ROTATION MANAGER accessing difficulty map:', {
+      action: 'getSubtopicProgress',
+      subtopicId,
+      currentProgress: progress ? {
+        currentDifficulty: progress.currentDifficulty,
+        subtopicId: progress.subtopicId
+      } : 'not found',
+      timestamp: new Date().toISOString()
+    });
+    return progress;
+  }
+
+  public getAllProgress(): StudentSubTopicProgress[] {
+    return Array.from(this.studentProgress.values());
   }
 } 

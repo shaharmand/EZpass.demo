@@ -1,0 +1,29 @@
+{
+  "id": "safety_management_ppe_1",
+  "type": "multiple_choice",
+  "content": {
+    "text": "באיזה מצב יש להחליף קסדת מגן באתר בנייה?",
+    "format": "markdown"
+  },
+  "metadata": {
+    "topicId": "safety_management/protective_equipment",
+    "difficulty": 1,
+    "source": {
+      "examType": "safety_certification",
+      "author": "system",
+      "year": 2024
+    },
+    "tags": ["ppe", "helmet", "equipment_maintenance"]
+  },
+  "options": [
+    { "text": "רק כאשר הקסדה נשברת", "format": "markdown" },
+    { "text": "כל שנתיים, גם אם הקסדה במצב טוב", "format": "markdown" },
+    { "text": "רק כאשר הקסדה נפלה מגובה", "format": "markdown" },
+    { "text": "כאשר מופיעים סדקים, או לאחר מכה חזקה, או בהתאם להוראות היצרן", "format": "markdown" }
+  ],
+  "correctOption": 4,
+  "solution": {
+    "text": "יש להחליף קסדת מגן כאשר מופיעים בה סדקים, לאחר שספגה מכה חזקה (גם אם אין נזק נראה לעין), או בהתאם להוראות היצרן. זאת כדי להבטיח את יעילות ההגנה של הקסדה. אין להסתמך רק על נזק נראה לעין.",
+    "format": "markdown"
+  }
+} 

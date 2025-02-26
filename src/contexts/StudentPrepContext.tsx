@@ -1,29 +1,31 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { ExamTemplate } from '../types/examTemplate';
-import type { StudentPrep, QuestionState, TopicSelection, PrepState, logPrepStateChange, logQuestionStateChange } from '../types/prepState';
-import type { PracticeQuestion } from '../types/prepUI';
+import type { StudentPrep, QuestionState, TopicSelection, PrepState } from '../types/prepState';
+import type { PracticeQuestion, SkipReason } from '../types/prepUI';
 import type { Question, QuestionType, FilterState } from '../types/question';
 import type { QuestionFeedback } from '../types/question';
+import type { Topic } from '../types/subject';
 import { PrepStateManager } from '../services/PrepStateManager';
 import { questionService } from '../services/llm/questionGenerationService';
 import { QuestionRotationManager } from '../services/QuestionRotationManager';
 import { FeedbackService } from '../services/llm/feedbackGenerationService';
-import { logger } from '../utils/logger';
+import { logger, CRITICAL_SECTIONS } from '../utils/logger';
 import { ExamType } from '../types/examTemplate';
 import { examService } from '../services/examService';
 import { universalTopics } from '../services/universalTopics';
 
 interface StudentPrepContextType {
-  activePrep: StudentPrep | null;
   currentQuestion: PracticeQuestion | null;
+  topics: Topic[];
   startPrep: (exam: ExamTemplate, selection?: TopicSelection) => Promise<string>;
   pausePrep: (prepId: string) => void;
   completePrep: (prepId: string) => void;
   getNextQuestion: (filters?: FilterState) => Promise<Question>;
-  submitAnswer: (answer: string) => Promise<void>;
+  skipQuestion: (reason: SkipReason, filters?: FilterState) => Promise<Question>;
+  submitAnswer: (answer: string, prep: StudentPrep) => Promise<void>;
   setCurrentQuestion: (question: PracticeQuestion | null) => void;
   getPrep: (prepId: string) => Promise<StudentPrep | null>;
-  setActivePrep: (prep: StudentPrep | null) => void;
+  getRotationManager: () => QuestionRotationManager | null;
 }
 
 const StudentPrepContext = createContext<StudentPrepContextType | null>(null);
@@ -36,110 +38,58 @@ const PREP_STORAGE_KEY = 'active_preps';
 const CURRENT_QUESTION_KEY = 'current_question';
 
 export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activePrep, setActivePrep] = useState<StudentPrep | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<PracticeQuestion | null>(null);
-  const timeInterval = useRef<NodeJS.Timeout | null>(null);
   const isGeneratingQuestion = useRef(false);
   const rotationManager = useRef<QuestionRotationManager | null>(null);
   const feedbackService = useRef<FeedbackService>(new FeedbackService());
 
-  // Get prep by ID and load first question if needed
+  // Enable critical logging sections
+  useEffect(() => {
+    logger.configure({
+      filters: {
+        minLevel: 'debug',
+        showOnly: [],
+        ignorePatterns: []
+      },
+      isDevelopment: true
+    });
+    
+    logger.enableDebugging([
+      CRITICAL_SECTIONS.EXAM_STATE,
+      CRITICAL_SECTIONS.QUESTION_GENERATION,
+      CRITICAL_SECTIONS.RACE_CONDITIONS,
+      CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION
+    ]);
+
+    return () => {
+      logger.disableDebugging([
+        CRITICAL_SECTIONS.EXAM_STATE,
+        CRITICAL_SECTIONS.QUESTION_GENERATION,
+        CRITICAL_SECTIONS.RACE_CONDITIONS,
+        CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION
+      ]);
+    };
+  }, []);
+
+  // Get prep by ID
   const getPrep = useCallback(async (prepId: string): Promise<StudentPrep | null> => {
     try {
-      console.log('Getting prep:', { prepId });
       const prep = PrepStateManager.getPrep(prepId);
       
       if (!prep) {
-        console.warn('Prep not found:', { prepId });
         return null;
       }
-
-      console.log('Found prep:', { 
-        prepId, 
-        status: prep.state.status,
-        exam: prep.exam.id 
-      });
       
-      setActivePrep(prep);
+      // Load or create rotation manager for this prep
+      if (!rotationManager.current || rotationManager.current.getPrepId() !== prepId) {
+        rotationManager.current = new QuestionRotationManager(prep.exam, prep.selection, prepId);
+      }
+      
       return prep;
     } catch (error) {
-      console.error('Error getting prep:', {
-        error,
-        prepId,
-        stack: error instanceof Error ? error.stack : undefined
-      });
       throw new Error('שגיאה בטעינת נתוני התרגול');
     }
   }, []);
-
-  // Get next question
-  const getNextQuestion = useCallback(async (filters?: FilterState): Promise<Question> => {
-    if (!activePrep) {
-      throw new Error('No active prep session');
-    }
-
-    if (isGeneratingQuestion.current) {
-      // Wait for current generation with timeout
-      let attempts = 0;
-      const maxAttempts = 30; // 30 seconds total wait time
-      
-      await new Promise((resolve, reject) => {
-        const checkInterval = setInterval(() => {
-          attempts++;
-          if (!isGeneratingQuestion.current) {
-            clearInterval(checkInterval);
-            resolve(null);
-          }
-          if (attempts >= maxAttempts) {
-            clearInterval(checkInterval);
-            reject(new Error('Timeout waiting for question generation'));
-          }
-        }, 1000);
-      });
-    }
-
-    try {
-      isGeneratingQuestion.current = true;
-
-      // Initialize rotation manager if needed
-      if (!rotationManager.current && activePrep) {
-        rotationManager.current = new QuestionRotationManager(
-          activePrep.exam,
-          activePrep.selection
-        );
-      }
-
-      // Get next parameters using rotation manager
-      if (!rotationManager.current) {
-        throw new Error('Question rotation manager not initialized');
-      }
-
-      // Set current filters
-      if (filters) {
-        console.log('Setting filters in rotation manager:', filters);
-        rotationManager.current.setFilter(filters);
-      }
-
-      const params = rotationManager.current.getNextParameters();
-
-      // Generate question with rotated parameters
-      try {
-        const question = await questionService.generateQuestion(params);
-        return question;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error generating question';
-        const isRateLimit = errorMessage.toLowerCase().includes('rate limit') || 
-                           errorMessage.toLowerCase().includes('429');
-        
-        throw new Error(isRateLimit ? 
-          'המערכת עמוסה כרגע. אנא המתן מספר דקות ונסה שוב.' :
-          'אירעה שגיאה בטעינת השאלה. אנא נסה שוב.'
-        );
-      }
-    } finally {
-      isGeneratingQuestion.current = false;
-    }
-  }, [activePrep]);
 
   // Start a new prep
   const startPrep = useCallback(async (exam: ExamTemplate, selection?: TopicSelection): Promise<string> => {
@@ -171,59 +121,15 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Create new prep in active state
       const prep = PrepStateManager.createPrep(exam, selection);
       
-      // Initialize rotation manager with the actual selection from the prep
-      rotationManager.current = new QuestionRotationManager(exam, prep.selection);
-
-      // Set active prep state immediately
-      setActivePrep(prep);
+      // Create new rotation manager for this prep
+      console.log('Creating new rotation manager for prep:', prep.id);
+      rotationManager.current = new QuestionRotationManager(exam, prep.selection, prep.id);
       
       console.log('Prep created:', { 
         prepId: prep.id,
         status: prep.state.status
       });
 
-      // Start question generation in background
-      queueMicrotask(async () => {
-        try {
-          if (!rotationManager.current) {
-            console.error('Question rotation manager not initialized');
-            return;
-          }
-
-          const params = rotationManager.current.getNextParameters();
-          const firstQuestion = await questionService.generateQuestion(params);
-          
-          if (firstQuestion) {
-            console.log('First question generated:', {
-              questionId: firstQuestion.id,
-              type: firstQuestion.type,
-              prepId: prep.id
-            });
-
-            const practiceQuestion: PracticeQuestion = {
-              question: firstQuestion,
-              state: {
-                status: 'active',
-                startedAt: Date.now(),
-                lastUpdatedAt: Date.now(),
-                helpRequests: [],
-                questionIndex: 0,
-                correctAnswers: 0,
-                averageScore: 0
-              }
-            };
-            setCurrentQuestion(practiceQuestion);
-            localStorage.setItem(CURRENT_QUESTION_KEY, JSON.stringify(practiceQuestion));
-          }
-        } catch (error) {
-          console.error('Error generating first question:', {
-            error,
-            prepId: prep.id,
-            stack: error instanceof Error ? error.stack : undefined
-          });
-        }
-      });
-      
       // Return prepId immediately
       return prep.id;
     } catch (error) {
@@ -236,34 +142,18 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, []);
 
-  // Add effect to restore state from localStorage on mount
-  useEffect(() => {
-    const storedQuestion = localStorage.getItem(CURRENT_QUESTION_KEY);
-    if (storedQuestion) {
-      try {
-        const parsedQuestion = JSON.parse(storedQuestion);
-        setCurrentQuestion(parsedQuestion);
-      } catch (error) {
-        console.error('Error parsing stored question:', error);
-        localStorage.removeItem(CURRENT_QUESTION_KEY);
-      }
-    }
-  }, []);
-
   // Pause prep
   const pausePrep = useCallback((prepId: string) => {
     const prep = PrepStateManager.getPrep(prepId);
     if (!prep) return;
 
     try {
-      const pausedPrep = PrepStateManager.pause(prep);
-      setActivePrep(pausedPrep);
+      PrepStateManager.pause(prep);
     } catch (error) {
-      const errorPrep = PrepStateManager.setError(
+      PrepStateManager.setError(
         prep,
         error instanceof Error ? error.message : 'Error pausing prep'
       );
-      setActivePrep(errorPrep);
     }
   }, []);
 
@@ -273,14 +163,12 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!prep) return;
 
     try {
-      const completedPrep = PrepStateManager.complete(prep);
-      setActivePrep(completedPrep);
+      PrepStateManager.complete(prep);
     } catch (error) {
-      const errorPrep = PrepStateManager.setError(
+      PrepStateManager.setError(
         prep,
         error instanceof Error ? error.message : 'Error completing prep'
       );
-      setActivePrep(errorPrep);
     }
   }, []);
 
@@ -312,7 +200,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
   /**
    * Handles feedback generation for all question types
    */
-  const generateFeedback = async (question: Question, answer: string): Promise<QuestionFeedback> => {
+  const generateFeedback = async (question: Question, answer: string, prep: StudentPrep): Promise<QuestionFeedback> => {
     // For multiple choice questions, handle feedback directly
     if (question.type === 'multiple_choice') {
       const selectedOption = parseInt(answer);
@@ -322,8 +210,8 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return generateMultipleChoiceFeedback(question, selectedOption);
     }
 
-    if (!activePrep?.exam) {
-      throw new Error('No active exam in prep session');
+    if (!prep?.exam) {
+      throw new Error('No exam in prep session');
     }
 
     // For other question types, use the feedback service directly
@@ -348,15 +236,15 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return feedbackService.current.generateFeedback({
       question,
       studentAnswer: answer,
-      formalExamName: activePrep.exam.names.full,
-      examType: activePrep.exam.examType as ExamType,
+      formalExamName: prep.exam.names.full,
+      examType: prep.exam.examType as ExamType,
       subject
     });
   };
 
-  const submitAnswer = useCallback(async (answer: string) => {
-    if (!currentQuestion || !activePrep) {
-      throw new Error('No active question or prep session');
+  const submitAnswer = useCallback(async (answer: string, prep: StudentPrep) => {
+    if (!currentQuestion) {
+      throw new Error('No active question');
     }
 
     try {
@@ -377,16 +265,15 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
 
       // Generate feedback using our feedback service
-      const feedback = await generateFeedback(currentQuestion.question, answer);
+      const feedback = await generateFeedback(currentQuestion.question, answer, prep);
 
       // Update prep progress with the score and question ID
-      const updatedPrep = PrepStateManager.updateProgress(
-        activePrep, 
+      PrepStateManager.updateProgress(
+        prep, 
         feedback.isCorrect,
         feedback.score,
         currentQuestion.question.id
       );
-      setActivePrep(updatedPrep);
 
       // Update question state with feedback
       const updatedState: QuestionState = {
@@ -408,28 +295,75 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       console.error('Error submitting answer:', error);
       throw error;
     }
-  }, [activePrep, currentQuestion, generateFeedback]);
+  }, [currentQuestion]);
 
-  // Time tracking effect
-  useEffect(() => {
-    if (!activePrep || activePrep.state.status !== 'active') {
-      if (timeInterval.current) {
-        clearInterval(timeInterval.current);
+  const getNextQuestion = useCallback(async (filters?: FilterState): Promise<Question> => {
+    try {
+      isGeneratingQuestion.current = true;
+
+      // Get next parameters using rotation manager
+      if (!rotationManager.current) {
+        throw new Error('Question rotation manager not initialized');
       }
-      return;
+
+      const params = rotationManager.current.getNextParameters(filters);
+
+      // Generate question with rotated parameters
+      const question = await questionService.generateQuestion(params);
+      
+      return question;
+    } catch (error) {
+      throw error;
+    } finally {
+      isGeneratingQuestion.current = false;
+    }
+  }, []);
+
+  const skipQuestion = useCallback(async (reason: SkipReason, filters?: FilterState): Promise<Question> => {
+    console.log('FORCE LOG - skipQuestion ENTRY:', {
+      reason,
+      filters,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!rotationManager.current) {
+      throw new Error('Cannot skip question: rotation manager not initialized');
     }
 
-    timeInterval.current = setInterval(() => {
-      const updatedPrep = PrepStateManager.updateTime(activePrep);
-      setActivePrep(updatedPrep);
-    }, 1000);
-
-    return () => {
-      if (timeInterval.current) {
-        clearInterval(timeInterval.current);
+    try {
+      // Handle difficulty adjustment based on skip reason
+      const currentSubtopic = currentQuestion?.question.metadata.subtopicId;
+      if (currentSubtopic) {
+        if (reason === 'too_easy') {
+          console.log('FORCE LOG - Increasing difficulty due to too_easy skip');
+          rotationManager.current.increaseDifficulty(currentSubtopic);
+        } else if (reason === 'too_hard') {
+          console.log('FORCE LOG - Decreasing difficulty due to too_hard skip');
+          rotationManager.current.decreaseDifficulty(currentSubtopic);
+        }
       }
-    };
-  }, [activePrep]);
+
+      // Get next question with filters
+      return getNextQuestion(filters);
+    } catch (error) {
+      console.error('Failed to skip question', { error, reason });
+      throw error;
+    }
+  }, [currentQuestion, getNextQuestion]);
+
+  // Add effect to restore state from localStorage on mount
+  useEffect(() => {
+    const storedQuestion = localStorage.getItem(CURRENT_QUESTION_KEY);
+    if (storedQuestion) {
+      try {
+        const parsedQuestion = JSON.parse(storedQuestion);
+        setCurrentQuestion(parsedQuestion);
+      } catch (error) {
+        console.error('Error parsing stored question:', error);
+        localStorage.removeItem(CURRENT_QUESTION_KEY);
+      }
+    }
+  }, []);
 
   // Update localStorage when current question changes
   useEffect(() => {
@@ -440,26 +374,19 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [currentQuestion]);
 
-  // Clear current question when practice completes or errors
-  useEffect(() => {
-    if (activePrep?.state.status === 'completed' || activePrep?.state.status === 'error') {
-      setCurrentQuestion(null);
-      localStorage.removeItem(CURRENT_QUESTION_KEY);
-    }
-  }, [activePrep?.state.status]);
-
   return (
     <StudentPrepContext.Provider value={{
-      activePrep,
       currentQuestion,
+      topics: [],
       startPrep,
       pausePrep,
       completePrep,
       getNextQuestion,
+      skipQuestion,
       submitAnswer,
       setCurrentQuestion,
       getPrep,
-      setActivePrep
+      getRotationManager: () => rotationManager.current
     }}>
       {children}
     </StudentPrepContext.Provider>

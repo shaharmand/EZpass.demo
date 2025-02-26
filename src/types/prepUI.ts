@@ -10,7 +10,7 @@
  * Core state management types belong in prepState.ts
  */
 
-import type { Question, QuestionFeedback } from './question';
+import type { Question, QuestionFeedback, FilterState } from './question';
 import type { QuestionState, QuestionStatus } from './prepState';
 
 // Help request tracking
@@ -22,7 +22,7 @@ export interface HelpRequest {
 }
 
 // Separate skip tracking from feedback
-export type SkipReason = 'too_hard' | 'too_easy' | 'not_in_material';
+export type SkipReason = 'too_hard' | 'too_easy' | 'not_in_material' | 'filter_change';
 
 // Practice question - simplified to just combine question with its state
 export interface PracticeQuestion {
@@ -51,7 +51,7 @@ export type PrepAction =
 export interface PracticeContainerProps {
   question: Question;
   onAnswer: (answer: string) => Promise<void>;
-  onSkip: (reason: SkipReason) => Promise<void>;
+  onSkip: (reason: SkipReason, filters?: FilterState) => Promise<void>;
   onHelp: () => void;
   onNext: () => void;
   onRetry: () => void;

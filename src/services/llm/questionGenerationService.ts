@@ -1,7 +1,11 @@
 import OpenAI from 'openai';
 import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import { questionSchema } from "../../schemas/questionSchema";
-import type { Question, QuestionType, QuestionFetchParams, DifficultyLevel } from "../../types/question";
+import { Question, QuestionType, QuestionFetchParams, DifficultyLevel, SourceType } from "../../types/question";
+import { universalTopics } from "../universalTopics";
+import type { Domain, Topic } from "../../types/subject";
+import { logger } from '../../utils/logger';
+import { CRITICAL_SECTIONS } from '../../utils/logger';
 
 const openai = new OpenAI({
   apiKey: process.env.REACT_APP_OPENAI_API_KEY,
@@ -81,7 +85,7 @@ export class QuestionService {
     }
   }
 
-  private async buildPrompt(params: QuestionFetchParams): Promise<string> {
+  private async buildPrompt(params: QuestionFetchParams, metadataRequirements: string): Promise<string> {
     const formatInstructions = await this.parser.getFormatInstructions();
     
     return `Generate a ${params.type} question in ${params.subject} for ${params.educationType} students.
@@ -93,12 +97,45 @@ LANGUAGE REQUIREMENTS:
 - Solution explanation must be in Hebrew
 - Keep mathematical terms and symbols in English/LaTeX
 - Text direction should be RTL (right-to-left)
+- For math formulas:
+  - Use $...$ for inline math
+  - Use $$...$$ for display math (centered)
+  - NEVER include Hebrew text inside math delimiters
+  - Use English/Latin characters for variables
+  - Write units in Hebrew OUTSIDE the math delimiters
+  - Basic LaTeX commands:
+    - Fractions: \frac{a}{b}
+    - Square root: \sqrt{x}
+    - Powers: x^2 or x_n
+    - Greek letters: \alpha, \beta, \theta
+    
+  CRITICAL RULES FOR HEBREW AND MATH:
+  1. NEVER put Hebrew text inside $...$ or $$...$$
+  2. NEVER use \text{} with Hebrew inside math
+  3. Write all units in Hebrew AFTER the math block
+  4. Use English subscripts for variables
+  
+  EXAMPLES:
+  ❌ WRONG: $v_{סופי}$ - Hebrew subscript inside math
+  ✅ RIGHT: $v_{final}$ (מהירות סופית)
+  
+  ❌ WRONG: $$F = ma \text{ניוטון}$$ - Hebrew unit inside math
+  ✅ RIGHT: $$F = ma$$ ניוטון
+  
+  ❌ WRONG: $\text{מהירות} = v$ - Hebrew text inside math
+  ✅ RIGHT: מהירות = $v$
+  
+  ❌ WRONG: $$\frac{\text{כוח}}{\text{שטח}}$$ - Hebrew fractions
+  ✅ RIGHT: יחס בין כוח לשטח: $$\frac{F}{A}$$
 
-CONTEXT:
-- Topic: ${params.topic}
-${params.subtopic ? `- Subtopic: ${params.subtopic}\n` : ''}- Difficulty: Level ${params.difficulty} (1=easiest to 5=hardest)
-- Education Type: ${params.educationType}
-- Subject: ${params.subject}
+DIFFICULTY LEVEL SCALE:
+1 (קל מאוד): Basic concept, single step
+2 (קל): Simple problem, 2 steps
+3 (בינוני): Multiple concepts, 3-4 steps
+4 (קשה): Complex analysis, multiple approaches
+5 (קשה מאוד): Advanced integration of concepts
+
+${metadataRequirements}
 
 ANSWER REQUIREMENTS:
 You MUST include a list of required elements that must be present in a complete answer. These will be used to evaluate student responses. For example:
@@ -215,7 +252,9 @@ STEP-BY-STEP QUESTION REQUIREMENTS:
    - Mathematical/physical problem requiring numerical or formula solution in Hebrew
    - Clear progression from given values to final answer
    - All equations, units and constants provided upfront
-   - Use LaTeX for mathematical notation
+   - Use LaTeX notation for math formulas:
+     - Display equations: $$\begin{align*} F_{max} &= \frac{W}{FS} \end{align*}$$
+     - Inline equations: כאשר $F_{max}$ הוא הכוח המקסימלי
    - Include diagrams/figures when relevant
 
 2. Structure:
@@ -233,13 +272,6 @@ STEP-BY-STEP QUESTION REQUIREMENTS:
    - Common calculation mistakes to watch for
 `}
 
-METADATA REQUIREMENTS:
-1. Difficulty: Match requested level ${params.difficulty}
-2. EstimatedTime: Realistic time for ${params.educationType} level
-3. Source: Use "practice" for examType
-4. TopicId: Use "${params.topic}"
-${params.subtopic ? `5. SubtopicId: Use "${params.subtopic}"` : ''}
-
 SCHEMA VALIDATION REQUIREMENTS:
 ${formatInstructions}
 
@@ -249,6 +281,20 @@ IMPORTANT:
   }
 
   async generateQuestion(params: QuestionFetchParams): Promise<Question> {
+    // Add detailed parameter logging
+    logger.info('Incoming question generation parameters:', {
+      receivedParams: {
+        ...params,
+        topic: params.topic,
+        type: params.type,
+        difficulty: params.difficulty,
+        subject: params.subject,
+        educationType: params.educationType,
+        subtopic: params.subtopic
+      },
+      timestamp: new Date().toISOString()
+    }, CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION);
+
     try {
       console.log('%c🎯 Generating Question:', 'color: #2563eb; font-weight: bold', {
         topic: params.topic,
@@ -273,7 +319,29 @@ IMPORTANT:
 
       console.log('%c📋 System Message:', 'color: #059669; font-weight: bold', '\n' + systemPrompt);
       
-      const prompt = await this.buildPrompt(params);
+      // Get subject and domain info for metadata requirements
+      const subject = universalTopics.getSubjectForTopic(params.topic);
+      const domain = subject?.domains.find((d: Domain) => 
+        d.topics.some((t: Topic) => t.id === params.topic)
+      );
+
+      if (!subject || !domain) {
+        throw new Error(`Invalid topic ID: ${params.topic} - Cannot find subject or domain`);
+      }
+
+      const metadataRequirements = `METADATA REQUIREMENTS:
+1. Difficulty: Use exactly ${params.difficulty} (no other value is acceptable)
+2. EstimatedTime: MUST provide a numeric value in minutes (e.g., 15 for a 15-minute question). Choose a realistic time for ${params.educationType} level.
+3. SubjectId: Use "${subject.id}"
+4. DomainId: Use "${domain.id}"
+5. TopicId: Use "${params.topic}"
+${params.subtopic ? `6. SubtopicId: Use "${params.subtopic}"` : ''}
+7. Type: Use "${params.type}"
+8. Source: Use sourceType "${SourceType.Ezpass}"
+
+IMPORTANT: You MUST include all of the above metadata fields in your response, using the exact values provided. The response will be rejected if any fields are missing or have incorrect values.`;
+      
+      const prompt = await this.buildPrompt(params, metadataRequirements);
       console.log('%c📝 OpenAI Prompt:', 'color: #059669; font-weight: bold', '\n' + prompt);
       
       const response = await this.llm.chat.completions.create({
@@ -285,7 +353,19 @@ IMPORTANT:
         temperature: 0.7,
         response_format: { type: "json_object" }
       });
-      
+
+      // Log the raw response for debugging
+      console.log('%c📥 Raw OpenAI Response:', 'color: #059669; font-weight: bold', {
+        content: response.choices[0].message.content,
+        usage: response.usage,
+        model: response.model,
+        tokens: {
+          prompt: response.usage?.prompt_tokens,
+          completion: response.usage?.completion_tokens,
+          total: response.usage?.total_tokens
+        }
+      });
+
       // PHASE 1: Immediate raw response analysis
       const content = response.choices[0].message.content;
       if (!content) {
@@ -332,6 +412,30 @@ IMPORTANT:
             error: error.message,
             content: processedContent
           });
+
+          // Check if this is a math formula validation error
+          if (error.message.includes('Math expressions must not contain Hebrew text')) {
+            // Log warning instead of throwing error
+            console.warn('%c⚠️ Math Formula Warning:', 'color: #f59e0b; font-weight: bold', {
+              message: 'Found Hebrew text in math expressions - This may affect rendering',
+              details: {
+                mathExpressions: processedContent.match(/\$\$[\s\S]*?\$\$|\$[^\$]*?\$/g) || [],
+                suggestions: [
+                  'Move Hebrew text outside math delimiters',
+                  'Use English/Latin subscripts for variables',
+                  'Write units in Hebrew outside the math',
+                  'Use \\begin{align*} for multi-line equations'
+                ],
+                examples: {
+                  variables: '$F_{max}$ (כוח מקסימלי)',
+                  units: '$$v = 5$$ מטר לשנייה',
+                  multiLine: '$$\\begin{align*} F &= ma \\\\ m &= 5 \\end{align*}$$ כאשר:'
+                }
+              }
+            });
+            // Continue processing instead of throwing error
+            processedContent = cleanContent;
+          }
           
           try {
             // Try to parse as JSON first to validate structure
@@ -432,8 +536,15 @@ IMPORTANT:
         const generatedQuestion = {
           ...question,
           metadata: {
-            ...question.metadata,
-            difficulty: question.metadata.difficulty as DifficultyLevel
+            subjectId: subject.id,
+            domainId: domain.id,
+            topicId: params.topic,
+            subtopicId: params.subtopic,
+            difficulty: params.difficulty,
+            estimatedTime: parsed.metadata.estimatedTime,
+            source: {
+              sourceType: SourceType.Ezpass
+            }
           }
         };
         this.questionCache.set(generatedQuestion.id, generatedQuestion);

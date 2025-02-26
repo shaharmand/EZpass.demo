@@ -65,7 +65,6 @@ export interface QuestionState {
 }
 
 export interface TopicSelection {
-    topics: string[];     // Array of selected topicIds
     subTopics: string[];  // Array of selected subtopicIds
 }
 
@@ -177,59 +176,6 @@ export const getLastTimestamp = (state: PrepState): number | null => {
         return state.completedAt;
     }
     return null;
-};
-
-// Logging utilities
-export const logPrepStateChange = (
-    action: string,
-    prep: StudentPrep | null,
-    question: PracticeQuestion | null
-) => {
-    console.group(`🔄 Prep State Change: ${action}`);
-    console.log('Timestamp:', new Date().toISOString());
-    console.log('Prep State:', {
-        id: prep?.id,
-        status: prep?.state.status,
-        totalTime: prep ? getActiveTime(prep.state) : 0,
-        lastUpdate: prep ? getLastTimestamp(prep.state) : null,
-        examId: prep?.exam.id,
-        selection: prep?.selection ? {
-            topics: prep.selection.topics,
-            subTopics: prep.selection.subTopics
-        } : null
-    });
-    console.log('Active Question:', question ? {
-        id: question.question.id,
-        status: question.state.status,
-        topic: question.question.metadata.topicId,
-        hasAnswer: !!question.state.currentAnswer,
-        hasFeedback: !!question.state.feedback
-    } : 'None');
-    console.groupEnd();
-};
-
-export const logQuestionStateChange = (
-    action: string,
-    question: PracticeQuestion | null,
-    prep: StudentPrep | null
-) => {
-    console.group(`📝 Question State Change: ${action}`);
-    console.log('Timestamp:', new Date().toISOString());
-    console.log('Question State:', question ? {
-        id: question.question.id,
-        status: question.state.status,
-        topic: question.question.metadata.topicId,
-        startedAt: question.state.startedAt ? new Date(question.state.startedAt).toISOString() : null,
-        submittedAt: question.state.submittedAnswer ? new Date(question.state.submittedAnswer.timestamp).toISOString() : null,
-        hasAnswer: !!question.state.currentAnswer,
-        hasFeedback: !!question.state.feedback
-    } : 'None');
-    console.log('Prep Context:', {
-        id: prep?.id,
-        status: prep?.state.status,
-        totalTime: prep ? getActiveTime(prep.state) : 0
-    });
-    console.groupEnd();
 };
 
 export type HelpType = 'explanation' | 'guidance' | 'stuck' | 'teach';

@@ -4,12 +4,16 @@ import { type SubTopic, type Topic } from '../types/subject';
 import { logger } from '../utils/logger';
 import { validateExamTemplate, examTemplateSchema } from '../schemas/examTemplateSchema';
 import { universalTopics } from './universalTopics';
+import { Question } from '../types/question';
+import { Subject } from '../types/subject';
 
 // Import exam data directly
-import bagrutCS from 'data/exams/bagrut_cs.json';
-import mahatCS from 'data/exams/mahat_cs.json';
-//import bagrutMath from 'data/exams/bagrut_math.json';
-import mahatCivil from 'data/exams/mahat_civil.json';
+const bagrutCS = require('../../data/exams/bagrut_cs.json');
+const mahatCS = require('../../data/exams/mahat_cs.json');
+const mahatCivil = require('../../data/exams/mahat_civil.json');
+const csProgrammingFundamentals = require('../../data/subjects/cs_programming_fundamentals_hsp.json');
+const csDataStructures = require('../../data/subjects/cs_data_structures_hsp.json');
+//const bagrutMath = require('../../data/exams/bagrut_math.json');
 
 // Raw data interfaces
 interface RawSubTopic {
@@ -62,10 +66,10 @@ class ExamService {
     try {
       // Collect all raw exams with their metadata
       const allRawExams = [
-        ...bagrutCS.exams.map(exam => exam as RawExam),
-        ...mahatCS.exams.map(exam => exam as RawExam),
-        ...mahatCivil.exams.map(exam => exam as RawExam)
-      ];
+        ...bagrutCS.exams.map((exam: any) => ({ ...exam, examType: exam.examType as ExamType })),
+        ...mahatCS.exams.map((exam: any) => ({ ...exam, examType: exam.examType as ExamType })),
+        ...mahatCivil.exams.map((exam: any) => ({ ...exam, examType: exam.examType as ExamType }))
+      ] as RawExam[];
 
       // Initialize collections
       this.examCache = new Map<string, ExamTemplate>();
@@ -78,12 +82,12 @@ class ExamService {
         // First transform topics to match expected structure with default values
         const transformedExam = {
           ...rawExam,
-          topics: rawExam.topics.map(topic => ({
+          topics: rawExam.topics.map((topic: RawTopic) => ({
             id: topic.id,
             name: topic.name || '',  // Ensure string
             description: topic.description || '',  // Ensure string
             order: topic.order ?? 0,  // Ensure number
-            subTopics: topic.subTopics.map(st => ({
+            subTopics: topic.subTopics.map((st: RawSubTopic) => ({
               id: st.id,
               name: st.name || '',  // Ensure string
               description: st.description || '',  // Ensure string

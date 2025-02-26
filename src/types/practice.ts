@@ -1,4 +1,5 @@
 import type { Question, QuestionType, QuestionFeedback } from './question';
+import { SkipReason } from './prepUI';
 
 export type HelpType = 'hint' | 'solution' | 'explanation';
 
@@ -20,16 +21,15 @@ export interface QuestionState {
 export interface PracticeContainerProps {
   question: Question;
   onAnswer: (answer: string) => Promise<void>;
-  onSkip: (reason: 'too_hard' | 'too_easy' | 'not_in_material') => Promise<void>;
+  onSkip: (reason: SkipReason) => Promise<void>;
   onHelp: () => Promise<void>;
   onNext: () => Promise<void>;
   onRetry: () => void;
   state: QuestionState;
 }
 
-export type SkipReason = 'too_hard' | 'too_easy' | 'not_in_material';
-
 export type PracticeAction =
+  | { type: 'START_PRACTICE' }
   | { type: 'SUBMIT_ANSWER'; answer: string }
   | { type: 'REQUEST_HELP' }
   | { type: 'SKIP_QUESTION'; reason: SkipReason }

@@ -20,14 +20,14 @@ const getActiveTime = (state: PrepState): number => {
 
 const PracticeFlowTestPage: React.FC = () => {
   const { 
-    activePrep,
     currentQuestion,
     startPrep,
     pausePrep,
     completePrep,
     getNextQuestion,
-    submitAnswer,
-    setCurrentQuestion
+    setCurrentQuestion,
+    getPrep,
+    submitAnswer
   } = useStudentPrep();
 
   const [loading, setLoading] = useState(false);
@@ -99,57 +99,51 @@ const PracticeFlowTestPage: React.FC = () => {
     }
   };
 
+  const handleAnswer = async (answer: string) => {
+    try {
+      setError(null);
+      setFeedback('Submitting test answer...');
+      
+      if (!currentQuestion) {
+        throw new Error('No active question');
+      }
+      
+      const prep = await getPrep(currentQuestion.question.id);
+      if (!prep) {
+        throw new Error('Practice session not found');
+      }
+      
+      await submitAnswer(answer, prep);
+      setFeedback('Answer submitted and next question loaded');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to submit answer');
+      setFeedback(null);
+    }
+  };
+
   const handlePause = async () => {
     try {
-      if (!activePrep) {
-        throw new Error('No active prep session');
-      }
-      setLoading(true);
       setError(null);
-      setFeedback('Pausing practice...');
-
-      pausePrep(activePrep.id);
+      if (!currentQuestion) {
+        throw new Error('No active question');
+      }
+      await pausePrep(currentQuestion.question.id);
       setFeedback('Practice paused');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to pause practice');
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleComplete = async () => {
     try {
-      if (!activePrep) {
-        throw new Error('No active prep session');
-      }
-      setLoading(true);
       setError(null);
-      setFeedback('Completing practice...');
-
-      completePrep(activePrep.id);
+      if (!currentQuestion) {
+        throw new Error('No active question');
+      }
+      await completePrep(currentQuestion.question.id);
       setFeedback('Practice completed');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to complete practice');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmitAnswer = async () => {
-    try {
-      if (!activePrep || !currentQuestion) {
-        throw new Error('No active question');
-      }
-      setLoading(true);
-      setError(null);
-      setFeedback('Submitting test answer...');
-
-      await submitAnswer('test_answer');
-      setFeedback('Answer submitted and next question loaded');
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to submit answer');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -176,29 +170,29 @@ const PracticeFlowTestPage: React.FC = () => {
               <Col span={8}>
                 <Statistic
                   title="Practice Status"
-                  value={activePrep ? activePrep.state.status : 'No Active Practice'}
+                  value={currentQuestion ? 'Active' : 'No Active Practice'}
                   valueStyle={{ 
-                    color: !activePrep ? '#999' :
-                      activePrep.state.status === 'active' ? '#52c41a' :
-                      activePrep.state.status === 'paused' ? '#faad14' :
-                      activePrep.state.status === 'completed' ? '#1890ff' :
+                    color: !currentQuestion ? '#999' :
+                      currentQuestion.state.status === 'active' ? '#52c41a' :
+                      currentQuestion.state.status === 'submitted' ? '#faad14' :
+                      currentQuestion.state.status === 'completed' ? '#1890ff' :
                       '#999'
                   }}
                 />
               </Col>
-              {activePrep && activePrep.state.status !== 'initializing' && (
+              {currentQuestion && currentQuestion.state.status !== 'loading' && (
                 <>
                   <Col span={8}>
                     <Statistic
                       title="Active Time"
-                      value={formatTime(getActiveTime(activePrep.state))}
+                      value={currentQuestion.state.startedAt ? Math.floor((Date.now() - currentQuestion.state.startedAt) / 1000) : 0}
                       prefix={<ClockCircleOutlined />}
                     />
                   </Col>
                   <Col span={8}>
                     <Statistic
                       title="Question Index"
-                      value={currentQuestion?.state.questionIndex || 0}
+                      value={currentQuestion.state.questionIndex || 0}
                       prefix={<QuestionCircleOutlined />}
                     />
                   </Col>
@@ -213,28 +207,28 @@ const PracticeFlowTestPage: React.FC = () => {
               type="primary"
               onClick={handleStartPractice}
               loading={loading}
-              disabled={!!activePrep}
+              disabled={!!currentQuestion}
             >
               Start New Practice
             </Button>
             <Button
               onClick={handlePause}
               loading={loading}
-              disabled={!activePrep || activePrep.state.status !== 'active'}
+              disabled={!currentQuestion || currentQuestion.state.status !== 'active'}
             >
               Pause Practice
             </Button>
             <Button
               onClick={handleComplete}
               loading={loading}
-              disabled={!activePrep || activePrep.state.status !== 'active'}
+              disabled={!currentQuestion || currentQuestion.state.status !== 'active'}
             >
               Complete Practice
             </Button>
             <Button
-              onClick={handleSubmitAnswer}
+              onClick={() => handleAnswer('')}
               loading={loading}
-              disabled={!activePrep || activePrep.state.status !== 'active' || !currentQuestion}
+              disabled={!currentQuestion}
             >
               Submit Test Answer
             </Button>
@@ -294,7 +288,7 @@ const PracticeFlowTestPage: React.FC = () => {
           )}
 
           {/* Debug State Display (Collapsible) */}
-          {activePrep && (
+          {currentQuestion && (
             <div>
               <Title level={5}>Debug State:</Title>
               <pre style={{ 
@@ -306,14 +300,14 @@ const PracticeFlowTestPage: React.FC = () => {
                 fontSize: '12px'
               }}>
                 {JSON.stringify({
-                  id: activePrep.id,
-                  status: activePrep.state.status,
-                  activeTime: getActiveTime(activePrep.state),
-                  currentQuestion: currentQuestion ? {
+                  id: currentQuestion.question.id,
+                  status: currentQuestion.state.status,
+                  timeActive: currentQuestion.state.startedAt ? Math.floor((Date.now() - currentQuestion.state.startedAt) / 1000) : 0,
+                  currentQuestion: {
                     id: currentQuestion.question.id,
                     status: currentQuestion.state.status,
                     index: currentQuestion.state.questionIndex
-                  } : null
+                  }
                 }, null, 2)}
               </pre>
             </div>

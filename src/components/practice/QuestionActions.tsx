@@ -84,7 +84,7 @@ const QuestionActions: React.FC<QuestionActionsProps> = ({
     {
       key: 'not_in_material',
       icon: <StopOutlined style={{ color: '#6b7280' }} />,
-      label: <Text style={{ color: '#6b7280' }}>לא למדתי</Text>
+      label: <Text style={{ color: '#6b7280' }}>לא בתוכן המבחן</Text>
     }
   ];
 

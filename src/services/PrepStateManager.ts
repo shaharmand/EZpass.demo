@@ -1,5 +1,4 @@
-    import type { StudentPrep, TopicSelection } from '../types/prepState';
-import { logPrepStateChange } from '../types/prepState';
+import type { StudentPrep, TopicSelection } from '../types/prepState';
 import type { ExamTemplate } from '../types/examTemplate';
 import type { Topic } from '../types/subject';
 
@@ -107,7 +106,6 @@ export class PrepStateManager {
             id: prepId,
             exam,
             selection: selectedTopics || {
-                topics: exam.topics.map(t => t.id),
                 subTopics: exam.topics.flatMap(t => t.subTopics.map(st => st.id))
             },
             goals: {
@@ -128,9 +126,6 @@ export class PrepStateManager {
                 questionHistory: []
             }
         };
-
-        // Log the state change
-        logPrepStateChange('Created New Active Prep', newPrep, null);
 
         // Save updated preps
         preps[prepId] = newPrep;
@@ -167,7 +162,6 @@ export class PrepStateManager {
         preps[newPrep.id] = newPrep;
         this.savePreps(preps);
         
-        logPrepStateChange('Activated Prep', newPrep, null);
         return newPrep;
     }
 
@@ -199,7 +193,6 @@ export class PrepStateManager {
         preps[newPrep.id] = newPrep;
         this.savePreps(preps);
         
-        logPrepStateChange('Paused Prep', newPrep, null);
         return newPrep;
     }
 
@@ -230,7 +223,6 @@ export class PrepStateManager {
         preps[newPrep.id] = newPrep;
         this.savePreps(preps);
         
-        logPrepStateChange('Completed Prep', newPrep, null);
         return newPrep;
     }
 
@@ -260,7 +252,6 @@ export class PrepStateManager {
         preps[newPrep.id] = newPrep;
         this.savePreps(preps);
         
-        logPrepStateChange('Error in Prep', newPrep, null);
         return newPrep;
     }
 
@@ -298,12 +289,43 @@ export class PrepStateManager {
         this.savePreps(preps);
     }
 
-    // Utility method to get total active time
+    // Helper to get active time
     static getActiveTime(prep: StudentPrep): number {
         if (prep.state.status === 'active') {
             return prep.state.activeTime + (Date.now() - prep.state.lastTick);
         }
-        return 'activeTime' in prep.state ? prep.state.activeTime : 0;
+        if ('activeTime' in prep.state) {
+            return prep.state.activeTime;
+        }
+        return 0;
+    }
+
+    // Get daily progress metrics
+    static getDailyProgress(prep: StudentPrep) {
+        // Calculate days until exam
+        const daysUntilExam = Math.max(1, Math.ceil((prep.goals.examDate - Date.now()) / (24 * 60 * 60 * 1000)));
+        
+        // Calculate daily goals
+        const dailyQuestionsGoal = Math.ceil(prep.goals.questionGoal / daysUntilExam);
+        const dailyTimeGoalMinutes = Math.ceil((prep.goals.totalHours * 60) / daysUntilExam);
+
+        // Calculate last 24 hours progress
+        const last24Hours = Date.now() - (24 * 60 * 60 * 1000);
+        const questionsAnsweredToday = prep.state.status !== 'initializing' && prep.state.status !== 'not_started'
+            ? prep.state.questionHistory?.filter(q => q.timestamp >= last24Hours).length || 0
+            : 0;
+
+        // Calculate daily time progress in minutes
+        const dailyTimeProgress = Math.round(this.getActiveTime(prep) / (60 * 1000));
+
+        return {
+            questionsAnsweredToday,
+            dailyQuestionsGoal,
+            dailyTimeProgress,
+            dailyTimeGoalMinutes,
+            isDailyTimeGoalExceeded: dailyTimeProgress > dailyTimeGoalMinutes,
+            isQuestionsGoalExceeded: questionsAnsweredToday > dailyQuestionsGoal
+        };
     }
 
     // Validate state transition
@@ -376,19 +398,9 @@ export class PrepStateManager {
             throw new Error('Can only skip question in active state');
         }
         
-        const newPrep: StudentPrep = {
-            ...prep,
-            state: {
-                ...prep.state
-            }
-        };
-
-        // Save to storage
-        const preps = this.loadPreps();
-        preps[newPrep.id] = newPrep;
-        this.savePreps(preps);
-
-        return newPrep;
+        // No need to update state or save to storage for skipping
+        // Just return the prep as is
+        return prep;
     }
 
     // Move to next question
@@ -413,5 +425,82 @@ export class PrepStateManager {
         this.savePreps(preps);
 
         return newPrep;
+    }
+
+    // Update prep
+    static updatePrep(prep: StudentPrep): StudentPrep {
+        // Save to storage
+        const preps = this.loadPreps();
+        preps[prep.id] = prep;
+        this.savePreps(preps);
+        
+        return prep;
+    }
+
+    // Comprehensive progress calculation - Single source of truth
+    static getProgress(prep: StudentPrep) {
+        const now = Date.now();
+        const activeTime = this.getActiveTime(prep);
+        const daysUntilExam = Math.max(1, Math.ceil((prep.goals.examDate - now) / (24 * 60 * 60 * 1000)));
+        const weeksUntilExam = Math.max(1, Math.ceil(daysUntilExam / 7));
+        const last24Hours = now - (24 * 60 * 60 * 1000);
+
+        // Daily progress
+        const dailyProgress = {
+            questions: {
+                completed: prep.state.status !== 'initializing' && prep.state.status !== 'not_started'
+                    ? prep.state.questionHistory?.filter(q => q.timestamp >= last24Hours).length || 0
+                    : 0,
+                goal: Math.ceil(prep.goals.questionGoal / daysUntilExam)
+            },
+            time: {
+                completed: Math.round(activeTime / (60 * 1000)), // Convert to minutes
+                goal: Math.ceil((prep.goals.totalHours * 60) / daysUntilExam) // Convert hours to minutes
+            }
+        };
+
+        // Weekly progress
+        const weeklyProgress = {
+            questions: {
+                completed: prep.state.status !== 'initializing' && prep.state.status !== 'not_started'
+                    ? prep.state.questionHistory?.filter(q => q.timestamp >= (now - 7 * 24 * 60 * 60 * 1000)).length || 0
+                    : 0,
+                goal: Math.ceil(prep.goals.questionGoal / weeksUntilExam)
+            },
+            time: {
+                completed: Math.round(activeTime / (60 * 60 * 1000)), // Convert to hours
+                goal: Math.ceil(prep.goals.totalHours / weeksUntilExam)
+            }
+        };
+
+        // Overall progress
+        const overallProgress = {
+            questions: {
+                completed: prep.state.status !== 'initializing' && prep.state.status !== 'not_started'
+                    ? prep.state.completedQuestions || 0
+                    : 0,
+                goal: prep.goals.questionGoal
+            },
+            time: {
+                completed: Math.round(activeTime / (60 * 60 * 1000)), // Convert to hours
+                goal: prep.goals.totalHours
+            },
+            accuracy: prep.state.status !== 'initializing' && prep.state.status !== 'not_started'
+                ? Math.round(prep.state.averageScore || 0)
+                : 0
+        };
+
+        return {
+            daily: dailyProgress,
+            weekly: weeklyProgress,
+            overall: overallProgress,
+            metrics: {
+                daysUntilExam,
+                weeksUntilExam,
+                activeTime,
+                lastActiveTime: prep.state.status === 'active' ? prep.state.lastTick : null,
+                status: prep.state.status
+            }
+        };
     }
 } 

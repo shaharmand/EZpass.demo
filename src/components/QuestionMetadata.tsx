@@ -1,5 +1,5 @@
 import React from 'react';
-import { Space, Tag, Typography, Tooltip, Divider } from 'antd';
+import { Space, Tag, Typography, Tooltip, Divider, Card, Row, Col } from 'antd';
 import { 
   BookOutlined, 
   ClockCircleOutlined, 
@@ -7,11 +7,16 @@ import {
   StarFilled,
   StarOutlined,
   SafetyCertificateOutlined,
-  ExperimentOutlined
+  ExperimentOutlined,
+  AppstoreOutlined,
+  ApartmentOutlined,
+  FolderOutlined,
+  CalendarOutlined
 } from '@ant-design/icons';
-import { getQuestionTypeLabel } from 'src/utils/questionUtils';
+import { getQuestionTypeLabel } from '../utils/questionUtils';
+import { universalTopics } from '../services/universalTopics';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 interface QuestionMetadataProps {
   metadata: {
@@ -19,11 +24,17 @@ interface QuestionMetadataProps {
     subtopicId?: string;
     type: string;
     difficulty: string;
-    source?: any;
+    estimatedTime?: number;
+    source?: {
+      examTemplateId?: string;
+      year?: number;
+      season?: string;
+      moed?: string;
+    };
   };
   layout?: 'vertical' | 'horizontal';
+  compact?: boolean;
 }
-
 
 const difficultyColors = {
   1: '#10b981', // Green
@@ -65,86 +76,192 @@ const getDifficultyLabel = (level: string) => {
   }
 };
 
-const QuestionMetadata: React.FC<QuestionMetadataProps> = ({ metadata, layout = 'vertical' }) => {
-  const renderMetadataItem = (icon: React.ReactNode, tooltip: string, content: React.ReactNode) => (
-    <Tooltip title={tooltip}>
-      <div className="metadata-item">
+const QuestionMetadata: React.FC<QuestionMetadataProps> = ({ 
+  metadata, 
+  layout = 'vertical',
+  compact = false
+}) => {
+  // Get topic information using universalTopics service
+  const subject = metadata.topicId ? universalTopics.getSubjectForTopic(metadata.topicId) : undefined;
+  const domain = subject?.domains.find(d => 
+    d.topics.some(t => t.id === metadata.topicId)
+  );
+  const topic = domain?.topics.find(t => t.id === metadata.topicId);
+  const subtopic = metadata.subtopicId ? universalTopics.getSubtopicInfo(metadata.topicId, metadata.subtopicId) : undefined;
+
+  // Format the difficulty for display
+  const displayDifficulty = getDifficultyLabel(metadata.difficulty);
+
+  const renderMetadataItem = (icon: React.ReactNode, label: string, content: React.ReactNode) => (
+    <div className="metadata-item">
+      <Space>
         {icon}
+        <Text type="secondary">{label}:</Text>
         {content}
-      </div>
-    </Tooltip>
+      </Space>
+    </div>
   );
 
-  const metadataItems = (
-    <div className="metadata-container">
-      {/* Difficulty with stars */}
-      {renderMetadataItem(
-        <SafetyCertificateOutlined className="metadata-icon" />,
-        getDifficultyLabel(metadata.difficulty),
-        <div className="difficulty-indicator">
-          {getDifficultyIcons(metadata.difficulty)}
-        </div>
-      )}
-
-      <Divider type="vertical" />
-
-      {/* Question Type */}
-      {renderMetadataItem(
-        <FileTextOutlined className="metadata-icon" />,
-        "סוג שאלה",
-        <Text className="metadata-text">{getQuestionTypeLabel(metadata.type)}</Text>
-      )}
-
-      <Divider type="vertical" />
-
-      {/* Topic */}
-      {renderMetadataItem(
-        <ExperimentOutlined className="metadata-icon" />,
-        "נושא",
-        <Text className="metadata-text">{metadata.topicId}</Text>
-      )}
-
-      {/* Source if available */}
-      {metadata.source && (
-        <>
-          <Divider type="vertical" />
-          {renderMetadataItem(
-            <ClockCircleOutlined className="metadata-icon" />,
-            "מקור",
-            <Text className="metadata-text">{metadata.source.examType || 'תרגול'}</Text>
+  const renderContent = () => (
+    <div className={compact ? 'metadata-compact' : 'metadata-full'}>
+      {/* Topic Information */}
+      <Card size="small" className="metadata-card" title={
+        <Space>
+          <AppstoreOutlined />
+          <span>מידע נושא</span>
+        </Space>
+      }>
+        <Row gutter={[16, 8]}>
+          <Col span={compact ? 24 : 12}>
+            {renderMetadataItem(
+              <BookOutlined />,
+              "נושא",
+              <Text>{subject?.name || 'N/A'}</Text>
+            )}
+          </Col>
+          <Col span={compact ? 24 : 12}>
+            {renderMetadataItem(
+              <ApartmentOutlined />,
+              "תחום",
+              <Text>{domain?.name || 'N/A'}</Text>
+            )}
+          </Col>
+          <Col span={compact ? 24 : 12}>
+            {renderMetadataItem(
+              <FolderOutlined />,
+              "נושא בריכוז",
+              <Text>{topic?.name || 'N/A'}</Text>
+            )}
+          </Col>
+          {metadata.subtopicId && (
+            <Col span={compact ? 24 : 12}>
+              {renderMetadataItem(
+                <FolderOutlined />,
+                "תת נושא",
+                <Text>{subtopic?.name || 'N/A'}</Text>
+              )}
+            </Col>
           )}
-        </>
-      )}
+        </Row>
+      </Card>
+
+      {/* Question Properties */}
+      <Card size="small" className="metadata-card" title={
+        <Space>
+          <FileTextOutlined />
+          <span>מאפייני שאלה</span>
+        </Space>
+      }>
+        <Row gutter={[16, 8]}>
+          <Col span={compact ? 24 : 12}>
+            {renderMetadataItem(
+              <FileTextOutlined />,
+              "סוג",
+              <Tag>{getQuestionTypeLabel(metadata.type)}</Tag>
+            )}
+          </Col>
+          <Col span={compact ? 24 : 12}>
+            {renderMetadataItem(
+              <SafetyCertificateOutlined />,
+              "רמת קושי",
+              <Space>
+                {getDifficultyIcons(metadata.difficulty)}
+                <Text>{displayDifficulty}</Text>
+              </Space>
+            )}
+          </Col>
+          <Col span={compact ? 24 : 12}>
+            {renderMetadataItem(
+              <ClockCircleOutlined />,
+              "זמן מוערך",
+              <Text>{metadata.estimatedTime ? `${metadata.estimatedTime} דקות` : 'N/A'}</Text>
+            )}
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Source Information */}
+      <Card size="small" className="metadata-card" title={
+        <Space>
+          <CalendarOutlined />
+          <span>מידע מקור</span>
+        </Space>
+      }>
+        <Row gutter={[16, 8]}>
+          <Col span={compact ? 24 : 12}>
+            {renderMetadataItem(
+              <BookOutlined />,
+              "תבנית",
+              <Text>{metadata.source?.examTemplateId || 'N/A'}</Text>
+            )}
+          </Col>
+          <Col span={compact ? 24 : 12}>
+            {renderMetadataItem(
+              <CalendarOutlined />,
+              "שנה",
+              <Text>{metadata.source?.year || 'N/A'}</Text>
+            )}
+          </Col>
+          <Col span={compact ? 24 : 12}>
+            {renderMetadataItem(
+              <CalendarOutlined />,
+              "עונה",
+              <Text>{metadata.source?.season || 'N/A'}</Text>
+            )}
+          </Col>
+          <Col span={compact ? 24 : 12}>
+            {renderMetadataItem(
+              <CalendarOutlined />,
+              "מועד",
+              <Text>{metadata.source?.moed || 'N/A'}</Text>
+            )}
+          </Col>
+        </Row>
+      </Card>
     </div>
   );
 
   return (
     <div className={layout === 'horizontal' ? 'metadata-horizontal' : 'metadata-vertical'}>
-      {metadataItems}
+      {renderContent()}
       
       <style>
         {`
-          .metadata-container {
-            display: flex;
-            align-items: center;
-            gap: 16px;
+          .metadata-compact .metadata-card {
+            margin-bottom: 8px;
+          }
+
+          .metadata-full .metadata-card {
+            margin-bottom: 12px;
           }
 
           .metadata-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            cursor: help;
+            margin-bottom: 4px;
           }
 
-          .metadata-icon {
+          .metadata-item .anticon {
             color: #6b7280;
-            font-size: 16px;
+            margin-right: 8px;
           }
 
-          .metadata-text {
-            color: #4b5563;
-            font-size: 14px;
+          .metadata-card {
+            background: #fafafa;
+          }
+
+          .metadata-card .ant-card-head {
+            min-height: 40px;
+            padding: 0 12px;
+            background: #f0f0f0;
+          }
+
+          .metadata-card .ant-card-head-title {
+            padding: 8px 0;
+          }
+
+          .metadata-card .ant-card-body {
+            padding: 12px;
           }
 
           .difficulty-stars {
@@ -157,21 +274,20 @@ const QuestionMetadata: React.FC<QuestionMetadataProps> = ({ metadata, layout = 
             font-size: 14px;
           }
 
-          .difficulty-indicator {
-            display: flex;
-            align-items: center;
-          }
-
           .metadata-vertical {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 8px;
           }
 
           .metadata-horizontal {
             display: flex;
-            align-items: center;
-            gap: 16px;
+            align-items: flex-start;
+            gap: 12px;
+          }
+
+          .metadata-horizontal .metadata-card {
+            flex: 1;
           }
         `}
       </style>

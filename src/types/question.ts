@@ -83,6 +83,13 @@ export interface Evaluation {
   };
 }
 
+export enum SourceType {
+  Exam = 'exam',
+  Book = 'book',
+  Author = 'author',
+  Ezpass = 'ezpass'
+}
+
 /** 
  * Represents a complete question with content, metadata, and solution.
  * Each type of question has specific requirements for its fields.
@@ -90,6 +97,9 @@ export interface Evaluation {
 export interface Question {
   /** Unique identifier for the question, generated at runtime */
   id: string;
+
+  /** Display name of the question */
+  name?: string;
 
   /** 
    * The type of question, determining its structure and presentation.
@@ -134,6 +144,10 @@ export interface Question {
    * These fields help in organizing and selecting appropriate questions.
    */
   metadata: {
+    /** Subject identifier */
+    subjectId: string;
+    /** Domain identifier */
+    domainId: string;
     /** Main topic identifier from the curriculum (e.g., 'linear_equations', 'data_structures') */
     topicId: string;
     /** Optional subtopic for more specific categorization */
@@ -147,16 +161,22 @@ export interface Question {
     estimatedTime?: number;
     /** Source information for tracking question origin */
     source?: {
-      /** Type of exam (e.g., 'bagrut', 'mahat', 'practice') */
-      examType: string;
+      /** Type of the source */
+      sourceType: SourceType;
+      /** ID of the exam template if source is exam */
+      examTemplateId?: string;
       /** Year the question was used or created */
       year?: number;
       /** Season or term (e.g., 'winter', 'summer') */
       season?: string;
       /** Specific exam instance (e.g., 'a', 'b') */
       moed?: string;
-      /** Author or source of the question */
-      author?: string;
+      /** Author name if source is author */
+      authorName?: string;
+      /** Book name if source is book */
+      bookName?: string;
+      /** Book location/reference if source is book */
+      bookLocation?: string;
     };
     /** Programming language for code questions */
     programmingLanguage?: string;

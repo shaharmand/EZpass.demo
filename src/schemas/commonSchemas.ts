@@ -1,4 +1,4 @@
-import { DifficultyLevel } from 'src/types/question';
+import { DifficultyLevel } from '../types/question';
 import { z } from 'zod';
 
 // Re-export commonly used validation schemas from their domain files

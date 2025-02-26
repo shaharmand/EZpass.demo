@@ -19,44 +19,58 @@
       "allowedQuestionTypes": ["multiple_choice", "step_by_step","open"],
       "topics": [
         {
-          "id": "safety_management",
+          "id": "safety_management_fundamentals",
           "subTopics": [
-            { "id": "risk_assessment" },
-            { "id": "safety_regulations" },
-            { "id": "protective_equipment" },
-            { "id": "emergency_procedures" }
+            { "id": "basics_safety" },
+            { "id": "work_inspection_service" },
+            { "id": "workplace_safety_roles" },
+            { "id": "employee_training" },
+            { "id": "safety_planning" },
+            { "id": "construction_site_safety_management" }
           ]
         },
         {
-          "id": "work_at_height",
+          "id": "Construction_methods_and_Works",
           "subTopics": [
+            { "id": "work_surfaces_walkways_and_openings" },
             { "id": "scaffolding" },
-            { "id": "fall_protection" },
+            { "id": "concrete_formwork" },
+            { "id": "precast_construction" },
+            { "id": "steel_construction" },
+            { "id": "excavation_and_earthworks" },
+            { "id": "demolition_and_explosives" }
+          ]
+        },
+        {
+          "id": "height_work",
+          "subTopics": [
+            { "id": "fragile_or_steep_roofs" },
+            { "id": "work_at_height" },
             { "id": "ladders" }
           ]
         },
         {
-          "id": "construction_operations",
+          "id": "lifting_and_cranes",
           "subTopics": [
-            { "id": "excavation" },
-            { "id": "demolition" },
-            { "id": "concrete_work" }
-          ]
-        },
-        {
-          "id": "equipment_safety",
-          "subTopics": [
-            { "id": "heavy_equipment" },
             { "id": "lifting_equipment" },
-            { "id": "power_tools" }
+            { "id": "cranes" }
           ]
         },
         {
-          "id": "special_risks",
+          "id": "specialized_safety",
           "subTopics": [
-            { "id": "hazardous_materials" },
+            { "id": "hot_bitumen" },
+            { "id": "electrical" },
             { "id": "confined_spaces" },
-            { "id": "fire_safety" }
+            { "id": "welding_and_cutting" }
+          ]
+        },
+        {
+          "id": "equipment_and_health",
+          "subTopics": [
+            { "id": "mechanical_equipment" },
+            { "id": "hygiene" },
+            { "id": "personal_protective_equipment" }
           ]
         }
       ]
@@ -79,44 +93,58 @@
       "allowedQuestionTypes": ["open"],
       "topics": [
         {
-          "id": "safety_management",
+          "id": "safety_management_fundamentals",
           "subTopics": [
-            { "id": "risk_assessment" },
-            { "id": "safety_regulations" },
-            { "id": "protective_equipment" },
-            { "id": "emergency_procedures" }
+            { "id": "basics_safety" },
+            { "id": "work_inspection_service" },
+            { "id": "workplace_safety_roles" },
+            { "id": "employee_training" },
+            { "id": "safety_planning" },
+            { "id": "construction_site_safety_management" }
           ]
         },
         {
-          "id": "work_at_height",
+          "id": "Construction_methods_and_Works",
           "subTopics": [
+            { "id": "work_surfaces_walkways_and_openings" },
             { "id": "scaffolding" },
-            { "id": "fall_protection" },
+            { "id": "concrete_formwork" },
+            { "id": "precast_construction" },
+            { "id": "steel_construction" },
+            { "id": "excavation_and_earthworks" },
+            { "id": "demolition_and_explosives" }
+          ]
+        },
+        {
+          "id": "height_work",
+          "subTopics": [
+            { "id": "fragile_or_steep_roofs" },
+            { "id": "work_at_height" },
             { "id": "ladders" }
           ]
         },
         {
-          "id": "construction_operations",
+          "id": "lifting_and_cranes",
           "subTopics": [
-            { "id": "excavation" },
-            { "id": "demolition" },
-            { "id": "concrete_work" }
-          ]
-        },
-        {
-          "id": "equipment_safety",
-          "subTopics": [
-            { "id": "heavy_equipment" },
             { "id": "lifting_equipment" },
-            { "id": "power_tools" }
+            { "id": "cranes" }
           ]
         },
         {
-          "id": "special_risks",
+          "id": "specialized_safety",
           "subTopics": [
-            { "id": "hazardous_materials" },
+            { "id": "hot_bitumen" },
+            { "id": "electrical" },
             { "id": "confined_spaces" },
-            { "id": "fire_safety" }
+            { "id": "welding_and_cutting" }
+          ]
+        },
+        {
+          "id": "equipment_and_health",
+          "subTopics": [
+            { "id": "mechanical_equipment" },
+            { "id": "hygiene" },
+            { "id": "personal_protective_equipment" }
           ]
         }
       ]
@@ -139,44 +167,58 @@
       "allowedQuestionTypes": ["multiple_choice"],
       "topics": [
         {
-          "id": "safety_management",
+          "id": "safety_management_fundamentals",
           "subTopics": [
-            { "id": "risk_assessment" },
-            { "id": "safety_regulations" },
-            { "id": "protective_equipment" },
-            { "id": "emergency_procedures" }
+            { "id": "basics_safety" },
+            { "id": "work_inspection_service" },
+            { "id": "workplace_safety_roles" },
+            { "id": "employee_training" },
+            { "id": "safety_planning" },
+            { "id": "construction_site_safety_management" }
           ]
         },
         {
-          "id": "work_at_height",
+          "id": "Construction_methods_and_Works",
           "subTopics": [
+            { "id": "work_surfaces_walkways_and_openings" },
             { "id": "scaffolding" },
-            { "id": "fall_protection" },
+            { "id": "concrete_formwork" },
+            { "id": "precast_construction" },
+            { "id": "steel_construction" },
+            { "id": "excavation_and_earthworks" },
+            { "id": "demolition_and_explosives" }
+          ]
+        },
+        {
+          "id": "height_work",
+          "subTopics": [
+            { "id": "fragile_or_steep_roofs" },
+            { "id": "work_at_height" },
             { "id": "ladders" }
           ]
         },
         {
-          "id": "construction_operations",
+          "id": "lifting_and_cranes",
           "subTopics": [
-            { "id": "excavation" },
-            { "id": "demolition" },
-            { "id": "concrete_work" }
-          ]
-        },
-        {
-          "id": "equipment_safety",
-          "subTopics": [
-            { "id": "heavy_equipment" },
             { "id": "lifting_equipment" },
-            { "id": "power_tools" }
+            { "id": "cranes" }
           ]
         },
         {
-          "id": "special_risks",
+          "id": "specialized_safety",
           "subTopics": [
-            { "id": "hazardous_materials" },
+            { "id": "hot_bitumen" },
+            { "id": "electrical" },
             { "id": "confined_spaces" },
-            { "id": "fire_safety" }
+            { "id": "welding_and_cutting" }
+          ]
+        },
+        {
+          "id": "equipment_and_health",
+          "subTopics": [
+            { "id": "mechanical_equipment" },
+            { "id": "hygiene" },
+            { "id": "personal_protective_equipment" }
           ]
         }
       ]
@@ -199,37 +241,58 @@
       "allowedQuestionTypes": ["multiple_choice"],
       "topics": [
         {
-          "id": "safety_management",
+          "id": "safety_management_fundamentals",
           "subTopics": [
-            { "id": "risk_assessment" },
-            { "id": "safety_regulations" },
-            { "id": "protective_equipment" }
+            { "id": "basics_safety" },
+            { "id": "work_inspection_service" },
+            { "id": "workplace_safety_roles" },
+            { "id": "employee_training" },
+            { "id": "safety_planning" },
+            { "id": "construction_site_safety_management" }
           ]
         },
         {
-          "id": "work_at_height",
+          "id": "Construction_methods_and_Works",
           "subTopics": [
+            { "id": "work_surfaces_walkways_and_openings" },
             { "id": "scaffolding" },
+            { "id": "concrete_formwork" },
+            { "id": "precast_construction" },
+            { "id": "steel_construction" },
+            { "id": "excavation_and_earthworks" },
+            { "id": "demolition_and_explosives" }
+          ]
+        },
+        {
+          "id": "height_work",
+          "subTopics": [
+            { "id": "fragile_or_steep_roofs" },
+            { "id": "work_at_height" },
             { "id": "ladders" }
           ]
         },
         {
-          "id": "construction_operations",
+          "id": "lifting_and_cranes",
           "subTopics": [
-            { "id": "concrete_work" }
+            { "id": "lifting_equipment" },
+            { "id": "cranes" }
           ]
         },
         {
-          "id": "equipment_safety",
+          "id": "specialized_safety",
           "subTopics": [
-            { "id": "power_tools" }
+            { "id": "hot_bitumen" },
+            { "id": "electrical" },
+            { "id": "confined_spaces" },
+            { "id": "welding_and_cutting" }
           ]
         },
         {
-          "id": "special_risks",
+          "id": "equipment_and_health",
           "subTopics": [
-            { "id": "hazardous_materials" },
-            { "id": "fire_safety" }
+            { "id": "mechanical_equipment" },
+            { "id": "hygiene" },
+            { "id": "personal_protective_equipment" }
           ]
         }
       ]

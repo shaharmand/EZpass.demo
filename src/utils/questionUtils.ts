@@ -1,15 +1,13 @@
-import { universalTopics } from "src/services/universalTopics";
-import { Question } from "src/types/question";
+import { universalTopics } from '../services/universalTopics';
+import { Question } from '../types/question';
 
 /**
- * Gets the most specific topic name available for a question
- * Returns subtopic name if exists, otherwise topic name
+ * Gets the most specific topic info available for a question
+ * Returns subtopic info if exists, otherwise topic info
  */
 export function getQuestionTopicName(question: Question): string {
   const { topicId, subtopicId } = question.metadata;
-    
-    return universalTopics.getMostSpecificTopicName(topicId, subtopicId);
-    
+  return universalTopics.getMostSpecificTopicName(topicId, subtopicId);
 } 
 
 export const getQuestionTypeLabel = (type: string) => {
@@ -20,5 +18,5 @@ export const getQuestionTypeLabel = (type: string) => {
       case 'step_by_step': return 'חישובית';
       default: return type;
     }
-  };
+};
   

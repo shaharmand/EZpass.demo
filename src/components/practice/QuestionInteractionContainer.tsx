@@ -1,27 +1,35 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Space, Spin, Typography, Card, Button, Divider, Tooltip, Tag, Select } from 'antd';
-import { FilterOutlined, DownOutlined, UpOutlined, StarFilled, ClockCircleOutlined } from '@ant-design/icons';
-import { Question, QuestionFeedback as QuestionFeedbackType, FilterState } from '../../types/question';
+import { Space, Spin, Typography, Card, Button, Divider, Tooltip, Tag, Select, Popover, Modal, notification } from 'antd';
+import { FilterOutlined, DownOutlined, UpOutlined, StarFilled, StarOutlined, ClockCircleOutlined, AimOutlined, StopOutlined } from '@ant-design/icons';
+import CrosshairOutlined from '@ant-design/icons';
+import { Question, QuestionFeedback as QuestionFeedbackType, FilterState, QuestionType } from '../../types/question';
+import { SkipReason } from '../../types/prepUI';
+import type { StudentPrep } from '../../types/prepState';
+import { getActiveTime } from '../../types/prepState';
 import QuestionContent from '../QuestionContent';
-import QuestionMetadata, { getDifficultyIcons, getQuestionTypeLabel } from '../QuestionMetadata';
 import { FeedbackContainer } from '../feedback/FeedbackContainer';
 import QuestionResponseInput from '../QuestionResponseInput';
 import QuestionActions from './QuestionActions';
-import { QuestionSetProgress } from './QuestionSetProgress';
+import QuestionSetProgress from './QuestionSetProgress';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FilterSummary } from '../EnhancedSidebar/FilterSummary';
-import { QuestionFilter } from '../EnhancedSidebar/QuestionFilter';
-import { subjectService } from '../../services/subjectService';
-import { logger } from '../../utils/logger';
+import { QuestionFilter } from './QuestionFilter';
+import { logger, CRITICAL_SECTIONS } from '../../utils/logger';
+import { universalTopics } from '../../services/universalTopics';
+import { getQuestionTopicName, getQuestionTypeLabel } from '../../utils/questionUtils';
 import '../../styles/metadata.css';
 import './QuestionSetProgress.css';
+import { PrepStateManager } from '../../services/PrepStateManager';
+import { examService } from '../../services/examService';
+import { Tree } from 'antd';
+import type { Topic } from '../../types/subject';
+import { TopicSelectionDialog } from './TopicSelectionDialog';
 
 const { Text, Title } = Typography;
 
 interface QuestionInteractionContainerProps {
   question: Question;
   onAnswer: (answer: string) => Promise<void>;
-  onSkip: (reason: 'too_hard' | 'too_easy' | 'not_in_material') => Promise<void>;
+  onSkip: (reason: SkipReason, filters?: FilterState) => Promise<void>;
   onHelp: () => void;
   onNext: () => void;
   onRetry: () => void;
@@ -39,8 +47,27 @@ interface QuestionInteractionContainerProps {
   };
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
-  activePrep?: any;
+  prep: StudentPrep;
+  isQuestionLoading?: boolean;
 }
+
+const QUESTION_TYPE_COLORS: Record<QuestionType, string> = {
+  multiple_choice: '#3b82f6',
+  open: '#10b981',
+  code: '#8b5cf6',
+  step_by_step: '#f59e0b'
+};
+
+const getDifficultyLabel = (difficulty: number): string => {
+  switch (difficulty) {
+    case 1: return 'קל מאוד';
+    case 2: return 'קל';
+    case 3: return 'בינוני';
+    case 4: return 'קשה';
+    case 5: return 'קשה מאוד';
+    default: return `רמה ${difficulty}`;
+  }
+};
 
 const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> = ({
   question,
@@ -52,14 +79,23 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   state,
   filters,
   onFiltersChange,
-  activePrep
+  prep,
+  isQuestionLoading
 }) => {
-  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState('');
-  const [topicName, setTopicName] = useState('');
-  const lastTimeLogRef = useRef<number>(Date.now());
-  const startTimeRef = useRef<number>(Date.now());
-  const isQuestionLoading = !question || state.status === 'loading';
+  const [difficultyPopoverVisible, setDifficultyPopoverVisible] = useState(false);
+  const [typePopoverVisible, setTypePopoverVisible] = useState(false);
+  const [subtopicPopoverVisible, setSubtopicPopoverVisible] = useState(false);
+  const [difficultyPopoverTimer, setDifficultyPopoverTimer] = useState<NodeJS.Timeout | null>(null);
+  const [typePopoverTimer, setTypePopoverTimer] = useState<NodeJS.Timeout | null>(null);
+  const [subtopicPopoverTimer, setSubtopicPopoverTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isClickProcessing, setIsClickProcessing] = useState(false);
+  const [isDifficultyPopoverClicked, setIsDifficultyPopoverClicked] = useState(false);
+  const [isSubtopicPopoverClicked, setIsSubtopicPopoverClicked] = useState(false);
+  const [isSubtopicPopoverCooldown, setIsSubtopicPopoverCooldown] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [focusedTopicId, setFocusedTopicId] = useState<string | null>(null);
+  const [isTopicSelectionDialogOpen, setIsTopicSelectionDialogOpen] = useState(false);
 
   // Track current batch of 10 questions
   const [currentBatch, setCurrentBatch] = useState<Array<{
@@ -69,80 +105,554 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     status: 'pending' | 'active' | 'completed';
   }>>([]);
 
+  // Get daily progress metrics from PrepStateManager
+  const [dailyProgress, setDailyProgress] = useState(() => PrepStateManager.getDailyProgress(prep));
+
+  // Update daily progress when exam date changes
+  useEffect(() => {
+    setDailyProgress(PrepStateManager.getDailyProgress(prep));
+  }, [prep.goals.examDate, prep.state.status, getActiveTime(prep.state)]);
+
+  // Popover handlers
+  const handleDifficultyPopoverVisibilityChange = (visible: boolean) => {
+    if (!visible && difficultyPopoverTimer) {
+      clearTimeout(difficultyPopoverTimer);
+      setDifficultyPopoverTimer(null);
+    }
+    setDifficultyPopoverVisible(visible);
+    if (!visible) {
+      setIsDifficultyPopoverClicked(false);
+    }
+  };
+
+  const handleTypePopoverVisibilityChange = (visible: boolean) => {
+    if (!visible && typePopoverTimer) {
+      clearTimeout(typePopoverTimer);
+      setTypePopoverTimer(null);
+    }
+    if (!isClickProcessing) {
+      setTypePopoverVisible(visible);
+    }
+  };
+
+  const handleSubtopicPopoverVisibilityChange = (visible: boolean) => {
+    if (!visible && subtopicPopoverTimer) {
+      clearTimeout(subtopicPopoverTimer);
+      setSubtopicPopoverTimer(null);
+    }
+    setSubtopicPopoverVisible(visible);
+    if (!visible) {
+      setIsSubtopicPopoverClicked(false);
+      setIsSubtopicPopoverCooldown(true);
+      setTimeout(() => {
+        setIsSubtopicPopoverCooldown(false);
+      }, 300);
+    }
+  };
+
+  const handleDifficultyPopoverMouseEnter = () => {
+    if (difficultyPopoverTimer) {
+      clearTimeout(difficultyPopoverTimer);
+      setDifficultyPopoverTimer(null);
+    }
+    setDifficultyPopoverVisible(true);
+  };
+
+  const handleTypePopoverMouseEnter = () => {
+    if (typePopoverTimer) {
+      clearTimeout(typePopoverTimer);
+      setTypePopoverTimer(null);
+    }
+    if (!isClickProcessing) {
+      setTypePopoverVisible(true);
+    }
+  };
+
+  const handleSubtopicPopoverMouseEnter = () => {
+    if (subtopicPopoverTimer) {
+      clearTimeout(subtopicPopoverTimer);
+      setSubtopicPopoverTimer(null);
+    }
+    if (!isSubtopicPopoverCooldown) {
+      setSubtopicPopoverVisible(true);
+    }
+  };
+
+  const handleDifficultyPopoverMouseLeave = () => {
+    if (!isDifficultyPopoverClicked) {
+      const timer = setTimeout(() => {
+        setDifficultyPopoverVisible(false);
+      }, 300);
+      setDifficultyPopoverTimer(timer);
+    }
+  };
+
+  const handleTypePopoverMouseLeave = () => {
+    const timer = setTimeout(() => {
+      setTypePopoverVisible(false);
+    }, 300);
+    setTypePopoverTimer(timer);
+  };
+
+  const handleSubtopicPopoverMouseLeave = () => {
+    if (!isSubtopicPopoverClicked) {
+      const timer = setTimeout(() => {
+        setSubtopicPopoverVisible(false);
+      }, 300);
+      setSubtopicPopoverTimer(timer);
+    }
+  };
+
+  // Type selection handler
+  const handleTypeSelect = (type: QuestionType | 'all') => {
+    // Prevent any ongoing state updates
+    event?.stopPropagation();
+    
+    // Set click processing flag
+    setIsClickProcessing(true);
+    
+    // Immediately close the popover
+    setTypePopoverVisible(false);
+    if (typePopoverTimer) {
+      clearTimeout(typePopoverTimer);
+      setTypePopoverTimer(null);
+    }
+    
+    // Create a new filter object to ensure state update
+    const updatedFilters = { ...filters };
+    if (type === 'all') {
+      delete updatedFilters.questionTypes;
+    } else {
+      updatedFilters.questionTypes = [type as QuestionType];
+    }
+
+    // Update filters and skip if needed
+    onFiltersChange(updatedFilters);
+    
+    // Only skip if selecting a specific type that's different from current
+    if (type !== 'all' && type !== question.type) {
+      onSkip('not_in_material', updatedFilters);
+    }
+
+    // Reset click processing flag after a short delay
+    setTimeout(() => {
+      setIsClickProcessing(false);
+    }, 300);
+  };
+
+  // Helper function to check if a subtopic is focused
+  const isSubtopicFocused = (subtopicId: string) => 
+    filters.subTopics?.length === 1 && filters.subTopics[0] === subtopicId;
+
+  // Helper function to check if a question type is focused
+  const isTypeFocused = (type: QuestionType): boolean => 
+    filters.questionTypes?.length === 1 && filters.questionTypes[0] === type;
+
+  // Subtopic focus handler
+  const handleSubtopicFocus = () => {
+    if (!question.metadata.subtopicId) return;
+
+    // Preserve all existing filters, just update subTopics
+    const updatedFilters = {
+      ...filters,
+      subTopics: [question.metadata.subtopicId]
+    };
+
+    setSubtopicPopoverVisible(false);
+    setIsFocused(!!updatedFilters.subTopics?.length);
+    onFiltersChange(updatedFilters);
+
+    logger.info('Focusing on subtopic:', {
+      subtopicId: question.metadata.subtopicId,
+      allFilters: updatedFilters
+    });
+  };
+
+  // Function to get subtopic info
+  const getSubtopicInfo = () => {
+    const { topicId, subtopicId } = question.metadata;
+    if (!subtopicId) return null;
+    return universalTopics.getSubtopicInfo(topicId, subtopicId);
+  };
+
+  // Popover content components
+  const TypeFilterContent = () => {
+    const questionTypes = [
+      { type: 'all' as const, label: 'כל סוגי השאלות' },
+      { type: 'multiple_choice' as QuestionType, label: 'שאלות סגורות' },
+      { type: 'open' as QuestionType, label: 'שאלות פתוחות' },
+      { type: 'step_by_step' as QuestionType, label: 'שאלות חישוביות' }
+    ];
+
+    const isTypeSelected = (type: QuestionType | 'all'): boolean => {
+      if (type === 'all') return !filters.questionTypes;
+      return filters.questionTypes?.length === 1 && filters.questionTypes[0] === type;
+    };
+
+    return (
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        onMouseEnter={handleTypePopoverMouseEnter}
+        onMouseLeave={handleTypePopoverMouseLeave}
+        style={{ 
+          width: '100%',
+          maxWidth: '280px',
+          padding: '16px',
+          overflow: 'hidden'
+        }}
+      >
+        <Text strong style={{ 
+          display: 'block', 
+          marginBottom: '4px',
+          color: '#111827',
+          fontSize: '14px',
+          textAlign: 'center'
+        }}>
+          סוג שאלה: {getQuestionTypeLabel(question.type)}
+        </Text>
+        <Text style={{
+          display: 'block',
+          marginBottom: '12px',
+          color: '#6B7280',
+          fontSize: '13px',
+          textAlign: 'center',
+          paddingBottom: '8px',
+          borderBottom: '1px solid #E5E7EB'
+        }}>
+          האם תרצה להתמקד בסוג שאלה מסוים?
+        </Text>
+        <Space direction="vertical" style={{ width: '100%' }} size={6}>
+          {questionTypes.map(({ type, label }) => {
+            const isSelected = isTypeSelected(type);
+            return (
+              <Button
+                key={type}
+                onClick={() => handleTypeSelect(type)}
+                style={{ 
+                  width: '100%',
+                  justifyContent: 'center',
+                  background: isSelected ? '#f0f9ff' : 'white',
+                  borderColor: isSelected ? '#93c5fd' : '#E5E7EB',
+                  color: isSelected ? '#1d4ed8' : '#64748b',
+                  height: '32px',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  padding: '0 10px'
+                }}
+              >
+                {label}
+              </Button>
+            );
+          })}
+        </Space>
+      </div>
+    );
+  };
+
+  const DifficultyFeedbackContent = () => {
+    const options = [
+      { reason: 'ok' as any, label: 'רמת הקושי בסדר' },
+      { reason: 'too_hard' as SkipReason, label: 'קשה מדי' },
+      { reason: 'too_easy' as SkipReason, label: 'קלה מדי' }
+    ];
+
+    return (
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        onMouseEnter={handleDifficultyPopoverMouseEnter}
+        onMouseLeave={handleDifficultyPopoverMouseLeave}
+        style={{ width: '100%', minWidth: '200px' }}
+      >
+        <Text strong style={{ 
+          display: 'block', 
+          marginBottom: '4px',
+          color: '#111827',
+          fontSize: '14px',
+          textAlign: 'center'
+        }}>
+          רמת קושי: {getDifficultyLabel(question.metadata.difficulty)}
+        </Text>
+        <Text style={{
+          display: 'block',
+          marginBottom: '12px',
+          color: '#6B7280',
+          fontSize: '13px',
+          textAlign: 'center',
+          paddingBottom: '8px',
+          borderBottom: '1px solid #E5E7EB'
+        }}>
+          האם רמת הקושי של השאלה מתאימה?
+        </Text>
+        <Space direction="vertical" style={{ width: '100%' }} size={6}>
+          {options.map(({ reason, label }) => (
+            <Button
+              key={reason}
+              onClick={() => {
+                if (reason !== 'ok') {
+                  onSkip(reason);
+                }
+                setDifficultyPopoverVisible(false);
+              }}
+              style={{ 
+                width: '100%',
+                justifyContent: 'center',
+                background: reason === 'ok' ? '#f0f9ff' : 'white',
+                borderColor: reason === 'ok' ? '#93c5fd' : '#E5E7EB',
+                color: reason === 'ok' ? '#1d4ed8' : '#64748b',
+                height: '32px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                padding: '0 10px'
+              }}
+            >
+              {label}
+            </Button>
+          ))}
+        </Space>
+      </div>
+    );
+  };
+
+  const SubtopicPopoverContent = () => {
+    const subtopicInfo = getSubtopicInfo();
+    const isSubtopicFocused = question.metadata.subtopicId && 
+      filters.subTopics?.length === 1 && 
+      filters.subTopics[0] === question.metadata.subtopicId;
+
+    // Get the topic name from the parent topic of the subtopic
+    const topicName = universalTopics.getTopic(question.metadata.topicId)?.name || getQuestionTopicName(question);
+
+    const closePopover = () => {
+      setIsSubtopicPopoverClicked(false);
+      setSubtopicPopoverVisible(false);
+      setIsSubtopicPopoverCooldown(true);
+      setTimeout(() => {
+        setIsSubtopicPopoverCooldown(false);
+      }, 300);
+    };
+
+    // Handle removing focus (filter only)
+    const handleRemoveFocus = () => {
+      // Create new filters object without subTopics, preserving all other filters
+      const { subTopics, ...otherFilters } = filters;
+      
+      closePopover();
+      setIsFocused(false);
+      onFiltersChange(otherFilters);
+
+      logger.info('Removing subtopic focus:', {
+        previousSubTopics: subTopics,
+        remainingFilters: otherFilters
+      });
+    };
+
+    // Handle removing topic from exam (updates prep state and filters)
+    const handleRemoveFromExam = async (subtopicId: string) => {
+      if (!prep) return;
+      
+      // Get current prep state
+      const freshPrep = PrepStateManager.getPrep(prep.id);
+      if (!freshPrep) return;
+
+      // Remove subtopic from selection
+      const updatedPrep: StudentPrep = {
+        ...freshPrep,
+        selection: {
+          subTopics: freshPrep.selection.subTopics.filter(id => id !== subtopicId)
+        }
+      };
+
+      // Save updated prep
+      PrepStateManager.updatePrep(updatedPrep);
+
+      // Calculate total subtopics
+      const totalSubtopics = prep.exam.topics.reduce((acc, topic) => 
+        acc + topic.subTopics.length, 0
+      );
+
+      // Show notification
+      notification.info({
+        message: 'תכולת המבחן עודכנה',
+        description: `תכולת המבחן שלך שונתה לכלול ${updatedPrep.selection.subTopics.length} תת-נושאים מתוך ${totalSubtopics}`,
+        placement: 'topLeft',
+        duration: 3,
+      });
+
+      // Close popover
+      closePopover();
+    };
+
+    return (
+      <div 
+        style={{ width: 320, padding: '16px' }}
+        onMouseEnter={handleSubtopicPopoverMouseEnter}
+        onMouseLeave={handleSubtopicPopoverMouseLeave}
+      >
+        <div style={{ marginBottom: '16px', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
+          <Text strong style={{ 
+            display: 'block', 
+            fontSize: '15px',
+            color: '#1f2937',
+            marginBottom: '4px'
+          }}>
+            {subtopicInfo?.name} ({topicName})
+          </Text>
+          {subtopicInfo?.description && (
+            <Text style={{ 
+              fontSize: '13px',
+              color: '#6b7280'
+            }}>
+              {subtopicInfo.description}
+            </Text>
+          )}
+        </div>
+
+        <Space direction="vertical" style={{ width: '100%' }} size={8}>
+          <Button
+            type="default"
+            onClick={() => {
+              handleRemoveFocus();
+              closePopover();
+            }}
+            style={{ 
+              width: '100%',
+              textAlign: 'right',
+              justifyContent: 'flex-start',
+              height: '40px',
+              borderRadius: '12px',
+              fontWeight: 500,
+              background: !isSubtopicFocused ? '#EBF5FF' : '#ffffff',
+              borderColor: !isSubtopicFocused ? '#60A5FA' : '#e5e7eb',
+              color: !isSubtopicFocused ? '#2563EB' : '#1f2937'
+            }}
+          >
+            תרגול בכל הנושאים
+          </Button>
+          <Button
+            type="default"
+            icon={<AimOutlined style={{ color: isSubtopicFocused ? '#2563EB' : '#64748b' }} />}
+            onClick={() => {
+              handleSubtopicFocus();
+              closePopover();
+            }}
+            style={{ 
+              width: '100%',
+              textAlign: 'right',
+              justifyContent: 'flex-start',
+              height: '40px',
+              borderRadius: '12px',
+              fontWeight: 500,
+              background: isSubtopicFocused ? '#EBF5FF' : '#ffffff',
+              borderColor: isSubtopicFocused ? '#60A5FA' : '#e5e7eb',
+              color: isSubtopicFocused ? '#2563EB' : '#1f2937'
+            }}
+          >
+            התמקד בנושא זה
+          </Button>
+          <Button
+            type="default"
+            icon={<AimOutlined style={{ color: '#64748b' }} />}
+            onClick={() => {
+              closePopover();
+              setTimeout(() => {
+                setIsTopicSelectionDialogOpen(true);
+              }, 100);
+            }}
+            style={{ 
+              width: '100%',
+              textAlign: 'right',
+              justifyContent: 'flex-start',
+              height: '40px',
+              borderRadius: '12px',
+              fontWeight: 500,
+              background: '#ffffff',
+              borderColor: '#e5e7eb',
+              color: '#1f2937'
+            }}
+          >
+            התמקד בנושא אחר
+          </Button>
+          <Divider style={{ margin: '4px 0' }} />
+          <Button
+            type="default"
+            icon={<StopOutlined style={{ color: '#ef4444' }} />}
+            onClick={() => {
+              if (question.metadata.subtopicId) {
+                handleRemoveFromExam(question.metadata.subtopicId);
+              }
+            }}
+            style={{ 
+              width: '100%',
+              textAlign: 'right',
+              justifyContent: 'flex-start',
+              height: '40px',
+              borderRadius: '12px',
+              fontWeight: 500,
+              borderColor: '#fca5a5',
+              color: '#ef4444',
+              background: '#fff1f2'
+            }}
+          >
+            הורד נושא זה מתכולת המבחן
+          </Button>
+        </Space>
+      </div>
+    );
+  };
+
+  const renderDifficultyOption = (difficulty: number) => {
+    return (
+      <Space>
+        {[...Array(5)].map((_, i) => (
+          i < difficulty ? 
+            <StarFilled key={i} style={{ color: '#f59e0b', fontSize: '12px' }} /> :
+            <StarOutlined key={i} style={{ color: '#d1d5db', fontSize: '12px' }} />
+        ))}
+      </Space>
+    );
+  };
+
   // Initialize or reset batch when starting new practice
   useEffect(() => {
-    if (activePrep && (!currentBatch.length || currentBatch.length !== 10)) {
+    if (prep && (!currentBatch.length || currentBatch.length !== 10)) {
       setCurrentBatch(Array.from({ length: 10 }, (_, i) => ({
         index: i,
         status: i === 0 ? 'active' : 'pending'
       })));
     }
-  }, [activePrep]);
+  }, [prep]);
 
   // Update batch when question is answered
   useEffect(() => {
-    console.log('🔍 Checking for feedback update:', {
-      hasFeedback: Boolean(state.feedback),
+    if (!state.feedback) return;
+
+    logger.info('Feedback update:', {
+      hasFeedback: !!state.feedback,
       batchLength: currentBatch.length,
-      currentQuestion: question?.id,
-      feedback: state.feedback,
-      batchDetails: currentBatch.map(q => ({
-        index: q.index,
-        status: q.status,
-        isCorrect: q.isCorrect,
-        score: q.score
-      }))
+      currentQuestion: state.questionIndex,
+      feedback: state.feedback
     });
 
-    if (state.feedback && currentBatch.length) {
-      const currentIndex = currentBatch.findIndex(q => q.status === 'active');
-      console.log('📊 Found active question in batch:', {
-        currentIndex,
-        batchStatus: currentBatch.map(q => ({
-          index: q.index,
-          status: q.status,
-          isCorrect: q.isCorrect,
-          score: q.score
-        }))
-      });
+    // Find current active question in batch
+    const currentIndex = currentBatch.findIndex(q => q.status === 'active');
+    if (currentIndex === -1) return;
 
-      if (currentIndex >= 0) {
-        const newBatch = [...currentBatch];
-        // Update current question but keep it active
-        newBatch[currentIndex] = {
-          ...newBatch[currentIndex],
-          isCorrect: state.feedback.isCorrect,
-          score: state.feedback.score,
-          status: 'active' // Keep it active until next is clicked
-        };
-        
-        console.log('✨ Updating batch with feedback:', {
-          updatedIndex: currentIndex,
-          isCorrect: state.feedback.isCorrect,
-          score: state.feedback.score,
-          status: 'active',
-          newBatchStatus: newBatch.map(q => ({
-            index: q.index,
-            status: q.status,
-            isCorrect: q.isCorrect,
-            score: q.score
-          }))
-        });
-        setCurrentBatch(newBatch);
-      }
+    // Create new batch array with updated current question
+    const newBatch = [...currentBatch];
+    newBatch[currentIndex] = {
+      ...newBatch[currentIndex],
+      isCorrect: state.feedback.isCorrect,
+      score: state.feedback.score,
+      status: 'completed'
+    };
+
+    // Set next question as active if available
+    if (currentIndex + 1 < newBatch.length) {
+      newBatch[currentIndex + 1].status = 'active';
     }
+
+    setCurrentBatch(newBatch);
   }, [state.feedback]);
-
-  // Get topic name on mount and when question changes
-  useEffect(() => {
-    if (question) {
-      const name = subjectService.getMostSpecificTopicName(
-        question.metadata.topicId,
-        question.metadata.subtopicId
-      );
-      setTopicName(name);
-    }
-  }, [question?.metadata.topicId, question?.metadata.subtopicId]);
 
   const handleClearFilter = (key: keyof FilterState, value: any) => {
     const newFilters = { ...filters };
@@ -172,34 +682,25 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     onFiltersChange(newFilters);
   };
 
-  // Reset time tracking on new question
-  useEffect(() => {
-    startTimeRef.current = Date.now();
-    lastTimeLogRef.current = Date.now();
-  }, [question?.id]);
-
-  // Calculate days until exam
-  const daysUntilExam = Math.ceil((activePrep?.goals?.examDate - Date.now()) / (1000 * 60 * 60 * 24));
-  
-  // Calculate remaining questions and time
-  const remainingQuestions = (activePrep?.goals?.questionGoal || 0) - (activePrep?.state?.completedQuestions || 0);
-  const remainingHours = (activePrep?.goals?.totalHours || 0) - Math.round((activePrep?.state?.activeTime || 0) / (60 * 60 * 1000));
-  
-  // Calculate daily goals based on remaining work and days
-  const dailyQuestionsGoal = daysUntilExam > 0 ? Math.ceil(remainingQuestions / daysUntilExam) : remainingQuestions;
-  const dailyTimeGoal = daysUntilExam > 0 ? Math.ceil((remainingHours * 60) / daysUntilExam) : remainingHours * 60; // Convert to minutes
-
   // Calculate last 24 hours progress
   const last24Hours = Date.now() - (24 * 60 * 60 * 1000);
-  const questionsAnsweredToday = activePrep?.state?.questionHistory?.filter((q: { timestamp: number }) => 
-    q.timestamp >= last24Hours
-  ).length || 0;
+  const questionsAnsweredToday = prep.state.status !== 'initializing' && prep.state.status !== 'not_started' 
+    ? prep.state.questionHistory?.filter((q: { timestamp: number }) => q.timestamp >= last24Hours).length || 0
+    : 0;
 
   // For time, we're still showing total active time in minutes
-  const dailyTimeProgress = Math.round((activePrep?.state?.activeTime || 0) / (60 * 1000));
-  
-  const isDailyTimeGoalExceeded = dailyTimeProgress > dailyTimeGoal;
-  const isQuestionsGoalExceeded = questionsAnsweredToday > dailyQuestionsGoal;
+  const dailyTimeProgress = Math.round(getActiveTime(prep.state) / (60 * 1000));
+
+  // Calculate days until exam based on prep.goals.examDate
+  const now = Date.now();
+  const daysUntilExam = Math.max(1, Math.ceil((prep.goals.examDate - now) / (1000 * 60 * 60 * 24)));
+
+  // Calculate daily goals based on actual days until exam
+  const dailyQuestionsGoal = Math.ceil(prep.goals.questionGoal / daysUntilExam);
+  const dailyTimeGoalMinutes = prep.goals.dailyHours * 60; // Convert hours to minutes
+
+  const isDailyTimeGoalExceeded = dailyTimeProgress > dailyTimeGoalMinutes;
+  const isDailyQuestionsGoalExceeded = questionsAnsweredToday > dailyQuestionsGoal;
 
   // Add difficulty options
   const difficultyOptions = [
@@ -210,22 +711,27 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     { value: 5, label: 'קשה מאוד', color: '#f59e0b' }
   ];
 
-  const renderDifficultyOption = (difficulty: number) => {
-    const option = difficultyOptions.find(opt => opt.value === difficulty);
-    return (
-      <Space>
-        {[...Array(difficulty)].map((_, i) => (
-          <StarFilled key={i} style={{ color: option?.color, fontSize: '12px' }} />
-        ))}
-        <Text>{option?.label}</Text>
-      </Space>
-    );
-  };
-
   const handleAnswerSubmit = async (answer: string) => {
     setSelectedAnswer(answer);
     await onAnswer(answer);
   };
+
+  const handleTopicFocusClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsTopicSelectionDialogOpen(true);
+  };
+
+  const handleTopicFocusSelect = (topicId: string) => {
+    setFocusedTopicId(topicId);
+    setIsFocused(true);
+    setIsTopicSelectionDialogOpen(false);
+  };
+
+  // Update isFocused state whenever filters change
+  useEffect(() => {
+    setIsFocused(!!filters.subTopics?.length);
+  }, [filters.subTopics]);
 
   if (isQuestionLoading) {
     return (
@@ -257,72 +763,14 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   }
 
   return (
-    <div style={{ 
-      flex: '1',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '24px',
-      width: '100%',
-      maxWidth: '1200px',
-      margin: '0 auto'
-    }}>
-      {/* Progress Bar - Always at Top */}
-      <div className="progress-status-bar">
-        <QuestionSetProgress
-          currentQuestionIndex={state.questionIndex + 1}
-          totalQuestions={10}
-          questionId={question.id}
-          dailyQuestions={state.answeredQuestions ? {
-            completed: state.answeredQuestions.filter(q => q.isCorrect).length,
-            goal: 10
-          } : undefined}
-          dailyTime={activePrep?.goals?.dailyHours ? {
-            completed: Math.round((activePrep.state.activeTime || 0) / (60 * 1000)),
-            goal: Math.round(activePrep.goals.dailyHours * 60)
-          } : undefined}
-        />
-      </div>
-
-      {/* Filter Bar */}
-      <div className="filter-bar">
-        <Button 
-          type="text"
-          onClick={() => setIsFilterExpanded(!isFilterExpanded)}
-          className="filter-toggle"
-        >
-          <div className="filter-toggle-content">
-            <FilterOutlined className="filter-icon" />
-            <Text>סינון מתקדם</Text>
-            {Object.keys(filters).length > 0 && (
-              <Tag className="filter-count">
-                {Object.keys(filters).length}
-              </Tag>
-            )}
-            {isFilterExpanded ? <UpOutlined /> : <DownOutlined />}
-          </div>
-        </Button>
-        
-        <AnimatePresence>
-          {isFilterExpanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              style={{ overflow: 'hidden', width: '100%' }}
-              className="filter-content"
-            >
-              <div className="filter-controls">
-                <QuestionFilter
-                  filters={filters}
-                  onChange={onFiltersChange}
-                  expanded={isFilterExpanded}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+    <div className="question-interaction-container">
+      {/* Progress Section */}
+      <QuestionSetProgress
+        currentQuestionIndex={state.questionIndex}
+        totalQuestions={10}
+        questionId={question.id}
+        prepId={prep.id}
+      />
 
       {/* Main Question Card */}
       <Card bodyStyle={{ padding: '24px' }} className={`question-card question-type-${question.type}`}>
@@ -338,15 +786,99 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
               <div className="question-header">
                 <div className="title-row">
                   <h2 className="question-title">
-                    שאלה ב{topicName}
+                    <Popover 
+                      content={<SubtopicPopoverContent />}
+                      trigger={['hover', 'click']}
+                      placement="bottom"
+                      open={subtopicPopoverVisible}
+                      onOpenChange={handleSubtopicPopoverVisibilityChange}
+                      overlayInnerStyle={{
+                        padding: '12px',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+                      }}
+                    >
+                      <span 
+                        onMouseEnter={handleSubtopicPopoverMouseEnter}
+                        onMouseLeave={handleSubtopicPopoverMouseLeave}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsSubtopicPopoverClicked(true);
+                          setSubtopicPopoverVisible(!subtopicPopoverVisible);
+                        }}
+                        className="topic-selector"
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <span>שאלה ב</span>
+                        <span className={`topic-name ${isFocused ? 'focused' : ''}`}>
+                          {getQuestionTopicName(question)}
+                          <AimOutlined className="focus-icon" />
+                        </span>
+                      </span>
+                    </Popover>
                   </h2>
                   <div className="metadata-indicators">
-                    <div className="difficulty-indicator">
-                      {getDifficultyIcons(String(question.metadata.difficulty))}
-                    </div>
-                    <div className="type-indicator">
-                      {getQuestionTypeLabel(question.type)}
-                    </div>
+                    <Popover 
+                      content={<DifficultyFeedbackContent />}
+                      trigger={['hover', 'click']}
+                      placement="bottom"
+                      open={difficultyPopoverVisible}
+                      onOpenChange={handleDifficultyPopoverVisibilityChange}
+                      arrowPointAtCenter={true}
+                      overlayStyle={{
+                        pointerEvents: 'auto'
+                      }}
+                      overlayInnerStyle={{
+                        padding: '12px',
+                        borderRadius: '12px',
+                        minWidth: '200px',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+                      }}
+                    >
+                      <div 
+                        className="difficulty-selector"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDifficultyPopoverClicked(true);
+                          setDifficultyPopoverVisible(!difficultyPopoverVisible);
+                        }}
+                        onMouseEnter={handleDifficultyPopoverMouseEnter}
+                        onMouseLeave={handleDifficultyPopoverMouseLeave}
+                      >
+                        {renderDifficultyOption(question.metadata.difficulty)}
+                      </div>
+                    </Popover>
+                    <Popover 
+                      content={<TypeFilterContent />}
+                      trigger={['hover', 'click']}
+                      placement="bottom"
+                      open={typePopoverVisible}
+                      onOpenChange={handleTypePopoverVisibilityChange}
+                      destroyTooltipOnHide={true}
+                      overlayStyle={{
+                        pointerEvents: 'auto'
+                      }}
+                      overlayInnerStyle={{
+                        padding: 0,
+                        borderRadius: '12px',
+                        width: '280px',
+                        maxWidth: '280px',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+                      }}
+                    >
+                      <div 
+                        className={`type-selector ${isTypeFocused(question.type) ? 'focused' : ''}`}
+                        onMouseEnter={handleTypePopoverMouseEnter}
+                        onMouseLeave={handleTypePopoverMouseLeave}
+                      >
+                        {getQuestionTypeLabel(question.type)}
+                        <AimOutlined className="focus-icon" style={{ 
+                          color: isTypeFocused(question.type) ? '#2563eb' : '#64748b'
+                        }} />
+                      </div>
+                    </Popover>
                   </div>
                 </div>
                 <div className="action-bar">
@@ -373,11 +905,26 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
                 {question.metadata.source && (
                   <div className="source-info">
                     <Text type="secondary" italic>
-                      מקור: {question.metadata.source.examType === 'practice' ? 'איזיפס - שאלת תרגול מקורית' : question.metadata.source.examType}
+                      {(() => {
+                        switch (question.metadata.source.sourceType) {
+                          case 'ezpass':
+                            return 'איזיפס - שאלת תרגול מקורית';
+                          case 'exam':
+                            return `מבחן ${question.metadata.source.examTemplateId || ''}`;
+                          case 'book':
+                            return `ספר ${question.metadata.source.bookName || ''}`;
+                          case 'author':
+                            return `מחבר ${question.metadata.source.authorName || ''}`;
+                          default:
+                            return 'לא ידוע';
+                        }
+                      })()}
                       {question.metadata.source.year && ` ${question.metadata.source.year}`}
                       {question.metadata.source.season && ` ${question.metadata.source.season}`}
                       {question.metadata.source.moed && ` מועד ${question.metadata.source.moed}`}
-                      {question.metadata.source.author && ` | ${question.metadata.source.author}`}
+                      {question.metadata.source.sourceType === 'book' && question.metadata.source.bookLocation && 
+                        ` (${question.metadata.source.bookLocation})`
+                      }
                     </Text>
                   </div>
                 )}
@@ -455,6 +1002,22 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
 
       <style>
         {`
+          .question-interaction-container {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            width: 100%;
+          }
+
+          .question-set-progress {
+            margin-bottom: 0;  /* Remove any default margin */
+          }
+
+          .question-card {
+            position: relative;
+            margin-top: 0;  /* Remove any default margin */
+          }
+
           .filter-bar {
             width: 100%;
             background: #ffffff;
@@ -569,48 +1132,140 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 4px 8px;
+            padding: 6px;
             background: #f8fafc;
             border-radius: 20px;
             border: 1px solid #e5e7eb;
+            transition: all 0.2s ease;
           }
 
-          .difficulty-indicator {
+          .metadata-indicators:hover {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+          }
+
+          .difficulty-selector {
             display: flex;
             gap: 2px;
-          }
-
-          .difficulty-indicator .anticon {
-            color: #f59e0b;
-            font-size: 16px;
-          }
-
-          .type-indicator {
+            padding: 4px 12px;
+            border-radius: 16px;
+            border: 1.5px solid #d1d5db;
+            background: white;
+            transition: all 0.2s ease;
+            cursor: pointer;
             font-size: 14px;
-            color: #4b5563;
-            padding: 2px 8px;
-            border-radius: 12px;
-            background: #e5e7eb;
+            line-height: 20px;
+            min-height: 32px;
+            align-items: center;
           }
 
-          .question-type-multiple_choice .type-indicator {
-            background: #dbeafe;
-            color: #1d4ed8;
+          .type-selector {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.4;
+            background-color: #f3f4f6;
+            border: 1.5px solid #d1d5db;
+            transition: all 0.2s ease;
+            cursor: pointer;
           }
 
-          .question-type-open .type-indicator {
-            background: #d1fae5;
-            color: #047857;
+          .type-selector:hover {
+            background-color: #e5e7eb;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
           }
 
-          .question-type-code .type-indicator {
-            background: #ede9fe;
-            color: #6d28d9;
+          .type-selector.focused {
+            background-color: #e0f2fe;
+            border-color: #60a5fa;
+            color: #1e40af;
           }
 
-          .question-type-step_by_step .type-indicator {
-            background: #fef3c7;
-            color: #b45309;
+          .type-selector.focused:hover {
+            background-color: #dbeafe;
+            border-color: #3b82f6;
+          }
+
+          .type-selector .focus-icon {
+            font-size: 14px;
+            opacity: 0.7;
+          }
+
+          .type-selector.focused .focus-icon {
+            opacity: 1;
+          }
+
+          .difficulty-selector:hover,
+          .type-selector:hover {
+            border-color: #60A5FA;
+            background-color: #EBF5FF;
+            color: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+
+          .difficulty-selector:active,
+          .type-selector:active {
+            transform: translateY(0);
+            box-shadow: none;
+          }
+
+          .focus-icon {
+            color: #64748b;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            opacity: 0.7;
+          }
+
+          .topic-name.focused .focus-icon,
+          .topic-selector:hover .focus-icon,
+          .type-selector:hover .focus-icon {
+            color: #2563eb;
+            opacity: 1;
+          }
+
+          .topic-selector {
+            transition: all 0.2s ease;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #1f2937;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+            background: transparent;
+          }
+
+          .topic-name {
+            padding: 4px 12px;
+            border-radius: 16px;
+            border: 1.5px solid #d1d5db;
+            background: #f8fafc;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+
+          .topic-name.focused {
+            color: #2563eb;
+            background-color: #EBF5FF;
+            border-color: #60A5FA;
+          }
+
+          .topic-selector:hover {
+            border-color: transparent;
+            background-color: transparent;
+          }
+
+          .topic-selector:hover .topic-name {
+            border-color: #60A5FA;
+            background-color: #EBF5FF;
+            color: #2563eb;
           }
 
           .question-body {
@@ -730,8 +1385,30 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
             padding: 16px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
           }
+
+          .ant-popover-content .ant-popover-inner {
+            padding: 0;
+            border-radius: 12px;
+          }
+
+          .type-filter-button {
+            margin: 0;
+            padding: 6px 12px;
+          }
         `}
       </style>
+      <TopicSelectionDialog
+        exam={prep.exam}
+        open={isTopicSelectionDialogOpen}
+        onClose={() => setIsTopicSelectionDialogOpen(false)}
+        currentFilters={filters}
+        onFilterChange={(updatedFilters) => {
+          setIsFocused(!!updatedFilters.subTopics?.length);
+          onFiltersChange(updatedFilters);
+        }}
+        currentQuestion={question}
+        onSkip={onSkip}
+      />
     </div>
   );
 };

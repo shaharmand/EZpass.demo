@@ -1,15 +1,27 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
+import type { StudentPrep } from '../types/prepState';
 
 const TIMER_INTERVAL = 1000; // Update every second
 
 export const usePracticeTimer = (prepId: string) => {
   const timerRef = useRef<NodeJS.Timeout>();
-  const { activePrep } = useStudentPrep();
+  const { getPrep } = useStudentPrep();
+  const [prep, setPrep] = useState<StudentPrep | null>(null);
+
+  // Effect to load and keep prep state updated
+  useEffect(() => {
+    const loadPrep = async () => {
+      const currentPrep = await getPrep(prepId);
+      setPrep(currentPrep);
+    };
+
+    loadPrep();
+  }, [prepId, getPrep]);
 
   useEffect(() => {
     // Only run timer when practice is active
-    if (!activePrep || activePrep.state.status !== 'active') {
+    if (!prep || prep.state.status !== 'active') {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
@@ -17,16 +29,11 @@ export const usePracticeTimer = (prepId: string) => {
     }
 
     // Start timer
-    timerRef.current = setInterval(() => {
-      const now = Date.now();
-      // Only access lastTick when in active state
-      const lastActive = activePrep.state.status === 'active' 
-        ? activePrep.state.lastTick 
-        : now;
-      const delta = now - lastActive;
-      
-      // Time updates are now handled directly in StudentPrepContext
-      // through the setActivePrep state updates
+    timerRef.current = setInterval(async () => {
+      const currentPrep = await getPrep(prepId);
+      if (currentPrep) {
+        setPrep(currentPrep);
+      }
     }, TIMER_INTERVAL);
 
     // Cleanup
@@ -35,16 +42,16 @@ export const usePracticeTimer = (prepId: string) => {
         clearInterval(timerRef.current);
       }
     };
-  }, [activePrep?.state.status, prepId]);
+  }, [prep?.state.status, prepId, getPrep]);
 
   return {
-    activeTime: activePrep?.state.status === 'active' 
-      ? activePrep.state.activeTime 
-      : activePrep?.state.status === 'paused' 
-        ? activePrep.state.activeTime
-        : activePrep?.state.status === 'completed'
-          ? activePrep.state.activeTime
+    activeTime: prep?.state.status === 'active' 
+      ? prep.state.activeTime 
+      : prep?.state.status === 'paused' 
+        ? prep.state.activeTime
+        : prep?.state.status === 'completed'
+          ? prep.state.activeTime
           : 0,
-    isTracking: activePrep?.state.status === 'active'
+    isTracking: prep?.state.status === 'active'
   };
 }; 

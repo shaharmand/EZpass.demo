@@ -1,144 +1,285 @@
 {
-  "domainID": "construction_safety",
-  "subjectID": "civil_engineering",
-  "description": "בטיחות בעבודות בנייה והנדסה אזרחית",
-  "topics": [
-    {
-      "id": "safety_management",
-      "name": "ניהול בטיחות",
-      "description": "ניהול בטיחות באתר בנייה",
-      "subTopics": [
+    "domainID": "construction_safety",
+    "subjectID": "civil_engineering",
+    "description": "בטיחות בעבודות בנייה ובנייה הנדסית",
+    "topics": [
         {
-          "id": "safety_regulations",
-          "name": "תקנות בטיחות",
-          "description": "חוקים ותקנות בטיחות בעבודה באתרי בנייה",
-          "questionTemplate": "ניתוח תקנות בטיחות והשלכותיהן"
+            "id": "safety_management_fundamentals",
+            "name": "יסודות הבטיחות וניהול",
+            "description": "עקרונות יסוד בניהול בטיחות, הגדרת מושגי בסיס ומבנה מערך הבטיחות בעבודה.",
+            "subTopics": [
+                {
+                    "id": "basics_safety",
+                    "name": "בטיחות בעבודה",
+                    "description": "הגדרות בסיס בבטיחות, מקום עבודה, תאונות עבודה, מחלות מקצוע ואירועים מסוכנים",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על הגדרות תאונות עבודה, מחלות מקצוע וסמכויות בעלי תפקידים",
+                        "open": "הסבר על תהליכי דיווח תאונות ונהלי בטיחות"
+                    }
+                },
+                {
+                    "id": "work_inspection_service",
+                    "name": "שרות פיקוח על העבודה והמוס\"ל",
+                    "description": "מבנה שירות הפיקוח, סמכויות מפקח עבודה, סוגי צווים והמוסד לבטיחות וגיהות",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על סמכויות מפקחי עבודה וסוגי צווים",
+                        "open": "ניתוח תפקידי המוסד לבטיחות וגיהות"
+                    }
+                },
+                {
+                    "id": "workplace_safety_roles",
+                    "name": "תפקידי בטיחות פנים מפעליים",
+                    "description": "ועדת בטיחות, נאמני בטיחות, עוזרי בטיחות וממוני בטיחות - תפקידים וסמכויות",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על סמכויות ואחריות בעלי תפקידים",
+                        "open": "ניתוח מבנה ארגוני של מערך הבטיחות"
+                    }
+                },
+                {
+                    "id": "employee_training",
+                    "name": "הדרכת עובדים",
+                    "description": "חובות ההדרכה ודרישות הדרכה שונות לעובדים",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על חובות הדרכה ותדירות",
+                        "open": "תכנון תכנית הדרכה שנתית"
+                    }
+                },
+                {
+                    "id": "safety_planning",
+                    "name": "תכניות בטיחות",
+                    "description": "תכנית ארגון בטיחותי של אתר ותכנית ניהול הבטיחות. אחריות המחזיק ותכולת התכניות.",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על מרכיבי תכנית בטיחות",
+                        "open": "ניתוח והכנת תכנית בטיחות לאתר"
+                    }
+                },
+                {
+                    "id": "construction_site_safety_management",
+                    "name": "ניהול הבטיחות באתר בניה",
+                    "description": "דרישות כלליות באתר, מבצע בניה, מנהל עבודה והוראות כלליות.",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על אחריות מנהל עבודה ומבצע בניה",
+                        "open": "ניתוח מקרה של ניהול בטיחות באתר"
+                    }
+                }
+            ]
         },
         {
-          "id": "risk_assessment",
-          "name": "הערכת סיכונים",
-          "description": "זיהוי והערכת סיכונים באתר בנייה",
-          "questionTemplate": "ניתוח מצבים וזיהוי סיכונים"
+            "id": "Construction_methods_and_Works",
+            "name": "שיטות ביצוע  ועבודות בנייה",
+            "description": "בטיחות בביצוע עבודות בנייה בשיטות שונות",
+            "subTopics": [
+                {
+                    "id": "work_surfaces_walkways_and_openings",
+                    "name": "משטחי עבודה, מדרכות מעבר ופתחים",
+                    "description": "הגדרות, מדרכות מעבר, גידור, מניעת מכשולים ואבטחת פתחים",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על מידות ודרישות למשטחי עבודה",
+                        "open": "תכנון מערך משטחי עבודה",
+                        "step_by_step": "חישובי עומסים ומרחקים במשטחי עבודה"
+                    }
+                },
+                {
+                    "id": "scaffolding",
+                    "name": "פיגומים",
+                    "description": "הקמה, חומרים, בדיקות, פסילה ותחזוקת פיגומים",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על סוגי פיגומים, דרישות בטיחות, מרחקי עיגון ורוחב מינימלי",
+                        "open": "תכנון מערך פיגומים ומערכת העיגונים",
+                        "step_by_step": "חישובי עומסים, יציבות, נקודות עיגון ומידות מינימליות של פיגומים"
+                    }
+                },
+                {
+                    "id": "concrete_formwork",
+                    "name": "טפסות",
+                    "description": "טפסות רגילות וטפסות מתועשות, מבנה, ביסוס, תומכות, תכנון, בדיקות ופירוק והובלה"
+,
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על סוגי טפסות ודרישות בטיחות",
+                        "open": "תכנון מערך טפסות",
+                        "step_by_step": "חישובי לחצי בטון ועומסים בטפסות"
+                    }
+                },
+                {
+                    "id": "precast_construction",
+                    "name": "בניה טרומית",
+                    "description": "בטיחות בעבודות בנייה טרומית",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על דרישות בטיחות בבניה טרומית",
+                        "open": "תכנון הרכבת אלמנטים טרומיים"
+                    }
+                },
+                {
+                    "id": "steel_construction",
+                    "name": "הקמת מבני מתכת",
+                    "description": "בטיחות בהקמת מבנה מתכת",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על בטיחות בהקמת מבני מתכת",
+                        "open": "תכנון רצף עבודה בהקמת מבנה מתכת"
+                    }
+                },
+                {
+                    "id": "excavation_and_earthworks",
+                    "name": "חפירות ועבודות עפר",
+                    "description": "מניעת התמוטטות צידי חפירה ואמצעי בטיחות",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על דרישות דיפון, שיפועים ומרחקי בטיחות",
+                        "open": "תכנון עבודות חפירה ומערכי בטיחות",
+                        "step_by_step": "חישובי שיפועים, מרחקי בטיחות, ועומסים מותרים"
+                    }
+                },
+                {
+                    "id": "demolition_and_explosives",
+                    "name": "הריסות וחומרי פיצוץ",
+                    "description": "בטיחות בהריסות ועבודה עם חומרי נפץ",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על בטיחות בהריסות ושימוש בחומרי נפץ",
+                        "open": "תכנון עבודות הריסה"
+                    }
+                }
+            ]
         },
         {
-          "id": "safety_planning",
-          "name": "תכנון בטיחות",
-          "description": "תכנון מערך בטיחות באתר בנייה",
-          "questionTemplate": "תכנון אמצעי בטיחות ונהלים"
+            "id": "height_work",
+            "name": "עבודה בגובה",
+            "description": "בטיחות בעבודות המתבצעות בגובה",
+            "subTopics": [
+                {
+                    "id": "fragile_or_steep_roofs",
+                    "name": "גגות שבירים או תלולים",
+                    "description": "מניעת נפילה ואמצעי בטיחות בעבודה על גגות",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על אמצעי בטיחות בעבודה על גגות",
+                        "open": "תכנון עבודה על גג שביר",
+                        "step_by_step": "חישובי שיפועי גג ועומסים"
+                    }
+                },
+                {
+                    "id": "work_at_height",
+                    "name": "עבודה בגובה",
+                    "description": "הגדרות, אחריות, ציוד מגן, מניעת נפילה ותנאי העסקה",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על ציוד מגן ואמצעי בטיחות",
+                        "open": "תכנון עבודה בגובה",
+                        "step_by_step": "חישובי מרחקי נפילה ועומסי ציוד"
+                    }
+                },
+                {
+                    "id": "ladders",
+                    "name": "סולמות",
+                    "description": "סוגי סולמות, אופן הצבה, הוראות שימוש וסולמות קבועים",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על סוגי סולמות והצבתם",
+                        "open": "תכנון שימוש בסולמות",
+                        "step_by_step": "חישובי זוויות הצבה ועומסים"
+                    }
+                }
+            ]
         },
         {
-          "id": "protective_equipment",
-          "name": "ציוד מגן אישי",
-          "description": "בחירה ושימוש נכון בציוד מגן אישי",
-          "questionTemplate": "זיהוי והתאמת ציוד מגן אישי למשימות שונות"
+            "id": "lifting_and_cranes",
+            "name": "מכונות הרמה ומנופים",
+            "description": "בטיחות בהפעלת ציוד הרמה ועגורנים",
+            "subTopics": [
+                {
+                    "id": "lifting_equipment",
+                    "name": "מכונות ואביזרי הרמה",
+                    "description": "הגדרות, עומסים, מסילות, מגדלי הרמה ובדיקות",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על בדיקות ואחזקת ציוד הרמה",
+                        "open": "תכנון מערך הרמה",
+                        "step_by_step": "חישובי עומסי הרמה וכושר הרמה"
+                    }
+                },
+                {
+                    "id": "cranes",
+                    "name": "עגורנים",
+                    "description": "סוגי עגורנים, מבנה, תפעול, בטיחות, תחזוקה ובדיקות",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על הפעלת עגורנים, בטיחות, זוויות הרמה וכבלים",
+                        "open": "תכנון עבודה עם עגורנים ומערך הרמה",
+                        "step_by_step": "חישובי עומסים, מרחקי הרמה, חוזק כבלים וזוויות הרמה"
+                    }
+                }
+            ]
         },
         {
-          "id": "emergency_procedures",
-          "name": "נהלי חירום",
-          "description": "תכנון והכנה למצבי חירום באתר בנייה",
-          "questionTemplate": "תכנון ויישום נהלי חירום באתר"
+            "id": "specialized_safety",
+            "name": "בטיחות בעבודות מיוחדות",
+            "description": "בטיחות בעבודות מיוחדות המחייבות זהירות מוגברת",
+            "subTopics": [
+                {
+                    "id": "hot_bitumen",
+                    "name": "ביטומן חם ואש",
+                    "description": "בטיחות בעבודה עם ביטומן חם",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על בטיחות אש וטיפול בביטומן חם",
+                        "open": "תכנון עבודה עם ביטומן חם"
+                    }
+                },
+                {
+                    "id": "electrical",
+                    "name": "חשמל",
+                    "description": "הגדרות, הוראות בטיחות, הקמת מתקנים, בדיקות ומרחקי בטיחות",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על בטיחות חשמל, ציוד מגן, ונהלי חירום",
+                        "open": "תכנון עבודות חשמל והכנת נהלי חירום",
+                        "step_by_step": "חישובי מרחקי בטיחות מקווי מתח ותכנון מערכי הגנה"
+                    }
+                },
+                {
+                    "id": "confined_spaces",
+                    "name": "מקום מוקף",
+                    "description": "הגדרות, כניסה והכנות לעבודה במקום מוקף",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על בטיחות במקום מוקף",
+                        "open": "תכנון עבודה במקום מוקף"
+                    }
+                },
+                {
+                    "id": "welding_and_cutting",
+                    "name": "ריתוך וחיתוך להבה",
+                    "description": "בטיחות בעבודות ריתוך וחיתוך",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על בטיחות בריתוך וחיתוך",
+                        "open": "תכנון עבודות ריתוך"
+                    }
+                }
+            ]
+        },
+        {
+            "id": "equipment_and_health",
+            "name": "ציוד ובריאות",
+            "description": "בטיחות בשימוש בציוד והיבטי בריאות העובד",
+            "subTopics": [
+                {
+                    "id": "mechanical_equipment",
+                    "name": "מכונות שונות ציוד מכאני וכלי עבודה",
+                    "description": "שימוש בטוח במכונות, כלי עבודה וציוד מכאני, כולל תחזוקה ובדיקות בטיחותיות",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על דרישות בטיחות בשימוש בציוד מכאני",
+                        "open": "ניתוח סיכונים בשימוש במכונות ותכנון אמצעי בטיחות"
+                    }
+                },
+                {
+                    "id": "hygiene",
+                    "name": "גיהות",
+                    "description": "שמירה על גיהות תעסוקתית, איכות האוויר, רעש, תנאי תאורה והשפעות סביבתיות",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על תקנות גיהות תעסוקתית והשפעות סביבתיות",
+                        "open": "תכנון מערך גיהות באתרי עבודה"
+                    }
+                },
+                {
+                    "id": "personal_protective_equipment",
+                    "name": "ציוד מגן אישי",
+                    "description": "שימוש נכון בציוד מגן אישי כגון קסדות, כפפות, משקפי מגן, ורתמות בטיחות",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על סוגי ציוד מגן אישי והתאמתו לסיכונים",
+                        "open": "ניתוח דרישות ציוד מגן אישי עבור עבודות שונות"
+                    }
+                }
+            ]
         }
-      ]
-    },
-    {
-      "id": "work_at_height",
-      "name": "עבודה בגובה",
-      "description": "בטיחות בעבודה בגובה",
-      "subTopics": [
-        {
-          "id": "scaffolding",
-          "name": "פיגומים",
-          "description": "סוגי פיגומים, הקמה ובטיחות",
-          "questionTemplate": "תכנון והערכת בטיחות פיגומים"
-        },
-        {
-          "id": "fall_protection",
-          "name": "הגנה מנפילה",
-          "description": "אמצעי הגנה מנפילה, רתמות וקווי חיים",
-          "questionTemplate": "בחירת והתקנת אמצעי הגנה מנפילה"
-        },
-        {
-          "id": "ladders",
-          "name": "סולמות",
-          "description": "שימוש בטוח בסולמות",
-          "questionTemplate": "הערכת בטיחות בשימוש בסולמות"
-        }
-      ]
-    },
-    {
-      "id": "construction_operations",
-      "name": "עבודות בנייה",
-      "description": "בטיחות בעבודות בנייה שונות",
-      "subTopics": [
-        {
-          "id": "excavation",
-          "name": "חפירות",
-          "description": "בטיחות בעבודות חפירה ותיעול",
-          "questionTemplate": "תכנון בטיחות בעבודות חפירה"
-        },
-        {
-          "id": "demolition",
-          "name": "הריסות",
-          "description": "בטיחות בעבודות הריסה",
-          "questionTemplate": "תכנון והערכת סיכונים בהריסות"
-        },
-        {
-          "id": "concrete_work",
-          "name": "עבודות בטון",
-          "description": "בטיחות ביציקות ועבודות בטון",
-          "questionTemplate": "ניהול בטיחות בעבודות בטון"
-        }
-      ]
-    },
-    {
-      "id": "equipment_safety",
-      "name": "בטיחות בציוד",
-      "description": "בטיחות בשימוש בציוד בנייה",
-      "subTopics": [
-        {
-          "id": "heavy_equipment",
-          "name": "ציוד כבד",
-          "description": "בטיחות בהפעלת ציוד מכני הנדסי",
-          "questionTemplate": "הערכת בטיחות בשימוש בציוד כבד"
-        },
-        {
-          "id": "lifting_equipment",
-          "name": "ציוד הרמה",
-          "description": "בטיחות במנופים ואביזרי הרמה",
-          "questionTemplate": "תכנון בטיחות בעבודות הרמה"
-        },
-        {
-          "id": "power_tools",
-          "name": "כלי עבודה חשמליים",
-          "description": "בטיחות בשימוש בכלי עבודה חשמליים",
-          "questionTemplate": "הערכת סיכונים בשימוש בכלים חשמליים"
-        }
-      ]
-    },
-    {
-      "id": "special_risks",
-      "name": "סיכונים מיוחדים",
-      "description": "טיפול בסיכונים מיוחדים באתר בנייה",
-      "subTopics": [
-        {
-          "id": "hazardous_materials",
-          "name": "חומרים מסוכנים",
-          "description": "טיפול בחומרים מסוכנים באתר",
-          "questionTemplate": "ניהול בטיחות בעבודה עם חומרים מסוכנים"
-        },
-        {
-          "id": "confined_spaces",
-          "name": "חללים מוקפים",
-          "description": "בטיחות בעבודה בחללים מוקפים",
-          "questionTemplate": "תכנון בטיחות בעבודה בחללים מוקפים"
-        },
-        {
-          "id": "fire_safety",
-          "name": "בטיחות אש",
-          "description": "מניעת שריפות וטיפול באירועי אש",
-          "questionTemplate": "תכנון מערך בטיחות אש באתר"
-        }
-      ]
-    }
-  ]
+    ]
 }

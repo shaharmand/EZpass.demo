@@ -264,6 +264,30 @@ export interface Question {
   };
 }
 
+// Just add these minimal types for DB interaction
+export type QuestionStatus = 'imported' | 'generated' | 'draft' | 'approved';
+
+// Question as stored in DB with status
+export interface DatabaseQuestion extends Question {
+  status: QuestionStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Minimal data for list view
+export interface QuestionListItem {
+  id: string;
+  type: string;
+  content: string;
+  metadata: {
+    difficulty: string;
+    topicId: string;
+    estimatedTime: number;
+  };
+  status: QuestionStatus;
+  createdAt: string;
+}
+
 /** 
  * Filter state for the UI that allows multiple values per field
  */

@@ -6,6 +6,9 @@ import { universalTopics } from "../universalTopics";
 import type { Domain, Topic } from "../../types/subject";
 import { logger } from '../../utils/logger';
 import { CRITICAL_SECTIONS } from '../../utils/logger';
+import { buildQuestionSystemMessage } from './aiSystemMessages';
+import { QuestionIdGenerator } from '../../utils/questionIdGenerator';
+import { questionStorage } from '../admin/questionStorage';
 
 const openai = new OpenAI({
   apiKey: process.env.REACT_APP_OPENAI_API_KEY,
@@ -29,7 +32,8 @@ export class QuestionService {
     maxConsecutiveFailures: 3
   };
 
-  private questionCache: Map<string, Question> = new Map();
+  // Cache only for questions generated in current session
+  private generationCache: Map<string, Question> = new Map();
 
   constructor() {
     this.llm = openai;
@@ -276,26 +280,60 @@ SCHEMA VALIDATION REQUIREMENTS:
 ${formatInstructions}
 
 IMPORTANT: 
-1. The response MUST include a rubricAssessment object with criteria that sum to exactly 100% weights.
-2. The response MUST include an answerRequirements object with a list of requiredElements that specify key components needed in a complete answer.`;
+1. The response MUST include an evaluation object that contains:
+   - rubricAssessment: An object with criteria that sum to exactly 100% weights
+   - answerRequirements: An object with a list of requiredElements
+
+Example structure:
+{
+  "evaluation": {
+    "rubricAssessment": {
+      "criteria": [
+        {
+          "name": "Accuracy",
+          "description": "...",
+          "weight": 40
+        },
+        // ... more criteria
+      ]
+    },
+    "answerRequirements": {
+      "requiredElements": [
+        "First required element",
+        "Second required element"
+      ]
+    }
+  }
+}`;
   }
 
   async generateQuestion(params: QuestionFetchParams): Promise<Question> {
     // Add detailed parameter logging
-    logger.info('Incoming question generation parameters:', {
-      receivedParams: {
-        ...params,
-        topic: params.topic,
-        type: params.type,
-        difficulty: params.difficulty,
-        subject: params.subject,
-        educationType: params.educationType,
-        subtopic: params.subtopic
-      },
-      timestamp: new Date().toISOString()
-    }, CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION);
+    logger.info('Generating question with parameters:', {
+      topic: params.topic,
+      subtopic: params.subtopic,
+      difficulty: params.difficulty,
+      type: params.type,
+      subject: params.subject
+    });
+
+    // Get subject and domain info for ID generation
+    const subject = universalTopics.getSubjectForTopic(params.topic);
+    if (!subject) {
+      throw new Error(`Subject not found for topic ${params.topic}`);
+    }
+
+    const domain = subject.domains.find(d => 
+      d.topics.some(t => t.id === params.topic)
+    );
+    if (!domain) {
+      throw new Error(`Domain not found for topic ${params.topic}`);
+    }
 
     try {
+      // Generate question ID first
+      const questionId = await QuestionIdGenerator.generateQuestionId(subject.code, domain.code);
+      
       console.log('%c🎯 Generating Question:', 'color: #2563eb; font-weight: bold', {
         topic: params.topic,
         type: params.type,
@@ -320,20 +358,20 @@ IMPORTANT:
       console.log('%c📋 System Message:', 'color: #059669; font-weight: bold', '\n' + systemPrompt);
       
       // Get subject and domain info for metadata requirements
-      const subject = universalTopics.getSubjectForTopic(params.topic);
-      const domain = subject?.domains.find((d: Domain) => 
+      const subjectInfo = universalTopics.getSubjectForTopic(params.topic);
+      const domainInfo = subjectInfo?.domains.find((d: Domain) => 
         d.topics.some((t: Topic) => t.id === params.topic)
       );
 
-      if (!subject || !domain) {
+      if (!subjectInfo || !domainInfo) {
         throw new Error(`Invalid topic ID: ${params.topic} - Cannot find subject or domain`);
       }
 
       const metadataRequirements = `METADATA REQUIREMENTS:
 1. Difficulty: Use exactly ${params.difficulty} (no other value is acceptable)
 2. EstimatedTime: MUST provide a numeric value in minutes (e.g., 15 for a 15-minute question). Choose a realistic time for ${params.educationType} level.
-3. SubjectId: Use "${subject.id}"
-4. DomainId: Use "${domain.id}"
+3. SubjectId: Use "${subjectInfo.id}"
+4. DomainId: Use "${domainInfo.id}"
 5. TopicId: Use "${params.topic}"
 ${params.subtopic ? `6. SubtopicId: Use "${params.subtopic}"` : ''}
 7. Type: Use "${params.type}"
@@ -521,7 +559,7 @@ IMPORTANT: You MUST include all of the above metadata fields in your response, u
         // Add runtime ID
         const question = {
           ...parsed,
-          id: `generated_${Date.now()}`,
+          id: questionId,
           answerRequirements: {
             requiredElements: [
               "Key concepts that must be mentioned",
@@ -532,12 +570,12 @@ IMPORTANT: You MUST include all of the above metadata fields in your response, u
           }
         };
 
-        // Cache the new question
+        // After successful generation and parsing, save with generated ID
         const generatedQuestion = {
           ...question,
           metadata: {
-            subjectId: subject.id,
-            domainId: domain.id,
+            subjectId: subjectInfo.id,
+            domainId: domainInfo.id,
             topicId: params.topic,
             subtopicId: params.subtopic,
             difficulty: params.difficulty,
@@ -547,7 +585,25 @@ IMPORTANT: You MUST include all of the above metadata fields in your response, u
             }
           }
         };
-        this.questionCache.set(generatedQuestion.id, generatedQuestion);
+
+        logger.info('Generated question ready for storage:', {
+          id: generatedQuestion.id,
+          type: generatedQuestion.type,
+          metadata: {
+            subjectId: generatedQuestion.metadata.subjectId,
+            domainId: generatedQuestion.metadata.domainId,
+            topicId: generatedQuestion.metadata.topicId,
+            difficulty: generatedQuestion.metadata.difficulty
+          },
+          contentLength: generatedQuestion.content.text.length,
+          solutionLength: generatedQuestion.solution.text.length
+        });
+
+        // Save to database with 'generated' status
+        await questionStorage.saveQuestion(generatedQuestion, 'generated');
+
+        // Cache the question
+        this.generationCache.set(generatedQuestion.id, generatedQuestion);
 
         console.log('%c✅ Question Generated Successfully:', 'color: #059669; font-weight: bold', {
           id: question.id,
@@ -592,32 +648,6 @@ IMPORTANT: You MUST include all of the above metadata fields in your response, u
       }
       
       throw error;
-    }
-  }
-
-  async getQuestion(questionId: string): Promise<Question> {
-    try {
-      // Check if question exists in cache
-      const cachedQuestion = this.questionCache.get(questionId);
-      if (cachedQuestion) {
-        return cachedQuestion;
-      }
-
-      // If questionId starts with 'generated_', parse the timestamp
-      // and check if it's a reasonable time (last 24 hours)
-      if (questionId.startsWith('generated_')) {
-        const timestamp = parseInt(questionId.replace('generated_', ''));
-        const isRecentQuestion = Date.now() - timestamp < 24 * 60 * 60 * 1000; // 24 hours
-        
-        if (!isRecentQuestion) {
-          throw new Error('Question not found or expired');
-        }
-      }
-
-      throw new Error('Question not found and cannot be regenerated');
-    } catch (error) {
-      console.error('Error getting question:', error);
-      throw error instanceof Error ? error : new Error('Failed to get question');
     }
   }
 }

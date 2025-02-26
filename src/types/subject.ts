@@ -38,6 +38,8 @@ export interface Topic {
 export interface Domain {
   /** Unique identifier for the domain */
   id: string;
+  /** Three-letter code for the domain used in question IDs */
+  code: string;
   /** Name of the domain */
   name: string;
   /** Description of the domain */
@@ -52,10 +54,12 @@ export interface Domain {
 export interface Subject {
     /** Unique identifier for the subject */
     id: string;
+    /** Three-letter code for the subject used in question IDs */
+    code: string;
     /** Name of the subject */
     name: string;
     /** Description of the subject */
     description: string;
     /** List of topics under this subject */
     domains: Domain[];
-  }
+}

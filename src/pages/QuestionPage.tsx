@@ -25,7 +25,8 @@ import QuestionContent from '../components/QuestionContent';
 import QuestionMetadata from '../components/QuestionMetadata';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import type { Question } from '../types/question';
-import { questionService } from '../services/llm/questionGenerationService';
+import { questionStorage } from '../services/admin/questionStorage';
+import { logger } from '../utils/logger';
 
 const { Title, Text } = Typography;
 
@@ -49,13 +50,13 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
         setError(null);
         setQuestion(null); // Reset question while loading
         
-        // Use the question service to get the question
-        const fetchedQuestion = await questionService.getQuestion(questionId);
+        logger.info('Fetching question from storage', { questionId });
+        const fetchedQuestion = await questionStorage.getQuestion(questionId);
         setQuestion(fetchedQuestion);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load question';
         setError(errorMessage);
-        console.error('Error fetching question:', err);
+        logger.error('Error fetching question:', { questionId, error: err });
       } finally {
         setLoading(false);
       }

@@ -3,28 +3,33 @@
   "Subjects": [
     {
       "id": "civil_engineering",
+      "code": "CIV",
       "name": "הנדסה אזרחית", 
       "description": "Civil engineering subject",
       "domains": [
         {
           "id": "construction_safety",
+          "code": "SAF",
           "name": "בטיחות בבנייה",
           "description": "בטיחות בבניה"
         }
       ]
     },
     {
-      "id": "computer_science_hsp", 
+      "id": "computer_science_hsp",
+      "code": "CSC", 
       "name": "מדעי המחשב לתיכון והנדסאים",
       "description": "מדעי המחשב לתיכון והנדסאים",
       "domains": [
         {
           "id": "data_structures_hsp",
+          "code": "DST",
           "name": "מבני נתונים",
           "description": "מבני נתונים ואלגוריתמים בסיסיים"
         },
         {
           "id": "programming_fundamentals_hsp",
+          "code": "PRG",
           "name": "תכנות",
           "description": "עקרונות התכנות ומימוש בשפות תכנות"
         }
@@ -32,26 +37,31 @@
     },
     {
       "id": "physics_hsp",
+      "code": "PHY",
       "name": "Physics",
       "description": "Physics domain",
       "domains": [
         {
           "id": "classical_mechanics_hsp",
+          "code": "MEC",
           "name": "Classical Mechanics",
           "description": "Newton's laws, kinematics, dynamics"
         },
         {
-          "id": "electromagnetism_hsp", 
+          "id": "electromagnetism_hsp",
+          "code": "ELE",
           "name": "Electromagnetism",
           "description": "Electric and magnetic fields, Maxwell's equations"
         },
         {
           "id": "thermodynamics_hsp",
+          "code": "THR",
           "name": "Thermodynamics", 
           "description": "Heat, energy, entropy, thermodynamic laws"
         },
         {
           "id": "quantum_mechanics_hsp",
+          "code": "QNT",
           "name": "Quantum Mechanics",
           "description": "Wave functions, quantum states, operators"
         }
@@ -59,26 +69,31 @@
     },
     {
       "id": "mathematics_uni",
+      "code": "MTU",
       "name": "University Mathematics",
       "description": "Advanced university-level mathematics courses", 
       "domains": [
         {
           "id": "calculus_uni",
+          "code": "CAL",
           "name": "Advanced Calculus",
           "description": "Multivariable calculus, vector calculus, complex analysis"
         },
         {
-          "id": "linear_algebra_uni", 
+          "id": "linear_algebra_uni",
+          "code": "LIN",
           "name": "Linear Algebra",
           "description": "Vectors, matrices, linear transformations"
         },
         {
           "id": "probability_uni",
+          "code": "PRB",
           "name": "Probability & Statistics",
           "description": "Probability theory, statistical analysis"
         },
         {
           "id": "discrete_math_uni",
+          "code": "DIS",
           "name": "Discrete Mathematics", 
           "description": "Logic, sets, combinatorics, graph theory"
         }
@@ -86,26 +101,31 @@
     },
     {
       "id": "mathematics_hsp",
+      "code": "MTH",
       "name": "High School Mathematics",
       "description": "High school level mathematics",
       "domains": [
         {
           "id": "algebra_hsp",
+          "code": "ALG",
           "name": "Algebra",
           "description": "Equations, functions, polynomials"
         },
         {
-          "id": "geometry_hsp", 
+          "id": "geometry_hsp",
+          "code": "GEO",
           "name": "Geometry",
           "description": "Euclidean geometry, trigonometry"
         },
         {
           "id": "calculus_hsp",
+          "code": "CAL",
           "name": "Basic Calculus",
           "description": "Introduction to derivatives and integrals"
         },
         {
           "id": "statistics_hsp",
+          "code": "STA",
           "name": "Statistics", 
           "description": "Basic statistical concepts and analysis"
         }

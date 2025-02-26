@@ -267,7 +267,10 @@ export const questionSchema = z.object({
     .describe('For multiple choice only: Exactly 4 options, all plausible, similar structure, based on common mistakes'),
   correctOption: z.number().int().min(1).max(4).optional()
     .describe('For multiple choice only: The correct option number (1-4)'),
-  rubricAssessment: rubricAssessmentSchema,
+  evaluation: z.object({
+    rubricAssessment: rubricAssessmentSchema,
+    answerRequirements: answerRequirementsSchema
+  }).optional().describe('Evaluation structure that includes both rubric and answer requirements'),
   solution: z.object({
     text: z.string().describe('Complete solution explanation in markdown format'),
     format: z.literal('markdown').describe('Format specification for solution rendering')

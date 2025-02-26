@@ -18,10 +18,12 @@ class UniversalTopics {
     // First load all subjects and domains structure
     this.subjects = subjectsDomains.Subjects.map(subject => ({
       id: subject.id,
+      code: subject.code,
       name: subject.name,
       description: subject.description || '',
       domains: subject.domains.map(domain => ({
         id: domain.id,
+        code: domain.code,
         name: domain.name,
         description: domain.description || '',
         topics: [],

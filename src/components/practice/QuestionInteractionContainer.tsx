@@ -3,17 +3,18 @@ import { Space, Spin, Typography, Card, Button, Divider, Tooltip, Tag, Select } 
 import { FilterOutlined, DownOutlined, UpOutlined, StarFilled, ClockCircleOutlined } from '@ant-design/icons';
 import { Question, QuestionFeedback as QuestionFeedbackType, FilterState } from '../../types/question';
 import QuestionContent from '../QuestionContent';
+import QuestionMetadata, { getDifficultyIcons, getQuestionTypeLabel } from '../QuestionMetadata';
 import { FeedbackContainer } from '../feedback/FeedbackContainer';
 import QuestionResponseInput from '../QuestionResponseInput';
 import QuestionActions from './QuestionActions';
 import { QuestionSetProgress } from './QuestionSetProgress';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FilterSummary } from '../EnhancedSidebar/FilterSummary';
 import { QuestionFilter } from '../EnhancedSidebar/QuestionFilter';
+import { subjectService } from '../../services/subjectService';
 import { logger } from '../../utils/logger';
 import '../../styles/metadata.css';
 import './QuestionSetProgress.css';
-import { getQuestionTopicName, getQuestionTypeLabel } from '../../utils/questionUtils';
-import { getDifficultyIcons } from '../QuestionMetadata';
 
 const { Text, Title } = Typography;
 
@@ -55,6 +56,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
 }) => {
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState('');
+  const [topicName, setTopicName] = useState('');
   const lastTimeLogRef = useRef<number>(Date.now());
   const startTimeRef = useRef<number>(Date.now());
   const isQuestionLoading = !question || state.status === 'loading';
@@ -130,6 +132,45 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
       }
     }
   }, [state.feedback]);
+
+  // Get topic name on mount and when question changes
+  useEffect(() => {
+    if (question) {
+      const name = subjectService.getMostSpecificTopicName(
+        question.metadata.topicId,
+        question.metadata.subtopicId
+      );
+      setTopicName(name);
+    }
+  }, [question?.metadata.topicId, question?.metadata.subtopicId]);
+
+  const handleClearFilter = (key: keyof FilterState, value: any) => {
+    const newFilters = { ...filters };
+    
+    switch (key) {
+      case 'timeLimit':
+        delete newFilters.timeLimit;
+        break;
+      case 'difficulty':
+        if (newFilters.difficulty) {
+          newFilters.difficulty = newFilters.difficulty.filter(v => v !== value);
+          if (newFilters.difficulty.length === 0) delete newFilters.difficulty;
+        }
+        break;
+      case 'topics':
+      case 'questionTypes':
+      case 'programmingLanguages':
+        if (newFilters[key]) {
+          newFilters[key] = (newFilters[key] as string[]).filter(v => v !== value);
+          if (newFilters[key]!.length === 0) delete newFilters[key];
+        }
+        break;
+      default:
+        delete newFilters[key];
+    }
+    
+    onFiltersChange(newFilters);
+  };
 
   // Reset time tracking on new question
   useEffect(() => {
@@ -297,7 +338,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
               <div className="question-header">
                 <div className="title-row">
                   <h2 className="question-title">
-                    שאלה ב{getQuestionTopicName(question)}
+                    שאלה ב{topicName}
                   </h2>
                   <div className="metadata-indicators">
                     <div className="difficulty-indicator">

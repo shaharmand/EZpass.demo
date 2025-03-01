@@ -3,21 +3,30 @@ import { Modal } from 'antd';
 import { useAuth } from './AuthContext';
 import { AuthModal } from '../components/Auth/AuthModal';
 import { AuthForms } from '../components/Auth/AuthForms';
+import { Tabs, Typography } from 'antd';
+import { CheckCircleOutlined, StarOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { RubricFeedback } from '../components/feedback/RubricFeedback';
+
+const { Text } = Typography;
 
 interface PracticeAttemptsContextType {
   incrementAttempt: () => Promise<boolean>;
   attemptsCount: number;
+  userAttemptsCount: number;
   shouldShowDetailedFeedback: boolean;
   isInLimitedFeedbackMode: boolean;
   checkAndShowGuestLimitIfNeeded: () => boolean;
   getGuestFeedbackMessage: () => string | null;
   isGuestLimitExceeded: boolean;
+  MAX_DETAILED_FEEDBACK_ATTEMPTS: number;
 }
 
 const PracticeAttemptsContext = createContext<PracticeAttemptsContextType | undefined>(undefined);
 
 const MAX_GUEST_ATTEMPTS = 2; // Guest users get 2 free questions
-const MAX_DETAILED_FEEDBACK_ATTEMPTS = 5; // Users get detailed feedback for first 5 submissions
+export const MAX_DETAILED_FEEDBACK_ATTEMPTS = 5; // Users get detailed feedback for first 5 submissions
 
 // Create separate components for different modal content
 const InitialGuestLimitContent = ({ onClose }: { onClose: () => void }) => {
@@ -106,20 +115,88 @@ export function PracticeAttemptsProvider({ children }: { children: React.ReactNo
 
   const showDetailedFeedbackLimit = () => {
     Modal.info({
-      title: 'מעבר למצב תרגול מתקדם',
+      title: 'כל הכבוד על ההתקדמות שלך היום! 🎉',
       content: (
-        <div>
-          <p>השלמת {MAX_DETAILED_FEEDBACK_ATTEMPTS} שאלות עם משוב מפורט.</p>
-          <p>מעכשיו תקבל/י משוב מצומצם יותר כדי לדמות תנאי מבחן אמיתיים.</p>
-          <p>המשוב יכלול רק:</p>
-          <ul>
-            <li>האם התשובה נכונה או לא</li>
-            <li>ציון כללי</li>
-          </ul>
+        <div style={{ 
+          direction: 'rtl', 
+          textAlign: 'center',
+          margin: '0 -24px' // Compensate for Modal's default padding
+        }}>
+          <div style={{
+            margin: '0 24px 28px',
+            padding: '16px 24px',
+            background: '#f0f9ff',
+            borderRadius: '12px',
+            border: '1px solid #93c5fd'
+          }}>
+            <p style={{ 
+              fontSize: '16px',
+              color: '#1e40af',
+              lineHeight: '1.5',
+              margin: 0,
+              fontWeight: 500
+            }}>
+              הגעת למכסת המשובים המפורטים היומית שלך ({MAX_DETAILED_FEEDBACK_ATTEMPTS})
+            </p>
+          </div>
+          
+          <div style={{
+            margin: '0 24px 32px',
+            fontSize: '15px',
+            color: '#374151',
+            lineHeight: '1.6'
+          }}>
+            מעתה תקבל משוב על נכונות הפתרון והציון שלו בלבד.
+          </div>
+
+          <div style={{
+            margin: '0 24px',
+            padding: '28px 32px',
+            background: '#fff',
+            borderRadius: '16px',
+            border: '1px solid #e5e7eb',
+            textAlign: 'center',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginBottom: '20px'
+            }}>
+              <h3 style={{ 
+                fontSize: '20px',
+                color: '#1d4ed8',
+                margin: 0,
+                fontWeight: 600
+              }}>
+                הצטרף לאיזיפס פלוס
+              </h3>
+              <span style={{ fontSize: '24px' }}>⭐</span>
+            </div>
+            <div className="feedback-content">
+              <div className="limited-feedback">
+                <div className="limited-feedback-content">
+                  <StarOutlined className="star-icon" />
+                  <Text>הצטרף לאיזיפס פלוס וקבל פתרון מלא, הסברים מפורטים, עזרה והנחיה אישית ותכני לימוד מותאמים לצרכיך</Text>
+                  <Button 
+                    type="primary" 
+                    className="join-button"
+                    onClick={() => window.open('https://ezpass.co.il/plus', '_blank')}
+                  >
+                    פרטים נוספים
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       ),
       okText: 'הבנתי',
-      onOk: () => setHasShownLimitNotification(true)
+      onOk: () => setHasShownLimitNotification(true),
+      className: 'detailed-feedback-limit-modal',
+      width: 520
     });
   };
 
@@ -189,11 +266,13 @@ export function PracticeAttemptsProvider({ children }: { children: React.ReactNo
     <PracticeAttemptsContext.Provider value={{
       incrementAttempt,
       attemptsCount,
+      userAttemptsCount,
       shouldShowDetailedFeedback,
       isInLimitedFeedbackMode,
       checkAndShowGuestLimitIfNeeded,
       getGuestFeedbackMessage,
-      isGuestLimitExceeded
+      isGuestLimitExceeded,
+      MAX_DETAILED_FEEDBACK_ATTEMPTS
     }}>
       {children}
       {showAuthModal && (

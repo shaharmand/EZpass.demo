@@ -8,6 +8,20 @@
  */
 export type QuestionType = 'multiple_choice' | 'open' | 'code' | 'step_by_step';
 
+/**
+ * Levels of answer correctness
+ */
+export enum AnswerLevel {
+  PERFECT = 'PERFECT',       // 100% - Complete and flawless
+  EXCELLENT = 'EXCELLENT',   // 95-99% - Nearly perfect with tiny imperfections
+  GOOD = 'GOOD',            // 80-94% - Solid understanding with minor issues
+  PARTIAL = 'PARTIAL',      // 60-79% - Basic understanding but significant gaps
+  WEAK = 'WEAK',            // 30-59% - Major gaps but shows some understanding
+  INSUFFICIENT = 'INSUFFICIENT', // 1-29% - Very limited understanding
+  NO_UNDERSTANDING = 'NO_UNDERSTANDING',  // 0% - Attempted but shows fundamental misconceptions
+  IRRELEVANT = 'IRRELEVANT'    // 0% - Answer is completely off-topic or discusses unrelated concepts
+}
+
 /** 
  * Difficulty level from 1 (easiest) to 5 (hardest)
  */
@@ -15,23 +29,48 @@ export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
 export type ProgrammingLanguage = 'java' | 'c#' | 'python';
 
 /** 
+ * Represents a criterion score and feedback
+ */
+export interface CriterionFeedback {
+  /** Score from 0-100 for this criterion */
+  score: number;
+  /** Specific feedback for this criterion */
+  feedback: string;
+}
+
+/**
+ * Markdown-formatted feedback text with specific requirements
+ */
+export interface StructuredFeedback {
+  /** Must include:
+   * - ✅ for correct parts
+   * - ❌ for critical mistakes
+   * - ⚠️ for partially correct parts
+   * - 🔹 for important insights
+   */
+  text: string;
+}
+
+/** 
  * Feedback for a submitted answer to a question.
  * Structure is consistent across all question types.
  */
 export interface QuestionFeedback {
-  /** Whether the answer was correct */
-  isCorrect: boolean;
+  /** The level of correctness for this answer */
+  level: AnswerLevel;
 
   /** Score from 0-100 */
   score: number;
 
-  /** Short immediate feedback message (no markdown) */
+  /** Short evaluation summary (2-3 sentences, with markdown) */
   assessment: string;
 
   /** 
    * Core feedback that includes:
-   * - What was correct
-   * - What was wrong
+   * - ✅ What was correct
+   * - ❌ Critical mistakes
+   * - ⚠️ Partially correct parts
+   * - 🔹 Important insights
    * - What to do next
    * (2-3 sentences, with markdown)
    */
@@ -49,11 +88,13 @@ export interface QuestionFeedback {
    */
   rubricScores?: {
     [criterionName: string]: {
-      score: number;      // Score 0-100 for this criterion
-      feedback: string;   // Specific feedback for this criterion
+      /** Score 0-100 for this criterion */
+      score: number;
+      /** Specific feedback for this criterion */
+      feedback: string;
     };
   };
-  };
+}
 
 /** 
  * Represents the evaluation criteria for a question.

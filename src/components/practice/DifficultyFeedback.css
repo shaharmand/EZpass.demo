@@ -1,0 +1,94 @@
+.difficulty-feedback-content {
+  width: 100%;
+  min-width: 200px;
+}
+
+.difficulty-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #111827;
+  font-size: 14px;
+  text-align: center;
+}
+
+.difficulty-description {
+  display: block;
+  margin-bottom: 12px;
+  color: #6B7280;
+  font-size: 13px;
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.difficulty-options {
+  width: 100%;
+}
+
+.difficulty-option {
+  width: 100%;
+  justify-content: center;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 14px;
+  padding: 0 10px;
+  border-color: #E5E7EB;
+  color: #64748b;
+  background: white;
+}
+
+.difficulty-option.selected {
+  background: #f0f9ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.difficulty-option:hover {
+  border-color: #60A5FA;
+  background-color: #EBF5FF;
+  color: #2563eb;
+}
+
+/* Difficulty Stars */
+.difficulty-stars {
+  display: flex;
+  gap: 2px;
+}
+
+.star {
+  color: #d1d5db;
+  font-size: 12px;
+}
+
+.star.filled {
+  color: #f59e0b;
+}
+
+/* Difficulty Selector (in header) */
+.difficulty-selector {
+  display: flex;
+  gap: 2px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  border: 1.5px solid #d1d5db;
+  background: white;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 20px;
+  min-height: 32px;
+  align-items: center;
+}
+
+.difficulty-selector:hover {
+  border-color: #60A5FA;
+  background-color: #EBF5FF;
+  color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.difficulty-selector:active {
+  transform: translateY(0);
+  box-shadow: none;
+} 

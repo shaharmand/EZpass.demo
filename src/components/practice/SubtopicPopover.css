@@ -1,0 +1,124 @@
+.subtopic-popover-content {
+  width: 320px;
+  padding: 16px;
+}
+
+.subtopic-header {
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 12px;
+}
+
+.subtopic-title {
+  display: block;
+  font-size: 15px;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+
+.subtopic-description {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.subtopic-actions {
+  width: 100%;
+}
+
+.subtopic-action {
+  width: 100%;
+  text-align: right;
+  justify-content: flex-start;
+  height: 40px;
+  border-radius: 12px;
+  font-weight: 500;
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #1f2937;
+}
+
+.subtopic-action.selected {
+  background: #EBF5FF;
+  border-color: #60A5FA;
+  color: #2563EB;
+}
+
+.subtopic-action:hover {
+  border-color: #60A5FA;
+  background-color: #EBF5FF;
+  color: #2563eb;
+}
+
+.subtopic-action.danger {
+  border-color: #fca5a5;
+  color: #ef4444;
+  background: #fff1f2;
+}
+
+.subtopic-action.danger:hover {
+  border-color: #f87171;
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.subtopic-action .anticon {
+  color: #64748b;
+}
+
+.subtopic-action.selected .anticon {
+  color: #2563EB;
+}
+
+.subtopic-action.danger .anticon {
+  color: #ef4444;
+}
+
+/* Topic Selector (in header) */
+.topic-selector {
+  transition: all 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #1f2937;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.topic-name {
+  padding: 4px 12px;
+  border-radius: 16px;
+  border: 1.5px solid #d1d5db;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topic-name.focused {
+  color: #2563eb;
+  background-color: #EBF5FF;
+  border-color: #60A5FA;
+}
+
+.topic-selector:hover .topic-name {
+  border-color: #60A5FA;
+  background-color: #EBF5FF;
+  color: #2563eb;
+}
+
+.focus-icon {
+  color: #64748b;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.topic-name.focused .focus-icon,
+.topic-selector:hover .focus-icon {
+  color: #2563eb;
+  opacity: 1;
+} 

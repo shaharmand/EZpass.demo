@@ -1,0 +1,171 @@
+.answering-action-bar {
+  width: 100%;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+  position: sticky;
+  bottom: 24px;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.answering-action-bar:hover {
+  border-color: #2563eb;
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.1), 0 4px 6px -2px rgba(37, 99, 235, 0.05);
+  transform: translateY(-1px);
+}
+
+.action-bar-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Help Button */
+.help-button {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 22px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4b5563;
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.help-button:hover {
+  color: #2563eb;
+  border-color: #2563eb;
+  background: #f0f9ff;
+  transform: translateY(-1px);
+}
+
+.help-button .anticon {
+  font-size: 18px;
+}
+
+/* Skip Button */
+.skip-button {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 22px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4b5563;
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.skip-button:hover {
+  color: #2563eb;
+  border-color: #2563eb;
+  background: #f0f9ff;
+  transform: translateY(-1px);
+}
+
+.skip-button .anticon {
+  font-size: 18px;
+}
+
+/* Submit Button - New Implementation */
+.submit-wrapper {
+  margin-right: auto;
+  position: relative;
+}
+
+.submit-button {
+  all: unset;
+  cursor: pointer;
+  background: #2563eb;
+  color: white;
+  height: 48px;
+  padding: 0 32px;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  transition: all 0.2s ease;
+}
+
+.submit-button:hover:not(.disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+.submit-button.disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.8;
+  box-shadow: none;
+}
+
+.submit-text {
+  order: 1;
+}
+
+.submit-icon {
+  order: 2;
+  font-size: 18px;
+  transform: rotate(180deg);
+}
+
+.submit-button:hover:not(.disabled) .submit-icon {
+  transform: rotate(180deg) translateX(2px);
+}
+
+/* Dropdown Menus */
+.ant-dropdown-menu {
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+}
+
+.ant-dropdown-menu-item {
+  padding: 10px 16px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.ant-dropdown-menu-item:hover {
+  background: #f0f9ff;
+  transform: translateX(-2px);
+}
+
+.ant-dropdown-menu-item .anticon {
+  font-size: 16px;
+  margin-left: 8px; /* RTL support */
+}
+
+/* Tooltip */
+.ant-tooltip {
+  font-size: 14px;
+}
+
+.ant-tooltip-inner {
+  border-radius: 8px;
+  padding: 8px 12px;
+} 

@@ -69,7 +69,8 @@ export const MathInput: React.FC<MathInputProps> = ({
 
     const start = textAreaRef.current.selectionStart;
     const end = textAreaRef.current.selectionEnd;
-    const newValue = value.substring(0, start) + latex + value.substring(end);
+    const currentValue = value || '';
+    const newValue = currentValue.substring(0, start) + latex + currentValue.substring(end);
     
     onChange(newValue);
 
@@ -115,7 +116,7 @@ export const MathInput: React.FC<MathInputProps> = ({
         {/* LaTeX Input */}
         <TextArea
           ref={textAreaRef}
-          value={value}
+          value={value || ''}
           onChange={handleChange}
           disabled={disabled}
           placeholder={placeholder || 'הקלד נוסחה מתמטית...'}

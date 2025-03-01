@@ -166,9 +166,31 @@ RUBRIC ASSESSMENT REQUIREMENTS:
 You MUST include assessment criteria that sum to 100%. Include the following for each question:
 
 2. For open questions:
-   - Accuracy (40%): Correctness of the solution
-   - Methodology (30%): Proper problem-solving approach
-   - Clarity (30%): Clear and organized presentation
+
+When creating a construction safety question, develop a customized rubric assessment by following these steps:
+
+1. Analyze the question to identify 3-5 most relevant assessment criteria based on what knowledge and skills the question is testing.
+
+2. For each selected criterion:
+   - Provide a brief description of what this criterion evaluates
+   - Assign a percentage weight based on its importance to this specific question (total must equal 100%)
+
+3. Choose your criteria from this standard set:
+   - Regulatory Knowledge: Understanding of relevant laws, codes, and standards
+   - Hazard Identification: Ability to recognize safety risks in the scenario
+   - Risk Assessment: Evaluation of severity and likelihood of identified hazards
+   - Mitigation Strategy: Quality of proposed safety solutions and controls
+   - Procedural Accuracy: Correctness of safety procedures and sequencing
+   - Documentation Requirements: Knowledge of required forms and record-keeping
+   - Emergency Response: Understanding of proper incident reactions
+   - Equipment Safety: Knowledge of tool/machinery safety protocols
+   - Communication: Clear explanation using appropriate terminology
+   - Real-World Application: Connection between theory and practical implementation
+
+4. Ensure the selected criteria directly align with what the question is asking students to demonstrate.
+
+5. Make sure criterion descriptions are specific enough that both the AI and human reviewers would understand exactly what to evaluate.
+
 
 3. For code questions:
    - Functionality (40%): Code works as required

@@ -7,6 +7,8 @@ import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import { PrepStateManager } from '../../services/PrepStateManager';
 import type { StudentPrep } from '../../types/prepState';
 import './QuestionSetProgress.css';
+import { DailyLimitIndicator } from '../feedback/DailyLimitIndicator';
+import { usePracticeAttempts, MAX_DETAILED_FEEDBACK_ATTEMPTS } from '../../contexts/PracticeAttemptsContext';
 
 const { Text } = Typography;
 
@@ -24,6 +26,7 @@ const QuestionSetProgress: React.FC<QuestionSetProgressProps> = ({
   prepId
 }) => {
   const { getPrep } = useStudentPrep();
+  const { userAttemptsCount } = usePracticeAttempts();
   const [progress, setProgress] = useState<ReturnType<typeof PrepStateManager.getProgress> | null>(null);
   
   // Update progress every second if active
@@ -80,49 +83,55 @@ const QuestionSetProgress: React.FC<QuestionSetProgressProps> = ({
           <Text className="progress-text">שאלה {displayIndex} מתוך {totalQuestions}</Text>
         )}
         
-        {/* Daily Progress Bars */}
+        {/* Daily Progress Section */}
         <div className="daily-progress">
           <div className="daily-header">
             <Text className="daily-title">מעקב יומי</Text>
+            <DailyLimitIndicator 
+              current={userAttemptsCount} 
+              max={MAX_DETAILED_FEEDBACK_ATTEMPTS}
+            />
           </div>
           
-          <Tooltip title="כמות השאלות שפתרת היום לעומת היעד המומלץ להצלחה במבחן">
-            <div className="daily-metric">
-              <div className="daily-metric-header">
-                <Text className="daily-label">שאלות</Text>
-                <Text className="daily-value">{daily.questions.completed}/{daily.questions.goal}</Text>
+          <div className="daily-metrics">
+            <Tooltip title="כמות השאלות שפתרת היום לעומת היעד המומלץ להצלחה במבחן">
+              <div className="daily-metric">
+                <div className="daily-metric-header">
+                  <Text className="daily-label">שאלות</Text>
+                  <Text className="daily-value">{daily.questions.completed}/{daily.questions.goal}</Text>
+                </div>
+                <div className="daily-bar-container">
+                  <motion.div 
+                    className="daily-bar questions"
+                    initial={{ width: 0 }}
+                    animate={{ 
+                      width: `${Math.min((daily.questions.completed / daily.questions.goal) * 100, 100)}%`
+                    }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                  />
+                </div>
               </div>
-              <div className="daily-bar-container">
-                <motion.div 
-                  className="daily-bar questions"
-                  initial={{ width: 0 }}
-                  animate={{ 
-                    width: `${Math.min((daily.questions.completed / daily.questions.goal) * 100, 100)}%`
-                  }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                />
-              </div>
-            </div>
-          </Tooltip>
+            </Tooltip>
 
-          <Tooltip title="כמות הדקות שלמדת היום לעומת היעד המומלץ להצלחה במבחן">
-            <div className="daily-metric">
-              <div className="daily-metric-header">
-                <Text className="daily-label">דקות</Text>
-                <Text className="daily-value">{daily.time.completed}/{daily.time.goal}</Text>
+            <Tooltip title="כמות הדקות שלמדת היום לעומת היעד המומלץ להצלחה במבחן">
+              <div className="daily-metric">
+                <div className="daily-metric-header">
+                  <Text className="daily-label">דקות</Text>
+                  <Text className="daily-value">{daily.time.completed}/{daily.time.goal}</Text>
+                </div>
+                <div className="daily-bar-container">
+                  <motion.div 
+                    className="daily-bar time"
+                    initial={{ width: 0 }}
+                    animate={{ 
+                      width: `${Math.min((daily.time.completed / daily.time.goal) * 100, 100)}%`
+                    }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                  />
+                </div>
               </div>
-              <div className="daily-bar-container">
-                <motion.div 
-                  className="daily-bar time"
-                  initial={{ width: 0 }}
-                  animate={{ 
-                    width: `${Math.min((daily.time.completed / daily.time.goal) * 100, 100)}%`
-                  }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                />
-              </div>
-            </div>
-          </Tooltip>
+            </Tooltip>
+          </div>
         </div>
       </div>
 
@@ -138,6 +147,28 @@ const QuestionSetProgress: React.FC<QuestionSetProgressProps> = ({
           />
         ))}
       </div>
+
+      <style>
+        {`
+          .daily-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+          }
+
+          .daily-metrics {
+            display: flex;
+            gap: 12px;
+          }
+
+          .daily-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #4b5563;
+          }
+        `}
+      </style>
     </div>
   );
 };

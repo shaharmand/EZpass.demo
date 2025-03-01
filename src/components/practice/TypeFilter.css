@@ -1,0 +1,128 @@
+.type-filter-content {
+  width: 100%;
+  max-width: 280px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.type-filter-header {
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 12px;
+}
+
+.type-filter-title {
+  display: block;
+  margin-bottom: 4px;
+  color: #111827;
+  font-size: 15px;
+  text-align: center;
+}
+
+.type-filter-description {
+  display: block;
+  margin-bottom: 12px;
+  color: #6B7280;
+  font-size: 13px;
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.type-filter-options {
+  width: 100%;
+}
+
+.type-filter-option {
+  width: 100%;
+  justify-content: right;
+  height: 40px;
+  font-size: 14px;
+  border-radius: 10px;
+  font-weight: normal;
+  background: white;
+  border-color: #E5E7EB;
+  color: #64748b;
+}
+
+.type-filter-option.selected {
+  background: #f0f9ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  font-weight: 500;
+}
+
+.type-filter-option:hover {
+  border-color: #60A5FA;
+  background-color: #EBF5FF;
+  color: #2563eb;
+}
+
+.type-filter-option .anticon {
+  color: #64748b;
+  opacity: 0.5;
+}
+
+.type-filter-option .anticon.focused {
+  color: #2563eb;
+  opacity: 1;
+}
+
+/* Type Selector (in header) */
+.type-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  background-color: #f3f4f6;
+  border: 1.5px solid #d1d5db;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.type-selector:hover {
+  background-color: #e5e7eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.type-selector.focused {
+  background-color: #e0f2fe;
+  border-color: #60a5fa;
+  color: #1e40af;
+}
+
+.type-selector.focused:hover {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.type-selector .focus-icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.type-selector.focused .focus-icon {
+  opacity: 1;
+}
+
+.type-label {
+  color: inherit;
+}
+
+.focus-status {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: normal;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.focused .focus-status {
+  color: #2563eb;
+  font-weight: 500;
+  background-color: #e0f2fe;
+} 

@@ -6,7 +6,8 @@ import {
   BookOutlined,
   StarOutlined,
   PlusOutlined,
-  SettingOutlined
+  SettingOutlined,
+  RobotOutlined
 } from '@ant-design/icons/lib/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -27,6 +28,13 @@ export const Dashboard: React.FC = () => {
               onClick={() => navigate('/admin/questions/new')}
             >
               צור שאלה חדשה
+            </Button>
+            <Button
+              type="primary"
+              icon={<RobotOutlined />}
+              onClick={() => navigate('/admin/questions/generate')}
+            >
+              צור שאלה עם AI
             </Button>
             <Button
               icon={<SettingOutlined />}

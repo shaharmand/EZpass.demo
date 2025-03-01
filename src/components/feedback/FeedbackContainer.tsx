@@ -9,6 +9,7 @@ import { MarkdownRenderer } from '../MarkdownRenderer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
 import { AuthModal } from '../../components/Auth/AuthModal';
+import { JoinEZPassPlusMessage } from './JoinEZPassPlusMessage';
 
 const { Text, Title } = Typography;
 
@@ -21,19 +22,18 @@ interface FeedbackContainerProps {
   showDetailedFeedback?: boolean;
 }
 
+const getFeedbackTitle = (score: number, isCorrect: boolean) => {
+  if (score >= 90) return 'מצוין! 🎉';
+  if (score >= 80) return 'כל הכבוד! 👏';
+  if (score >= 60) return 'טוב! 👍';
+  return 'המשך להתאמן 💪';
+};
+
 const getScoreColor = (score: number) => {
   if (score >= 90) return '#10b981';
   if (score >= 80) return '#3b82f6';
-  if (score >= 70) return '#f59e0b';
+  if (score >= 60) return '#f59e0b';
   return '#ef4444';
-};
-
-const getFeedbackTitle = (score: number, isCorrect: boolean) => {
-  if (score >= 95) return 'מדהים! תשובה מושלמת!';
-  if (score >= 90) return 'כל הכבוד! עבודה מצוינת!';
-  if (score >= 80) return 'יופי! תשובה טובה מאוד';
-  if (score >= 70) return 'כמעט שם... עוד קצת מאמץ';
-  return 'אל דאגה, ננסה שוב יחד';
 };
 
 export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
@@ -91,9 +91,11 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
           <Title level={4} className="feedback-title">
             {getFeedbackTitle(feedback.score, feedback.isCorrect)}
           </Title>
-          <Text className="feedback-assessment">
-            {feedback.assessment}
-          </Text>
+          {showDetailedFeedback && (
+            <Text className="feedback-assessment">
+              {feedback.assessment}
+            </Text>
+          )}
         </div>
       </div>
     </div>
@@ -138,395 +140,150 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
         </>
       ) : (
         <>
-          {question.type === 'multiple_choice' as const ? (
+          {question.type === 'multiple_choice' ? (
             <MultipleChoiceFeedback
               question={question}
               feedback={feedback}
               selectedAnswer={selectedAnswer || ''}
+              showDetailedFeedback={showDetailedFeedback}
+              onRetry={onRetry}
             />
           ) : (
             <>
               {renderFeedbackHeader()}
-              <div className="feedback-content">
-                <Tabs 
-                  defaultActiveKey="core"
-                  type="card"
-                  className="feedback-tabs"
-                  items={[
-                    {
-                      key: 'core',
-                      label: (
-                        <span className="tab-label">
-                          <CheckCircleOutlined /> המשוב שלך
-                        </span>
-                      ),
-                      children: (
-                        <div className="feedback-section">
-                          <MarkdownRenderer content={feedback.coreFeedback} />
-                          {feedback.rubricScores && (
-                            <RubricFeedback 
-                              rubricScores={feedback.rubricScores}
-                              rubricAssessment={question.evaluation?.rubricAssessment}
-                            />
-                          )}
-                        </div>
-                      )
-                    },
-                    ...(showDetailedFeedback ? [
+              {showDetailedFeedback ? (
+                <div className="feedback-content">
+                  <Tabs 
+                    defaultActiveKey="core"
+                    type="card"
+                    className="feedback-tabs"
+                    items={[
                       {
-                        key: 'detailed',
+                        key: 'core',
                         label: (
                           <span className="tab-label">
-                            <BookOutlined /> רוצה להבין יותר?
+                            <CheckCircleOutlined /> המשוב שלך
                           </span>
                         ),
                         children: (
                           <div className="feedback-section">
-                            <MarkdownRenderer content={feedback.detailedFeedback || 'אין ניתוח מעמיק זמין.'} />
-                          </div>
-                        )
-                      },
-                      {
-                        key: 'solution',
-                        label: (
-                          <span className="tab-label">
-                            <StarOutlined /> תשובת בית-ספר
-                          </span>
-                        ),
-                        children: (
-                          <div className="feedback-section">
-                            <div className="solution-header">
-                              <InfoCircleOutlined className="info-icon" />
-                              <Tooltip title="כאן תוכל/י למצוא את הפתרון המלא כפי שהיה נכתב בספר לימוד או במדריך למורה. זה יכול לעזור להבין את דרך החשיבה המצופה.">
-                                <Text>פתרון מלא</Text>
-                              </Tooltip>
-                            </div>
-                            {question.solution ? (
-                              <>
-                                <div className="solution-steps">
-                                  <MarkdownRenderer content={question.solution.text} />
-                                </div>
-                                {question.solution.answer && (
-                                  <div className="final-answer">
-                                    <Text strong>התשובה הרשמית:</Text>
-                                    <div className="final-answer-content">
-                                      <MarkdownRenderer content={question.solution.answer} />
-                                    </div>
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <Text>אין פתרון זמין כרגע.</Text>
+                            <MarkdownRenderer content={feedback.coreFeedback} />
+                            {feedback.rubricScores && (
+                              <RubricFeedback 
+                                rubricScores={feedback.rubricScores}
+                                rubricAssessment={question.evaluation?.rubricAssessment}
+                              />
                             )}
                           </div>
                         )
                       }
-                    ] : [])
-                  ]}
+                    ]}
+                  />
+                </div>
+              ) : (
+                <JoinEZPassPlusMessage 
+                  variant="full" 
+                  questionType={question.type === 'code' ? 'other' : 'other'} 
                 />
-              </div>
+              )}
             </>
           )}
         </>
       )}
-      
-      <div className="action-buttons">
-        {shouldShowRetry && !isGuestLimitExceeded && (
-          <Button
-            type="primary"
-            icon={<RedoOutlined />}
-            onClick={handleRetry}
-            size="large"
-            className="retry-button"
-          >
-            נסה שוב
-          </Button>
-        )}
-        <div className="next-button-container">
-          <Button
-            type={isHighScore && !isGuestLimitExceeded ? "primary" : "default"}
-            onClick={onNext}
-            size="large"
-            icon={<ArrowLeftOutlined />}
-            className={`next-button ${isHighScore && !isGuestLimitExceeded ? 'high-score' : 'low-score'}`}
-          >
-            המשך לשאלה הבאה
-          </Button>
-        </div>
-      </div>
 
       <style>
         {`
           .feedback-container {
-            background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-          }
-
-          .guest-limit-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 40px;
-          }
-
-          .guest-limit-button {
-            font-size: 16px;
-            height: 48px;
-            padding: 0 32px;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
           }
 
           .feedback-header {
-            padding: 24px;
-            border-bottom: 1px solid #e5e7eb;
-            background: ${feedback.isCorrect ? '#f0fdf4' : '#fef2f2'};
+            width: 100%;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
           }
 
           .feedback-header-content {
             display: flex;
-            gap: 24px;
             align-items: center;
+            gap: 24px;
           }
 
           .score-section {
-            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
 
           .feedback-title-section {
-            flex-grow: 1;
+            flex: 1;
           }
 
           .feedback-title {
             margin: 0 !important;
-            padding: 0 !important;
-            color: ${feedback.isCorrect ? '#059669' : '#dc2626'} !important;
-            font-weight: 600;
-            font-size: 20px !important;
-            line-height: 1.3 !important;
+            font-size: 24px !important;
+            color: #1f2937 !important;
           }
 
           .feedback-assessment {
-            display: block;
-            margin-top: 8px;
             color: #4b5563;
             font-size: 15px;
-            line-height: 1.5;
+            margin-top: 4px;
+            display: block;
           }
 
           .feedback-content {
-            padding: 24px 20px;
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
           }
 
           .feedback-tabs {
-            margin-top: 0;
-          }
-
-          .feedback-tabs .ant-tabs-nav {
-            margin-bottom: 16px;
-            background: #f8fafc;
-            padding: 8px 8px 0;
-            border-radius: 8px;
-          }
-
-          .feedback-tabs .ant-tabs-tab {
-            margin: 0 4px;
-            padding: 12px 20px;
-            font-size: 15px;
-            border-radius: 8px 8px 0 0;
-            background: #f3f4f6;
-            border: 1px solid #e5e7eb;
-            border-bottom: none;
-          }
-
-          .feedback-tabs .ant-tabs-tab-active {
-            background: white !important;
-            border-color: #e5e7eb !important;
+            padding: 16px;
           }
 
           .tab-label {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 15px;
-            color: #4b5563;
-          }
-
-          .ant-tabs-tab-active .tab-label {
-            color: #2563eb;
-            font-weight: 500;
+            font-size: 14px;
           }
 
           .feedback-section {
-            padding: 20px;
+            padding: 16px;
             background: #f8fafc;
-            border-radius: 12px;
-            font-size: 15px;
-            line-height: 1.6;
-            border: 1px solid #e5e7eb;
-          }
-
-          .solution-steps {
-            color: #1f2937;
-          }
-
-          .final-answer {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-          }
-
-          .final-answer-content {
-            margin-top: 8px;
-            padding: 12px 16px;
-            background: white;
             border-radius: 8px;
-            border: 1px solid #e5e7eb;
-            color: #1f2937;
-            font-weight: 500;
           }
 
-          .action-buttons {
-            padding: 12px 16px;
-            border-top: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-          }
-
-          .retry-button {
-            height: 40px;
-            min-width: 140px;
-            border-radius: 20px;
-            font-size: 15px;
-            font-weight: 500;
-            background: #2563eb;
-            border: none;
-            color: white;
-            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          }
-
-          .retry-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-            background: #2563eb;
-          }
-
-          .next-button-container {
-            margin-right: auto;  /* This will push the button to the left in RTL */
-          }
-
-          .next-button {
-            height: 40px;
-            min-width: 160px;
-            border-radius: 20px;
-            font-size: 15px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-          }
-
-          .next-button.high-score {
-            background: linear-gradient(45deg, #059669, #10b981);
-            border: none;
-            color: white;
-            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
-          }
-
-          .next-button.high-score:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
-            background: linear-gradient(45deg, #047857, #059669);
-          }
-
-          .next-button.low-score {
-            background: #f3f4f6;
-            border: 1px solid #d1d5db;
-            color: #6b7280;
-          }
-
-          .next-button.low-score:hover {
-            background: #e5e7eb;
-            border-color: #9ca3af;
-            color: #4b5563;
-            transform: translateY(-1px);
-          }
-
-          .solution-header {
-            margin-bottom: 16px;
-            padding: 12px 16px;
-            background: #f0f9ff;
-            border-radius: 8px;
-            border: 1px solid #bae6fd;
-            color: #0369a1;
-            font-size: 14px;
-            line-height: 1.5;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-
-          .info-icon {
-            font-size: 16px;
-            color: #0369a1;
-          }
-
-          .feedback-header.guest-limit {
-            background: #f8fafc;
-            border-bottom: 1px solid #e5e7eb;
-            padding: 32px 24px;
-          }
-
-          .feedback-header.guest-limit .feedback-header-content {
-            justify-content: center;
+          .guest-limit .feedback-title-section {
             text-align: center;
           }
 
-          .feedback-title-section.centered {
-            text-align: center;
-            max-width: 600px;
-            margin: 0 auto;
+          .guest-limit .feedback-title {
+            color: #4b5563 !important;
+            margin-bottom: 8px !important;
           }
 
-          .feedback-title.neutral {
-            color: #2563eb !important;
+          .guest-limit .feedback-assessment {
             text-align: center;
-            margin-bottom: 12px !important;
-          }
-
-          .feedback-assessment.centered {
-            text-align: center;
-            display: block;
-            margin: 0 auto;
-            max-width: 500px;
-            line-height: 1.6;
           }
 
           .guest-limit-container {
             display: flex;
             justify-content: center;
-            align-items: center;
-            padding: 32px;
-            background: white;
+            margin-top: 24px;
           }
 
           .guest-limit-button {
+            height: 44px;
+            padding: 0 32px;
             font-size: 16px;
-            height: 48px;
-            padding: 0 40px;
-            background: #2563eb;
-            border: none;
-            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
-            transition: all 0.3s ease;
-            border-radius: 24px;
-          }
-
-          .guest-limit-button:hover {
-            background: #1d4ed8;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
           }
         `}
       </style>

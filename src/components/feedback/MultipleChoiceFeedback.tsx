@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
-import { Card, Space, Typography, Divider } from 'antd';
-import { CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
+import { Card, Space, Typography, Divider, Button } from 'antd';
+import { CheckCircleFilled, CloseCircleFilled, StarOutlined, RedoOutlined } from '@ant-design/icons';
 import { Question, QuestionFeedback, FeedbackMessages } from '../../types/question';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { logger } from '../../utils/logger';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { JoinEZPassPlusMessage } from './JoinEZPassPlusMessage';
 
 const { Text, Title } = Typography;
 
@@ -12,12 +13,16 @@ interface MultipleChoiceFeedbackProps {
   question: Question;
   feedback: QuestionFeedback;
   selectedAnswer: string;
+  showDetailedFeedback?: boolean;
+  onRetry?: () => void;
 }
 
 export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
   question,
   feedback,
-  selectedAnswer
+  selectedAnswer,
+  showDetailedFeedback = true,
+  onRetry
 }) => {
   useEffect(() => {
     // Component mount/update log with more prominent message
@@ -135,7 +140,19 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
       <div className="feedback-details">
         <Title level={5} className="explanation-title">הסבר</Title>
         <div className="detailed-feedback">
-          <MarkdownRenderer content={feedback.coreFeedback} />
+          {showDetailedFeedback ? (
+            <MarkdownRenderer content={feedback.coreFeedback} />
+          ) : (
+            <div className="limited-feedback">
+              <div className="limited-feedback-content">
+                <StarOutlined className="star-icon" />
+                <Text>הצטרף לאיזיפס פלוס וקבל הסברים מפורטים לתשובה, עזרה והנחיה אישיים ותכני לימוד מותאמים לצרכיך</Text>
+                <Button type="primary" className="join-button">
+                  הצטרף עכשיו
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -293,6 +310,43 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
 
           .detailed-feedback p {
             margin: 0;
+          }
+
+          .limited-feedback {
+            background: #f0f9ff;
+            border-radius: 8px;
+            padding: 20px;
+          }
+
+          .limited-feedback-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            text-align: center;
+          }
+
+          .star-icon {
+            font-size: 24px;
+            color: #3b82f6;
+          }
+
+          .join-button {
+            height: 40px;
+            padding: 0 32px;
+            border-radius: 20px;
+            font-size: 15px;
+            font-weight: 500;
+            background: #3b82f6;
+            border: none;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+            transition: all 0.3s ease;
+          }
+
+          .join-button:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
           }
         `}
       </style>

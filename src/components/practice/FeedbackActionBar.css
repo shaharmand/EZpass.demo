@@ -1,0 +1,102 @@
+.feedback-action-bar {
+  width: 100%;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.feedback-action-bar-content {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Common Button Styles */
+.action-button {
+  all: unset;
+  cursor: pointer;
+  height: 48px;
+  padding: 0 32px;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+/* Retry Button */
+.retry-button {
+  background: white;
+  color: #64748b;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.retry-button:hover {
+  color: #3b82f6;
+  border-color: #93c5fd;
+  background: #eff6ff;
+  transform: translateY(-1px);
+}
+
+/* Next Button */
+.next-button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  min-width: 200px;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.next-button:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+/* Success State */
+.next-button.success {
+  background: #10b981;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.next-button.success:hover {
+  background: #059669;
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* Button Icons */
+.button-icon {
+  font-size: 18px;
+}
+
+.retry-button .button-icon {
+  transform: rotate(45deg);
+}
+
+.next-button .button-icon {
+  order: 2;
+}
+
+@media (max-width: 768px) {
+  .feedback-action-bar {
+    padding: 16px;
+  }
+
+  .action-button {
+    height: 44px;
+    padding: 0 24px;
+    font-size: 15px;
+  }
+
+  .next-button {
+    min-width: 160px;
+  }
+} 

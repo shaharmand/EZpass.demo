@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Alert, Space, Button, Layout, Typography } from 'antd';
-import { HomeOutlined } from '@ant-design/icons';
+import { HomeOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { PracticeHeader } from '../components/PracticeHeader';
 import QuestionInteractionContainer from '../components/practice/QuestionInteractionContainer';
 import { WelcomeScreen } from '../components/practice/WelcomeScreen';
-import type { PracticeQuestion, SkipReason } from '../types/prepUI';
+import type { ActivePracticeQuestion, SkipReason, QuestionAnswer } from '../types/prepUI';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import type { FilterState, Question } from '../types/question';
@@ -38,17 +38,15 @@ const PracticePage: React.FC = () => {
   const hasInitialized = useRef(false);
 
   // Helper function to create new question state
-  const createQuestionState = useCallback((question: Question, prevQuestion?: PracticeQuestion): PracticeQuestion => {
+  const createQuestionState = useCallback((question: Question, prevQuestion?: ActivePracticeQuestion): ActivePracticeQuestion => {
     return {
       question,
-      state: {
-        status: 'active' as QuestionStatus,
-        startedAt: Date.now(),
-        lastUpdatedAt: Date.now(),
-        helpRequests: [],
-        correctAnswers: prevQuestion?.state.correctAnswers || 0,
-        averageScore: prevQuestion?.state.averageScore || 0,
-        questionIndex: (prevQuestion?.state.questionIndex || 0) + 1
+      practiceState: {
+        status: 'idle',
+        currentAnswer: null,
+        practiceStartedAt: Date.now(),
+        submissions: [],
+        helpRequests: []
       }
     };
   }, []);
@@ -145,7 +143,7 @@ const PracticePage: React.FC = () => {
       providedFilters: filters,
       currentFilters: state.filters,
       currentQuestionId: currentQuestion?.question.id,
-      hasAnswered: Boolean(currentQuestion?.state.feedback),
+      hasAnswered: Boolean(currentQuestion?.practiceState.currentAnswer),
       timestamp: new Date().toISOString()
     });
 
@@ -158,82 +156,47 @@ const PracticePage: React.FC = () => {
     const filtersToUse = filters || state.filters;
 
     await handleQuestionTransition('next', filtersToUse, () => ({
-      canProceed: Boolean(currentQuestion?.state.feedback),
+      canProceed: Boolean(currentQuestion?.practiceState.currentAnswer),
       reason: !currentQuestion ? 'no current question' : 
-              !currentQuestion.state.feedback ? 'question not completed' : undefined
+              !currentQuestion.practiceState.currentAnswer ? 'question not completed' : undefined
     }));
   }, [currentQuestion, handleQuestionTransition, checkAndShowGuestLimitIfNeeded, state.filters]);
 
-  const handleRetry = useCallback(async () => {
-    console.log('👤 USER ACTION - Retry Question:', {
-      questionId: currentQuestion?.question.id,
-      currentStatus: currentQuestion?.state.status,
-      hasFeedback: Boolean(currentQuestion?.state.feedback),
-      timestamp: new Date().toISOString()
-    });
-
-    if (!currentQuestion) {
-      console.log('⚠️ Cannot retry: no current question');
-      return;
-    }
-
-    // Instead of getting a new question, reset the current one
-    setCurrentQuestion({
-      question: currentQuestion.question,
-      state: {
-        status: 'active',
-        startedAt: Date.now(),
-        lastUpdatedAt: Date.now(),
-        questionIndex: currentQuestion.state.questionIndex,
-        correctAnswers: currentQuestion.state.correctAnswers,
-        averageScore: currentQuestion.state.averageScore,
-        helpRequests: []
-      }
-    });
-  }, [currentQuestion, setCurrentQuestion]);
-
-  const handleAnswerSubmit = useCallback(async (answer: string) => {
-    console.log('👤 USER ACTION - Submit Answer:', {
-      questionId: currentQuestion?.question.id,
-      answerLength: answer.length,
-      currentStatus: currentQuestion?.state.status,
-      timestamp: new Date().toISOString()
-    });
-
-    if (!currentQuestion || currentQuestion.state.status !== 'active' || !prepId) {
-      console.log('⚠️ Cannot submit answer:', {
-        reason: !currentQuestion ? 'no question active' : 
-                !prepId ? 'no prep id' :
-                'question not in active state'
-      });
-      return;
-    }
+  const handleSubmit = useCallback(async (answer: QuestionAnswer) => {
+    if (!currentQuestion || !prepId || !state.prep) return;
 
     try {
-      console.log('📝 Submitting answer...');
-      
-      // Check if we can proceed with submission
-      const canProceed = await incrementAttempt();
-      if (!canProceed) {
-        console.log('⚠️ Submission blocked: authentication required');
+      // Log answer submission
+      logger.info('Submitting answer', {
+        questionId: currentQuestion.question.id,
+        answerType: answer.type,
+        currentStatus: currentQuestion.practiceState.status,
+        timestamp: new Date().toISOString()
+      });
+
+      if (!currentQuestion || currentQuestion.practiceState.status !== 'idle' || !prepId) {
+        console.log('⚠️ Cannot submit answer:', {
+          reason: !currentQuestion ? 'no question active' : 
+                 !prepId ? 'no prep id' : 
+                 'question not in active state'
+        });
         return;
       }
 
-      // If we can proceed, submit the answer
-      const prep = await getPrep(prepId);
-      if (!prep) {
-        throw new Error('Practice session not found');
-      }
-      await submitAnswer(answer, prep);
-      console.log('✅ Answer submitted successfully');
-    } catch (err) {
-      console.error('Failed to submit answer:', err);
-      setState(prev => ({ 
-        ...prev,
-        error: err instanceof Error ? err.message : 'Failed to submit answer'
-      }));
+      // Convert QuestionAnswer to string format expected by backend
+      const answerString = answer.type === 'multiple_choice' 
+        ? answer.selectedOption.toString()
+        : answer.type === 'code'
+        ? answer.codeText
+        : answer.markdownText;
+
+      await submitAnswer(answerString, state.prep);
+
+    } catch (error) {
+      console.error('Error submitting answer:', error);
+      // Handle error appropriately
     }
-  }, [currentQuestion, prepId, getPrep, submitAnswer, incrementAttempt]);
+  }, [currentQuestion, prepId, submitAnswer, state.prep]);
 
   const handleExamDateChange = useCallback((date: moment.Moment) => {
     if (!state.prep) return;
@@ -344,23 +307,16 @@ const PracticePage: React.FC = () => {
             <div className="practice-main">
               <QuestionInteractionContainer
                 question={currentQuestion.question}
-                onAnswer={handleAnswerSubmit}
+                onSubmit={handleSubmit}
                 onSkip={handleSkip}
-                onHelp={() => {}}
-                onNext={() => handleNext()}
-                onRetry={handleRetry}
-                state={{
-                  status: currentQuestion.state.status,
-                  feedback: currentQuestion.state.feedback,
-                  questionIndex: currentQuestion.state.questionIndex || 0,
-                  correctAnswers: currentQuestion.state.correctAnswers,
-                  averageScore: currentQuestion.state.averageScore
-                }}
+                onNext={handleNext}
+                onPrevious={() => {}}
                 filters={state.filters}
                 onFiltersChange={(filters) => setState(prev => ({ ...prev, filters }))}
                 prep={state.prep}
                 isQuestionLoading={state.isLoading}
                 showDetailedFeedback={shouldShowDetailedFeedback}
+                state={currentQuestion.practiceState}
               />
             </div>
           </div>

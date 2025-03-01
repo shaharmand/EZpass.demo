@@ -1,0 +1,93 @@
+.submit-action-bar {
+  margin-top: 24px;
+  margin-bottom: 24px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  position: relative;
+  z-index: 10;
+  display: block;
+  width: 100%;
+}
+
+.submit-action-bar-content {
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 11;
+  display: block;
+  width: 100%;
+}
+
+.submit-action-bar-content:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Submit button styles */
+.submit-button {
+  height: 48px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Disabled state styles */
+.submit-button.disabled {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #94a3b8 !important;
+  opacity: 0.9;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  position: relative;
+  padding-right: 35px;
+}
+
+.submit-button.disabled::before {
+  content: '✎';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: #94a3b8;
+}
+
+.submit-button.disabled::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 5px,
+    rgba(148, 163, 184, 0.05) 5px,
+    rgba(148, 163, 184, 0.05) 10px
+  );
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .submit-action-bar {
+    margin-top: 16px;
+    margin-bottom: 16px;
+  }
+
+  .submit-action-bar-content {
+    padding: 12px;
+  }
+
+  .submit-button {
+    height: 44px;
+    font-size: 15px;
+  }
+} 

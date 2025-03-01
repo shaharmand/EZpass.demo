@@ -1,4 +1,5 @@
 import type { Question, QuestionFeedback } from '../../types/question';
+import { AnswerLevel } from '../../types/question';
 import { logger } from '../../utils/logger';
 import { feedbackSchema } from '../../schemas/feedbackSchema';
 
@@ -25,20 +26,23 @@ export class MultipleChoiceFeedbackService {
 
     const isCorrect = selectedOption === question.correctOption;
     const score = isCorrect ? 100 : 0; // Binary scoring for multiple choice - full credit or none
+    const level = isCorrect ? AnswerLevel.PERFECT : AnswerLevel.WRONG;
 
     // Log the feedback generation
     logger.info('Generating multiple choice feedback', {
       questionId: question.id,
       selectedOption,
       correctOption: question.correctOption,
-      isCorrect
+      isCorrect,
+      level
     });
 
     // Create the feedback object
     const feedback = {
-      isCorrect,
+      level,
       score,
-      assessment: isCorrect ? 'תשובה נכונה!' : 'תשובה לא נכונה'
+      assessment: isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה',
+      coreFeedback: this.generateCoreFeedback(isCorrect, selectedOption, question)
     };
 
     // Validate using Zod schema

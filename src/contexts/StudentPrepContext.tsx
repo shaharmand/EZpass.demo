@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { ExamTemplate } from '../types/examTemplate';
 import type { StudentPrep, QuestionState, TopicSelection, PrepState } from '../types/prepState';
-import type { PracticeQuestion, SkipReason } from '../types/prepUI';
+import type { ActivePracticeQuestion, SkipReason, QuestionAnswer, QuestionPracticeState } from '../types/prepUI';
 import type { Question, QuestionType, FilterState } from '../types/question';
 import type { QuestionFeedback } from '../types/question';
 import type { Topic } from '../types/subject';
@@ -17,7 +17,15 @@ import { questionStorage } from '../services/admin/questionStorage';
 import { getSupabase } from '../services/supabaseClient';
 
 interface StudentPrepContextType {
-  currentQuestion: PracticeQuestion | null;
+  prep: StudentPrep | null;
+  currentQuestion: ActivePracticeQuestion | null;
+  filters: FilterState;
+  isLoading: boolean;
+  error: Error | null;
+  setPrep: (prep: StudentPrep | null) => void;
+  setCurrentQuestion: (question: ActivePracticeQuestion | null) => void;
+  setFilters: (filters: FilterState) => void;
+  getPrep: (prepId: string) => Promise<StudentPrep | null>;
   topics: Topic[];
   startPrep: (exam: ExamTemplate, selection?: TopicSelection) => Promise<string>;
   pausePrep: (prepId: string) => void;
@@ -25,9 +33,9 @@ interface StudentPrepContextType {
   getNextQuestion: (filters?: FilterState) => Promise<Question>;
   skipQuestion: (reason: SkipReason, filters?: FilterState) => Promise<Question>;
   submitAnswer: (answer: string, prep: StudentPrep) => Promise<void>;
-  setCurrentQuestion: (question: PracticeQuestion | null) => void;
-  getPrep: (prepId: string) => Promise<StudentPrep | null>;
   getRotationManager: () => QuestionRotationManager | null;
+  updateUserFocus: (prepId: string, filters: FilterState) => Promise<void>;
+  getUserFocus: (prepId: string) => Promise<FilterState | null>;
 }
 
 const StudentPrepContext = createContext<StudentPrepContextType | null>(null);
@@ -40,7 +48,11 @@ const PREP_STORAGE_KEY = 'active_preps';
 const CURRENT_QUESTION_KEY = 'current_question';
 
 export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentQuestion, setCurrentQuestion] = useState<PracticeQuestion | null>(null);
+  const [prep, setPrep] = useState<StudentPrep | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<ActivePracticeQuestion | null>(null);
+  const [filters, setFilters] = useState<FilterState>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const isGeneratingQuestion = useRef(false);
   const rotationManager = useRef<QuestionRotationManager | null>(null);
   const feedbackService = useRef<FeedbackService>(new FeedbackService());
@@ -222,26 +234,56 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     try {
+      // Create answer object based on question type
+      const createAnswerObject = (type: QuestionType, value: string): QuestionAnswer => {
+        switch (type) {
+          case 'multiple_choice':
+            return { type: 'multiple_choice', selectedOption: parseInt(value, 10) };
+          case 'code':
+            return { type: 'code', codeText: value };
+          case 'open':
+            return { type: 'open', markdownText: value };
+          case 'step_by_step':
+            return { type: 'step_by_step', markdownText: value };
+        }
+      };
+
       // First update state to submitted without feedback
-      const submittingState: QuestionState = {
-        ...currentQuestion.state,
+      const submittingState: QuestionPracticeState = {
+        ...currentQuestion.practiceState,
         status: 'submitted',
-        submittedAnswer: {
-          text: answer,
-          timestamp: Date.now()
-        },
-        lastUpdatedAt: Date.now()
+        currentAnswer: createAnswerObject(currentQuestion.question.type, answer),
+        lastSubmittedAt: Date.now()
       };
 
       setCurrentQuestion({
-        ...currentQuestion,
-        state: submittingState
+        question: currentQuestion.question,
+        practiceState: submittingState
       });
 
-      // Generate feedback using our feedback service
+      // Generate feedback
       const feedback = await generateFeedback(currentQuestion.question, answer, prep);
 
-      // Update prep progress with the score and question ID
+      // Update state with feedback
+      const completedState: QuestionPracticeState = {
+        ...submittingState,
+        status: 'receivedFeedback',
+        submissions: [
+          ...submittingState.submissions,
+          {
+            answer: submittingState.currentAnswer!,
+            feedback,
+            submittedAt: Date.now()
+          }
+        ]
+      };
+
+      setCurrentQuestion({
+        question: currentQuestion.question,
+        practiceState: completedState
+      });
+
+      // Update prep state
       PrepStateManager.updateProgress(
         prep, 
         feedback.isCorrect,
@@ -249,27 +291,11 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
         currentQuestion.question.id
       );
 
-      // Update question state with feedback
-      const updatedState: QuestionState = {
-        ...submittingState,
-        feedback
-      };
-
-      setCurrentQuestion({
-        ...currentQuestion,
-        state: updatedState
-      });
-
-      logger.info('Answer submitted and feedback generated', {
-        questionId: currentQuestion.question.id,
-        isCorrect: feedback.isCorrect,
-        score: feedback.score
-      });
     } catch (error) {
       console.error('Error submitting answer:', error);
-      throw error;
+      throw new Error('שגיאה בשליחת התשובה');
     }
-  }, [currentQuestion]);
+  }, [currentQuestion, generateFeedback]);
 
   const getNextQuestion = useCallback(async (filters?: FilterState): Promise<Question> => {
     try {
@@ -418,6 +444,14 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [currentQuestion, getNextQuestion]);
 
+  const updateUserFocus = useCallback(async (prepId: string, filters: FilterState) => {
+    PrepStateManager.updateUserFocus(prepId, filters);
+  }, []);
+
+  const getUserFocus = useCallback(async (prepId: string) => {
+    return PrepStateManager.getUserFocus(prepId);
+  }, []);
+
   // Add effect to restore state from localStorage on mount
   useEffect(() => {
     const storedQuestion = localStorage.getItem(CURRENT_QUESTION_KEY);
@@ -443,7 +477,15 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   return (
     <StudentPrepContext.Provider value={{
+      prep,
       currentQuestion,
+      filters,
+      isLoading,
+      error,
+      setPrep,
+      setCurrentQuestion,
+      setFilters,
+      getPrep,
       topics: [],
       startPrep,
       pausePrep,
@@ -451,9 +493,9 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       getNextQuestion,
       skipQuestion,
       submitAnswer,
-      setCurrentQuestion,
-      getPrep,
-      getRotationManager: () => rotationManager.current
+      getRotationManager: () => rotationManager.current,
+      updateUserFocus,
+      getUserFocus
     }}>
       {children}
     </StudentPrepContext.Provider>

@@ -3,10 +3,9 @@ import { Typography, Button, Space, Spin, Dropdown, DatePicker, notification, Dr
 import type { MenuProps } from 'antd';
 import { 
   UserOutlined, LoginOutlined, ExperimentFilled,
-  SettingOutlined, CalendarOutlined
+  SettingOutlined, CalendarOutlined, ArrowLeftOutlined
 } from '@ant-design/icons';
 import moment, { Moment } from 'moment';
-import { usePracticeProgress } from '../hooks/usePracticeProgress';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import type { StudentPrep } from '../types/prepState';
 import { formatTimeUntilExam } from '../utils/dateUtils';
@@ -19,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { PrepStateManager } from '../services/PrepStateManager';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthModal } from './Auth/AuthModal';
+import type { ActivePracticeQuestion } from '../types/prepUI';
 
 const { Text, Title } = Typography;
 
@@ -44,26 +44,22 @@ const colors = {
   }
 };
 
-interface QuestionState {
-  feedback?: {
-    score: number;
-    isCorrect: boolean;
-  };
-}
-
-interface PracticeQuestion {
-  question: Question;
-  state: QuestionState;
-}
-
 interface PracticeHeaderProps {
   prepId: string;
+  question?: Question;
+  currentQuestion?: ActivePracticeQuestion;
+  onBack?: () => void;
 }
 
-export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prepId }) => {
+export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
+  prepId,
+  question,
+  currentQuestion,
+  onBack
+}) => {
   const { getPrep } = useStudentPrep();
   const [prep, setPrep] = useState<StudentPrep | null>(null);
-  const { metrics, isLoading } = usePracticeProgress();
+  const [isLoading, setIsLoading] = useState(false);
   const { startPrep } = useStudentPrep();
   const [configOpen, setConfigOpen] = useState(false);
   const navigate = useNavigate();
@@ -87,18 +83,18 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prepId }) => {
         }
       }
     };
-    
-    // Load immediately
+
+    // Load initially
     loadPrep();
 
-    // Set up interval to refresh prep state - use 2 seconds instead of 1
-    const refreshInterval = setInterval(loadPrep, 2000);
+    // Refresh every 5 seconds
+    const refreshInterval = setInterval(loadPrep, 5000);
 
     // Cleanup interval on unmount
     return () => clearInterval(refreshInterval);
   }, [prepId, prep]); // Add prep as dependency to compare states
 
-  if (!prep) return null; // Return nothing if no prep
+  if (!prep) return null;
   
   // Calculate topic counts
   const topicCount = prep.exam.topics?.length || 0;
@@ -492,7 +488,7 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prepId }) => {
         open={examContentOpen}
         onClose={() => setExamContentOpen(false)}
         exam={prep.exam}
-        prepId={prepId}
+        prepId={prep.id}
       />
     </>
   );

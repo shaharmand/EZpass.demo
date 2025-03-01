@@ -12,9 +12,10 @@
  * The types here should NOT contain UI-specific concerns - those belong in prepUI.ts
  */
 
-import type { Question, QuestionFeedback } from './question';
+import type { Question, QuestionFeedback, FilterState } from './question';
 import type { ExamTemplate } from './examTemplate';
-import type { PracticeQuestion, SkipReason } from './prepUI';
+import type { ActivePracticeQuestion, SkipReason } from './prepUI';
+import type { Topic } from './subject';
 
 // Core prep states
 export type PrepStatus = 'initializing' | 'not_started' | 'active' | 'paused' | 'completed' | 'error';
@@ -85,6 +86,9 @@ export interface StudentPrep {
       dailyHours: number;      // Daily study hours goal (totalHours / 28)
       questionGoal: number;    // Total questions goal based on selected topics
     };
+
+    // User's current focus/filter state
+    userFocus: FilterState;
     
     // Complete state management
     state: PrepState;

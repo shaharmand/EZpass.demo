@@ -1,11 +1,12 @@
-import type { StudentPrep, TopicSelection } from '../types/prepState';
+import type { StudentPrep, PrepState, TopicSelection } from '../types/prepState';
 import type { ExamTemplate } from '../types/examTemplate';
 import type { Topic } from '../types/subject';
+import type { FilterState } from '../types/question';
 
 // Key for localStorage
 const PREP_STORAGE_KEY = 'active_preps';
 
-export type PrepState = 
+export type PrepStateStatus = 
     | { 
         status: 'active';
         startedAt: number;      // When this active session started
@@ -115,6 +116,7 @@ export class PrepStateManager {
                 dailyHours: TOTAL_HOURS / (WEEKS_UNTIL_EXAM * 7),
                 questionGoal: selectedTopics?.subTopics.length ? selectedTopics.subTopics.length * 50 : exam.topics.reduce((acc, topic) => acc + topic.subTopics.length, 0) * 50
             },
+            userFocus: {}, // Initialize empty user focus
             state: {
                 status: 'active' as const,
                 startedAt: Date.now(),
@@ -329,16 +331,18 @@ export class PrepStateManager {
     }
 
     // Validate state transition
-    static validateTransition(from: PrepState['status'], to: PrepState['status']): boolean {
+    static validateTransition(from: PrepStateStatus['status'], to: PrepStateStatus['status']): boolean {
         switch (from) {
             case 'active':
                 return ['paused', 'completed', 'error'].includes(to);
             case 'paused':
-                return ['active', 'error'].includes(to);
+                return ['active', 'completed', 'error'].includes(to);
             case 'completed':
                 return ['error'].includes(to);
             case 'error':
                 return false;
+            default:
+                return false; // Handle any other cases
         }
     }
 
@@ -502,5 +506,20 @@ export class PrepStateManager {
                 status: prep.state.status
             }
         };
+    }
+
+    // Update user focus for a prep
+    static updateUserFocus(prepId: string, filters: FilterState): StudentPrep | null {
+        const prep = this.getPrep(prepId);
+        if (!prep) return null;
+
+        prep.userFocus = { ...filters };
+        return this.updatePrep(prep);
+    }
+
+    // Get user focus for a prep
+    static getUserFocus(prepId: string): FilterState | null {
+        const prep = this.getPrep(prepId);
+        return prep ? prep.userFocus : null;
     }
 } 

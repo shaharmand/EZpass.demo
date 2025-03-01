@@ -44,8 +44,9 @@ export const SimpleTextMathInput: React.FC<SimpleTextMathInputProps> = ({
     const textarea = textAreaRef.current.resizableTextArea.textArea;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
+    const currentValue = value || '';
     
-    const newValue = value.substring(0, start) + symbol + value.substring(end);
+    const newValue = currentValue.substring(0, start) + symbol + currentValue.substring(end);
     onChange(newValue);
 
     // Set cursor position after the inserted symbol
@@ -78,7 +79,7 @@ export const SimpleTextMathInput: React.FC<SimpleTextMathInputProps> = ({
       {/* Text Input Area */}
       <TextArea
         ref={textAreaRef}
-        value={value}
+        value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}

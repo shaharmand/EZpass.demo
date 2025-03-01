@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Input, Button, Typography } from 'antd';
-import type { Question } from '../types/question';
+import type { Question, QuestionFeedback } from '../types/question';
+import type { QuestionAnswer } from '../types/prepUI';
 import { SimpleTextMathInput } from './SimpleTextMathInput';
 import { MonacoEditor } from './MonacoEditor';
 import { QuestionMultipleChoiceInput } from './QuestionMultipleChoiceInput';
@@ -13,15 +14,12 @@ const { Text } = Typography;
 
 interface QuestionResponseInputProps {
   question: Question;
-  onAnswer: (answer: string) => Promise<void>;
+  onAnswer: (answer: QuestionAnswer) => void;
   onRetry: () => void;
   disabled?: boolean;
-  feedback?: {
-    isCorrect: boolean;
-    correctOption?: string;
-    score?: number;
-  };
-  selectedAnswer?: string;
+  feedback?: QuestionFeedback;
+  selectedAnswer?: QuestionAnswer | null;
+  onCanSubmitChange?: (canSubmit: boolean) => void;
 }
 
 // Open Text Input
@@ -81,11 +79,71 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
   onRetry,
   disabled = false,
   feedback,
-  selectedAnswer = ''
+  selectedAnswer = null,
+  onCanSubmitChange
 }) => {
-  const [answer, setAnswer] = useState(selectedAnswer);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { isGuestLimitExceeded } = usePracticeAttempts();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Check if answer is valid based on question type
+  const isAnswerValid = (answer: QuestionAnswer | null): boolean => {
+    if (!answer) return false;
+    
+    switch (answer.type) {
+      case 'multiple_choice':
+        return answer.selectedOption >= 1 && answer.selectedOption <= 4;
+      case 'open':
+      case 'step_by_step':
+        return answer.markdownText.trim().length > 0;
+      case 'code':
+        return answer.codeText.trim().length > 0;
+      default:
+        return false;
+    }
+  };
+
+  // Create appropriate answer object based on question type
+  const createAnswer = (value: string): QuestionAnswer => {
+    switch (question.type) {
+      case 'multiple_choice':
+        return {
+          type: 'multiple_choice',
+          selectedOption: parseInt(value, 10)
+        };
+      case 'code':
+        return {
+          type: 'code',
+          codeText: value
+        };
+      case 'step_by_step':
+        return {
+          type: 'step_by_step',
+          markdownText: value
+        };
+      case 'open':
+      default:
+        return {
+          type: 'open',
+          markdownText: value
+        };
+    }
+  };
+
+  // Handle answer changes
+  const handleAnswerChange = (value: string) => {
+    const answer = createAnswer(value);
+    onAnswer(answer);
+    if (onCanSubmitChange) {
+      onCanSubmitChange(isAnswerValid(answer));
+    }
+  };
+
+  // Update canSubmit whenever selectedAnswer changes
+  useEffect(() => {
+    if (onCanSubmitChange) {
+      onCanSubmitChange(isAnswerValid(selectedAnswer));
+    }
+  }, [selectedAnswer, onCanSubmitChange]);
 
   useEffect(() => {
     if (disabled) {
@@ -93,32 +151,22 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
     }
   }, [disabled]);
 
-  // Reset answer when feedback changes to undefined (retry case)
-  useEffect(() => {
-    if (!feedback) {
-      setAnswer('');
-    }
-  }, [feedback]);
-
-  // Update local answer when selectedAnswer changes
-  useEffect(() => {
-    setAnswer(selectedAnswer);
-  }, [selectedAnswer]);
-
-  const handleSubmit = async () => {
-    if (!answer.trim() || isSubmitting) return;
+  // Get current value to display based on answer type
+  const getCurrentValue = (): string => {
+    if (!selectedAnswer) return '';
     
-    setIsSubmitting(true);
-    try {
-      await onAnswer(answer);
-    } catch (error) {
-      console.error('Error submitting answer:', error);
-    } finally {
-      setIsSubmitting(false);
+    switch (selectedAnswer.type) {
+      case 'multiple_choice':
+        return selectedAnswer.selectedOption.toString();
+      case 'code':
+        return selectedAnswer.codeText;
+      case 'open':
+      case 'step_by_step':
+        return selectedAnswer.markdownText;
+      default:
+        return '';
     }
   };
-
-  const shouldShowRetry = feedback && !feedback.isCorrect && (!feedback.score || feedback.score < 80) && !isGuestLimitExceeded;
 
   return (
     <div className="question-response-input">
@@ -127,69 +175,41 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
           <div className="multiple-choice-container">
             <QuestionMultipleChoiceInput
               question={question}
-              onChange={setAnswer}
-              value={answer}
+              onChange={(selectedOption) => handleAnswerChange(selectedOption.toString())}
+              value={selectedAnswer?.type === 'multiple_choice' ? selectedAnswer.selectedOption : null}
               disabled={disabled}
               feedback={feedback}
             />
           </div>
         ) : question.type === 'code' ? (
           <div className="code-input-container">
-            <CodeInput
-              question={question}
-              onChange={setAnswer}
-              value={answer}
+            <MonacoEditor
+              value={getCurrentValue()}
+              onChange={handleAnswerChange}
               disabled={disabled}
+              language={question.metadata.programmingLanguage || 'javascript'}
             />
           </div>
         ) : question.type === 'step_by_step' ? (
           <div className="step-by-step-container">
-            <StepByStepInput
-              onChange={setAnswer}
-              value={answer}
+            <SimpleTextMathInput
+              value={getCurrentValue()}
+              onChange={handleAnswerChange}
               disabled={disabled}
             />
           </div>
         ) : (
           <div className="text-input-container">
             <TextArea
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
+              value={getCurrentValue()}
+              onChange={(e) => handleAnswerChange(e.target.value)}
               placeholder="הקלד את תשובתך כאן..."
               autoSize={{ minRows: 4, maxRows: 8 }}
               disabled={disabled}
-              className={`response-textarea ${feedback ? (feedback.isCorrect ? 'correct' : 'incorrect') : ''}`}
+              className={`response-textarea ${feedback ? (feedback.isSuccess ? 'correct' : 'incorrect') : ''}`}
             />
           </div>
         )}
-      </div>
-
-      <div className="action-buttons-container">
-        <div className="action-buttons">
-          {!disabled && !feedback && (
-            <Button
-              type="primary"
-              onClick={handleSubmit}
-              loading={isSubmitting}
-              disabled={!answer.trim()}
-              size="large"
-              className="submit-button"
-            >
-              שלח תשובה
-            </Button>
-          )}
-          {feedback && shouldShowRetry && (
-            <Button
-              type="primary"
-              icon={<RedoOutlined />}
-              onClick={onRetry}
-              size="large"
-              className="retry-button"
-            >
-              נסה שוב
-            </Button>
-          )}
-        </div>
       </div>
 
       <style>
@@ -235,64 +255,6 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
           .response-textarea.incorrect {
             border-color: #ef4444;
             background: #fef2f2;
-          }
-
-          .action-buttons-container {
-            display: flex;
-            justify-content: flex-end;
-            padding: 12px 16px;
-            border-top: 1px solid #e5e7eb;
-          }
-
-          .action-buttons {
-            display: flex;
-            gap: 12px;
-            justify-content: space-between;
-            width: 100%;
-          }
-
-          .submit-button {
-            margin-right: auto;  /* This will push it to the left in RTL */
-            min-width: 200px;
-            height: 48px;
-            border-radius: 24px;
-            font-size: 16px;
-            font-weight: 500;
-            background: #2563eb;  /* Primary blue */
-            border: none;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-            transition: all 0.3s ease;
-          }
-
-          .submit-button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
-            background: #2563eb;  /* Keep consistent */
-          }
-
-          .submit-button:disabled {
-            opacity: 0.7;
-            background: #94a3b8;
-            box-shadow: none;
-          }
-
-          .retry-button {
-            height: 48px;
-            min-width: 160px;
-            border-radius: 24px;
-            font-size: 16px;
-            font-weight: 500;
-            background: #2563eb;  /* Primary blue */
-            border: none;
-            color: white;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-            transition: all 0.3s ease;
-          }
-
-          .retry-button:hover {
-            transform: translateY(-2px);
-            background: #2563eb;  /* Keep consistent */
-            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
           }
 
           .step-by-step-container {

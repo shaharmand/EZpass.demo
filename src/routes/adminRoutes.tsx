@@ -4,6 +4,7 @@ import AdminDashboard from '../pages/admin/Dashboard';
 import { QuestionLibraryPage } from '../pages/admin/questions/QuestionLibraryPage';
 import { QuestionEditor } from '../pages/admin/questions/QuestionEditor';
 import { QuestionImport } from '../pages/admin/questions/QuestionImport';
+import { QuestionGenerator } from '../pages/admin/questions/QuestionGenerator';
 
 export const adminRoutes: RouteObject = {
   path: 'admin',
@@ -31,6 +32,10 @@ export const adminRoutes: RouteObject = {
         {
           path: 'import',
           element: <QuestionImport />,
+        },
+        {
+          path: 'generate',
+          element: <QuestionGenerator />,
         },
       ],
     },

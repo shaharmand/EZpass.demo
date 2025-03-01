@@ -5,7 +5,6 @@ import { PlayCircleOutlined, CodeOutlined, BugOutlined, ThunderboltOutlined } fr
 
 const { Text } = Typography;
 
-
 interface MonacoEditorProps {
   value: string;
   onChange: (value: string) => void;

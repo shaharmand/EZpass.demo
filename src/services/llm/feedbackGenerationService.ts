@@ -1,4 +1,5 @@
 import { OpenAIService } from './openAIService';
+import { AnswerLevel } from '../../types/question';
 import type { Question, QuestionFeedback } from '../../types/question';
 import { logger } from '../../utils/logger';
 import { buildPrompt, OPENAI_MODELS } from '../../utils/llmUtils';
@@ -7,6 +8,7 @@ import { HEBREW_LANGUAGE_REQUIREMENTS } from '../../utils/llmUtils';
 import { ExamType } from '../../types/examTemplate';
 import { feedbackSchema } from '../../schemas/feedbackSchema';
 import { getExamInstitution } from '../../types/examTemplate';
+import { FeedbackValidator } from './feedbackValidation';
 
 interface FeedbackParams {
   question: Question;
@@ -93,7 +95,7 @@ export class FeedbackService {
         console.log('-'.repeat(80));
         console.table({
           'Question ID': question.id,
-          'Is Correct': feedback.isCorrect,
+          'Level': feedback.level,
           'Score': feedback.score
         });
 
@@ -157,32 +159,93 @@ export class FeedbackService {
   }
 
   /**
-   * Helper to check required fields
+   * Helper to check required fields and their format
    */
   private hasRequiredFields(feedback: any): boolean {
-    return typeof feedback.isCorrect === 'boolean' &&
-      typeof feedback.score === 'number' &&
-      typeof feedback.assessment === 'string' &&
-      typeof feedback.coreFeedback === 'string';
+    // Check basic field types
+    if (typeof feedback.score !== 'number' ||
+        typeof feedback.assessment !== 'string' ||
+        typeof feedback.coreFeedback !== 'string' ||
+        typeof feedback.level !== 'string') {
+      console.error('Missing or invalid basic field types:', {
+        hasScore: typeof feedback.score === 'number',
+        hasAssessment: typeof feedback.assessment === 'string',
+        hasCoreFeedback: typeof feedback.coreFeedback === 'string',
+        hasLevel: typeof feedback.level === 'string'
+      });
+      return false;
+    }
+
+    // Check core feedback contains all required symbols
+    const requiredSymbols = ['✅', '❌', '⚠️', '🔹'];
+    const missingSymbols = requiredSymbols.filter(symbol => !feedback.coreFeedback.includes(symbol));
+    if (missingSymbols.length > 0) {
+      console.error('Missing required symbols in coreFeedback:', missingSymbols);
+      return false;
+    }
+
+    // Check assessment length (2-3 sentences)
+    const sentences = feedback.assessment.split(/[.!?]+/).filter((s: string) => s.trim().length > 0);
+    if (sentences.length < 2 || sentences.length > 3) {
+      console.error('Assessment must be 2-3 sentences, found:', sentences.length);
+      return false;
+    }
+
+    // Check markdown formatting in assessment and coreFeedback
+    const hasMarkdown = (text: string) => /[*_`]/.test(text);
+    if (!hasMarkdown(feedback.assessment) || !hasMarkdown(feedback.coreFeedback)) {
+      console.error('Missing markdown formatting in assessment or coreFeedback');
+      return false;
+    }
+
+    // Optional fields type check if present
+    if (feedback.detailedFeedback !== undefined && typeof feedback.detailedFeedback !== 'string') {
+      console.error('Invalid detailedFeedback type:', typeof feedback.detailedFeedback);
+      return false;
+    }
+
+    if (feedback.rubricScores !== undefined) {
+      if (typeof feedback.rubricScores !== 'object' || feedback.rubricScores === null) {
+        console.error('Invalid rubricScores type:', typeof feedback.rubricScores);
+        return false;
+      }
+
+      // Check each rubric score entry
+      for (const [criterion, data] of Object.entries(feedback.rubricScores)) {
+        const rubricData = data as { score?: number; feedback?: string };
+        if (typeof rubricData !== 'object' || rubricData === null ||
+            typeof rubricData.score !== 'number' || 
+            typeof rubricData.feedback !== 'string' ||
+            rubricData.score < 0 || rubricData.score > 100) {
+          console.error('Invalid rubric score entry:', { criterion, data });
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   /**
-   * Type guard for QuestionFeedback
+   * Helper to calculate answer level based on score
+   */
+  private calculateAnswerLevel(score: number): AnswerLevel {
+    if (score === 100) return AnswerLevel.PERFECT;
+    if (score >= 95) return AnswerLevel.EXCELLENT;
+    if (score >= 80) return AnswerLevel.GOOD;
+    if (score >= 60) return AnswerLevel.PARTIAL;
+    if (score >= 30) return AnswerLevel.WEAK;
+    if (score > 0) return AnswerLevel.INSUFFICIENT;
+    // For score = 0, we can't determine between IRRELEVANT/EMPTY/NO_UNDERSTANDING
+    // This should be determined by the AI based on answer content
+    return AnswerLevel.NO_UNDERSTANDING;
+  }
+
+  /**
+   * Type guard for QuestionFeedback that ensures score matches level
    */
   private isValidFeedback(feedback: any): feedback is QuestionFeedback {
-    // Check required fields
-    const hasRequiredFields = this.hasRequiredFields(feedback);
-
-    if (!hasRequiredFields) return false;
-
-    // Check score range
-    if (feedback.score < 0 || feedback.score > 100) return false;
-
-    // Check optional fields
-    if (feedback.answer !== undefined && typeof feedback.answer !== 'string') return false;
-    if (feedback.detailedFeedback !== undefined && typeof feedback.detailedFeedback !== 'string') return false;
-
-    return true;
+    return FeedbackValidator.validate(feedback);
   }
 
 
@@ -217,7 +280,7 @@ export class FeedbackService {
     const prompt = buildPrompt(
       `בדיקת תשובה - ${subject}
 
-Please evaluate this ${subject} question and provide detailed feedback.`,
+Please evaluate this ${subject} question and provide detailed feedback. First determine the answer's level of correctness, then provide appropriate feedback based on that level.`,
       {
         'Question': question.content.text,
         'Student Answer': studentAnswer,
@@ -225,19 +288,90 @@ Please evaluate this ${subject} question and provide detailed feedback.`,
         'Question Type': question.type,
         'Rubric Assessment': JSON.stringify(question.evaluation?.rubricAssessment || null),
         'Required Elements': JSON.stringify(question.evaluation?.answerRequirements?.requiredElements || []),
+        'Answer Levels': `The answer must be classified into one of these levels:
+
+Passing Levels (Score > 0):
+- PERFECT (100%): Complete and flawless answer
+- EXCELLENT (95-99%): Nearly perfect with tiny imperfections
+- GOOD (80-94%): Solid understanding with minor issues
+- PARTIAL (60-79%): Basic understanding but significant gaps
+- WEAK (30-59%): Major gaps but shows some understanding
+- INSUFFICIENT (1-29%): Very limited understanding
+
+Non-Passing Levels (Score = 0):
+- NO_UNDERSTANDING: Student attempted but shows fundamental misconceptions
+- IRRELEVANT: Answer discusses unrelated topics`,
         'Required Response Format': `{
-          "isCorrect": boolean,           // Whether the answer is fundamentally correct
-          "score": number,                // Score between 0-100, calculated based on rubric weights
-          "assessment": string,           // Short evaluation summary (2-3 sentences, with markdown)
-          "coreFeedback": string,         // משוב מפורט עם Markdown, כולל **שימוש חובה** בסמלים מתאימים:\n- ✅ עבור חלקים נכונים\n- ❌ עבור טעויות קריטיות\n- ⚠️ עבור חלקים נכונים חלקית\n- 🔹 עבור תובנות חשובות
-          "detailedFeedback": string,     // In-depth analysis of concepts (with markdown)
-          "rubricScores": {               // Individual scores for each rubric criterion
+          "level": "PERFECT" | "EXCELLENT" | "GOOD" | "PARTIAL" | "WEAK" | "INSUFFICIENT" | "NO_UNDERSTANDING" | "IRRELEVANT",
+          "score": number,                // Score between 0-100, must match the level's range exactly
+          "assessment": string,           // 1-2 sentence summary of the evaluation (will be shown as header)
+          "coreFeedback": string,        // Main feedback explaining what was good/bad (shown in feedback tab)
+                                        // When applicable, organize feedback using these symbols:
+                                        // ✅ For correct elements and strong points
+                                        // ❌ For mistakes and errors
+                                        // ⚠️ For partially correct or needs improvement
+                                        // 🔹 For important insights or learning points
+          "detailedFeedback": string,    // In-depth analysis with specific improvement suggestions (shown in details tab)
+          "rubricScores": {              // Scores for each criterion (shown in rubric breakdown)
             [criterionName: string]: {
-              score: number,              // Score 0-100 for this criterion
-              feedback: string            // Specific feedback for this criterion
+              score: number,             // 0-100 score for this specific criterion
+              feedback: string           // Specific feedback explaining the criterion score
             }
           }
-        }`
+        }
+
+IMPORTANT VALIDATION RULES:
+1. Score MUST match level ranges exactly:
+   - PERFECT: score must be 100
+   - EXCELLENT: score must be 95-99
+   - GOOD: score must be 80-94
+   - PARTIAL: score must be 60-79
+   - WEAK: score must be 30-59
+   - INSUFFICIENT: score must be 1-29
+   - NO_UNDERSTANDING/IRRELEVANT: score must be 0
+
+2. Assessment Requirements:
+   - 1-2 sentences maximum
+   - Should summarize the main evaluation points
+   - Should match the tone of the level (praise for high scores, constructive for low scores)
+
+3. Core Feedback Structure:
+   - For partial or mixed performance (e.g., GOOD, PARTIAL levels), use the special symbols to clearly categorize different aspects
+   - For extreme cases (PERFECT, NO_UNDERSTANDING), a clear narrative without symbols might be more appropriate
+   - Always focus on being clear and helpful, using symbols only when they add value
+
+4. All fields are mandatory and must be properly formatted
+
+Example Response:
+{
+  "level": "PARTIAL",
+  "score": 65,
+  "assessment": "התשובה מראה הבנה בסיסית של נהלי הבטיחות באתר בנייה, אך חסרים מספר אלמנטים קריטיים וישנן כמה טעויות משמעותיות.",
+  "coreFeedback": "✅ זיהית נכון את הצורך בציוד מגן אישי ואת חשיבות הגידור באתר\\n❌ לא התייחסת לנוהל עבודה בגובה ולא הזכרת את הצורך ברתמת בטיחות\\n⚠️ ההתייחסות לשילוט האזהרה הייתה חלקית - הזכרת את קיומו אך לא פירטת את המיקומים הנדרשים\\n🔹 חשוב להבין שעבודה בגובה מחייבת אישור מיוחד והדרכה ספציפית",
+  "detailedFeedback": "ניתוח מפורט של תשובתך:\\n1. ציוד מגן אישי:\\n   - ציינת נכון: קסדה, נעלי בטיחות ואפוד זוהר\\n   - חסר: משקפי מגן וכפפות עבודה\\n\\n2. עבודה בגובה:\\n   - לא הוזכר כלל נושא רתמות הבטיחות\\n   - לא צוין הצורך באישור עבודה בגובה\\n   - חסר התייחסות למעקות תקניים\\n\\n3. שילוט וגידור:\\n   - הזכרת את הצורך בגידור, אך לא פירטת מפרט טכני\\n   - חסר פירוט של שילוט בכניסות ובאזורי סיכון\\n\\n4. המלצות לשיפור:\\n   - למד את נוהל עבודה בגובה על כל מרכיביו\\n   - הכר את כל פריטי ציוד המגן הנדרשים\\n   - התייחס לדרישות השילוט המדויקות",
+  "rubricScores": {
+    "personal_protection": {
+      "score": 80,
+      "feedback": "זיהוי טוב של רוב ציוד המגן האישי הנדרש, אך חסרים פריטים חשובים"
+    },
+    "height_safety": {
+      "score": 40,
+      "feedback": "חסר ידע מהותי בנושא בטיחות בעבודה בגובה"
+    },
+    "site_safety": {
+      "score": 75,
+      "feedback": "הבנה בסיסית של גידור ושילוט, אך חסר פירוט טכני"
+    }
+  }
+}`,
+        'Evaluation Process': `Evaluation Process:
+1. First determine if the answer is relevant to the topic
+2. For relevant answers, determine the level by comparing to the solution
+3. Provide appropriate feedback for each section:
+   - Assessment: Quick summary of overall performance
+   - Core Feedback: Main points about what was good/bad
+   - Detailed Feedback: In-depth analysis and improvement suggestions
+   - Rubric Scores: Break down performance by criteria`
       }
     );
 

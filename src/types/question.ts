@@ -84,10 +84,10 @@ export interface Evaluation {
 }
 
 export enum SourceType {
-  Exam = 'exam',
-  Book = 'book',
-  Author = 'author',
-  Ezpass = 'ezpass'
+  EXAM = 'exam',
+  BOOK = 'book',
+  AUTHOR = 'author',
+  EZPASS = 'ezpass'
 }
 
 /** 
@@ -167,10 +167,12 @@ export interface Question {
       examTemplateId?: string;
       /** Year the question was used or created */
       year?: number;
-      /** Season or term (e.g., 'winter', 'summer') */
-      season?: string;
-      /** Specific exam instance (e.g., 'a', 'b') */
-      moed?: string;
+      /** Season when the exam was given ('spring' or 'summer') */
+      season?: 'spring' | 'summer';
+      /** Specific exam instance ('a' or 'b') */
+      moed?: 'a' | 'b';
+      /** Question order/number in the exam */
+      order?: number;
       /** Author name if source is author */
       authorName?: string;
       /** Book name if source is book */
@@ -246,7 +248,7 @@ export interface Question {
    * - Alternative approaches
    * - Common pitfalls at each step
    */
-  solution: {
+  solution?: {
     /** Complete solution explanation in markdown format. Contains either:
      * - For questions requiring only final answer: The answer explanation
      * - For questions requiring solution steps: The detailed solution process
@@ -262,16 +264,62 @@ export interface Question {
      */
     answer?: string;
   };
+
+  /** 
+   * Import/migration information.
+   * This field stores data from the original source system
+   * to help track the question's origin and migration history.
+   */
+  importInfo?: {
+    /** The system the question was imported from */
+    system: 'wordpress' | 'bagrut_bank' | 'other';
+    /** Original ID in the source system */
+    originalId: string | number;
+    /** Original database ID if different */
+    originalDbId?: number;
+    /** Original post/question title */
+    originalTitle?: string;
+    /** Original category/taxonomy */
+    originalCategory?: string;
+    /** Original creation date */
+    originalCreatedAt?: string;
+    /** Original update date */
+    originalUpdatedAt?: string;
+    /** Any additional system-specific data */
+    additionalData?: Record<string, any>;
+  };
 }
 
 // Just add these minimal types for DB interaction
-export type QuestionStatus = 'imported' | 'generated' | 'draft' | 'approved';
+export type QuestionStatus = 'draft' | 'approved';
 
-// Question as stored in DB with status
-export interface DatabaseQuestion extends Question {
+import { ValidationResult } from '../utils/questionValidator';
+
+export enum ValidationStatus {
+  Valid = 'valid',
+  Warning = 'warning',
+  Error = 'error'
+}
+
+// Question being saved to DB - only fields that client should set
+export interface SaveQuestion extends Omit<Question, 'createdAt' | 'updatedAt'> {
+  id: string;
   status: QuestionStatus;
-  createdAt: string;
-  updatedAt: string;
+}
+
+// Question as stored in DB - includes server-managed fields
+export interface DatabaseQuestion extends Question {
+  id: string;
+  status: QuestionStatus;
+  validation_status: ValidationStatus;
+  import_info?: {
+    system?: string;
+    originalId?: string | number;
+    importedAt?: string;
+    [key: string]: any;
+  };
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Minimal data for list view
@@ -282,9 +330,10 @@ export interface QuestionListItem {
   metadata: {
     difficulty: string;
     topicId: string;
-    estimatedTime: number;
+    estimatedTime?: number;
   };
   status: QuestionStatus;
+  validationStatus: ValidationStatus;
   createdAt: string;
 }
 
@@ -302,8 +351,8 @@ export interface FilterState {
   source?: {
     examType: 'bagrut' | 'mahat';
     year?: number;
-    season?: 'winter' | 'summer';
-    moed?: 'a' | 'b' | 'c';
+    season?: 'spring' | 'summer';
+    moed?: 'a' | 'b';
   };
 }
 
@@ -334,7 +383,7 @@ export interface QuestionFetchParams {
   source?: {
     examType: 'bagrut' | 'mahat';
     year?: number;
-    season?: 'winter' | 'summer' | 'a' | 'b';
+    season?: 'spring' | 'summer';
   };
 }
 

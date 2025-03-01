@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Space, Spin, Typography, Card, Button, Divider, Tooltip, Tag, Select, Popover, Modal, notification } from 'antd';
+import React, { useEffect, useRef, useState, memo } from 'react';
+import { Space, Spin, Typography, Card, Button, Divider, Tooltip, Tag, Select, Popover, Modal, notification, Alert } from 'antd';
 import { FilterOutlined, DownOutlined, UpOutlined, StarFilled, StarOutlined, ClockCircleOutlined, AimOutlined, StopOutlined } from '@ant-design/icons';
 import CrosshairOutlined from '@ant-design/icons';
 import { Question, QuestionFeedback as QuestionFeedbackType, FilterState, QuestionType } from '../../types/question';
@@ -23,6 +23,8 @@ import { examService } from '../../services/examService';
 import { Tree } from 'antd';
 import type { Topic } from '../../types/subject';
 import { TopicSelectionDialog } from './TopicSelectionDialog';
+import { getQuestionSourceDisplay } from '../../utils/translations';
+import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
 
 const { Text, Title } = Typography;
 
@@ -49,6 +51,7 @@ interface QuestionInteractionContainerProps {
   onFiltersChange: (filters: FilterState) => void;
   prep: StudentPrep;
   isQuestionLoading?: boolean;
+  showDetailedFeedback?: boolean;
 }
 
 const QUESTION_TYPE_COLORS: Record<QuestionType, string> = {
@@ -80,8 +83,10 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   filters,
   onFiltersChange,
   prep,
-  isQuestionLoading
+  isQuestionLoading,
+  showDetailedFeedback = true
 }) => {
+  const { isInLimitedFeedbackMode } = usePracticeAttempts();
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [difficultyPopoverVisible, setDifficultyPopoverVisible] = useState(false);
   const [typePopoverVisible, setTypePopoverVisible] = useState(false);
@@ -764,7 +769,17 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
 
   return (
     <div className="question-interaction-container">
-      {/* Progress Section */}
+      {isInLimitedFeedbackMode && (
+        <Alert
+          message="מצב תרגול מתקדם"
+          description="את/ה במצב משוב מצומצם המדמה תנאי מבחן אמיתיים"
+          type="info"
+          showIcon
+          className="limited-feedback-alert"
+          style={{ marginBottom: '16px' }}
+        />
+      )}
+      
       <QuestionSetProgress
         currentQuestionIndex={state.questionIndex}
         totalQuestions={10}
@@ -772,7 +787,6 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
         prepId={prep.id}
       />
 
-      {/* Main Question Card */}
       <Card bodyStyle={{ padding: '24px' }} className={`question-card question-type-${question.type}`}>
         <AnimatePresence mode="wait">
           <motion.div
@@ -905,26 +919,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
                 {question.metadata.source && (
                   <div className="source-info">
                     <Text type="secondary" italic>
-                      {(() => {
-                        switch (question.metadata.source.sourceType) {
-                          case 'ezpass':
-                            return 'איזיפס - שאלת תרגול מקורית';
-                          case 'exam':
-                            return `מבחן ${question.metadata.source.examTemplateId || ''}`;
-                          case 'book':
-                            return `ספר ${question.metadata.source.bookName || ''}`;
-                          case 'author':
-                            return `מחבר ${question.metadata.source.authorName || ''}`;
-                          default:
-                            return 'לא ידוע';
-                        }
-                      })()}
-                      {question.metadata.source.year && ` ${question.metadata.source.year}`}
-                      {question.metadata.source.season && ` ${question.metadata.source.season}`}
-                      {question.metadata.source.moed && ` מועד ${question.metadata.source.moed}`}
-                      {question.metadata.source.sourceType === 'book' && question.metadata.source.bookLocation && 
-                        ` (${question.metadata.source.bookLocation})`
-                      }
+                      {getQuestionSourceDisplay(question.metadata.source)}
                     </Text>
                   </div>
                 )}
@@ -933,7 +928,6 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
           </motion.div>
         </AnimatePresence>
 
-        {/* Answer Section */}
         <AnimatePresence mode="wait">
           <motion.div
             key={`answer-${question?.id}`}
@@ -964,7 +958,6 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
           </motion.div>
         </AnimatePresence>
 
-        {/* Feedback Section */}
         <AnimatePresence mode="wait">
           <motion.div
             key={`feedback-${question?.id}`}
@@ -993,6 +986,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
                   }}
                   onNext={onNext}
                   selectedAnswer={selectedAnswer}
+                  showDetailedFeedback={showDetailedFeedback}
                 />
               </div>
             )}
@@ -1003,19 +997,53 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
       <style>
         {`
           .question-interaction-container {
+            flex: 1;
             display: flex;
             flex-direction: column;
             gap: 24px;
             width: 100%;
           }
 
-          .question-set-progress {
-            margin-bottom: 0;  /* Remove any default margin */
-          }
-
           .question-card {
             position: relative;
-            margin-top: 0;  /* Remove any default margin */
+            margin-top: 0;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+          }
+
+          .question-body {
+            font-size: 18px;
+            line-height: 1.7;
+            padding: 32px;
+            background: #ffffff;
+            border-radius: 12px;
+            color: #1e293b;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            width: 100%;
+          }
+
+          .question-body .question-content-wrapper {
+            background: #f8f9fa;
+            padding: 32px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 16px;
+            font-size: 19px;
+            font-weight: 500;
+            line-height: 1.8;
+            color: #1f2937;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+            width: 100%;
+          }
+
+          .question-body .question-content-wrapper:hover {
+            background: #f3f4f6;
+            transition: background-color 0.2s ease;
           }
 
           .filter-bar {
@@ -1268,73 +1296,6 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
             color: #2563eb;
           }
 
-          .question-body {
-            font-size: 18px;
-            line-height: 1.7;
-            padding: 32px;
-            background: #ffffff;
-            border-radius: 12px;
-            color: #1e293b;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-          }
-
-          /* New styles for the question text container */
-          .question-body .question-content-wrapper {
-            background: #f8f9fa;
-            padding: 32px;  /* Increased padding */
-            border-radius: 12px;  /* Increased border radius */
-            border: 1px solid #e5e7eb;
-            margin-bottom: 16px; /* Space between content and source */
-            font-size: 19px;  /* Slightly larger font */
-            font-weight: 500;  /* Semi-bold text */
-            line-height: 1.8;  /* Increased line height for better readability */
-            color: #1f2937;  /* Slightly darker text for better contrast */
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);  /* Subtle shadow */
-          }
-
-          .question-body .question-content-wrapper:hover {
-            background: #f3f4f6;  /* Slightly darker on hover */
-            transition: background-color 0.2s ease;
-          }
-
-          /* Updated source citation styling */
-          .source-info {
-            padding: 8px 12px;
-            font-size: 13px;
-            color: #64748b;
-            align-self: flex-start; /* Align to left side */
-            background: #f8fafc;
-            border-radius: 4px;
-            border: 1px solid #e2e8f0;
-            border-left: 3px solid #2196F3; /* Citation bar */
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-            margin-right: auto; /* Push to left in RTL */
-            margin-left: 24px; /* Indent from left */
-            max-width: fit-content; /* Only take needed width */
-            font-style: italic;
-          }
-
-          .source-info:hover {
-            border-color: #e2e8f0;
-            border-left-color: #2196F3;
-            background: #f8fafc;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          }
-
-          .source-info .ant-typography {
-            font-size: 13px;
-            color: inherit;
-            display: block;
-            text-align: left; /* Left alignment for citation */
-            direction: rtl; /* Keep RTL for Hebrew text */
-            unicode-bidi: embed;
-            white-space: nowrap; /* Keep citation in one line */
-          }
-
           .answer-section {
             margin-top: 24px;
             padding-top: 24px;
@@ -1395,6 +1356,40 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
             margin: 0;
             padding: 6px 12px;
           }
+
+          /* Updated source citation styling */
+          .source-info {
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #64748b;
+            align-self: flex-start; /* Align to left side */
+            background: #f8fafc;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            border-left: 3px solid #2196F3; /* Citation bar */
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            margin-right: auto; /* Push to left in RTL */
+            margin-left: 24px; /* Indent from left */
+            max-width: fit-content; /* Only take needed width */
+            font-style: italic;
+          }
+
+          .source-info:hover {
+            border-color: #e2e8f0;
+            border-left-color: #2196F3;
+            background: #f8fafc;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+
+          .source-info .ant-typography {
+            font-size: 13px;
+            color: inherit;
+            display: block;
+            text-align: left; /* Left alignment for citation */
+            direction: rtl; /* Keep RTL for Hebrew text */
+            unicode-bidi: embed;
+            white-space: nowrap; /* Keep citation in one line */
+          }
         `}
       </style>
       <TopicSelectionDialog
@@ -1413,4 +1408,4 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   );
 };
 
-export default QuestionInteractionContainer;
+export default memo(QuestionInteractionContainer);

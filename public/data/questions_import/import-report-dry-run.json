@@ -1,0 +1,416 @@
+{
+  "timestamp": "2025-03-01T00:00:11.749Z",
+  "mode": "dry-run",
+  "stats": {
+    "total": 55,
+    "successful": 55,
+    "failed": 0,
+    "noSolution": 0,
+    "withHtml": 3,
+    "byCategory": {
+      "מכונות שונות ציוד מכאני וכלי עבודה": 2,
+      "תוכניות בטיחות": 7,
+      "ניהול הבטיחות באתר בניה": 6,
+      "הקמת מבנה מתכת": 2,
+      "בניה טרומית": 2,
+      "סולמות": 3,
+      "עבודה בגובה": 5,
+      "טפסות": 5,
+      "משטחי עבודה, מדרכת מעבר ופתחים": 4,
+      "פיגומים": 6,
+      "חפירות ועבודות עפר": 3,
+      "מקום מוקף": 2,
+      "שירות פיקוח על העבודה והמוס\"ל": 1,
+      "תפקידי בטיחות פנים מפעליים": 2,
+      "בטיחות בעבודה": 4,
+      "מכונות הרמה אחרות ואביזרי הרמה": 1
+    }
+  },
+  "results": {
+    "10331": {
+      "success": true,
+      "questionId": "CIV-SAF-010331",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10332": {
+      "success": true,
+      "questionId": "CIV-SAF-010332",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10333": {
+      "success": true,
+      "questionId": "CIV-SAF-010333",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10334": {
+      "success": true,
+      "questionId": "CIV-SAF-010334",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10335": {
+      "success": true,
+      "questionId": "CIV-SAF-010335",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10336": {
+      "success": true,
+      "questionId": "CIV-SAF-010336",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10337": {
+      "success": true,
+      "questionId": "CIV-SAF-010337",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10338": {
+      "success": true,
+      "questionId": "CIV-SAF-010338",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10341": {
+      "success": true,
+      "questionId": "CIV-SAF-010341",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10343": {
+      "success": true,
+      "questionId": "CIV-SAF-010343",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10345": {
+      "success": true,
+      "questionId": "CIV-SAF-010345",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10347": {
+      "success": true,
+      "questionId": "CIV-SAF-010347",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10348": {
+      "success": true,
+      "questionId": "CIV-SAF-010348",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10349": {
+      "success": true,
+      "questionId": "CIV-SAF-010349",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10350": {
+      "success": true,
+      "questionId": "CIV-SAF-010350",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10351": {
+      "success": true,
+      "questionId": "CIV-SAF-010351",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10352": {
+      "success": true,
+      "questionId": "CIV-SAF-010352",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10353": {
+      "success": true,
+      "questionId": "CIV-SAF-010353",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10354": {
+      "success": true,
+      "questionId": "CIV-SAF-010354",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10355": {
+      "success": true,
+      "questionId": "CIV-SAF-010355",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10356": {
+      "success": true,
+      "questionId": "CIV-SAF-010356",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10357": {
+      "success": true,
+      "questionId": "CIV-SAF-010357",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10358": {
+      "success": true,
+      "questionId": "CIV-SAF-010358",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10359": {
+      "success": true,
+      "questionId": "CIV-SAF-010359",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10360": {
+      "success": true,
+      "questionId": "CIV-SAF-010360",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10361": {
+      "success": true,
+      "questionId": "CIV-SAF-010361",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10362": {
+      "success": true,
+      "questionId": "CIV-SAF-010362",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10363": {
+      "success": true,
+      "questionId": "CIV-SAF-010363",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10364": {
+      "success": true,
+      "questionId": "CIV-SAF-010364",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10365": {
+      "success": true,
+      "questionId": "CIV-SAF-010365",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10366": {
+      "success": true,
+      "questionId": "CIV-SAF-010366",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10367": {
+      "success": true,
+      "questionId": "CIV-SAF-010367",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10368": {
+      "success": true,
+      "questionId": "CIV-SAF-010368",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10370": {
+      "success": true,
+      "questionId": "CIV-SAF-010370",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10371": {
+      "success": true,
+      "questionId": "CIV-SAF-010371",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10372": {
+      "success": true,
+      "questionId": "CIV-SAF-010372",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10373": {
+      "success": true,
+      "questionId": "CIV-SAF-010373",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10374": {
+      "success": true,
+      "questionId": "CIV-SAF-010374",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10375": {
+      "success": true,
+      "questionId": "CIV-SAF-010375",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10376": {
+      "success": true,
+      "questionId": "CIV-SAF-010376",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10377": {
+      "success": true,
+      "questionId": "CIV-SAF-010377",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10378": {
+      "success": true,
+      "questionId": "CIV-SAF-010378",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10379": {
+      "success": true,
+      "questionId": "CIV-SAF-010379",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10380": {
+      "success": true,
+      "questionId": "CIV-SAF-010380",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10381": {
+      "success": true,
+      "questionId": "CIV-SAF-010381",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10383": {
+      "success": true,
+      "questionId": "CIV-SAF-010383",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10384": {
+      "success": true,
+      "questionId": "CIV-SAF-010384",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10385": {
+      "success": true,
+      "questionId": "CIV-SAF-010385",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10386": {
+      "success": true,
+      "questionId": "CIV-SAF-010386",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "10390": {
+      "success": true,
+      "questionId": "CIV-SAF-010390",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "12222": {
+      "success": true,
+      "questionId": "CIV-SAF-012222",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "12292": {
+      "success": true,
+      "questionId": "CIV-SAF-012292",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "12293": {
+      "success": true,
+      "questionId": "CIV-SAF-012293",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "12298": {
+      "success": true,
+      "questionId": "CIV-SAF-012298",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    },
+    "13110": {
+      "success": true,
+      "questionId": "CIV-SAF-013110",
+      "warnings": [
+        "Dry run mode - validation successful"
+      ]
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Typography, Button, Space, DatePicker, Alert, Row, Col, notification } from 'antd';
 import { 
   BookOutlined, 
@@ -13,6 +13,7 @@ import type { StudentPrep } from '../../types/prepState';
 import { ExamContentDialog } from './ExamContentDialog';
 import { PrepStateManager } from '../../services/PrepStateManager';
 import moment from 'moment';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -27,8 +28,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onExamDateChange,
   prep
 }) => {
+  const { user } = useAuth();
   const [isExamContentDialogOpen, setIsExamContentDialogOpen] = useState(false);
   const [examDate, setExamDate] = useState<Moment | null>(null);
+
+  // Set default exam date for guests (1 month from now)
+  useEffect(() => {
+    if (!user && !examDate) {
+      const defaultDate = moment().add(1, 'month');
+      handleExamDateChange(defaultDate);
+    }
+  }, [user]);
 
   const handleExamDateChange = (date: Moment | null) => {
     if (date && prep) {
@@ -47,13 +57,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       // Save to storage using PrepStateManager
       PrepStateManager.updatePrep(updatedPrep);
 
-      // Show success notification
-      notification.success({
-        message: 'תאריך הבחינה עודכן',
-        description: `תאריך הבחינה נקבע ל-${date.format('DD/MM/YYYY')}`,
-        placement: 'topLeft',
-        duration: 3,
-      });
+      // Show success notification only for logged-in users
+      if (user) {
+        notification.success({
+          message: 'תאריך הבחינה עודכן',
+          description: `תאריך הבחינה נקבע ל-${date.format('DD/MM/YYYY')}`,
+          placement: 'topLeft',
+          duration: 3,
+        });
+      }
     }
   };
 
@@ -94,38 +106,40 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
         {/* Setup Steps */}
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          {/* Exam Date Selection */}
-          <Card
-            size="small"
-            style={{ 
-              borderRadius: '8px', 
-              backgroundColor: '#F9FAFB',
-              border: '1px solid #E5E7EB',
-              transition: 'all 0.2s'
-            }}
-            hoverable
-          >
-            <Space align="start">
-              <CalendarOutlined style={{ fontSize: '24px', color: '#3B82F6' }} />
-              <div>
-                <Text strong style={{ display: 'block', marginBottom: '8px' }}>
-                  תאריך הבחינה
-                </Text>
-                <Text type="secondary" style={{ display: 'block', marginBottom: '12px' }}>
-                  בחר את תאריך הבחינה כדי שנוכל לתכנן את קצב הלמידה המתאים
-                </Text>
-                <DatePicker
-                  onChange={handleExamDateChange}
-                  style={{ width: '200px' }}
-                  placeholder="בחר תאריך"
-                  disabledDate={(current) => {
-                    // Can't select days before today
-                    return current && current.isBefore(moment().startOf('day'));
-                  }}
-                />
-              </div>
-            </Space>
-          </Card>
+          {/* Exam Date Selection - Only show for logged-in users */}
+          {user && (
+            <Card
+              size="small"
+              style={{ 
+                borderRadius: '8px', 
+                backgroundColor: '#F9FAFB',
+                border: '1px solid #E5E7EB',
+                transition: 'all 0.2s'
+              }}
+              hoverable
+            >
+              <Space align="start">
+                <CalendarOutlined style={{ fontSize: '24px', color: '#3B82F6' }} />
+                <div>
+                  <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+                    תאריך הבחינה
+                  </Text>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '12px' }}>
+                    בחר את תאריך הבחינה כדי שנוכל לתכנן את קצב הלמידה המתאים
+                  </Text>
+                  <DatePicker
+                    onChange={handleExamDateChange}
+                    style={{ width: '200px' }}
+                    placeholder="בחר תאריך"
+                    disabledDate={(current) => {
+                      // Can't select days before today
+                      return current && current.isBefore(moment().startOf('day'));
+                    }}
+                  />
+                </div>
+              </Space>
+            </Card>
+          )}
 
           {/* Exam Content */}
           <Card
@@ -227,7 +241,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           >
             התחל לתרגל
           </Button>
-          {!examDate && (
+          {!examDate && user && (
             <Alert
               message="יש לבחור תאריך בחינה לפני תחילת התרגול"
               type="info"

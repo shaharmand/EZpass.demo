@@ -221,7 +221,7 @@ Please evaluate this ${subject} question and provide detailed feedback.`,
       {
         'Question': question.content.text,
         'Student Answer': studentAnswer,
-        'Correct Solution': question.solution.text,
+        'Correct Solution': question.solution?.text || 'No solution provided',
         'Question Type': question.type,
         'Rubric Assessment': JSON.stringify(question.evaluation?.rubricAssessment || null),
         'Required Elements': JSON.stringify(question.evaluation?.answerRequirements?.requiredElements || []),

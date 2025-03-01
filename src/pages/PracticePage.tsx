@@ -11,7 +11,9 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import type { FilterState, Question } from '../types/question';
 import type { QuestionStatus } from '../types/prepState';
 import type { StudentPrep } from '../types/prepState';
-import { logger, CRITICAL_SECTIONS } from '../utils/logger';
+import { logger } from '../utils/logger';
+import { usePracticeAttempts } from '../contexts/PracticeAttemptsContext';
+import { useAuth } from '../contexts/AuthContext';
 import './PracticePage.css';
 import { memo } from 'react';
 import moment from 'moment';
@@ -27,6 +29,8 @@ const PracticePage: React.FC = () => {
   const { prepId } = useParams<{ prepId: string }>();
   const navigate = useNavigate();
   const { getPrep, getNextQuestion, skipQuestion, setCurrentQuestion, submitAnswer, currentQuestion } = useStudentPrep();
+  const { incrementAttempt, shouldShowDetailedFeedback, checkAndShowGuestLimitIfNeeded } = usePracticeAttempts();
+  const { user } = useAuth();
   const [state, setState] = useState<PageState>({
     filters: {},
     isLoading: false
@@ -108,7 +112,7 @@ const PracticePage: React.FC = () => {
 
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-      setCurrentQuestion(null); // Clear current question to show loading state
+      setCurrentQuestion(null);
       
       console.log('FORCE LOG - PracticePage calling skipQuestion:', {
         reason,
@@ -138,17 +142,27 @@ const PracticePage: React.FC = () => {
 
   const handleNext = useCallback(async (filters?: FilterState) => {
     console.log('👤 USER ACTION - Next Question:', {
-      filters,
+      providedFilters: filters,
+      currentFilters: state.filters,
       currentQuestionId: currentQuestion?.question.id,
       hasAnswered: Boolean(currentQuestion?.state.feedback),
       timestamp: new Date().toISOString()
     });
-    await handleQuestionTransition('next', filters, () => ({
+
+    // Check guest limits before proceeding
+    if (!checkAndShowGuestLimitIfNeeded()) {
+      return; // Stop if guest has reached their limit
+    }
+
+    // Use provided filters or fall back to current state filters
+    const filtersToUse = filters || state.filters;
+
+    await handleQuestionTransition('next', filtersToUse, () => ({
       canProceed: Boolean(currentQuestion?.state.feedback),
       reason: !currentQuestion ? 'no current question' : 
               !currentQuestion.state.feedback ? 'question not completed' : undefined
     }));
-  }, [currentQuestion, handleQuestionTransition]);
+  }, [currentQuestion, handleQuestionTransition, checkAndShowGuestLimitIfNeeded, state.filters]);
 
   const handleRetry = useCallback(async () => {
     console.log('👤 USER ACTION - Retry Question:', {
@@ -197,6 +211,15 @@ const PracticePage: React.FC = () => {
 
     try {
       console.log('📝 Submitting answer...');
+      
+      // Check if we can proceed with submission
+      const canProceed = await incrementAttempt();
+      if (!canProceed) {
+        console.log('⚠️ Submission blocked: authentication required');
+        return;
+      }
+
+      // If we can proceed, submit the answer
       const prep = await getPrep(prepId);
       if (!prep) {
         throw new Error('Practice session not found');
@@ -210,7 +233,7 @@ const PracticePage: React.FC = () => {
         error: err instanceof Error ? err.message : 'Failed to submit answer'
       }));
     }
-  }, [currentQuestion, prepId, getPrep, submitAnswer]);
+  }, [currentQuestion, prepId, getPrep, submitAnswer, incrementAttempt]);
 
   const handleExamDateChange = useCallback((date: moment.Moment) => {
     if (!state.prep) return;
@@ -292,54 +315,31 @@ const PracticePage: React.FC = () => {
     initializeQuestion();
   }, [state.prep, state.isLoading]);
 
-  // Logger configuration effect remains the same
-  useEffect(() => {
-    logger.configure({
-      filters: {
-        minLevel: 'debug',
-        showOnly: [],
-        ignorePatterns: []
-      },
-      isDevelopment: true
-    });
-    
-    logger.enableDebugging([
-      CRITICAL_SECTIONS.EXAM_STATE,
-      CRITICAL_SECTIONS.QUESTION_GENERATION,
-      CRITICAL_SECTIONS.RACE_CONDITIONS,
-      CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION
-    ]);
-
-    return () => {
-      logger.disableDebugging([
-        CRITICAL_SECTIONS.EXAM_STATE,
-        CRITICAL_SECTIONS.QUESTION_GENERATION,
-        CRITICAL_SECTIONS.RACE_CONDITIONS,
-        CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION
-      ]);
-    };
-  }, []);
-
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout className="practice-page">
       <PracticeHeader prepId={prepId || ''} />
-      <Layout.Content style={{ padding: '24px' }}>
-        {state.error ? (
+      <Layout.Content className="practice-content">
+        {state.error && (
           <Alert
-            message="Error"
+            message="שגיאה"
             description={state.error}
             type="error"
             showIcon
+            closable
+            onClose={() => setState(prev => ({ ...prev, error: undefined }))}
           />
-        ) : !state.prep ? (
-          <LoadingSpinner text="טוען..." />
-        ) : !hasInitialized.current || (!currentQuestion && !state.isLoading) ? (
+        )}
+        {!currentQuestion && !state.isLoading && !state.error && state.prep && (
           <WelcomeScreen
-            prep={state.prep}
             onStart={handleStartPractice}
             onExamDateChange={handleExamDateChange}
+            prep={state.prep}
           />
-        ) : currentQuestion ? (
+        )}
+        {state.isLoading && !currentQuestion && (
+          <LoadingSpinner />
+        )}
+        {currentQuestion && state.prep && (
           <div className="practice-container">
             <div className="practice-main">
               <QuestionInteractionContainer
@@ -353,18 +353,17 @@ const PracticePage: React.FC = () => {
                   status: currentQuestion.state.status,
                   feedback: currentQuestion.state.feedback,
                   questionIndex: currentQuestion.state.questionIndex || 0,
-                  correctAnswers: currentQuestion.state.correctAnswers || 0,
-                  averageScore: currentQuestion.state.averageScore || 0
+                  correctAnswers: currentQuestion.state.correctAnswers,
+                  averageScore: currentQuestion.state.averageScore
                 }}
                 filters={state.filters}
                 onFiltersChange={(filters) => setState(prev => ({ ...prev, filters }))}
                 prep={state.prep}
                 isQuestionLoading={state.isLoading}
+                showDetailedFeedback={shouldShowDetailedFeedback}
               />
             </div>
           </div>
-        ) : (
-          <LoadingSpinner text="טוען שאלה..." />
         )}
       </Layout.Content>
     </Layout>

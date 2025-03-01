@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, Space, Button, Typography, Input, Select, Divider } from 'antd';
 import { questionService } from '../services/llm/questionGenerationService';
 import type { Question, DifficultyLevel } from '../types/question';
-import QuestionViewer from '../components/QuestionViewer';
+import { QuestionAndOptionsDisplay } from '../components/question/QuestionAndOptionsDisplay';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -105,10 +105,9 @@ const TestGeneration: React.FC = () => {
             <div>
               <Title level={5}>Generated Question:</Title>
               <Card>
-                <QuestionViewer 
+                <QuestionAndOptionsDisplay 
                   question={question}
-                  showOptions={true}
-                  showSolution={true}
+                  showCorrectAnswer={true}
                 />
               </Card>
               

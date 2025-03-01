@@ -68,12 +68,12 @@ export class MultipleChoiceFeedbackService {
     if (isCorrect) {
       feedback = `<span style="color: #22c55e; font-size: 1.2em">✓ תשובה נכונה!</span>\n\n` +
              `בחרת נכון באפשרות ${selected}: <span style="color: #22c55e">${selectedText}</span>\n\n` +
-             `### הסבר\n${question.solution.text}`;
+             `### הסבר\n${question.solution?.text || 'אין הסבר זמין כרגע'}`;
     } else {
       feedback = `<span style="color: #ef4444; font-size: 1.2em">✗ תשובה שגויה</span>\n\n` +
            `בחרת באפשרות ${selected}: <span style="color: #ef4444">${selectedText}</span>\n` +
            `התשובה הנכונה היא אפשרות ${question.correctOption}: <span style="color: #22c55e">${correctText}</span>\n\n` +
-           `### הסבר\n${question.solution.text}`;
+           `### הסבר\n${question.solution?.text || 'אין הסבר זמין כרגע'}`;
     }
 
     logger.info('Generated core feedback:', {

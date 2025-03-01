@@ -40,9 +40,27 @@ const DEFAULT_DEV_FILTERS: LogFilters = {
     'error',
     'feedback generation',
     'answer submission',
-    'Question type selection'
+    'Question type selection',
+    'domain loading',
+    'topic loading',
+    'subtopic loading',
+    'hierarchy validation',
+    'UniversalTopics',
+    'Detailed Information',
+    'Subjects',
+    'Domains',
+    'Validation Maps Status',
+    'schema validation',
+    'topic validation',
+    'validation result',
+    'Starting metadata validation',
+    'Topic hierarchy validation',
+    'validation',
+    'topic-hierarchy',
+    'validation-errors',
+    'validation-success'
   ],
-  minLevel: 'info'
+  minLevel: 'debug'
 };
 
 // Default production filters
@@ -53,10 +71,14 @@ const DEFAULT_PROD_FILTERS: LogFilters = {
 };
 
 const DEFAULT_OPTIONS: LogOptions = {
-  level: 'info',
+  level: 'debug',
   timestamp: true,
-  isDevelopment: process.env.NODE_ENV === 'development',
-  filters: process.env.NODE_ENV === 'development' ? DEFAULT_DEV_FILTERS : DEFAULT_PROD_FILTERS
+  isDevelopment: true, // Force development mode for logging
+  filters: {
+    minLevel: 'debug',
+    ignorePatterns: [],
+    showOnly: []
+  }
 };
 
 // Define critical sections for debugging
@@ -70,7 +92,8 @@ export const CRITICAL_SECTIONS = {
   LATEX: 'latex-rendering',
   CODE_BLOCKS: 'code-blocks',
   RACE_CONDITIONS: 'race-conditions',
-  QUESTION_TYPE_SELECTION: 'question-type-selection'
+  QUESTION_TYPE_SELECTION: 'question-type-selection',
+  VALIDATION: 'validation'
 } as const;
 
 // Predefined configurations for critical sections
@@ -117,6 +140,11 @@ const CRITICAL_SECTION_CONFIGS: Record<string, Omit<ScopedLogOptions, 'context'>
   [CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION]: {
     minLevel: 'debug',
     showOnly: ['type', 'selection', 'filter', 'change'],
+    ignorePatterns: []
+  },
+  [CRITICAL_SECTIONS.VALIDATION]: {
+    minLevel: 'debug',
+    showOnly: ['validation', 'topic-hierarchy', 'validation-errors', 'validation-success'],
     ignorePatterns: []
   }
 };
@@ -351,3 +379,41 @@ logger.disableDebugging(CRITICAL_SECTIONS.FEEDBACK);
 const activeSections = logger.getActiveDebugSections();
 const isFeedbackDebugging = logger.isDebuggingEnabled(CRITICAL_SECTIONS.FEEDBACK);
 */ 
+
+const isDev = process.env.NODE_ENV === 'development';
+
+/**
+ * Simple logger that just works.
+ * In development: Shows all logs
+ * In production: Shows only warnings and errors
+ */
+export const loggerSimple = {
+  debug: (message: string, data?: any) => {
+    if (isDev) {
+      console.debug('[DEBUG]', message, data);
+    }
+  },
+  
+  info: (message: string, data?: any) => {
+    if (isDev) {
+      console.info('[INFO]', message, data);
+    }
+  },
+  
+  warn: (message: string, data?: any) => {
+    console.warn('[WARN]', message, data);
+  },
+  
+  error: (message: string, data?: any) => {
+    console.error('[ERROR]', message, data);
+  }
+};
+
+// For backward compatibility, keep the same export names
+export const CRITICAL_SECTIONS_SIMPLE = {
+  VALIDATION: 'validation',
+  EXAM_STATE: 'exam-state',
+  QUESTION_GENERATION: 'question-generation',
+  RACE_CONDITIONS: 'race-conditions',
+  QUESTION_TYPE_SELECTION: 'question-type-selection'
+} as const; 

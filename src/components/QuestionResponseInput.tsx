@@ -6,6 +6,7 @@ import { MonacoEditor } from './MonacoEditor';
 import { QuestionMultipleChoiceInput } from './QuestionMultipleChoiceInput';
 import { RedoOutlined } from '@ant-design/icons';
 import './QuestionResponseInput.css';
+import { usePracticeAttempts } from '../contexts/PracticeAttemptsContext';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -84,6 +85,7 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
 }) => {
   const [answer, setAnswer] = useState(selectedAnswer);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isGuestLimitExceeded } = usePracticeAttempts();
 
   useEffect(() => {
     if (disabled) {
@@ -116,7 +118,7 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
     }
   };
 
-  const shouldShowRetry = feedback && !feedback.isCorrect && (!feedback.score || feedback.score < 80);
+  const shouldShowRetry = feedback && !feedback.isCorrect && (!feedback.score || feedback.score < 80) && !isGuestLimitExceeded;
 
   return (
     <div className="question-response-input">
@@ -245,10 +247,12 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
           .action-buttons {
             display: flex;
             gap: 12px;
-            justify-content: flex-end;
+            justify-content: space-between;
+            width: 100%;
           }
 
           .submit-button {
+            margin-right: auto;  /* This will push it to the left in RTL */
             min-width: 200px;
             height: 48px;
             border-radius: 24px;

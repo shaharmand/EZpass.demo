@@ -5,12 +5,22 @@
   overflow-wrap: break-word;
   word-wrap: break-word;
   hyphens: auto;
+  white-space: pre-wrap;
 }
 
 .markdown-content p {
   margin: 1em 0;
   direction: rtl;
   unicode-bidi: embed;
+  white-space: pre-wrap !important;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.markdown-content br {
+  display: block;
+  content: "";
+  margin-top: 1em;
 }
 
 .markdown-content strong {

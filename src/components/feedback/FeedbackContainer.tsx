@@ -7,6 +7,8 @@ import { RedoOutlined, InfoCircleOutlined, CheckCircleOutlined, BookOutlined, Ar
 import { logger } from '../../utils/logger';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
+import { AuthModal } from '../../components/Auth/AuthModal';
 
 const { Text, Title } = Typography;
 
@@ -16,6 +18,7 @@ interface FeedbackContainerProps {
   onRetry?: () => void;
   onNext: () => void;
   selectedAnswer?: string;
+  showDetailedFeedback?: boolean;
 }
 
 const getScoreColor = (score: number) => {
@@ -38,9 +41,12 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   feedback,
   onRetry,
   onNext,
-  selectedAnswer
+  selectedAnswer,
+  showDetailedFeedback = true
 }) => {
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const { isGuestLimitExceeded } = usePracticeAttempts();
+  const [showAuthModal, setShowAuthModal] = React.useState(false);
 
   useEffect(() => {
     if (feedbackRef.current) {
@@ -95,113 +101,154 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
 
   return (
     <div ref={feedbackRef} className="feedback-container">
-      {question.type === 'multiple_choice' ? (
-        <MultipleChoiceFeedback
-          question={question}
-          feedback={feedback}
-          selectedAnswer={selectedAnswer || ''}
-        />
-      ) : (
+      {isGuestLimitExceeded ? (
         <>
-          {renderFeedbackHeader()}
-          <div className="feedback-content">
-            <Tabs 
-              defaultActiveKey="core"
-              type="card"
-              className="feedback-tabs"
-              items={[
-                {
-                  key: 'core',
-                  label: (
-                    <span className="tab-label">
-                      <CheckCircleOutlined /> המשוב שלך
-                    </span>
-                  ),
-                  children: (
-                    <div className="feedback-section">
-                      <MarkdownRenderer content={feedback.coreFeedback} />
-                      {feedback.rubricScores && (
-                        <RubricFeedback 
-                          rubricScores={feedback.rubricScores}
-                          rubricAssessment={question.evaluation?.rubricAssessment}
-                        />
-                      )}
-                    </div>
-                  )
-                },
-                {
-                  key: 'detailed',
-                  label: (
-                    <span className="tab-label">
-                      <BookOutlined /> רוצה להבין יותר?
-                    </span>
-                  ),
-                  children: (
-                    <div className="feedback-section">
-                      <MarkdownRenderer content={feedback.detailedFeedback || 'אין ניתוח מעמיק זמין.'} />
-                    </div>
-                  )
-                },
-                {
-                  key: 'solution',
-                  label: (
-                    <span className="tab-label">
-                      <StarOutlined /> תשובת בית-ספר
-                    </span>
-                  ),
-                  children: (
-                    <div className="feedback-section">
-                      <div className="solution-header">
-                        <InfoCircleOutlined className="info-icon" />
-                        <Tooltip title="כאן תוכל/י למצוא את הפתרון המלא כפי שהיה נכתב בספר לימוד או במדריך למורה. זה יכול לעזור להבין את דרך החשיבה המצופה.">
-                          <Text>פתרון מלא</Text>
-                        </Tooltip>
-                      </div>
-                      {question.solution ? (
-                        <>
-                          <div className="solution-steps">
-                            <MarkdownRenderer content={question.solution.text} />
-                          </div>
-                          {question.solution.answer && (
-                            <div className="final-answer">
-                              <Text strong>התשובה הרשמית:</Text>
-                              <div className="final-answer-content">
-                                <MarkdownRenderer content={question.solution.answer} />
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <Text>אין פתרון זמין כרגע.</Text>
-                      )}
-                    </div>
-                  )
-                }
-              ]}
-            />
+          <div className="feedback-header guest-limit">
+            <div className="feedback-header-content">
+              <div className="feedback-title-section centered">
+                <Title level={4} className="feedback-title neutral">
+                  המשוב שלך מוכן!
+                </Title>
+                <Text className="feedback-assessment centered">
+                  {question.type === 'multiple_choice' ? 
+                    'התחבר כדי לצפות במשוב המלא כולל הסברים מפורטים למה נבחרה התשובה הנכונה' :
+                    'התחבר כדי לצפות במשוב המלא ולקבל ניתוח מפורט של התשובה שלך'
+                  }
+                </Text>
+              </div>
+            </div>
+          </div>
+          <div className="guest-limit-container">
+            <Button 
+              type="primary" 
+              size="large"
+              onClick={() => setShowAuthModal(true)}
+              className="guest-limit-button"
+            >
+              התחבר כדי לצפות במשוב
+            </Button>
+            {showAuthModal && (
+              <AuthModal 
+                open={true}
+                onClose={() => setShowAuthModal(false)}
+                returnUrl={window.location.pathname}
+              />
+            )}
           </div>
         </>
-      )}
-
-      <div className="action-buttons-container">
-        <div className="action-buttons">
-          {shouldShowRetry && (
-            <Button
-              type="primary"
-              icon={<RedoOutlined />}
-              onClick={handleRetry}
-              size="large"
-              className="retry-button"
-            >
-              נסה שוב
-            </Button>
+      ) : (
+        <>
+          {question.type === 'multiple_choice' as const ? (
+            <MultipleChoiceFeedback
+              question={question}
+              feedback={feedback}
+              selectedAnswer={selectedAnswer || ''}
+            />
+          ) : (
+            <>
+              {renderFeedbackHeader()}
+              <div className="feedback-content">
+                <Tabs 
+                  defaultActiveKey="core"
+                  type="card"
+                  className="feedback-tabs"
+                  items={[
+                    {
+                      key: 'core',
+                      label: (
+                        <span className="tab-label">
+                          <CheckCircleOutlined /> המשוב שלך
+                        </span>
+                      ),
+                      children: (
+                        <div className="feedback-section">
+                          <MarkdownRenderer content={feedback.coreFeedback} />
+                          {feedback.rubricScores && (
+                            <RubricFeedback 
+                              rubricScores={feedback.rubricScores}
+                              rubricAssessment={question.evaluation?.rubricAssessment}
+                            />
+                          )}
+                        </div>
+                      )
+                    },
+                    ...(showDetailedFeedback ? [
+                      {
+                        key: 'detailed',
+                        label: (
+                          <span className="tab-label">
+                            <BookOutlined /> רוצה להבין יותר?
+                          </span>
+                        ),
+                        children: (
+                          <div className="feedback-section">
+                            <MarkdownRenderer content={feedback.detailedFeedback || 'אין ניתוח מעמיק זמין.'} />
+                          </div>
+                        )
+                      },
+                      {
+                        key: 'solution',
+                        label: (
+                          <span className="tab-label">
+                            <StarOutlined /> תשובת בית-ספר
+                          </span>
+                        ),
+                        children: (
+                          <div className="feedback-section">
+                            <div className="solution-header">
+                              <InfoCircleOutlined className="info-icon" />
+                              <Tooltip title="כאן תוכל/י למצוא את הפתרון המלא כפי שהיה נכתב בספר לימוד או במדריך למורה. זה יכול לעזור להבין את דרך החשיבה המצופה.">
+                                <Text>פתרון מלא</Text>
+                              </Tooltip>
+                            </div>
+                            {question.solution ? (
+                              <>
+                                <div className="solution-steps">
+                                  <MarkdownRenderer content={question.solution.text} />
+                                </div>
+                                {question.solution.answer && (
+                                  <div className="final-answer">
+                                    <Text strong>התשובה הרשמית:</Text>
+                                    <div className="final-answer-content">
+                                      <MarkdownRenderer content={question.solution.answer} />
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <Text>אין פתרון זמין כרגע.</Text>
+                            )}
+                          </div>
+                        )
+                      }
+                    ] : [])
+                  ]}
+                />
+              </div>
+            </>
           )}
+        </>
+      )}
+      
+      <div className="action-buttons">
+        {shouldShowRetry && !isGuestLimitExceeded && (
           <Button
-            type={isHighScore ? "primary" : "default"}
+            type="primary"
+            icon={<RedoOutlined />}
+            onClick={handleRetry}
+            size="large"
+            className="retry-button"
+          >
+            נסה שוב
+          </Button>
+        )}
+        <div className="next-button-container">
+          <Button
+            type={isHighScore && !isGuestLimitExceeded ? "primary" : "default"}
             onClick={onNext}
             size="large"
             icon={<ArrowLeftOutlined />}
-            className={`next-button ${isHighScore ? 'high-score' : 'low-score'}`}
+            className={`next-button ${isHighScore && !isGuestLimitExceeded ? 'high-score' : 'low-score'}`}
           >
             המשך לשאלה הבאה
           </Button>
@@ -217,6 +264,19 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
             overflow: hidden;
             display: flex;
             flex-direction: column;
+          }
+
+          .guest-limit-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+          }
+
+          .guest-limit-button {
+            font-size: 16px;
+            height: 48px;
+            padding: 0 32px;
           }
 
           .feedback-header {
@@ -328,19 +388,12 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
             font-weight: 500;
           }
 
-          .action-buttons-container {
+          .action-buttons {
             padding: 12px 16px;
             border-top: 1px solid #e5e7eb;
             display: flex;
             justify-content: space-between;
-          }
-
-          .action-buttons {
-            display: flex;
-            gap: 12px;
-            flex-direction: row;
-            width: 100%;
-            justify-content: ${shouldShowRetry ? 'space-between' : 'flex-end'};
+            align-items: center;
           }
 
           .retry-button {
@@ -360,6 +413,10 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
             background: #2563eb;
+          }
+
+          .next-button-container {
+            margin-right: auto;  /* This will push the button to the left in RTL */
           }
 
           .next-button {
@@ -414,6 +471,62 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
           .info-icon {
             font-size: 16px;
             color: #0369a1;
+          }
+
+          .feedback-header.guest-limit {
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 32px 24px;
+          }
+
+          .feedback-header.guest-limit .feedback-header-content {
+            justify-content: center;
+            text-align: center;
+          }
+
+          .feedback-title-section.centered {
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+          }
+
+          .feedback-title.neutral {
+            color: #2563eb !important;
+            text-align: center;
+            margin-bottom: 12px !important;
+          }
+
+          .feedback-assessment.centered {
+            text-align: center;
+            display: block;
+            margin: 0 auto;
+            max-width: 500px;
+            line-height: 1.6;
+          }
+
+          .guest-limit-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 32px;
+            background: white;
+          }
+
+          .guest-limit-button {
+            font-size: 16px;
+            height: 48px;
+            padding: 0 40px;
+            background: #2563eb;
+            border: none;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+            transition: all 0.3s ease;
+            border-radius: 24px;
+          }
+
+          .guest-limit-button:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
           }
         `}
       </style>

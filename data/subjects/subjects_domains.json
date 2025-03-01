@@ -1,5 +1,5 @@
 {
-  "description": "This JSON structure contains a list of subjects, each with a list of associated domains. Each subject represents a field of study, and each domain represents a specific area within that field.",
+"description": "This JSON structure contains a list of subjects, each with a list of associated domains. Each subject represents a field of study, and each domain represents a specific area within that field.",
   "Subjects": [
     {
       "id": "civil_engineering",
@@ -11,7 +11,7 @@
           "id": "construction_safety",
           "code": "SAF",
           "name": "בטיחות בבנייה",
-          "description": "בטיחות בבניה"
+          "description": "בטיחות   בבניה"
         }
       ]
     },

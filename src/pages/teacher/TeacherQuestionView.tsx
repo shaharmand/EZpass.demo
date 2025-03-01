@@ -20,13 +20,14 @@ import {
   LockOutlined,
   CopyOutlined
 } from '@ant-design/icons';
-import QuestionViewer from '../components/QuestionViewer';
-import QuestionContent from '../components/QuestionContent';
-import QuestionMetadata from '../components/QuestionMetadata';
-import { MarkdownRenderer } from '../components/MarkdownRenderer';
-import type { Question } from '../types/question';
-import { questionStorage } from '../services/admin/questionStorage';
-import { logger } from '../utils/logger';
+import QuestionViewer from '../../components/QuestionViewer';
+import QuestionContent from '../../components/QuestionContent';
+import QuestionMetadata from '../../components/QuestionMetadata';
+import { MarkdownRenderer } from '../../components/MarkdownRenderer';
+import type { Question } from '../../types/question';
+import { questionStorage } from '../../services/admin/questionStorage';
+import { logger } from '../../utils/logger';
+import { QuestionAndOptionsDisplay } from '../../components/question/QuestionAndOptionsDisplay';
 
 const { Title, Text } = Typography;
 
@@ -34,7 +35,7 @@ interface QuestionPageProps {
   // Add props if needed
 }
 
-const QuestionPage: React.FC<QuestionPageProps> = () => {
+export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
   const { questionId } = useParams();
   const navigate = useNavigate();
   const [question, setQuestion] = useState<Question | null>(null);
@@ -42,27 +43,25 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchQuestion = async () => {
-      if (!questionId) return;
-      
+    const loadQuestion = async () => {
+      if (!questionId) {
+        setError('No question ID provided');
+        return;
+      }
+
       try {
-        setLoading(true);
-        setError(null);
-        setQuestion(null); // Reset question while loading
-        
         logger.info('Fetching question from storage', { questionId });
         const fetchedQuestion = await questionStorage.getQuestion(questionId);
         setQuestion(fetchedQuestion);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load question';
         setError(errorMessage);
-        logger.error('Error fetching question:', { questionId, error: err });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchQuestion();
+    loadQuestion();
   }, [questionId]);
 
   const teacherActionMenuItems = [
@@ -223,6 +222,16 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
           
           {/* Question Content */}
           <QuestionContent content={question.content.text} />
+          
+          {/* Question Options */}
+          {question.type === 'multiple_choice' && question.options && (
+            <div style={{ marginTop: '1rem' }}>
+              <QuestionAndOptionsDisplay 
+                question={question}
+                showCorrectAnswer={true}
+              />
+            </div>
+          )}
         </Space>
       </Card>
 
@@ -237,20 +246,24 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
         }
       >
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div className="solution-content">
-            <MarkdownRenderer content={question.solution.text} />
-          </div>
-          {question.solution.answer && (
+          {question.solution && (
             <>
-              <Divider>תשובה סופית</Divider>
-              <div className="final-answer" style={{
-                padding: '16px',
-                background: '#f0fdf4',
-                borderRadius: '8px',
-                border: '1px solid #86efac'
-              }}>
-                <MarkdownRenderer content={question.solution.answer} />
+              <div className="solution-content">
+                <MarkdownRenderer content={question.solution.text} />
               </div>
+              {question.solution.answer && (
+                <>
+                  <Divider>תשובה סופית</Divider>
+                  <div className="final-answer" style={{
+                    padding: '16px',
+                    background: '#f0fdf4',
+                    borderRadius: '8px',
+                    border: '1px solid #86efac'
+                  }}>
+                    <MarkdownRenderer content={question.solution.answer} />
+                  </div>
+                </>
+              )}
             </>
           )}
         </Space>
@@ -416,4 +429,4 @@ const QuestionPage: React.FC<QuestionPageProps> = () => {
   );
 };
 
-export default QuestionPage; 
+export default TeacherQuestionView; 

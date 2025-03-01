@@ -59,16 +59,6 @@ export class QuestionRotationManager {
       throw error;
     }
 
-    // Force all logs to show
-    logger.configure({
-      filters: {
-        minLevel: 'debug',
-        showOnly: [],
-        ignorePatterns: []
-      },
-      isDevelopment: true
-    });
-
     console.log('FORCE LOG - ROTATION MANAGER CONSTRUCTOR:', {
       examId: exam.id,
       allowedTypes: exam.allowedQuestionTypes,

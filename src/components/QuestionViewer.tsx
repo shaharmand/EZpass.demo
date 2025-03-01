@@ -87,7 +87,7 @@ const QuestionViewer: React.FC<QuestionViewerProps> = ({
       )}
 
       {/* Solution (if showSolution is true) */}
-      {showSolution && (
+      {showSolution && question.solution && (
         <div className="question-solution" style={{ marginTop: '1.5rem' }}>
           <Text strong style={{ display: 'block', marginBottom: '0.5rem' }}>
             פתרון:

@@ -17,6 +17,8 @@ import PracticeHeaderProgress from './PracticeHeaderProgress/PracticeHeaderProgr
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { PrepStateManager } from '../services/PrepStateManager';
+import { useAuth } from '../contexts/AuthContext';
+import { AuthModal } from './Auth/AuthModal';
 
 const { Text, Title } = Typography;
 
@@ -64,12 +66,11 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prepId }) => {
   const { metrics, isLoading } = usePracticeProgress();
   const { startPrep } = useStudentPrep();
   const [configOpen, setConfigOpen] = useState(false);
-  const defaultUserName = 'אורח';
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState(defaultUserName);
   const navigate = useNavigate();
   const [examContentOpen, setExamContentOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
     const loadPrep = async () => {
@@ -182,41 +183,31 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prepId }) => {
     }
   };
 
-  const handleMenuClick: MenuProps['onClick'] = (e) => {
+  const handleMenuClick: MenuProps['onClick'] = async (e) => {
     if (e.key === 'login') {
-      const key = 'loginNotification';
-      notification.info({
-        key,
-        message: 'מתחבר...',
-        description: 'אנא המתן',
-        placement: 'topLeft',
-        duration: 0,
-      });
-
-      setTimeout(() => {
-        setIsLoggedIn(true);
-        setUserName('ישראל ישראלי');
-        notification.success({
-          key,
-          message: 'התחברת בהצלחה',
-          description: 'ברוך הבא ישראל!',
-          placement: 'topLeft',
-          duration: 2,
-        });
-      }, 1000);
+      setShowAuthModal(true);
     } else if (e.key === 'logout') {
-      setIsLoggedIn(false);
-      setUserName(defaultUserName);
-      notification.success({
-        message: 'התנתקת בהצלחה',
-        description: 'להתראות!',
-        placement: 'topLeft',
-      });
+      try {
+        await signOut();
+        notification.success({
+          message: 'התנתקת בהצלחה',
+          description: 'להתראות!',
+          placement: 'topLeft',
+        });
+      } catch (error) {
+        notification.error({
+          message: 'שגיאה בהתנתקות',
+          description: 'אנא נסה שוב',
+          placement: 'topLeft',
+        });
+      }
+    } else if (e.key === 'profile') {
+      navigate('/profile');
     }
   };
 
   const userMenuItems = [
-    ...(isLoggedIn ? [
+    ...(user ? [
       {
         key: 'profile',
         label: 'פרופיל',
@@ -266,91 +257,133 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prepId }) => {
   };
 
   return (
-    <div style={headerStyle.container}>
-      <div style={headerStyle.content}>
-        {/* Top Row */}
-        <div style={headerStyle.topRow}>
-          {/* Logo */}
-          <div style={headerStyle.logo}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px'
-            }}>
-              <motion.div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px',
-                  cursor: 'pointer',
-                  padding: '8px 16px',
-                  borderRadius: '12px',
-                  transition: 'all 0.3s ease'
-                }}
-                whileHover={{ 
-                  scale: 1.02,
-                  backgroundColor: 'rgba(255, 255, 255, 0.8)'
-                }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate('/')}
-              >
-                <motion.img
-                  src="/EZpass_A6_cut.png"
-                  alt="איזיפס - פשוט להצליח"
-                  style={{
-                    height: '48px',
-                    width: 'auto',
-                    objectFit: 'contain'
-                  }}
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                />
+    <>
+      <div style={headerStyle.container}>
+        <div style={headerStyle.content}>
+          {/* Top Row */}
+          <div style={headerStyle.topRow}>
+            {/* Logo */}
+            <div style={headerStyle.logo}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px'
+              }}>
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3, duration: 0.5 }}
                   style={{
-                    height: '32px',
-                    borderRight: '2px solid #e5e7eb',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    cursor: 'pointer',
+                    padding: '8px 16px',
+                    borderRadius: '12px',
+                    transition: 'all 0.3s ease'
                   }}
-                />
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3, duration: 0.5 }}
+                  whileHover={{ 
+                    scale: 1.02,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)'
+                  }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigate('/')}
                 >
-                  <Text style={{ 
-                    fontSize: '16px',
-                    color: '#ff9800',
-                    fontWeight: 500,
-                    letterSpacing: '0.5px',
-                    whiteSpace: 'nowrap',
-                    marginRight: '8px'
-                  }}>
-                    פשוט להצליח
-                  </Text>
+                  <motion.img
+                    src="/EZpass_A6_cut.png"
+                    alt="איזיפס - פשוט להצליח"
+                    style={{
+                      height: '48px',
+                      width: 'auto',
+                      objectFit: 'contain'
+                    }}
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3, duration: 0.5 }}
+                    style={{
+                      height: '32px',
+                      borderRight: '2px solid #e5e7eb',
+                    }}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3, duration: 0.5 }}
+                  >
+                    <Text style={{ 
+                      fontSize: '16px',
+                      color: '#ff9800',
+                      fontWeight: 500,
+                      letterSpacing: '0.5px',
+                      whiteSpace: 'nowrap',
+                      marginRight: '8px'
+                    }}>
+                      פשוט להצליח
+                    </Text>
+                  </motion.div>
                 </motion.div>
-              </motion.div>
+              </div>
             </div>
-          </div>
 
-          {/* Center Section */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            justifyContent: 'center',
-            flex: 1
-          }}>
-            <Space size={16} align="center">
-              <Title level={4} style={headerStyle.examTitle}>
-                {prep.exam.names.medium}
-              </Title>
-              
-              <div style={{ position: 'relative', display: 'inline-block' }}>
-                <Button 
+            {/* Center Section */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'center',
+              flex: 1
+            }}>
+              <Space size={16} align="center">
+                <Title level={4} style={headerStyle.examTitle}>
+                  {prep.exam.names.medium}
+                </Title>
+                
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <Button 
+                    type="text"
+                    onClick={() => setIsDatePickerOpen(true)}
+                    style={{
+                      ...headerStyle.dateButton,
+                      backgroundColor: '#f0f9ff',
+                      borderColor: '#bae6fd',
+                      color: '#0369a1',
+                      height: '40px',
+                      display: 'inline-flex',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <CalendarOutlined style={{ fontSize: '18px' }} />
+                    <Text>{formatTimeUntilExam(new Date(prep.goals.examDate))}</Text>
+                  </Button>
+                  <DatePicker
+                    open={isDatePickerOpen}
+                    value={moment(prep.goals.examDate)}
+                    onChange={handleDateChange}
+                    onOpenChange={(open) => setIsDatePickerOpen(open)}
+                    allowClear={false}
+                    disabledDate={(current) => current && current.isBefore(moment().startOf('day'))}
+                    style={{
+                      position: 'absolute',
+                      opacity: 0,
+                      width: 0,
+                      height: 0,
+                      pointerEvents: 'none',
+                      right: 0
+                    }}
+                    dropdownAlign={{
+                      points: ['tc', 'bc'],
+                      offset: [-100, 8],
+                      overflow: { adjustX: true, adjustY: true }
+                    }}
+                    getPopupContainer={(trigger) => trigger.parentNode as HTMLElement}
+                    direction="rtl"
+                  />
+                </div>
+
+                <Button
                   type="text"
-                  onClick={() => setIsDatePickerOpen(true)}
+                  onClick={() => setExamContentOpen(true)}
                   style={{
                     ...headerStyle.dateButton,
                     backgroundColor: '#f0f9ff',
@@ -361,165 +394,106 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({ prepId }) => {
                     alignItems: 'center'
                   }}
                 >
-                  <CalendarOutlined style={{ fontSize: '18px' }} />
-                  <Text>{formatTimeUntilExam(new Date(prep.goals.examDate))}</Text>
+                  <Text>
+                    {prep.selection.subTopics.length}/{subTopicCount} נושאים
+                  </Text>
                 </Button>
-                <DatePicker
-                  open={isDatePickerOpen}
-                  value={moment(prep.goals.examDate)}
-                  onChange={handleDateChange}
-                  onOpenChange={(open) => setIsDatePickerOpen(open)}
-                  allowClear={false}
-                  disabledDate={(current) => current && current.isBefore(moment().startOf('day'))}
-                  style={{
-                    position: 'absolute',
-                    opacity: 0,
-                    width: 0,
-                    height: 0,
-                    pointerEvents: 'none',
-                    right: 0
-                  }}
-                  dropdownAlign={{
-                    points: ['tc', 'bc'],
-                    offset: [-100, 8],
-                    overflow: { adjustX: true, adjustY: true }
-                  }}
-                  getPopupContainer={(trigger) => trigger.parentNode as HTMLElement}
-                  direction="rtl"
-                />
-              </div>
+              </Space>
+            </div>
 
-              <Button
-                type="text"
-                onClick={() => setExamContentOpen(true)}
-                style={{
-                  ...headerStyle.dateButton,
-                  backgroundColor: '#f0f9ff',
-                  borderColor: '#bae6fd',
-                  color: '#0369a1',
-                  height: '40px',
-                  display: 'inline-flex',
-                  alignItems: 'center'
-                }}
-              >
-                <Text>
-                  {prep.selection.subTopics.length}/{subTopicCount} נושאים
-                </Text>
-              </Button>
-            </Space>
-          </div>
-
-          {/* User Section */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Button 
-              type="text"
-              icon={<SettingOutlined style={{ fontSize: '18px' }} />}
-              onClick={() => setConfigOpen(true)}
-            />
-            <Dropdown 
-              menu={{ items: userMenuItems, onClick: handleMenuClick }} 
-              placement="bottomRight"
-              trigger={['click']}
-            >
+            {/* User Section */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <Button 
-                type={isLoggedIn ? 'primary' : 'default'}
-                icon={<UserOutlined />}
+                type="text"
+                icon={<SettingOutlined style={{ fontSize: '18px' }} />}
+                onClick={() => setConfigOpen(true)}
+              />
+              <Dropdown 
+                menu={{ items: userMenuItems, onClick: handleMenuClick }} 
+                placement="bottomRight"
+                trigger={['click']}
               >
-                {userName}
-              </Button>
-            </Dropdown>
+                <Button 
+                  type={user ? 'primary' : 'default'}
+                  icon={<UserOutlined />}
+                >
+                  {user ? user.email : 'אורח'}
+                </Button>
+              </Dropdown>
+            </div>
           </div>
-        </div>
 
-        {/* Metrics Row */}
-        <div style={headerStyle.metricsRow}>
-          {isLoading ? (
-            <Space>
-              <Spin size="small" />
-              <Text>טוען נתונים...</Text>
-            </Space>
-          ) : (
-            <PracticeHeaderProgress metrics={{
-              successRate: prep.state.status === 'initializing' || 
-                prep.state.status === 'not_started' ||
-                !('completedQuestions' in prep.state) ||
-                !('averageScore' in prep.state) ||
-                prep.state.completedQuestions === 0
-                ? -1
-                : Math.round(prep.state.averageScore),
-              totalQuestions: prep.exam.topics.reduce((acc, topic) => 
-                acc + (topic.subTopics?.length || 0), 0) * 50,
-              questionsAnswered: prep.state.status === 'initializing' || 
-                prep.state.status === 'not_started' ||
-                !('completedQuestions' in prep.state)
-                ? 0
-                : prep.state.completedQuestions,
-              overallProgress: {
-                current: prep.state.status === 'initializing' || 
+          {/* Metrics Row */}
+          <div style={headerStyle.metricsRow}>
+            {isLoading ? (
+              <Space>
+                <Spin size="small" />
+                <Text>טוען נתונים...</Text>
+              </Space>
+            ) : (
+              <PracticeHeaderProgress metrics={{
+                successRate: prep.state.status === 'initializing' || 
                   prep.state.status === 'not_started' ||
-                  !('activeTime' in prep.state)
-                  ? 0
-                  : Math.round(prep.state.activeTime / (60 * 60 * 1000)), // Convert ms to hours
-                target: prep.goals.totalHours
-              },
-              weeklyProgress: {
-                current: prep.state.status === 'initializing' || 
+                  !('completedQuestions' in prep.state) ||
+                  !('averageScore' in prep.state) ||
+                  prep.state.completedQuestions === 0
+                  ? -1
+                  : Math.round(prep.state.averageScore),
+                totalQuestions: prep.exam.topics.reduce((acc, topic) => 
+                  acc + (topic.subTopics?.length || 0), 0) * 50,
+                questionsAnswered: prep.state.status === 'initializing' || 
                   prep.state.status === 'not_started' ||
-                  !('activeTime' in prep.state)
+                  !('completedQuestions' in prep.state)
                   ? 0
-                  : Math.round(prep.state.activeTime / (60 * 60 * 1000)), // Convert ms to hours
-                target: Math.ceil(prep.goals.totalHours / moment(prep.goals.examDate).diff(moment(), 'weeks'))
-              },
-              dailyProgress: {
-                current: prep.state.status === 'initializing' || 
-                  prep.state.status === 'not_started' ||
-                  !('activeTime' in prep.state)
-                  ? 0
-                  : Math.round(prep.state.activeTime / (60 * 1000)), // Convert ms to minutes and round
-                target: Math.ceil((prep.goals.totalHours * 60) / Math.max(1, moment(prep.goals.examDate).diff(moment(), 'days'))) // Calculate daily minutes based on remaining days
-              }
-            }} />
-          )}
+                  : prep.state.completedQuestions,
+                overallProgress: {
+                  current: prep.state.status === 'initializing' || 
+                    prep.state.status === 'not_started' ||
+                    !('activeTime' in prep.state)
+                    ? 0
+                    : Math.round(prep.state.activeTime / (60 * 60 * 1000)),
+                  target: prep.goals.totalHours
+                },
+                weeklyProgress: {
+                  current: prep.state.status === 'initializing' || 
+                    prep.state.status === 'not_started' ||
+                    !('activeTime' in prep.state)
+                    ? 0
+                    : Math.round(prep.state.activeTime / (60 * 60 * 1000)),
+                  target: Math.ceil(prep.goals.totalHours / moment(prep.goals.examDate).diff(moment(), 'weeks'))
+                },
+                dailyProgress: {
+                  current: prep.state.status === 'initializing' || 
+                    prep.state.status === 'not_started' ||
+                    !('activeTime' in prep.state)
+                    ? 0
+                    : Math.round(prep.state.activeTime / (60 * 1000)),
+                  target: Math.ceil((prep.goals.totalHours * 60) / Math.max(1, moment(prep.goals.examDate).diff(moment(), 'days')))
+                }
+              }} />
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Config Drawer */}
-      <Drawer
-        title="הגדרות מבחן"
-        placement="right"
-        width={400}
+      <AuthModal
+        open={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        returnUrl={window.location.pathname}
+      />
+
+      <PrepConfigDialog
         open={configOpen}
         onClose={() => setConfigOpen(false)}
-      >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <div>
-            <Title level={5}>פרטי מבחן</Title>
-            <Text>נושאים: {topicCount}</Text>
-            <br />
-            <Text>תתי-נושאים: {subTopicCount}</Text>
-          </div>
-          <PrepConfigDialog
-            prep={prep}
-            open={configOpen}
-            onClose={() => setConfigOpen(false)}
-          />
-        </Space>
-      </Drawer>
-
-      {/* Add ExamContentDialog */}
+        prep={prep}
+      />
+      
       <ExamContentDialog
-        exam={prep.exam}
         open={examContentOpen}
-        onClose={() => {
-          setExamContentOpen(false);
-          // Refresh prep state after dialog closes
-          const freshPrep = PrepStateManager.getPrep(prepId);
-          if (freshPrep) {
-            setPrep(freshPrep);
-          }
-        }}
+        onClose={() => setExamContentOpen(false)}
+        exam={prep.exam}
         prepId={prepId}
       />
-    </div>
+    </>
   );
 }; 

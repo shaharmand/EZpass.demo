@@ -13,6 +13,8 @@ import { logger, CRITICAL_SECTIONS } from '../utils/logger';
 import { ExamType } from '../types/examTemplate';
 import { examService } from '../services/examService';
 import { universalTopics } from '../services/universalTopics';
+import { questionStorage } from '../services/admin/questionStorage';
+import { getSupabase } from '../services/supabaseClient';
 
 interface StudentPrepContextType {
   currentQuestion: PracticeQuestion | null;
@@ -42,34 +44,6 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const isGeneratingQuestion = useRef(false);
   const rotationManager = useRef<QuestionRotationManager | null>(null);
   const feedbackService = useRef<FeedbackService>(new FeedbackService());
-
-  // Enable critical logging sections
-  useEffect(() => {
-    logger.configure({
-      filters: {
-        minLevel: 'debug',
-        showOnly: [],
-        ignorePatterns: []
-      },
-      isDevelopment: true
-    });
-    
-    logger.enableDebugging([
-      CRITICAL_SECTIONS.EXAM_STATE,
-      CRITICAL_SECTIONS.QUESTION_GENERATION,
-      CRITICAL_SECTIONS.RACE_CONDITIONS,
-      CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION
-    ]);
-
-    return () => {
-      logger.disableDebugging([
-        CRITICAL_SECTIONS.EXAM_STATE,
-        CRITICAL_SECTIONS.QUESTION_GENERATION,
-        CRITICAL_SECTIONS.RACE_CONDITIONS,
-        CRITICAL_SECTIONS.QUESTION_TYPE_SELECTION
-      ]);
-    };
-  }, []);
 
   // Get prep by ID
   const getPrep = useCallback(async (prepId: string): Promise<StudentPrep | null> => {
@@ -192,7 +166,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       isCorrect,
       score: isCorrect ? 100 : 0,
       assessment: isCorrect ? 'תשובה נכונה' : 'תשובה לא נכונה',
-      coreFeedback: question.solution.text,
+      coreFeedback: question.solution?.text || 'אין פתרון זמין כרגע',
       detailedFeedback: undefined // Not used for multiple choice
     };
   };
@@ -307,12 +281,105 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
 
       const params = rotationManager.current.getNextParameters(filters);
-
-      // Generate question with rotated parameters
-      const question = await questionService.generateQuestion(params);
       
+      console.log('🔍 SEARCH PARAMS:', {
+        topic: params.topic,
+        subtopic: params.subtopic,
+        type: params.type,
+        timestamp: new Date().toISOString()
+      });
+
+      // Try to find existing questions that match our criteria
+      const supabase = getSupabase();
+      if (!supabase) throw new Error('Supabase client not initialized');
+
+      // First, let's see what questions we have in the database
+      const { data: allQuestions, error: allError } = await supabase
+        .from('questions')
+        .select('*')
+        .limit(5);
+
+      console.log('🔍 SAMPLE OF ALL QUESTIONS:', {
+        count: allQuestions?.length,
+        firstQuestion: allQuestions?.[0] ? {
+          id: allQuestions[0].id,
+          type: allQuestions[0].data?.type,
+          metadata: allQuestions[0].data?.metadata,
+          status: allQuestions[0].status
+        } : null,
+        timestamp: new Date().toISOString()
+      });
+
+      // Now try our filtered query
+      const query = supabase
+        .from('questions')
+        .select('*')
+        .eq('data->metadata->>topicId', params.topic)
+        .eq('data->metadata->>subtopicId', params.subtopic)
+        .eq('data->>type', params.type)
+        .eq('status', 'draft');
+
+      console.log('🔍 QUERY DETAILS:', {
+        filters: {
+          topic: params.topic,
+          subtopic: params.subtopic,
+          type: params.type,
+          status: 'draft'
+        },
+        timestamp: new Date().toISOString()
+      });
+
+      const { data: questions, error } = await query.limit(20);
+
+      if (error) {
+        console.error('❌ DB SEARCH ERROR:', {
+          error,
+          params,
+          timestamp: new Date().toISOString()
+        });
+        throw error;
+      }
+
+      // Log the search results with more detail
+      console.log('📊 SEARCH RESULTS:', {
+        found: questions ? questions.length : 0,
+        params,
+        firstQuestionId: questions?.[0]?.id,
+        firstQuestionData: questions?.[0] ? {
+          type: questions[0].data?.type,
+          metadata: questions[0].data?.metadata,
+          status: questions[0].status
+        } : null,
+        timestamp: new Date().toISOString()
+      });
+
+      // If we found matching questions, randomly select one
+      if (questions && questions.length > 0) {
+        const randomIndex = Math.floor(Math.random() * questions.length);
+        const selectedQuestion = questions[randomIndex].data;
+        console.log('✅ SELECTED QUESTION:', {
+          id: selectedQuestion.id,
+          type: selectedQuestion.type,
+          topic: selectedQuestion.metadata.topicId,
+          subtopic: selectedQuestion.metadata.subtopicId,
+          timestamp: new Date().toISOString()
+        });
+        return selectedQuestion;
+      }
+
+      // If no existing questions found, generate a new one
+      console.log('🆕 GENERATING NEW QUESTION:', {
+        params,
+        reason: 'No matching questions found in DB',
+        timestamp: new Date().toISOString()
+      });
+      const question = await questionService.generateQuestion(params);
       return question;
     } catch (error) {
+      console.error('❌ GET NEXT QUESTION ERROR:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
       throw error;
     } finally {
       isGeneratingQuestion.current = false;

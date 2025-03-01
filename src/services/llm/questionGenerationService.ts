@@ -7,7 +7,6 @@ import type { Domain, Topic } from "../../types/subject";
 import { logger } from '../../utils/logger';
 import { CRITICAL_SECTIONS } from '../../utils/logger';
 import { buildQuestionSystemMessage } from './aiSystemMessages';
-import { QuestionIdGenerator } from '../../utils/questionIdGenerator';
 import { questionStorage } from '../admin/questionStorage';
 
 const openai = new OpenAI({
@@ -307,6 +306,14 @@ Example structure:
 }`;
   }
 
+  private async generateQuestionId(subjectId: string, domainId: string): Promise<string> {
+    // Get next available number from storage
+    const nextNumber = await questionStorage.getNextQuestionId(subjectId, domainId);
+    
+    // Format the ID: XXX-YYY-NNNNNN
+    return `${subjectId}-${domainId}-${String(nextNumber).padStart(6, '0')}`;
+  }
+
   async generateQuestion(params: QuestionFetchParams): Promise<Question> {
     // Add detailed parameter logging
     logger.info('Generating question with parameters:', {
@@ -332,7 +339,7 @@ Example structure:
 
     try {
       // Generate question ID first
-      const questionId = await QuestionIdGenerator.generateQuestionId(subject.code, domain.code);
+      const questionId = await this.generateQuestionId(subject.code, domain.code);
       
       console.log('%c🎯 Generating Question:', 'color: #2563eb; font-weight: bold', {
         topic: params.topic,
@@ -375,9 +382,9 @@ Example structure:
 5. TopicId: Use "${params.topic}"
 ${params.subtopic ? `6. SubtopicId: Use "${params.subtopic}"` : ''}
 7. Type: Use "${params.type}"
-8. Source: Use sourceType "${SourceType.Ezpass}"
+8. Source: Use sourceType "${SourceType.EZPASS}"
 
-IMPORTANT: You MUST include all of the above metadata fields in your response, using the exact values provided. The response will be rejected if any fields are missing or have incorrect values.`;
+IMPORTANT: You MUST include all of the above metadata fields in your response, using the exact values provided. The response will be rejected if any fields are missing or incorrect values.`;
       
       const prompt = await this.buildPrompt(params, metadataRequirements);
       console.log('%c📝 OpenAI Prompt:', 'color: #059669; font-weight: bold', '\n' + prompt);
@@ -581,7 +588,7 @@ IMPORTANT: You MUST include all of the above metadata fields in your response, u
             difficulty: params.difficulty,
             estimatedTime: parsed.metadata.estimatedTime,
             source: {
-              sourceType: SourceType.Ezpass
+              sourceType: SourceType.EZPASS
             }
           }
         };
@@ -599,8 +606,11 @@ IMPORTANT: You MUST include all of the above metadata fields in your response, u
           solutionLength: generatedQuestion.solution.text.length
         });
 
-        // Save to database with 'generated' status
-        await questionStorage.saveQuestion(generatedQuestion, 'generated');
+        // Save to database with 'draft' status
+        await questionStorage.saveQuestion({
+          ...generatedQuestion,
+          status: 'draft'
+        });
 
         // Cache the question
         this.generationCache.set(generatedQuestion.id, generatedQuestion);

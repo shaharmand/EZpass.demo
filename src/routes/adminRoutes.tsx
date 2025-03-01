@@ -1,7 +1,7 @@
 import { RouteObject, Outlet } from 'react-router-dom';
 import AdminLayout from '../layouts/AdminLayout';
 import AdminDashboard from '../pages/admin/Dashboard';
-import { QuestionLibrary } from '../pages/admin/questions/QuestionLibrary';
+import { QuestionLibraryPage } from '../pages/admin/questions/QuestionLibraryPage';
 import { QuestionEditor } from '../pages/admin/questions/QuestionEditor';
 import { QuestionImport } from '../pages/admin/questions/QuestionImport';
 
@@ -18,7 +18,7 @@ export const adminRoutes: RouteObject = {
       children: [
         {
           index: true,
-          element: <QuestionLibrary />,
+          element: <QuestionLibraryPage />,
         },
         {
           path: 'new',

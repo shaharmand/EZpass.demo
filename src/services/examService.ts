@@ -6,6 +6,7 @@ import { validateExamTemplate, examTemplateSchema } from '../schemas/examTemplat
 import { universalTopics } from './universalTopics';
 import { Question } from '../types/question';
 import { Subject } from '../types/subject';
+import { QuestionType } from '../types/question';
 
 // Import exam data directly
 const bagrutCS = require('../../data/exams/bagrut_cs.json');
@@ -61,45 +62,43 @@ class ExamService {
   private examCache: Map<string, ExamTemplate> = new Map();
 
   constructor() {
-   
+    this.initializeExams().catch(error => {
+      logger.error('Failed to initialize ExamService:', error);
+    });
+  }
 
+  private async initializeExams() {
     try {
-      // Collect all raw exams with their metadata
-      const allRawExams = [
+      const rawExams: RawExam[] = [
         ...bagrutCS.exams.map((exam: any) => ({ ...exam, examType: exam.examType as ExamType })),
         ...mahatCS.exams.map((exam: any) => ({ ...exam, examType: exam.examType as ExamType })),
         ...mahatCivil.exams.map((exam: any) => ({ ...exam, examType: exam.examType as ExamType }))
-      ] as RawExam[];
+      ];
 
-      // Initialize collections
       this.examCache = new Map<string, ExamTemplate>();
       this.examsByType = new Map<ExamType, ExamTemplate[]>();
       this.examsBySubject = new Map<string, ExamTemplate[]>();
       this.examsByDomain = new Map<string, ExamTemplate[]>();
 
-      // Transform and organize exams
-      allRawExams.forEach(rawExam => {
-        // First transform topics to match expected structure with default values
+      rawExams.forEach(rawExam => {
         const transformedExam = {
           ...rawExam,
           topics: rawExam.topics.map((topic: RawTopic) => ({
             id: topic.id,
-            name: topic.name || '',  // Ensure string
-            description: topic.description || '',  // Ensure string
-            order: topic.order ?? 0,  // Ensure number
+            name: topic.name || '',
+            description: topic.description || '',
+            order: topic.order ?? 0,
             subTopics: topic.subTopics.map((st: RawSubTopic) => ({
               id: st.id,
-              name: st.name || '',  // Ensure string
-              description: st.description || '',  // Ensure string
-              order: st.order ?? 0  // Ensure number
+              name: st.name || '',
+              description: st.description || '',
+              order: st.order ?? 0
             }))
           })) as Topic[]
         };
 
-        // Validate and transform exam data using schema
         const exam = validateExamTemplate(transformedExam);
         
-        // Transform topics to match expected structure with default values
         const baseTopics: Topic[] = exam.topics.map(topic => ({
           id: topic.id,
           name: topic.name,  // Already validated as string

@@ -8,7 +8,14 @@ import {
   DatabaseOutlined,
   WarningOutlined 
 } from '@ant-design/icons';
-import { Question, QuestionType, DifficultyLevel, SourceType, QuestionStatus, DatabaseQuestion } from '../../../types/question';
+import { 
+  Question, 
+  QuestionType, 
+  DifficultyLevel, 
+  PublicationStatusEnum,
+  DatabaseQuestion,
+  EzpassCreatorType 
+} from '../../../types/question';
 import { ValidationDisplay } from '../../validation/ValidationDisplay';
 import { getEnumTranslation, getFieldTranslation, formatValidationDetails, fieldNameMapping, getQuestionSourceDisplay } from '../../../utils/translations';
 import { getExamTemplateName, getExamSourceDisplayText } from '../../../utils/examTranslations';
@@ -35,11 +42,34 @@ interface MetadataValidationResult {
 }
 
 type ValueType = 'subject' | 'domain' | 'topic' | 'subtopic' | 'enum' | 'text' | 'number' | 'date';
-type EnumType = 'questionType' | 'difficulty' | 'sourceType' | 'status' | 'season' | 'moed' | 'examTemplate';
+type EnumType = 'questionType' | 'difficulty' | 'publication_status' | 'season' | 'moed' | 'examTemplate';
 
 interface DisplayValue {
   text: string;
   isMissing: boolean;
+}
+
+type ExamSource = {
+  type: 'exam';
+  examTemplateId: string;
+  year: number;
+  season: 'spring' | 'summer';
+  moed: 'a' | 'b';
+};
+
+type EzpassSource = {
+  type: 'ezpass';
+  creatorType: EzpassCreatorType;
+};
+
+type QuestionSource = ExamSource | EzpassSource;
+
+function isExamSource(source: QuestionSource): source is ExamSource {
+  return source.type === 'exam';
+}
+
+function isEzpassSource(source: QuestionSource): source is EzpassSource {
+  return source.type === 'ezpass';
 }
 
 const ValidationSection = styled.div`
@@ -90,6 +120,7 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
   onSave
 }) => {
   const [examTemplate, setExamTemplate] = useState<ExamTemplate | null>(null);
+  const [validationState, setValidationState] = useState<MetadataValidationResult | null>(null);
 
   if (!question?.metadata) {
     return (
@@ -110,25 +141,30 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
   }
 
   const validateMetadata = (question: Question): MetadataValidationResult => {
-    const validationResult = validateQuestion(question);
+    const result = validateQuestion(question);
     return {
-      success: validationResult.errors.length === 0,
-      errors: validationResult.errors,
-      warnings: validationResult.warnings
+      success: result.errors.length === 0,
+      errors: result.errors || [],
+      warnings: result.warnings || []
     };
   };
 
-  const validationResult = validateMetadata(question);
+  useEffect(() => {
+    if (question) {
+      const result = validateMetadata(question);
+      setValidationState(result);
+    }
+  }, [question]);
 
   useEffect(() => {
     const loadExamTemplate = async () => {
-      if (question?.metadata?.source?.sourceType === 'exam' && question?.metadata?.source?.examTemplateId) {
+      if (question?.metadata?.source?.type === 'exam' && question?.metadata?.source?.examTemplateId) {
         const template = await examService.getExamById(question.metadata.source.examTemplateId);
         setExamTemplate(template);
       }
     };
     loadExamTemplate();
-  }, [question?.metadata?.source?.examTemplateId]);
+  }, [question?.metadata?.source]);
 
   const getDisplayValue = (
     value: string | number | null | undefined,
@@ -151,11 +187,8 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
         case 'difficulty':
           translatedValue = getEnumTranslation(enumType, Number(value) as DifficultyLevel);
           break;
-        case 'sourceType':
-          translatedValue = getEnumTranslation(enumType, String(value) as SourceType);
-          break;
-        case 'status':
-          translatedValue = getEnumTranslation(enumType, String(value) as QuestionStatus);
+        case 'publication_status':
+          translatedValue = getEnumTranslation(enumType, String(value) as PublicationStatusEnum);
           break;
         case 'season':
           translatedValue = fieldNameMapping[`metadata.source.exam.season.${value}`] || String(value);
@@ -241,18 +274,38 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
     valueType: ValueType,
     enumType?: EnumType
   ) => {
-    const fieldError = validationResult.errors.find((error: ValidationError) => error.field === fieldName);
+    const fieldError = validationState?.errors.find((error: ValidationError) => error.field === fieldName);
     
     let fieldValue: string | number | null | undefined;
     if (fieldName === 'name') {
       fieldValue = question.name;
-    } else if (fieldName === 'sourceType' || fieldName === 'authorName' || fieldName === 'bookName' || fieldName === 'bookLocation' || 
-               fieldName === 'examTemplateId' || fieldName === 'year' || fieldName === 'season' || fieldName === 'moed' || fieldName === 'order') {
-      fieldValue = question.metadata.source?.[fieldName] as string | number | undefined;
     } else if (fieldName === 'type') {
-      fieldValue = question.type;
-    } else if (fieldName === 'status') {
-      fieldValue = question.status;
+      fieldValue = question.metadata.type;
+    } else if (fieldName === 'publication_status') {
+      fieldValue = question.publication_status;
+    } else if (question.metadata.source) {
+      // Handle source fields based on type
+      const source = question.metadata.source;
+      if (source.type === 'exam') {
+        switch (fieldName) {
+          case 'examTemplateId':
+            fieldValue = source.examTemplateId;
+            break;
+          case 'year':
+            fieldValue = source.year;
+            break;
+          case 'season':
+            fieldValue = source.season;
+            break;
+          case 'moed':
+            fieldValue = source.moed;
+            break;
+        }
+      } else if (source.type === 'ezpass') {
+        if (fieldName === 'creatorType') {
+          fieldValue = source.creatorType;
+        }
+      }
     } else {
       fieldValue = question.metadata[fieldName as keyof typeof question.metadata] as string | number | undefined;
     }
@@ -308,21 +361,34 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
   );
 
   const renderSourceInfo = () => {
-    if (!question?.metadata?.source) {
-      return <Text type="secondary">{getFieldTranslation('common.missing')}</Text>;
-    }
+    const source = question?.metadata?.source;
+    if (!source) return null;
 
-    return (
-      <div className="exam-source-info">
-        <Text>
-          {getQuestionSourceDisplay({
-            ...question.metadata.source,
-            year: question.metadata.source.year?.toString(),
-            order: question.metadata.source.order?.toString()
-          })}
-        </Text>
-      </div>
-    );
+    switch (source.type) {
+      case 'exam': {
+        return (
+          <div>
+            <Text>מקור: מבחן</Text>
+            <Text>תבנית: {examTemplate?.names?.medium || source.examTemplateId}</Text>
+            <Text>שנה: {source.year}</Text>
+            <Text>מועד: {source.moed}</Text>
+            <Text>עונה: {source.season}</Text>
+          </div>
+        );
+      }
+      
+      case 'ezpass': {
+        return (
+          <div>
+            <Text>מקור: EZPass</Text>
+            <Text>סוג יוצר: {source.creatorType}</Text>
+          </div>
+        );
+      }
+      
+      default:
+        return null;
+    }
   };
 
   return (

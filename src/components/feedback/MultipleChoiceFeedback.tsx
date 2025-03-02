@@ -1,7 +1,13 @@
 import React, { useEffect } from 'react';
 import { Card, Space, Typography, Divider, Button } from 'antd';
 import { CheckCircleFilled, CloseCircleFilled, StarOutlined, RedoOutlined } from '@ant-design/icons';
-import { Question, QuestionFeedback, FeedbackMessages } from '../../types/question';
+import { 
+  Question, 
+  QuestionFeedback, 
+  BasicQuestionFeedback, 
+  BasicAnswerLevel,
+  BinaryEvalLevel 
+} from '../../types/question';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { logger } from '../../utils/logger';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,7 +17,7 @@ const { Text, Title } = Typography;
 
 interface MultipleChoiceFeedbackProps {
   question: Question;
-  feedback: QuestionFeedback;
+  feedback: BasicQuestionFeedback;
   selectedAnswer: string;
   showDetailedFeedback?: boolean;
   onRetry?: () => void;
@@ -24,20 +30,23 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
   showDetailedFeedback = true,
   onRetry
 }) => {
+  const correctAnswerIndex = question.answer?.finalAnswer?.type === 'multiple_choice' ? 
+    question.answer.finalAnswer.value - 1 : -1;
+
   useEffect(() => {
     // Component mount/update log with more prominent message
     console.log('🎯 MULTIPLE CHOICE FEEDBACK RECEIVED:', {
       questionId: question.id,
       feedbackData: {
-        isCorrect: feedback?.isCorrect,
-        score: feedback?.score,
+        evalLevel: feedback.evalLevel,
+        score: feedback.score,
         allFeedbackKeys: Object.keys(feedback || {}),
-        fullFeedback: feedback // Log the entire feedback object
+        fullFeedback: feedback
       },
       questionData: {
-        correctOption: question.correctOption,
-        totalOptions: question.options?.length,
-        options: question.options?.map((opt, idx) => `${idx + 1}: ${opt.text.substring(0, 30)}...`)
+        correctAnswerIndex,
+        totalOptions: question.content.options?.length,
+        options: question.content.options?.map((opt, idx) => `${idx + 1}: ${opt.text.substring(0, 30)}...`)
       }
     });
 
@@ -49,27 +58,25 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
         isValid: typeof selectedAnswer === 'string' ? 
           parseInt(selectedAnswer) >= 1 && parseInt(selectedAnswer) <= 4 : false
       },
-      correctOption: {
-        value: question.correctOption,
-        type: typeof question.correctOption
+      correctAnswer: {
+        index: correctAnswerIndex,
+        value: correctAnswerIndex + 1
       },
-      isCorrect: feedback?.isCorrect,
-      score: feedback?.score,
-      fullFeedbackObject: JSON.stringify(feedback, null, 2) // Log stringified feedback for better visibility
+      evalLevel: feedback.evalLevel,
+      score: feedback.score,
+      fullFeedbackObject: JSON.stringify(feedback, null, 2)
     });
 
     // Get the selected and correct answer texts
     const selectedOptionIndex = parseInt(selectedAnswer || '1') - 1;
-    const correctOptionIndex = question.correctOption ? question.correctOption - 1 : 0;
 
     // Log option processing
     logger.info('Processing options:', {
       selectedOptionRaw: selectedAnswer,
       selectedOptionIndex,
-      selectedOptionText: question.options?.[selectedOptionIndex]?.text,
-      correctOptionRaw: question.correctOption,
-      correctOptionIndex,
-      correctOptionText: question.options?.[correctOptionIndex]?.text
+      selectedOptionText: question.content.options?.[selectedOptionIndex]?.text,
+      correctAnswerIndex,
+      correctAnswerText: question.content.options?.[correctAnswerIndex]?.text
     });
 
     // Log the actual user choice for debugging
@@ -79,33 +86,36 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
       parsedAnswer: selectedAnswer ? parseInt(selectedAnswer) : 'no answer provided',
       isNumber: selectedAnswer ? !isNaN(parseInt(selectedAnswer)) : false,
       answerRange: selectedAnswer ? (parseInt(selectedAnswer) >= 1 && parseInt(selectedAnswer) <= 4) : false,
-      totalOptions: question.options?.length || 0,
-      isCorrect: feedback.isCorrect
+      totalOptions: question.content.options?.length || 0,
+      evalLevel: feedback.evalLevel
     });
-  }, [question.id, feedback, question.options, question.correctOption, selectedAnswer]);
+  }, [question.id, feedback, question.content.options, correctAnswerIndex, selectedAnswer]);
 
   // Get the selected and correct answer texts and numbers - with validation
   const selectedOptionNumber = !isNaN(parseInt(selectedAnswer)) ? parseInt(selectedAnswer) : null;
-  const correctOptionNumber = question.correctOption || 0;
+  const correctOptionNumber = correctAnswerIndex + 1;
 
-  const selectedOption = selectedOptionNumber !== null && question.options && 
-    selectedOptionNumber > 0 && selectedOptionNumber <= question.options.length
-    ? question.options[selectedOptionNumber - 1]?.text || ''
+  const selectedOption = selectedOptionNumber !== null && question.content.options && 
+    selectedOptionNumber > 0 && selectedOptionNumber <= question.content.options.length
+    ? question.content.options[selectedOptionNumber - 1]?.text || ''
     : '';
-  const correctOption = question.options?.[correctOptionNumber - 1]?.text || '';
+  const correctOption = question.content.options?.[correctAnswerIndex]?.text || '';
+
+  const isCorrect = feedback.evalLevel.type === 'binary' && 
+    feedback.evalLevel.level === BinaryEvalLevel.CORRECT;
 
   return (
     <div className="multiple-choice-feedback">
       {/* Integrated Title and Answer Section */}
       <div className="feedback-section">
         <div className="title-display">
-          <Title level={4} className={feedback.isCorrect ? 'success' : 'error'}>
-            {feedback.isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה'}
+          <Title level={4} className={isCorrect ? 'success' : 'error'}>
+            {isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה'}
           </Title>
         </div>
 
         <div className="answer-comparison">
-          {!feedback.isCorrect ? (
+          {!isCorrect ? (
             <div className="answer-item">
               <div className="answer-box">
                 <div className="answer-label">התשובה שלך</div>
@@ -141,7 +151,7 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
         <Title level={5} className="explanation-title">הסבר</Title>
         <div className="detailed-feedback">
           {showDetailedFeedback ? (
-            <MarkdownRenderer content={feedback.coreFeedback} />
+            <MarkdownRenderer content={feedback.basicExplanation} />
           ) : (
             <div className="limited-feedback">
               <div className="limited-feedback-content">

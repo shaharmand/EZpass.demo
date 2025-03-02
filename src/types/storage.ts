@@ -1,4 +1,10 @@
-import { Question, SaveQuestion, DatabaseQuestion, QuestionStatus } from './question';
+import { 
+  Question, 
+  SaveQuestion, 
+  DatabaseQuestion, 
+  PublicationStatusEnum,
+  PublicationMetadata
+} from './question';
 
 /**
  * Type for the database insert/update operation
@@ -7,7 +13,8 @@ import { Question, SaveQuestion, DatabaseQuestion, QuestionStatus } from './ques
 export interface DatabaseOperation {
   id: string;
   data: Omit<Question, 'id'>;
-  status: QuestionStatus;
+  publication_status: PublicationStatusEnum;
+  publication_metadata?: PublicationMetadata;
   created_at?: string;
   updated_at?: string;
 }

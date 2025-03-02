@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Space, Button, Layout, Typography } from 'antd';
+import { Alert, Space, Button, Layout, Typography, Card, message } from 'antd';
 import { HomeOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { PracticeHeader } from '../components/PracticeHeader';
 import QuestionInteractionContainer from '../components/practice/QuestionInteractionContainer';
 import { WelcomeScreen } from '../components/practice/WelcomeScreen';
-import type { ActivePracticeQuestion, SkipReason, QuestionAnswer } from '../types/prepUI';
+import type { ActivePracticeQuestion, SkipReason } from '../types/prepUI';
+import type { FullAnswer } from '../types/question';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import type { FilterState, Question } from '../types/question';
@@ -29,7 +30,7 @@ const PracticePage: React.FC = () => {
   const { prepId } = useParams<{ prepId: string }>();
   const navigate = useNavigate();
   const { getPrep, getNextQuestion, skipQuestion, setCurrentQuestion, submitAnswer, currentQuestion } = useStudentPrep();
-  const { incrementAttempt, shouldShowDetailedFeedback, checkAndShowGuestLimitIfNeeded } = usePracticeAttempts();
+  const { incrementAttempt, getFeedbackMode, checkAndShowGuestLimitIfNeeded } = usePracticeAttempts();
   const { user } = useAuth();
   const [state, setState] = useState<PageState>({
     filters: {},
@@ -162,41 +163,32 @@ const PracticePage: React.FC = () => {
     }));
   }, [currentQuestion, handleQuestionTransition, checkAndShowGuestLimitIfNeeded, state.filters]);
 
-  const handleSubmit = useCallback(async (answer: QuestionAnswer) => {
+  const handleSubmit = useCallback(async (answer: FullAnswer) => {
     if (!currentQuestion || !prepId || !state.prep) return;
 
     try {
-      // Log answer submission
-      logger.info('Submitting answer', {
-        questionId: currentQuestion.question.id,
-        answerType: answer.type,
-        currentStatus: currentQuestion.practiceState.status,
-        timestamp: new Date().toISOString()
-      });
+      // Convert FullAnswer to string format expected by backend
+      const answerString = answer.finalAnswer.type === 'multiple_choice' 
+        ? answer.finalAnswer.value.toString()
+        : answer.finalAnswer.type === 'numerical'
+        ? answer.finalAnswer.value.toString()
+        : answer.solution.text;
 
-      if (!currentQuestion || currentQuestion.practiceState.status !== 'idle' || !prepId) {
-        console.log('⚠️ Cannot submit answer:', {
-          reason: !currentQuestion ? 'no question active' : 
-                 !prepId ? 'no prep id' : 
-                 'question not in active state'
-        });
+      // Submit the answer
+      await submitAnswer(answerString, state.prep);
+      
+      // Increment attempt count
+      await incrementAttempt();
+
+      // Check if we need to show guest limit warning
+      if (checkAndShowGuestLimitIfNeeded()) {
         return;
       }
-
-      // Convert QuestionAnswer to string format expected by backend
-      const answerString = answer.type === 'multiple_choice' 
-        ? answer.selectedOption.toString()
-        : answer.type === 'code'
-        ? answer.codeText
-        : answer.markdownText;
-
-      await submitAnswer(answerString, state.prep);
-
     } catch (error) {
       console.error('Error submitting answer:', error);
-      // Handle error appropriately
+      message.error('Failed to submit answer');
     }
-  }, [currentQuestion, prepId, submitAnswer, state.prep]);
+  }, [currentQuestion, handleQuestionTransition, checkAndShowGuestLimitIfNeeded, state.filters, state.prep, submitAnswer, incrementAttempt]);
 
   const handleExamDateChange = useCallback((date: moment.Moment) => {
     if (!state.prep) return;
@@ -315,7 +307,7 @@ const PracticePage: React.FC = () => {
                 onFiltersChange={(filters) => setState(prev => ({ ...prev, filters }))}
                 prep={state.prep}
                 isQuestionLoading={state.isLoading}
-                showDetailedFeedback={shouldShowDetailedFeedback}
+                showDetailedFeedback={getFeedbackMode() === 'detailed'}
                 state={currentQuestion.practiceState}
               />
             </div>

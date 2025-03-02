@@ -2,11 +2,11 @@ import React from 'react';
 import { Space } from 'antd';
 import { QuestionSolution } from './QuestionSolution';
 import { QuestionEvaluation } from './QuestionEvaluation';
-import { Question } from '../../types/question';
+import { Question, FullAnswer } from '../../types/question';
 
 interface QuestionSolutionDisplayProps {
   /** The solution and evaluation data */
-  solution: Question['solution'];
+  solution: FullAnswer['solution'];
   evaluation?: Question['evaluation'];
   /** Whether to show the evaluation rubric */
   showEvaluation?: boolean;

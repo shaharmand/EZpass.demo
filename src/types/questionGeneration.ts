@@ -1,4 +1,4 @@
-import { DifficultyLevel, QuestionType, Question } from './question';
+import { DifficultyLevel, QuestionType, Question, SourceType, FullAnswer } from './question';
 import { Subject, Domain, Topic, SubTopic } from './subject';
 
 /**
@@ -39,7 +39,7 @@ export interface IQuestionGenerator {
  * Base interface for solution generators
  */
 export interface ISolutionGenerator {
-  generate(question: Partial<Question>): Promise<{ solution: Question['solution'] }>;
+  generate(question: Partial<Question>): Promise<{ solution: FullAnswer['solution'] }>;
 }
 
 export interface TopicHierarchy {
@@ -50,33 +50,33 @@ export interface TopicHierarchy {
 }
 
 export interface QuestionGenerationRequirements {
-  // Core requirements
   type: QuestionType;
   difficulty: DifficultyLevel;
-  estimatedTime: number;  // in minutes
-  
-  // Complete topic hierarchy with actual objects
-  hierarchy: TopicHierarchy;
-  
-  // Optional constraints
-  minWords?: number;
-  maxWords?: number;
-  requiredConcepts?: string[];
-  excludedConcepts?: string[];
-  
-  // Domain-specific metadata
-  domainMetadata?: Record<string, any>;
-  
-  // Custom rubric weights (optional, will use defaults if not provided)
-  rubricWeights?: Record<string, number>;
-  
-  // Language and formatting
-  language: string;
-  includeImages?: boolean;
-  includeCode?: boolean;
-  
-  // Tags for categorization and search
-  tags: string[];
+  hierarchy: {
+    subject: {
+      id: string;
+      name: string;
+    };
+    domain: {
+      id: string;
+      name: string;
+    };
+    topic: {
+      id: string;
+      name: string;
+    };
+    subtopic: {
+      id: string;
+      name: string;
+    };
+  };
+  estimatedTime: number;
+  subject: string;
+  educationType?: string;
+  source?: {
+    type: SourceType;
+    creatorType?: string;
+  };
 }
 
 export interface GenerationResult {

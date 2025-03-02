@@ -1,5 +1,6 @@
 import { DifficultyLevel } from '../types/question';
 import { z } from 'zod';
+import { QuestionType } from '../types/question';
 
 // Re-export commonly used validation schemas from their domain files
 export const difficultySchema = z.union([
@@ -10,4 +11,4 @@ export const difficultySchema = z.union([
     z.literal(5)
 ]) as z.ZodType<DifficultyLevel>;
 export const programmingLanguageSchema = z.enum(['java', 'c#', 'python'] as const);
-export const questionTypeSchema = z.enum(['multiple_choice', 'open', 'code', 'step_by_step'] as const); 
+export const questionTypeSchema = z.nativeEnum(QuestionType); 

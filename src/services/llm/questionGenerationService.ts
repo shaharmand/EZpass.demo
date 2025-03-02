@@ -1,7 +1,16 @@
 import OpenAI from 'openai';
 import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import { questionSchema } from "../../schemas/questionSchema";
-import { Question, QuestionType, QuestionFetchParams, DifficultyLevel, SourceType } from "../../types/question";
+import { 
+  Question, 
+  QuestionType, 
+  QuestionFetchParams, 
+  DifficultyLevel, 
+  SourceType, 
+  EzpassCreatorType,
+  PublicationStatusEnum,
+  EMPTY_EVALUATION
+} from "../../types/question";
 import { universalTopics } from "../universalTopics";
 import type { Domain, Topic } from "../../types/subject";
 import { logger } from '../../utils/logger';
@@ -203,7 +212,7 @@ When creating a construction safety question, develop a customized rubric assess
    - Calculations (30%): Accurate computations
    - Validation (30%): Checking results at each step
 
-${params.type === 'multiple_choice' ? `
+${params.type === QuestionType.MULTIPLE_CHOICE ? `
 MULTIPLE CHOICE QUESTION REQUIREMENTS:
 
 1. Question Content:
@@ -228,29 +237,7 @@ MULTIPLE CHOICE QUESTION REQUIREMENTS:
    - Point out why other options are incorrect
    - Include complete solution process
    - Highlight common misconceptions
-` : params.type === 'code' ? `
-CODE QUESTION REQUIREMENTS:
-
-1. Question Content:
-   - Clear problem specification in Hebrew
-   - Input/output requirements
-   - Constraints and edge cases
-   - Use code blocks with language syntax
-   - Include example inputs/outputs
-
-2. Setup:
-   - Provide necessary starter code
-   - Specify language/framework versions
-   - Include required imports/dependencies
-   - Use markdown code blocks
-
-3. Solution:
-   - Complete working code solution
-   - Detailed explanation in Hebrew
-   - Time/space complexity analysis
-   - Alternative approaches
-   - Common pitfalls to avoid
-` : params.type === 'open' ? `
+` : params.type === QuestionType.OPEN ? `
 OPEN QUESTION REQUIREMENTS:
 
 1. Question Content:
@@ -270,8 +257,8 @@ OPEN QUESTION REQUIREMENTS:
    - Multiple valid approaches if applicable
    - Evaluation rubric/criteria
    - Common mistakes to avoid
-` : `
-STEP-BY-STEP QUESTION REQUIREMENTS:
+` : params.type === QuestionType.NUMERICAL ? `
+NUMERICAL QUESTION REQUIREMENTS:
 
 1. Question Content:
    - Mathematical/physical problem requiring numerical or formula solution in Hebrew
@@ -295,7 +282,7 @@ STEP-BY-STEP QUESTION REQUIREMENTS:
    - Explain each mathematical operation and formula used
    - Include numerical answer with correct units
    - Common calculation mistakes to watch for
-`}
+` : ''}
 
 SCHEMA VALIDATION REQUIREMENTS:
 ${formatInstructions}
@@ -361,7 +348,7 @@ Example structure:
 
     try {
       // Generate question ID first
-      const questionId = await this.generateQuestionId(subject.code, domain.code);
+      const nextId = await questionStorage.getNextQuestionId(subject.code, domain.code);
       
       console.log('%c🎯 Generating Question:', 'color: #2563eb; font-weight: bold', {
         topic: params.topic,
@@ -558,7 +545,7 @@ IMPORTANT: You MUST include all of the above metadata fields in your response, u
         const parsed = await this.parser.parse(processedContent);
         
         // Additional validation for type-specific fields
-        if (parsed.type === 'multiple_choice') {
+        if (parsed.type === QuestionType.MULTIPLE_CHOICE) {
           if (!parsed.options || parsed.options.length !== 4) {
             throw new Error('Multiple choice questions must have exactly 4 options');
           }
@@ -585,70 +572,62 @@ IMPORTANT: You MUST include all of the above metadata fields in your response, u
 
         this.updateRequestTracker(true);
         
-        // Add runtime ID
-        const question = {
-          ...parsed,
-          id: questionId,
-          answerRequirements: {
-            requiredElements: [
-              "Key concepts that must be mentioned",
-              "Required formulas or equations",
-              "Critical analysis points",
-              "Important conclusions"
-            ]
-          }
-        };
-
-        // After successful generation and parsing, save with generated ID
-        const generatedQuestion = {
-          ...question,
+        // After successful generation and parsing, create the question object
+        const question: Question = {
+          id: `${subject.code}-${domain.code}-${nextId}`,
           metadata: {
-            subjectId: subjectInfo.id,
-            domainId: domainInfo.id,
+            subjectId: subject.code,
+            domainId: domain.code,
             topicId: params.topic,
             subtopicId: params.subtopic,
             difficulty: params.difficulty,
-            estimatedTime: parsed.metadata.estimatedTime,
-            source: {
-              sourceType: SourceType.EZPASS
-            }
-          }
-        };
-
-        logger.info('Generated question ready for storage:', {
-          id: generatedQuestion.id,
-          type: generatedQuestion.type,
-          metadata: {
-            subjectId: generatedQuestion.metadata.subjectId,
-            domainId: generatedQuestion.metadata.domainId,
-            topicId: generatedQuestion.metadata.topicId,
-            difficulty: generatedQuestion.metadata.difficulty
+            estimatedTime: parsed.metadata.estimatedTime || 5,
+            source: params.source || {
+              type: 'ezpass',
+              creatorType: EzpassCreatorType.AI
+            },
+            type: params.type
           },
-          contentLength: generatedQuestion.content.text.length,
-          solutionLength: generatedQuestion.solution.text.length
-        });
+          content: {
+            text: parsed.content.text,
+            format: 'markdown',
+            options: params.type === QuestionType.MULTIPLE_CHOICE ? parsed.options : undefined
+          },
+          answer: {
+            finalAnswer: params.type === QuestionType.MULTIPLE_CHOICE && parsed.correctOption 
+              ? { type: 'multiple_choice', value: parsed.correctOption as 1 | 2 | 3 | 4 } 
+              : params.type === QuestionType.NUMERICAL && !isNaN(Number(parsed.content.text))
+              ? { type: 'numerical', value: Number(parsed.content.text), tolerance: 0.01 }
+              : { type: 'none' },
+            solution: {
+              text: parsed.solution.text,
+              format: 'markdown',
+              requiredSolution: true
+            }
+          },
+          evaluation: EMPTY_EVALUATION
+        };
 
         // Save to database with 'draft' status
         await questionStorage.saveQuestion({
-          ...generatedQuestion,
-          status: 'draft'
+          ...question,
+          publication_status: PublicationStatusEnum.DRAFT
         });
 
-        // Cache the question
-        this.generationCache.set(generatedQuestion.id, generatedQuestion);
+        // Cache the generated question
+        this.generationCache.set(question.id, question);
 
-        console.log('%c✅ Question Generated Successfully:', 'color: #059669; font-weight: bold', {
+        // Log success
+        logger.info('Generated question successfully', {
           id: question.id,
-          type: question.type,
+          type: question.metadata.type,
           topic: question.metadata.topicId,
           difficulty: question.metadata.difficulty,
           estimatedTime: question.metadata.estimatedTime,
-          hasOptions: question.type === 'multiple_choice' ? question.options?.length : 'N/A',
-          contentLength: question.content.text.length,
-          solutionLength: question.solution.text.length
+          contentLength: question.content.text.length
         });
 
-        return generatedQuestion;
+        return question;
       } catch (error) {
         console.error('%c❌ Error generating question:', 'color: #dc2626; font-weight: bold', error);
         const is429Error = error instanceof Error && error.message.includes('429');

@@ -15,8 +15,7 @@ interface PracticeAttemptsContextType {
   incrementAttempt: () => Promise<boolean>;
   attemptsCount: number;
   userAttemptsCount: number;
-  shouldShowDetailedFeedback: boolean;
-  isInLimitedFeedbackMode: boolean;
+  getFeedbackMode: () => 'none' | 'limited' | 'detailed';
   checkAndShowGuestLimitIfNeeded: () => boolean;
   getGuestFeedbackMessage: () => string | null;
   isGuestLimitExceeded: boolean;
@@ -27,6 +26,9 @@ const PracticeAttemptsContext = createContext<PracticeAttemptsContextType | unde
 
 const MAX_GUEST_ATTEMPTS = 2; // Guest users get 2 free questions
 export const MAX_DETAILED_FEEDBACK_ATTEMPTS = 5; // Users get detailed feedback for first 5 submissions
+
+const TOTAL_ALLOWED_ATTEMPTS = 5;
+const STORAGE_KEY = 'practice_attempts';
 
 // Create separate components for different modal content
 const InitialGuestLimitContent = ({ onClose }: { onClose: () => void }) => {
@@ -92,6 +94,7 @@ export function PracticeAttemptsProvider({ children }: { children: React.ReactNo
   const [hasShownFeedbackMessage, setHasShownFeedbackMessage] = useState(false);
   const { user } = useAuth();
   const [hasShownLimitNotification, setHasShownLimitNotification] = useState(false);
+  const [completedQuestions, setCompletedQuestions] = useState(0);
 
   // Reset user attempts when user logs in
   useEffect(() => {
@@ -101,6 +104,13 @@ export function PracticeAttemptsProvider({ children }: { children: React.ReactNo
       setUserAttemptsCount(0); // Reset attempts for newly logged in user
     }
   }, [user]);
+
+  useEffect(() => {
+    const storedAttempts = localStorage.getItem(STORAGE_KEY);
+    if (storedAttempts) {
+      setCompletedQuestions(parseInt(storedAttempts, 10));
+    }
+  }, []);
 
   const handleModalClose = () => {
     setShowGuestModal(false);
@@ -256,22 +266,33 @@ export function PracticeAttemptsProvider({ children }: { children: React.ReactNo
   // Get the current attempts count based on user status
   const attemptsCount = user ? userAttemptsCount : guestAttemptsCount;
 
-  // Determine if we should show detailed feedback
-  const shouldShowDetailedFeedback = user ? userAttemptsCount < MAX_DETAILED_FEEDBACK_ATTEMPTS : true;
-  const isInLimitedFeedbackMode = user ? userAttemptsCount >= MAX_DETAILED_FEEDBACK_ATTEMPTS : false;
+  const getFeedbackMode = () => {
+    if (!user) {
+      return guestAttemptsCount > MAX_GUEST_ATTEMPTS ? 'none' : 'detailed';
+    }
+    return userAttemptsCount >= MAX_DETAILED_FEEDBACK_ATTEMPTS ? 'limited' : 'detailed';
+  };
 
-  const isGuestLimitExceeded = !user && guestAttemptsCount > MAX_GUEST_ATTEMPTS;
+  const incrementAttempts = () => {
+    const newCount = completedQuestions + 1;
+    setCompletedQuestions(newCount);
+    localStorage.setItem(STORAGE_KEY, newCount.toString());
+  };
+
+  const resetAttempts = () => {
+    setCompletedQuestions(0);
+    localStorage.removeItem(STORAGE_KEY);
+  };
 
   return (
     <PracticeAttemptsContext.Provider value={{
       incrementAttempt,
       attemptsCount,
       userAttemptsCount,
-      shouldShowDetailedFeedback,
-      isInLimitedFeedbackMode,
+      getFeedbackMode,
       checkAndShowGuestLimitIfNeeded,
       getGuestFeedbackMessage,
-      isGuestLimitExceeded,
+      isGuestLimitExceeded: !user && guestAttemptsCount > MAX_GUEST_ATTEMPTS,
       MAX_DETAILED_FEEDBACK_ATTEMPTS
     }}>
       {children}

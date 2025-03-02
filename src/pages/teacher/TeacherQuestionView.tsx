@@ -213,9 +213,14 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
           <QuestionMetadata 
             metadata={{
               topicId: question.metadata.topicId,
-              type: question.type,
+              type: question.metadata.type,
               difficulty: String(question.metadata.difficulty),
-              source: question.metadata.source,
+              source: question.metadata.source?.type === 'exam' ? {
+                examTemplateId: question.metadata.source.examTemplateId,
+                year: question.metadata.source.year,
+                season: question.metadata.source.season,
+                moed: question.metadata.source.moed
+              } : undefined,
               subtopicId: question.metadata.subtopicId
             }} 
           />
@@ -224,10 +229,14 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
           <QuestionContent content={question.content.text} />
           
           {/* Question Options */}
-          {question.type === 'multiple_choice' && question.options && (
+          {question.metadata.type === 'multiple_choice' && question.content.options && (
             <div style={{ marginTop: '1rem' }}>
               <QuestionAndOptionsDisplay 
-                question={question}
+                question={{
+                  options: question.content.options,
+                  correctOption: question.answer.finalAnswer.type === 'multiple_choice' ? 
+                    question.answer.finalAnswer.value : undefined
+                }}
                 showCorrectAnswer={true}
               />
             </div>
@@ -246,24 +255,28 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
         }
       >
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {question.solution && (
+          {question.answer.solution && (
             <>
               <div className="solution-content">
-                <MarkdownRenderer content={question.solution.text} />
+                <MarkdownRenderer content={question.answer.solution.text} />
               </div>
-              {question.solution.answer && (
-                <>
-                  <Divider>תשובה סופית</Divider>
-                  <div className="final-answer" style={{
-                    padding: '16px',
-                    background: '#f0fdf4',
-                    borderRadius: '8px',
-                    border: '1px solid #86efac'
-                  }}>
-                    <MarkdownRenderer content={question.solution.answer} />
-                  </div>
-                </>
-              )}
+              <Divider>תשובה סופית</Divider>
+              <div className="final-answer" style={{
+                padding: '16px',
+                background: '#f0fdf4',
+                borderRadius: '8px',
+                border: '1px solid #86efac'
+              }}>
+                <MarkdownRenderer content={
+                  question.answer.finalAnswer.type === 'none' ? 
+                    question.answer.solution.text :
+                    question.answer.finalAnswer.type === 'multiple_choice' ?
+                      `תשובה ${question.answer.finalAnswer.value}` :
+                      question.answer.finalAnswer.type === 'numerical' ?
+                        `${question.answer.finalAnswer.value}${question.answer.finalAnswer.unit || ''}` :
+                        question.answer.solution.text
+                } />
+              </div>
             </>
           )}
         </Space>

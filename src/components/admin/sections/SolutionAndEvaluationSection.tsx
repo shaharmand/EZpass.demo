@@ -44,7 +44,7 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
     </Space>
   );
 
-  if (!question?.solution) {
+  if (!question?.answer?.solution) {
     return renderEmptyState();
   }
 
@@ -56,13 +56,13 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
         border: `1px solid ${solutionErrors.length > 0 ? '#ff4d4f' : '#d9d9d9'}`,
         borderRadius: '6px'
       }}>
-        {!question.solution?.text ? renderEmptyState() : (
-          <QuestionSolution solution={question.solution} showCard={false} />
+        {!question.answer.solution?.text ? renderEmptyState() : (
+          <QuestionSolution solution={question.answer.solution} showCard={false} />
         )}
       </div>
 
       {/* Evaluation - only show for non-multiple choice questions */}
-      {question.type !== 'multiple_choice' && (
+      {question.metadata.type !== 'multiple_choice' && (
         <Card size="small">
           <Space style={{ width: '100%', justifyContent: 'space-between' }}>
             <Space>

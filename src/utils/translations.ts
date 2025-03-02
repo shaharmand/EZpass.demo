@@ -1,4 +1,4 @@
-import { QuestionType, DifficultyLevel, SourceType, QuestionStatus, ValidationStatus } from '../types/question';
+import { QuestionType, DifficultyLevel, SourceType, QuestionStatus, ValidationStatus, PublicationStatusEnum } from '../types/question';
 import { examService } from '../services/examService';
 import styled from 'styled-components';
 import { Card, Typography } from 'antd';
@@ -33,6 +33,13 @@ const statusTranslations: Record<QuestionStatus, string> = {
   'approved': 'מאושר'
 };
 
+// Add new publication status translations
+const publicationStatusTranslations: Record<PublicationStatusEnum, string> = {
+  'draft': 'טיוטה',
+  'published': 'מפורסם',
+  'archived': 'בארכיון'
+};
+
 // Simple translation functions
 function translateQuestionType(type: QuestionType): string {
   return questionTypeTranslations[type] || type;
@@ -48,6 +55,11 @@ function translateSourceType(type: SourceType): string {
 
 function translateStatus(status: QuestionStatus): string {
   return statusTranslations[status] || status;
+}
+
+// Update translation function
+function translatePublicationStatus(status: PublicationStatusEnum): string {
+  return publicationStatusTranslations[status] || status;
 }
 
 // Get valid values for each enum type
@@ -73,6 +85,7 @@ export {
   translateDifficulty,
   translateSourceType,
   translateStatus,
+  translatePublicationStatus,
   getValidQuestionTypes,
   getValidSourceTypes,
   getValidDifficultyLevels,
@@ -81,13 +94,13 @@ export {
 
 // Types
 type ValueType = 'subject' | 'domain' | 'topic' | 'subtopic' | 'enum' | 'other' | 'metadata';
-type EnumType = 'questionType' | 'difficulty' | 'sourceType' | 'status' | 'season' | 'moed' | 'examTemplate';
+type EnumType = 'questionType' | 'difficulty' | 'sourceType' | 'publication_status' | 'season' | 'moed' | 'examTemplate';
 
 interface EnumMappings {
   questionType: Record<QuestionType, string>;
   difficulty: Record<DifficultyLevel, string>;
   sourceType: Record<SourceType, string>;
-  status: Record<string, string>;
+  publication_status: Record<PublicationStatusEnum, string>;
   validationStatus: Record<string, string>;
   season: Record<'spring' | 'summer', string>;
   moed: Record<'a' | 'b', string>;
@@ -118,9 +131,10 @@ const enumMappings: EnumMappings = {
     'ezpass': 'איזיפס'
   },
 
-  status: {
+  publication_status: {
     'draft': 'טיוטה',
-    'approved': 'מאושר'
+    'published': 'מפורסם',
+    'archived': 'בארכיון'
   },
 
   validationStatus: {
@@ -231,8 +245,8 @@ const getEnumTranslation = (
         return value.toString();
       }
       break;
-    case 'status':
-      if (!Object.keys(enumMappings.status).includes(value as string)) {
+    case 'publication_status':
+      if (!Object.keys(enumMappings.publication_status).includes(value as string)) {
         return value.toString();
       }
       break;
@@ -282,7 +296,7 @@ const formatValidationDetails = (field: string, error: string): string => {
     if (field === 'metadata.source.sourceType') enumType = 'sourceType';
     else if (field === 'type') enumType = 'questionType';
     else if (field === 'metadata.difficulty') enumType = 'difficulty';
-    else if (field === 'status') enumType = 'status';
+    else if (field === 'publication_status') enumType = 'publication_status';
 
     if (enumType) {
       const value = error.match(/received '(.+)'/)?.[1] || '';
@@ -314,8 +328,8 @@ const getDisplayValue = (
         return getEnumTranslation(enumType, Number(value) as DifficultyLevel);
       case 'sourceType':
         return getEnumTranslation(enumType, value.toString() as SourceType);
-      case 'status':
-        return getEnumTranslation(enumType, value as QuestionStatus);
+      case 'publication_status':
+        return getEnumTranslation(enumType, value as PublicationStatusEnum);
       case 'season':
         return enumMappings.season[value.toString() as 'spring' | 'summer'] || value.toString();
       case 'moed':

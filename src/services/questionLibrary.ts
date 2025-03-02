@@ -1,5 +1,11 @@
 import { questionStorage } from './admin/questionStorage';
-import type { Question, QuestionType, ValidationStatus, QuestionStatus, DatabaseQuestion } from '../types/question';
+import type { 
+  Question, 
+  QuestionType, 
+  ValidationStatus, 
+  PublicationStatusEnum,
+  DatabaseQuestion 
+} from '../types/question';
 
 export interface QuestionFilters {
   subject?: string;
@@ -16,7 +22,7 @@ export interface QuestionFilters {
   sortOrder?: 'asc' | 'desc';
   validation_status?: ValidationStatus | null;
   subtopic?: string;
-  status?: QuestionStatus | null;
+  publication_status?: PublicationStatusEnum | null;
 }
 
 class QuestionLibrary {

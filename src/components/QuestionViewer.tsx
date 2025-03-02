@@ -1,23 +1,34 @@
 import React from 'react';
 import { Typography, Space, Spin } from 'antd';
-import type { Question } from '../types/question';
+import { Question } from '../types/question';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
-const { Text } = Typography;
+const { Title, Text } = Typography;
 
 interface QuestionViewerProps {
   question: Question;
   showOptions?: boolean;
   showSolution?: boolean;
   loading?: boolean;
+  selectedOption?: number;
+  onOptionSelect?: (optionId: number) => void;
 }
 
 const QuestionViewer: React.FC<QuestionViewerProps> = ({
   question,
   showOptions = true,
   showSolution = false,
-  loading = false
+  loading = false,
+  selectedOption,
+  onOptionSelect
 }) => {
+  const getCorrectAnswer = () => {
+    if (question.answer.finalAnswer.type === 'multiple_choice') {
+      return question.answer.finalAnswer.value;
+    }
+    return null;
+  };
+
   if (loading) {
     return (
       <div style={{
@@ -52,47 +63,52 @@ const QuestionViewer: React.FC<QuestionViewerProps> = ({
       </div>
 
       {/* Options (if multiple choice and showOptions is true) */}
-      {showOptions && question.type === 'multiple_choice' && question.options && (
+      {showOptions && question.metadata.type === 'multiple_choice' && question.content.options && (
         <div className="question-options" style={{ marginTop: '1rem' }}>
           <Space direction="vertical" style={{ width: '100%' }}>
-            {question.options.map((option, index) => (
-              <div 
-                key={index}
-                className="question-option"
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: '4px',
-                  border: '1px solid #e5e7eb',
-                  backgroundColor: showSolution && (index + 1 === question.correctOption) 
-                    ? '#ecfdf5' // Light green for correct answer when showing solution
-                    : '#ffffff',
-                  textAlign: 'right',
-                  direction: 'rtl'
-                }}
-              >
-                <Text style={{ 
-                  display: 'flex', 
-                  gap: '0.5rem', 
-                  alignItems: 'center'
-                }}>
-                  <span style={{ lineHeight: '1.5' }}>{index + 1}.</span>
-                  <div style={{ flex: 1 }}>
-                    <MarkdownRenderer content={option.text} />
-                  </div>
-                </Text>
-              </div>
-            ))}
+            {question.content.options.map((option, index) => {
+              const correctAnswer = getCorrectAnswer();
+              return (
+                <div
+                  key={index}
+                  className={`question-option ${selectedOption === index + 1 ? 'selected' : ''}`}
+                  style={{
+                    padding: '0.75rem',
+                    border: `1px solid ${selectedOption === index + 1 ? '#1677ff' : '#d9d9d9'}`,
+                    borderRadius: '4px',
+                    cursor: onOptionSelect ? 'pointer' : 'default',
+                    backgroundColor: showSolution && correctAnswer && (index + 1 === correctAnswer)
+                      ? '#ecfdf5' // Light green for correct answer when showing solution
+                      : selectedOption === index + 1
+                      ? '#e6f4ff'
+                      : 'white'
+                  }}
+                  onClick={() => onOptionSelect?.(index + 1)}
+                >
+                  <Text style={{ 
+                    display: 'flex', 
+                    gap: '0.5rem', 
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ lineHeight: '1.5' }}>{index + 1}.</span>
+                    <div style={{ flex: 1 }}>
+                      <MarkdownRenderer content={option.text} />
+                    </div>
+                  </Text>
+                </div>
+              );
+            })}
           </Space>
         </div>
       )}
 
       {/* Solution (if showSolution is true) */}
-      {showSolution && question.solution && (
+      {showSolution && question.answer.solution && (
         <div className="question-solution" style={{ marginTop: '1.5rem' }}>
           <Text strong style={{ display: 'block', marginBottom: '0.5rem' }}>
             פתרון:
           </Text>
-          <MarkdownRenderer content={question.solution.text} />
+          <MarkdownRenderer content={question.answer.solution.text} />
         </div>
       )}
     </div>

@@ -16,7 +16,7 @@
       "domainId": "construction_safety",
       "duration": 180,
       "totalQuestions": 5,
-      "allowedQuestionTypes": ["multiple_choice", "step_by_step","open"],
+      "allowedQuestionTypes": ["multiple_choice", "numerical","open"],  
       "topics": [
         {
           "id": "safety_management_fundamentals",

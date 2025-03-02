@@ -72,6 +72,17 @@
   box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
 }
 
+/* Error State */
+.next-button.error {
+  background: #ef4444;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+}
+
+.next-button.error:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+}
+
 /* Button Icons */
 .button-icon {
   font-size: 18px;

@@ -37,7 +37,7 @@ export const TypeFilterContent: React.FC<TypeFilterContentProps> = ({
       // Just remove focus
       const { questionTypes, ...otherFilters } = filters;
       onFiltersChange(otherFilters);
-    } else if (selectedType === question.type) {
+    } else if (selectedType === question.metadata.type) {
       // Current type - just update filter
       onFiltersChange({ ...filters, questionTypes: [selectedType] });
     } else {

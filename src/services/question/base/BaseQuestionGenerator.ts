@@ -62,7 +62,7 @@ export abstract class BaseQuestionGenerator {
    */
   protected validateCommonRequirements(question: Question): boolean {
     // Basic structure validation
-    if (!question.content?.text || !question.solution?.text) {
+    if (!question.content?.text || !question.answer?.solution?.text) {
       return false;
     }
 
@@ -74,7 +74,7 @@ export abstract class BaseQuestionGenerator {
     }
 
     // Type-specific validation
-    const typeConfig = this.typeConfigs.get(question.type);
+    const typeConfig = this.typeConfigs.get(question.metadata.type);
     if (!typeConfig) {
       return false;
     }

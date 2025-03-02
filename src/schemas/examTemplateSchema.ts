@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ExamType, ExamInstitutionType } from '../types/examTemplate';
-import { difficultySchema, programmingLanguageSchema, questionTypeSchema } from './questionSchema';
+import { QuestionType } from '../types/question';
+import { difficultySchema, programmingLanguageSchema } from './questionSchema';
 
 // Base schema for exam names
 export const examNamesSchema = z.object({
@@ -22,6 +23,9 @@ const topicSchema = z.object({
     order: z.number()
   }))
 });
+
+// Question type schema using the enum from types/question
+const questionTypeSchema = z.nativeEnum(QuestionType);
 
 // Main exam template schema
 export const examTemplateSchema = z.object({

@@ -17,7 +17,7 @@
       "domainId": "programming_fundamentals",
       "duration": 180,
       "totalQuestions": 5,
-      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
+      "allowedQuestionTypes": ["multiple_choice","open"],
       "topics": [
         {
           "id": "basic_programming_hsp",
@@ -49,7 +49,7 @@
       "domainId": "programming_fundamentals",
       "duration": 180,
       "totalQuestions": 5,
-      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
+      "allowedQuestionTypes": ["multiple_choice","open"],
       "topics": [
         {
           "id": "basic_programming_hsp",
@@ -80,7 +80,7 @@
       "domainId": "programming_fundamentals_hsp",
       "duration": 180,
       "totalQuestions": 6,
-      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
+      "allowedQuestionTypes": ["multiple_choice","open"],
       "programmingLanguage": "python",
       "topics": [
         {
@@ -113,7 +113,7 @@
       "domainId": "data_structures",
       "duration": 180,
       "totalQuestions": 5,
-      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
+      "allowedQuestionTypes": ["multiple_choice","open"],
       "topics": [
         {
           "id": "complexity_analysis_hsp",
@@ -156,7 +156,7 @@
       "domainId": "data_structures",
       "duration": 180,
       "totalQuestions": 5,
-      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
+      "allowedQuestionTypes": ["multiple_choice","open"],
       "topics": [
         {
           "id": "complexity_analysis_hsp",
@@ -198,7 +198,7 @@
       "domainId": "data_structures",
       "duration": 180,
       "totalQuestions": 7,
-      "allowedQuestionTypes": ["multiple_choice", "code", "step_by_step"],
+      "allowedQuestionTypes": ["multiple_choice","open"],
       "programmingLanguage": "python",
       "topics": [
         {

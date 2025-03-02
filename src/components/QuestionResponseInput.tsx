@@ -1,24 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Input, Button, Typography } from 'antd';
-import type { Question, QuestionFeedback } from '../types/question';
-import type { QuestionAnswer } from '../types/prepUI';
+import type { Question, QuestionFeedback, FullAnswer } from '../types/question';
+import { QuestionType } from '../types/question';
 import { SimpleTextMathInput } from './SimpleTextMathInput';
 import { MonacoEditor } from './MonacoEditor';
 import { QuestionMultipleChoiceInput } from './QuestionMultipleChoiceInput';
 import { RedoOutlined } from '@ant-design/icons';
 import './QuestionResponseInput.css';
 import { usePracticeAttempts } from '../contexts/PracticeAttemptsContext';
+import { isSuccessfulAnswer } from '../types/question';
 
 const { TextArea } = Input;
 const { Text } = Typography;
 
 interface QuestionResponseInputProps {
   question: Question;
-  onAnswer: (answer: QuestionAnswer) => void;
+  onAnswer: (answer: FullAnswer) => void;
   onRetry: () => void;
   disabled?: boolean;
   feedback?: QuestionFeedback;
-  selectedAnswer?: QuestionAnswer | null;
+  selectedAnswer?: FullAnswer | null;
   onCanSubmitChange?: (canSubmit: boolean) => void;
 }
 
@@ -58,8 +59,9 @@ const CodeInput: React.FC<{
   value: string;
   disabled?: boolean;
 }> = ({ question, onChange, value, disabled }) => {
-  const language = question.metadata?.programmingLanguage || 'javascript';
-  const template = question.metadata?.codeTemplate || '';
+  // These properties should be added to the Question type if needed
+  const language = 'javascript';
+  const template = '';
 
   return (
     <MonacoEditor
@@ -68,7 +70,6 @@ const CodeInput: React.FC<{
       language={language}
       template={template}
       disabled={disabled}
-      testCases={question.metadata?.testCases}
     />
   );
 };
@@ -86,45 +87,54 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check if answer is valid based on question type
-  const isAnswerValid = (answer: QuestionAnswer | null): boolean => {
+  const isAnswerValid = (answer: FullAnswer | null): boolean => {
     if (!answer) return false;
     
-    switch (answer.type) {
-      case 'multiple_choice':
-        return answer.selectedOption >= 1 && answer.selectedOption <= 4;
-      case 'open':
-      case 'step_by_step':
-        return answer.markdownText.trim().length > 0;
-      case 'code':
-        return answer.codeText.trim().length > 0;
-      default:
-        return false;
+    if (answer.finalAnswer.type === 'multiple_choice') {
+      return answer.finalAnswer.value >= 1 && answer.finalAnswer.value <= 4;
     }
+    
+    // For non-multiple choice questions, check solution text
+    return answer.solution.text.trim().length > 0;
   };
 
   // Create appropriate answer object based on question type
-  const createAnswer = (value: string): QuestionAnswer => {
-    switch (question.type) {
-      case 'multiple_choice':
+  const createAnswer = (value: string): FullAnswer => {
+    switch (question.metadata.type) {
+      case QuestionType.MULTIPLE_CHOICE:
+        const numValue = parseInt(value, 10);
         return {
-          type: 'multiple_choice',
-          selectedOption: parseInt(value, 10)
+          finalAnswer: { 
+            type: 'multiple_choice', 
+            value: numValue as 1 | 2 | 3 | 4 
+          },
+          solution: {
+            text: '',
+            format: 'markdown',
+            requiredSolution: false
+          }
         };
-      case 'code':
+      case QuestionType.NUMERICAL:
         return {
-          type: 'code',
-          codeText: value
+          finalAnswer: {
+            type: 'numerical',
+            value: parseFloat(value),
+            tolerance: 0
+          },
+          solution: {
+            text: value,
+            format: 'markdown',
+            requiredSolution: false
+          }
         };
-      case 'step_by_step':
-        return {
-          type: 'step_by_step',
-          markdownText: value
-        };
-      case 'open':
       default:
         return {
-          type: 'open',
-          markdownText: value
+          finalAnswer: { type: 'none' },
+          solution: {
+            text: value,
+            format: 'markdown',
+            requiredSolution: true
+          }
         };
     }
   };
@@ -155,42 +165,31 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
   const getCurrentValue = (): string => {
     if (!selectedAnswer) return '';
     
-    switch (selectedAnswer.type) {
-      case 'multiple_choice':
-        return selectedAnswer.selectedOption.toString();
-      case 'code':
-        return selectedAnswer.codeText;
-      case 'open':
-      case 'step_by_step':
-        return selectedAnswer.markdownText;
-      default:
-        return '';
+    if (selectedAnswer.finalAnswer.type === 'multiple_choice') {
+      return selectedAnswer.finalAnswer.value.toString();
     }
+    
+    if (selectedAnswer.finalAnswer.type === 'numerical') {
+      return selectedAnswer.finalAnswer.value.toString();
+    }
+    
+    return selectedAnswer.solution.text;
   };
 
   return (
     <div className="question-response-input">
       <div className="input-section">
-        {question.type === 'multiple_choice' ? (
+        {question.metadata.type === QuestionType.MULTIPLE_CHOICE ? (
           <div className="multiple-choice-container">
             <QuestionMultipleChoiceInput
               question={question}
               onChange={(selectedOption) => handleAnswerChange(selectedOption.toString())}
-              value={selectedAnswer?.type === 'multiple_choice' ? selectedAnswer.selectedOption : null}
+              value={selectedAnswer?.finalAnswer.type === 'multiple_choice' ? selectedAnswer.finalAnswer.value : null}
               disabled={disabled}
               feedback={feedback}
             />
           </div>
-        ) : question.type === 'code' ? (
-          <div className="code-input-container">
-            <MonacoEditor
-              value={getCurrentValue()}
-              onChange={handleAnswerChange}
-              disabled={disabled}
-              language={question.metadata.programmingLanguage || 'javascript'}
-            />
-          </div>
-        ) : question.type === 'step_by_step' ? (
+        ) : question.metadata.type === QuestionType.NUMERICAL ? (
           <div className="step-by-step-container">
             <SimpleTextMathInput
               value={getCurrentValue()}
@@ -206,7 +205,7 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
               placeholder="הקלד את תשובתך כאן..."
               autoSize={{ minRows: 4, maxRows: 8 }}
               disabled={disabled}
-              className={`response-textarea ${feedback ? (feedback.isSuccess ? 'correct' : 'incorrect') : ''}`}
+              className={`response-textarea ${feedback ? (isSuccessfulAnswer(feedback.evalLevel) ? 'correct' : 'incorrect') : ''}`}
             />
           </div>
         )}

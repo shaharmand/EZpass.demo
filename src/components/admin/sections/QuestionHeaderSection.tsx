@@ -2,7 +2,7 @@ import React from 'react';
 import { Space, Button, Tag, Typography, Tooltip } from 'antd';
 import { LeftOutlined, RightOutlined, HomeOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { Question, QuestionStatus } from '../../../types/question';
+import { Question, PublicationStatusEnum } from '../../../types/question';
 
 const { Text } = Typography;
 
@@ -108,7 +108,7 @@ const CompactTag = styled(Tag)`
 `;
 
 interface QuestionHeaderSectionProps {
-  question: Question & { status: QuestionStatus };
+  question: Question & { publication_status: PublicationStatusEnum };
   onBack: () => void;
   onSave: () => void;
   isModified?: boolean;
@@ -120,7 +120,7 @@ interface QuestionHeaderSectionProps {
     current: number;
     total: number;
   };
-  onQuestionChange?: (updatedQuestion: Question & { status: QuestionStatus }) => void;
+  onQuestionChange?: (updatedQuestion: Question & { publication_status: PublicationStatusEnum }) => void;
 }
 
 export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
@@ -135,7 +135,7 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
   currentPosition,
   onQuestionChange,
 }) => {
-  const isDraft = question.status === 'draft';
+  const isDraft = question.publication_status === PublicationStatusEnum.DRAFT;
 
   return (
     <HeaderContainer>
@@ -190,12 +190,11 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
               שמור שינויים
             </Button>
 
-            {/* Status change section - completely separate */}
             <Button 
               type={isDraft ? 'primary' : 'default'}
               onClick={() => onQuestionChange?.({
                 ...question,
-                status: isDraft ? 'approved' : 'draft'
+                publication_status: isDraft ? PublicationStatusEnum.PUBLISHED : PublicationStatusEnum.DRAFT
               })}
               style={{ marginRight: 8 }}
             >

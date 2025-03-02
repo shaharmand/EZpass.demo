@@ -9,6 +9,7 @@ import type { ExamTemplate } from '../../types/examTemplate';
 import { ExamTopicsDialog } from './ExamTopicsDialog';
 import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import './ExamCard.css';
+import { QuestionType } from '../../types/question';
 
 const { Title, Text } = Typography;
 
@@ -167,7 +168,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
                   padding: '4px 12px',
                   background: type === 'open' ? 'rgba(16, 185, 129, 0.1)' :
                             type === 'multiple_choice' ? 'rgba(99, 102, 241, 0.1)' :
-                            type === 'step_by_step' ? 'rgba(245, 158, 11, 0.1)' :
+                            type === QuestionType.NUMERICAL ? 'rgba(245, 158, 11, 0.1)' :
                             'rgba(236, 72, 153, 0.1)',
                   borderRadius: '12px',
                   fontSize: '14px'
@@ -179,19 +180,19 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
                   borderRadius: '50%',
                   background: type === 'open' ? '#10b981' :
                              type === 'multiple_choice' ? '#6366f1' :
-                             type === 'step_by_step' ? '#f59e0b' :
+                             type === QuestionType.NUMERICAL ? '#f59e0b' :
                              '#ec4899'
                 }} />
                 <Text style={{ 
                   color: type === 'open' ? '#065f46' :
                           type === 'multiple_choice' ? '#3730a3' :
-                          type === 'step_by_step' ? '#92400e' :
+                          type === QuestionType.NUMERICAL ? '#92400e' :
                           '#831843',
                   fontSize: '14px'
                 }}>
                   {type === 'open' ? 'פתוחות' :
                    type === 'multiple_choice' ? 'סגורות' :
-                   type === 'step_by_step' ? 'חישוביות' :
+                   type === QuestionType.NUMERICAL ? 'חישוביות' :
                    'קוד'}
                 </Text>
               </div>

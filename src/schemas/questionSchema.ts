@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { RefinementCtx } from 'zod';
-import { DifficultyLevel, ProgrammingLanguage, QuestionType, SourceType } from '../types/question';
+import { DifficultyLevel, QuestionType, SourceType } from '../types/question';
 import { Topic } from '../types/subject';
 import { universalTopics, universalTopicsV2 } from '../services/universalTopics';
 import { createValidationMessage } from '../utils/validationMessages';
@@ -44,7 +44,7 @@ export const difficultySchema = z.number()
 
 export const programmingLanguageSchema = z.enum(['java', 'c#', 'python'] as const);
 
-export const questionTypeSchema = z.enum(['multiple_choice', 'open', 'code', 'step_by_step'] as const);
+export const questionTypeSchema = z.nativeEnum(QuestionType);
 
 // More question-specific schemas can be added here...
 
@@ -287,7 +287,7 @@ export const metadataSchema = z.object({
         });
     }
   }),
-  programmingLanguage: programmingLanguageSchema.optional(),
+  programmingLanguage: z.enum(['java', 'c#', 'python'] as const).optional(),
   testCases: z.array(z.object({
     input: z.string().min(1, { message: "קלט חסר" }),
     expectedOutput: z.string().min(1, { message: "פלט צפוי חסר" })
@@ -471,7 +471,7 @@ export const questionSchema = z.object({
           });
       }
     }),
-    programmingLanguage: programmingLanguageSchema.optional(),
+    programmingLanguage: z.enum(['java', 'c#', 'python'] as const).optional(),
     testCases: z.array(z.object({
       input: z.string().min(1, { message: "קלט חסר" }),
       expectedOutput: z.string().min(1, { message: "פלט צפוי חסר" })
@@ -564,7 +564,7 @@ export const questionSchema = z.object({
 
   // Type-specific validations
   switch (data.type) {
-    case 'multiple_choice':
+    case QuestionType.MULTIPLE_CHOICE:
       if (!data.options) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -593,21 +593,11 @@ export const questionSchema = z.object({
       }
       break;
 
-    case 'code':
-      if (!data.metadata.programmingLanguage) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "שאלת קוד חייבת לכלול שפת תכנות",
-          path: ['metadata', 'programmingLanguage']
-        });
-      }
+    case QuestionType.NUMERICAL:
+      // Add any numerical question specific validations here
       break;
 
-    case 'step_by_step':
-      // Add any step-by-step specific validations here
-      break;
-
-    case 'open':
+    case QuestionType.OPEN:
       // Add any open question specific validations here
       break;
   }

@@ -17,10 +17,19 @@ import {
   ExportOutlined,
   CheckOutlined,
   StopOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  WarningOutlined,
+  CloseCircleOutlined
 } from '@ant-design/icons/lib/icons';
 import { Link, useNavigate } from 'react-router-dom';
-import { Question, QuestionType, ValidationStatus, QuestionStatus } from '../../../types/question';
+import { 
+  Question, 
+  DatabaseQuestion,
+  ValidationStatus,
+  QuestionType,
+  PublicationStatusEnum,
+  ImportInfo
+} from '../../../types/question';
 import { questionStorage } from '../../../services/admin/questionStorage';
 import { universalTopics } from '../../../services/universalTopics';
 import type { ColumnType } from 'antd/lib/table';
@@ -120,8 +129,10 @@ const ResizableTitle = (props: ResizableHeaderCellProps) => {
   );
 };
 
+type TableQuestion = DatabaseQuestion & { key: string };
+
 export const QuestionLibraryPage: React.FC = () => {
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<DatabaseQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -152,11 +163,12 @@ export const QuestionLibraryPage: React.FC = () => {
     type: 100,
     difficulty: 100,
     validation_status: 120,
-    status: 120,
+    publication_status: 120,
     createdAt: 150,
     updatedAt: 150,
     id: 140,
-    actions: 100
+    actions: 100,
+    source: 150
   });
 
   // Load questions whenever filters change
@@ -350,10 +362,10 @@ export const QuestionLibraryPage: React.FC = () => {
   };
 
   // Add status change handler
-  const handleStatusChange = (value: QuestionStatus | null) => {
+  const handleStatusChange = (value: PublicationStatusEnum | null) => {
     const newFilters = {
       ...filters,
-      status: value
+      publication_status: value
     };
     setFilters(newFilters);
     questionLibrary.updateCurrentList(newFilters);
@@ -368,200 +380,167 @@ export const QuestionLibraryPage: React.FC = () => {
     questionLibrary.updateCurrentList(newFilters);
   };
 
-  const columns: ColumnType<Question>[] = [
+  const getStatusColor = (status: PublicationStatusEnum) => {
+    switch (status) {
+      case PublicationStatusEnum.PUBLISHED:
+        return 'green';
+      case PublicationStatusEnum.ARCHIVED:
+        return 'red';
+      case PublicationStatusEnum.DRAFT:
+        return 'orange';
+      default:
+        return 'gray';
+    }
+  };
+
+  const columns: ColumnType<TableQuestion>[] = [
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+      width: columnWidths.id,
+      fixed: 'left',
+      sorter: (a, b) => a.id.localeCompare(b.id),
+    },
     {
       title: 'תוכן',
       dataIndex: 'content',
       key: 'content',
-      width: 300,
-      ellipsis: true,
-      sorter: (a, b) => (a.content?.text || '').localeCompare(b.content?.text || ''),
-      sortOrder: sortedInfo.columnKey === 'content' ? sortedInfo.order : null,
-      render: (content: Question['content']) => (
-        <Tooltip title={content?.text || 'No content'}>
-          <Text>{content?.text ? `${content.text.substring(0, 100)}...` : 'No content'}</Text>
-        </Tooltip>
-      )
-    },
-    {
-      title: 'נושא',
-      key: 'topic',
-      width: 150,
-      ellipsis: true,
-      sorter: (a, b) => {
-        const topicA = universalTopics.getTopic(a.metadata?.topicId || '')?.name || '';
-        const topicB = universalTopics.getTopic(b.metadata?.topicId || '')?.name || '';
-        return topicA.localeCompare(topicB);
-      },
-      sortOrder: sortedInfo.columnKey === 'topic' ? sortedInfo.order : null,
-      render: (_, record: Question) => {
-        const topic = record.metadata?.topicId ? 
-          universalTopics.getTopic(record.metadata.topicId) : 
-          undefined;
-        return topic?.name || 'N/A';
-      }
-    },
-    {
-      title: 'תת נושא',
-      key: 'subtopic',
-      width: 150,
-      ellipsis: true,
-      sorter: (a, b) => {
-        const subtopicA = a.metadata?.subtopicId ? 
-          universalTopics.getSubtopicInfo(a.metadata.topicId, a.metadata.subtopicId)?.name || '' : '';
-        const subtopicB = b.metadata?.subtopicId ? 
-          universalTopics.getSubtopicInfo(b.metadata.topicId, b.metadata.subtopicId)?.name || '' : '';
-        return subtopicA.localeCompare(subtopicB);
-      },
-      sortOrder: sortedInfo.columnKey === 'subtopic' ? sortedInfo.order : null,
-      render: (_, record: Question) => {
-        if (!record.metadata?.topicId || !record.metadata?.subtopicId) return 'N/A';
-        const subtopic = universalTopics.getSubtopicInfo(
-          record.metadata.topicId,
-          record.metadata.subtopicId
-        );
-        return subtopic?.name || 'N/A';
-      }
+      width: columnWidths.content,
+      render: (_, record) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Text strong style={{ fontSize: '14px', marginBottom: '4px' }}>{record.name || 'ללא שם'}</Text>
+          <Text style={{ fontSize: '13px', whiteSpace: 'normal', lineHeight: '1.5' }}>
+            {record.content?.text?.substring(0, 100)}...
+          </Text>
+        </div>
+      ),
     },
     {
       title: 'סוג',
-      dataIndex: 'type',
+      dataIndex: ['metadata', 'type'],
       key: 'type',
-      width: 100,
-      ellipsis: true,
-      sorter: (a, b) => a.type.localeCompare(b.type),
-      sortOrder: sortedInfo.columnKey === 'type' ? sortedInfo.order : null,
-      render: (type: string) => {
-        const typeLabels = {
-          multiple_choice: 'רב ברירה',
-          open: 'פתוח',
-          code: 'קוד',
-          step_by_step: 'שלב אחר שלב'
-        };
-        return <Text>{getEnumTranslation('questionType', type as QuestionType)}</Text>;
-      }
+      width: columnWidths.type,
+      filters: [
+        { text: 'רב-ברירה', value: 'multiple_choice' },
+        { text: 'מספרי', value: 'numerical' },
+        { text: 'פתוח', value: 'open' }
+      ],
+      render: (type: QuestionType) => {
+        const color = type === 'multiple_choice' ? 'blue' : 
+                     type === 'numerical' ? 'green' : 'orange';
+        return (
+          <Tag color={color}>
+            {getEnumTranslation('questionType', type)}
+          </Tag>
+        );
+      },
     },
     {
       title: 'רמת קושי',
       dataIndex: ['metadata', 'difficulty'],
       key: 'difficulty',
-      width: 100,
-      sorter: (a, b) => (a.metadata?.difficulty || 0) - (b.metadata?.difficulty || 0),
-      sortOrder: sortedInfo.columnKey === 'difficulty' ? sortedInfo.order : null,
+      width: columnWidths.difficulty,
+      filters: [1, 2, 3, 4, 5].map(level => ({
+        text: `רמה ${level}`,
+        value: level
+      })),
       render: (difficulty: number) => (
-        <Tag color={difficulty > 3 ? 'error' : undefined}>
-          <Space>
-            <StarOutlined />
-            <span>{difficulty || 'N/A'}</span>
-          </Space>
+        <Tag color={['', 'green', 'cyan', 'blue', 'purple', 'red'][difficulty]}>
+          {difficulty}
         </Tag>
-      )
+      ),
     },
     {
       title: 'סטטוס תיקוף',
       dataIndex: 'validation_status',
       key: 'validation_status',
-      width: 120,
-      sorter: (a: any, b: any) => (a.validation_status || '').localeCompare(b.validation_status || ''),
-      sortOrder: sortedInfo.columnKey === 'validation_status' ? sortedInfo.order : null,
-      render: (validation_status: ValidationStatus) => {
-        const statusColors = {
-          [ValidationStatus.Valid]: 'success',
-          [ValidationStatus.Warning]: 'warning',
-          [ValidationStatus.Error]: 'error'
+      width: columnWidths.validation_status,
+      render: (_, record: DatabaseQuestion) => {
+        const status = record.validation_status;
+        const statusConfig = {
+          [ValidationStatus.VALID]: { color: 'green', text: 'תקין', icon: <CheckOutlined /> },
+          [ValidationStatus.WARNING]: { color: 'orange', text: 'אזהרות', icon: <WarningOutlined /> },
+          [ValidationStatus.ERROR]: { color: 'red', text: 'שגיאות תיקוף', icon: <CloseCircleOutlined /> }
         };
-        return <Tag color={statusColors[validation_status]}>
-          {getEnumTranslation('validationStatus', validation_status)}
-        </Tag>;
+        
+        const config = statusConfig[status];
+        return (
+          <Tooltip title={`סטטוס תיקוף: ${config.text}`}>
+            <Tag color={config.color} icon={config.icon} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {config.text}
+            </Tag>
+          </Tooltip>
+        );
+      },
+      filters: [
+        { text: 'תקין', value: ValidationStatus.VALID },
+        { text: 'אזהרות', value: ValidationStatus.WARNING },
+        { text: 'שגיאות תיקוף', value: ValidationStatus.ERROR }
+      ],
+      onFilter: (value, record) => record.validation_status === value,
+    },
+    {
+      title: 'סטטוס פרסום',
+      dataIndex: 'publication_status',
+      key: 'publication_status',
+      width: columnWidths.publication_status,
+      filters: Object.entries(enumMappings.publication_status).map(([value]) => ({
+        text: getEnumTranslation('publication_status', value as PublicationStatusEnum),
+        value: value
+      })),
+      render: (status: PublicationStatusEnum) => (
+        <Tag color={getStatusColor(status)}>
+          {getEnumTranslation('publication_status', status)}
+        </Tag>
+      ),
+    },
+    {
+      title: 'מקור',
+      dataIndex: ['metadata', 'source'],
+      key: 'source',
+      width: columnWidths.source,
+      render: (source: Question['metadata']['source']) => {
+        if (!source) return <Tag>Unknown</Tag>;
+        
+        if (source.type === 'exam') {
+          return <Tag color="blue">{`Exam ${source.year} ${source.season} ${source.moed}`}</Tag>;
+        }
+        return <Tag color="green">{source.type}</Tag>;
       }
-    },
-    {
-      title: 'סטטוס',
-      dataIndex: 'status',
-      key: 'status',
-      width: 120,
-      sorter: (a: any, b: any) => (a.status || '').localeCompare(b.status || ''),
-      sortOrder: sortedInfo.columnKey === 'status' ? sortedInfo.order : null,
-      render: (status: string) => {
-        const statusColors = {
-          draft: 'orange',
-          approved: 'green'
-        };
-        const statusLabels = {
-          imported: 'מיובא',
-          generated: 'נוצר',
-          draft: 'טיוטה',
-          approved: 'מאושר'
-        };
-        return <Tag color={statusColors[status as keyof typeof statusColors]}>{statusLabels[status as keyof typeof statusLabels]}</Tag>;
-      }
-    },
-    {
-      title: 'נוצר',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 150,
-      sorter: true,
-      sortOrder: sortedInfo.columnKey === 'created_at' ? sortedInfo.order : null,
-      render: (date: string) => (
-        <Tooltip title={dayjs(date).format('DD/MM/YYYY HH:mm:ss')}>
-          <Space>
-            <CalendarOutlined />
-            <Text style={{ direction: 'rtl' }}>{dayjs(date).locale('he').fromNow()}</Text>
-          </Space>
-        </Tooltip>
-      )
-    },
-    {
-      title: 'עודכן',
-      dataIndex: 'updatedAt',
-      key: 'updatedAt',
-      width: 150,
-      sorter: true,
-      sortOrder: sortedInfo.columnKey === 'updated_at' ? sortedInfo.order : null,
-      render: (date: string) => (
-        <Tooltip title={dayjs(date).format('DD/MM/YYYY HH:mm:ss')}>
-          <Space>
-            <ClockCircleOutlined />
-            <Text style={{ direction: 'rtl' }}>{dayjs(date).locale('he').fromNow()}</Text>
-          </Space>
-        </Tooltip>
-      )
-    },
-    {
-      title: 'מזהה',
-      dataIndex: 'id',
-      key: 'id',
-      width: 140,
-      ellipsis: true,
-      sorter: (a, b) => a.id.localeCompare(b.id),
-      sortOrder: sortedInfo.columnKey === 'id' ? sortedInfo.order : null,
-      render: (id: string) => (
-        <Text style={{ direction: 'ltr' }} copyable>{id}</Text>
-      )
     },
     {
       title: 'פעולות',
       key: 'actions',
-      width: 100,
+      width: columnWidths.actions,
       fixed: 'right',
-      render: (_: any, record: Question) => (
+      render: (_, record) => (
         <Space>
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => handleEditClick(record.id)}
-          />
-          <Button
-            type="text"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record.id)}
-          />
+          <Tooltip title="ערוך">
+            <Button 
+              type="text" 
+              icon={<EditOutlined />} 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditClick(record.id);
+              }} 
+            />
+          </Tooltip>
+          <Tooltip title="מחק">
+            <Button 
+              type="text" 
+              danger 
+              icon={<DeleteOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(record.id);
+              }}
+            />
+          </Tooltip>
         </Space>
-      )
-    }
-  ];
+      ),
+    },
+  ] as ColumnType<TableQuestion>[];
 
   const handleBulkDelete = () => {
     if (!selectedRowKeys.length) {
@@ -591,16 +570,17 @@ export const QuestionLibraryPage: React.FC = () => {
     });
   };
 
-  const handleBulkStatusUpdate = (status: QuestionStatus) => {
+  const handleBulkStatusUpdate = (status: PublicationStatusEnum) => {
     if (!selectedRowKeys.length) {
       message.warning('Please select questions to update');
       return;
     }
 
     confirm({
-      title: `Are you sure you want to mark ${selectedRowKeys.length} questions as ${status}?`,
-      content: 'This will update the status of all selected questions.',
+      title: `Are you sure you want to update ${selectedRowKeys.length} questions to ${status}?`,
+      content: 'This action cannot be undone.',
       okText: 'Yes',
+      okType: 'primary',
       cancelText: 'No',
       onOk: async () => {
         try {
@@ -619,25 +599,6 @@ export const QuestionLibraryPage: React.FC = () => {
       },
     });
   };
-
-  // Add handleResize function
-  const handleResize = (index: number) => (e: React.SyntheticEvent<Element>, { size }: ResizeCallbackData) => {
-    const column = columns[index];
-    if (column.key) {
-      const newColumnWidths = { ...columnWidths };
-      newColumnWidths[column.key as string] = Math.max(100, size.width);
-      setColumnWidths(newColumnWidths);
-    }
-  };
-
-  // Map columns to resizable columns
-  const resizableColumns = columns.map((col, index) => ({
-    ...col,
-    onHeaderCell: (column: ColumnType<Question>): ResizableHeaderCellProps => ({
-      width: columnWidths[col.key as string],
-      onResize: handleResize(index),
-    }),
-  })) as ColumnType<Question>[];
 
   return (
     <div className="question-library">
@@ -727,12 +688,12 @@ export const QuestionLibraryPage: React.FC = () => {
             <Col span={6}>
               <Select
                 placeholder="סטטוס"
-                value={filters.status}
+                value={filters.publication_status}
                 onChange={handleStatusChange}
                 style={{ width: '100%' }}
                 allowClear
               >
-                {Object.entries(enumMappings.status).map(([value, label]) => (
+                {Object.entries(enumMappings.publication_status).map(([value, label]) => (
                   <Option key={value} value={value}>{label}</Option>
                 ))}
               </Select>
@@ -762,13 +723,8 @@ export const QuestionLibraryPage: React.FC = () => {
 
           {/* Table */}
           <Table
-            components={{
-              header: {
-                cell: ResizableTitle,
-              },
-            }}
-            columns={resizableColumns}
-            dataSource={questions.map(q => ({ ...q, key: q.id }))}
+            columns={columns as any}
+            dataSource={questions.map(q => ({ ...q, key: q.id } as TableQuestion))}
             loading={loading}
             rowSelection={{
               type: 'checkbox',

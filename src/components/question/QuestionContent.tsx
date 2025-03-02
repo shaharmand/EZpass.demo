@@ -1,8 +1,14 @@
 import React from 'react';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 
+interface ContentObject {
+  text: string;
+  format: 'markdown';
+  options?: Array<{ text: string; format: 'markdown' }>;
+}
+
 interface QuestionContentProps {
-  content: string;
+  content: ContentObject;
   className?: string;
 }
 
@@ -25,14 +31,14 @@ export const QuestionContent: React.FC<QuestionContentProps> = ({
 }) => {
   // Ensure content has proper paragraph breaks
   const formattedContent = React.useMemo(() => {
-    return content
+    return content.text
       // Ensure paragraphs are properly separated
       .split('\n\n')
       .map(para => para.trim())
       .join('\n\n')
       // Preserve single newlines within paragraphs
       .replace(/([^\n])\n([^\n])/g, '$1  \n$2');
-  }, [content]);
+  }, [content.text]);
 
   return (
     <div className={`question-content ${className}`} style={{ direction: 'rtl', textAlign: 'right' }}>

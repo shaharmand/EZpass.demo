@@ -1,8 +1,13 @@
 import React, { useState, useEffect, FC } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Space, Typography, Button, message, Tag, Divider } from 'antd';
-import { Question, QuestionStatus, DatabaseQuestion } from '../../../types/question';
-import { ValidationResult, validateQuestion } from '../../../utils/questionValidator';
+import { Card, Space, Typography, Button, message, Tag, Divider, Tooltip } from 'antd';
+import { 
+  Question, 
+  DatabaseQuestion,
+  ValidationStatus,
+  PublicationStatusEnum
+} from '../../../types/question';
+import { ValidationResult, ValidationError, ValidationWarning, validateQuestion } from '../../../utils/questionValidator';
 import { questionStorage } from '../../../services/admin/questionStorage';
 import { questionLibrary } from '../../../services/questionLibrary';
 import { 
@@ -13,7 +18,9 @@ import {
   WarningOutlined,
   CloseCircleOutlined,
   LeftOutlined,
-  RightOutlined
+  RightOutlined,
+  HomeOutlined,
+  SaveOutlined
 } from '@ant-design/icons';
 import { QuestionMetadataSection } from '../../../components/admin/sections/QuestionMetadataSection';
 import { QuestionContentSection } from '../../../components/admin/sections/QuestionContentSection';
@@ -33,11 +40,18 @@ const PageContainer = styled.div`
 `;
 
 const ValidationSection = styled.div`
-  padding: 16px 24px;
-  background: #fafafa;
-  border-top: 1px solid #f0f0f0;
-  border-bottom: 1px solid #f0f0f0;
-  margin-bottom: 8px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  margin-bottom: 16px;
+`;
+
+const ValidationMessage = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
 `;
 
 const ValidationGrid = styled.div`
@@ -100,6 +114,70 @@ const JsonSection = styled(ContentSection)`
     background: #fafafa;
     font-family: monospace;
     font-size: 13px;
+  }
+`;
+
+const HeaderCard = styled(Card)`
+  .ant-card-body {
+    padding: 16px;
+    background: #fff;
+  }
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+`;
+
+const NavigationGroup = styled(Space.Compact)`
+  direction: rtl;
+  .ant-btn {
+    margin: 0;
+  }
+`;
+
+const HeaderActions = styled(Space)`
+  .ant-btn {
+    min-width: 100px;
+    height: 32px;
+  }
+
+  .publish-button.ant-btn-primary {
+    background-color: #52c41a;
+    
+    &:hover {
+      background-color: #73d13d !important;
+    }
+    
+    &:active {
+      background-color: #389e0d !important;
+    }
+  }
+`;
+
+const ActionButtons = styled(Space)`
+  gap: 8px;
+  
+  .ant-btn {
+    min-width: 90px;
+  }
+`;
+
+const PageTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  .question-id {
+    font-size: 14px;
+    color: #1677ff;
+    background: #e6f4ff;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid #91caff;
+  }
+  
+  .position {
+    color: #666;
+    font-size: 14px;
+    margin-left: 8px;
   }
 `;
 
@@ -203,9 +281,11 @@ export const QuestionEditor: FC = () => {
     if (!question) return;
     
     try {
-      const mergedQuestion = {
+      const mergedQuestion: DatabaseQuestion = {
         ...question,
-        ...updatedQuestion
+        ...updatedQuestion,
+        publication_status: question.publication_status,
+        validation_status: currentValidation?.status || ValidationStatus.ERROR
       };
       
       await questionStorage.saveQuestion(mergedQuestion);
@@ -213,40 +293,32 @@ export const QuestionEditor: FC = () => {
       setQuestion(mergedQuestion);
       setIsEditing(false);
       setIsModified(true);
-      
-      const validationResult = validateQuestion(mergedQuestion);
-      setCurrentValidation(validationResult);
     } catch (error) {
       console.error('Failed to save question:', error);
       message.error('Failed to save question');
     }
   };
 
-  const handleStatusChange = async (newStatus: QuestionStatus) => {
+  const handleStatusChange = async (newStatus: PublicationStatusEnum) => {
     if (!question) return;
     
     try {
       await questionStorage.updateQuestionStatus(question.id, newStatus);
-      // Re-fetch the question to ensure we have the latest state
-      const updatedQuestion = await questionStorage.getQuestion(question.id);
-      if (updatedQuestion) {
-        setQuestion(updatedQuestion);
-      }
-      message.success('Status updated successfully');
+      
+      const updatedQuestion: DatabaseQuestion = {
+        ...question,
+        publication_status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+
+      await questionStorage.saveQuestion(updatedQuestion);
+      setQuestion(updatedQuestion);
+      message.success(`Question ${newStatus.toLowerCase()} successfully`);
+      setIsModified(false);
     } catch (error) {
       console.error('Failed to update status:', error);
       message.error('Failed to update status');
     }
-  };
-
-  const statusColors = {
-    draft: 'orange',
-    approved: 'green'
-  };
-
-  const statusLabels = {
-    draft: 'טיוטה',
-    approved: 'מאושר'
   };
 
   const handleHeaderSave = () => {
@@ -267,6 +339,80 @@ export const QuestionEditor: FC = () => {
     }
   };
 
+  const renderValidationStatus = () => {
+    if (!currentValidation) return null;
+
+    const { errors, warnings, status } = currentValidation;
+    
+    return (
+      <ValidationSection>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Title level={4} style={{ margin: 0 }}>Validation Status (Development)</Title>
+            <Tag color={status === ValidationStatus.VALID ? 'green' : 
+                      status === ValidationStatus.WARNING ? 'orange' : 'gold'}>
+              {status === ValidationStatus.VALID ? 'Valid' : 
+               status === ValidationStatus.WARNING ? 'Warning' : 'In Development'}
+            </Tag>
+          </div>
+          {errors.map((error: ValidationError, idx: number) => (
+            <ValidationMessage key={`error-${idx}`}>
+              <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+              <Text>{error.message}</Text>
+            </ValidationMessage>
+          ))}
+          {warnings.map((warning: ValidationWarning, idx: number) => (
+            <ValidationMessage key={`warning-${idx}`}>
+              <WarningOutlined style={{ color: '#faad14' }} />
+              <Text>{warning.message}</Text>
+            </ValidationMessage>
+          ))}
+        </Space>
+      </ValidationSection>
+    );
+  };
+
+  const renderActions = () => {
+    if (!question) return null;
+
+    const status = question.publication_status;
+
+    return (
+      <HeaderActions>
+        <Button 
+          onClick={handleHeaderSave}
+          type="primary"
+          icon={<SaveOutlined />}
+          disabled={!isModified}
+        >
+          שמור
+        </Button>
+        {status === PublicationStatusEnum.DRAFT ? (
+          <Tooltip title={currentValidation?.status === ValidationStatus.ERROR ? 
+            'שים לב: חסרים שדות בשאלה (מותר בשלב הפיתוח)' : 
+            'פרסם את השאלה'}>
+            <Button 
+              type="primary"
+              className="publish-button"
+              icon={<CheckCircleOutlined />}
+              onClick={() => handleStatusChange(PublicationStatusEnum.PUBLISHED)}
+            >
+              פרסם
+            </Button>
+          </Tooltip>
+        ) : (
+          <Button
+            danger
+            icon={<EditOutlined />}
+            onClick={() => handleStatusChange(PublicationStatusEnum.DRAFT)}
+          >
+            בטל פרסום
+          </Button>
+        )}
+      </HeaderActions>
+    );
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -280,80 +426,126 @@ export const QuestionEditor: FC = () => {
 
   return (
     <PageContainer>
-      <QuestionHeaderSection
-        question={question}
-        onBack={() => navigate('/admin/questions')}
-        onSave={handleHeaderSave}
-        isModified={isModified}
-        onPrevious={prevQuestionId ? handlePrevious : undefined}
-        onNext={nextQuestionId ? handleNext : undefined}
-        hasPrevious={!!prevQuestionId}
-        hasNext={!!nextQuestionId}
-        currentPosition={listPosition ? {
-          current: listPosition.currentIndex + 1,
-          total: listPosition.totalQuestions
-        } : undefined}
-        onQuestionChange={(updatedQuestion) => {
-          handleStatusChange(updatedQuestion.status);
-        }}
-      />
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <HeaderCard>
+          <Space direction="vertical" style={{ width: '100%' }} size={8}>
+            {/* Page Title */}
+            <Title level={4} style={{ margin: 0, marginBottom: '8px' }}>
+              ממשק מנהל - עריכת שאלה
+            </Title>
 
-      <ValidationSection>
-        <Space align="center">
-          <Text strong>סטטוס תיקוף:</Text>
-          {hasErrors ? (
-            <Tag color="error" icon={<CloseCircleOutlined />}>שגיאות</Tag>
-          ) : hasWarnings ? (
-            <Tag color="warning" icon={<WarningOutlined />}>אזהרות</Tag>
-          ) : (
-            <Tag color="success" icon={<CheckCircleOutlined />}>תקין</Tag>
-          )}
-        </Space>
-        
-        {(hasErrors || hasWarnings) && (
-          <ValidationGrid>
-            {currentValidation?.errors.map((error, index) => (
-              <Tag key={`error-${index}`} color="error">
-                {error.message}
-              </Tag>
-            ))}
-            {currentValidation?.warnings.map((warning, index) => (
-              <Tag key={`warning-${index}`} color="warning">
-                {warning.message}
-              </Tag>
-            ))}
-          </ValidationGrid>
-        )}
-      </ValidationSection>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {/* Left Side: Navigation + ID */}
+              <Space size="large">
+                <NavigationGroup>
+                  <Button 
+                    icon={<HomeOutlined />} 
+                    onClick={() => navigate('/admin/questions')}
+                  />
+                  <Button 
+                    icon={<RightOutlined />} 
+                    onClick={handlePrevious}
+                    disabled={!prevQuestionId}
+                  />
+                  <Button 
+                    icon={<LeftOutlined />} 
+                    onClick={handleNext}
+                    disabled={!nextQuestionId}
+                  />
+                  {listPosition && (
+                    <span style={{ 
+                      padding: '0 12px',
+                      borderRight: '1px solid #f0f0f0',
+                      color: '#666',
+                      fontSize: '14px'
+                    }}>
+                      {listPosition.currentIndex + 1} / {listPosition.totalQuestions}
+                    </span>
+                  )}
+                </NavigationGroup>
 
-      <MainContent>
-        <QuestionMetadataSection
-          question={question}
-          isEditing={isEditing}
-          onEdit={() => setIsEditing(true)}
-          onSave={handleSave}
-        />
+                <span style={{ 
+                  color: '#1677ff', 
+                  background: '#e6f4ff', 
+                  padding: '4px 8px', 
+                  borderRadius: '4px',
+                  border: '1px solid #91caff',
+                  fontSize: '14px'
+                }}>
+                  ID: {question.id}
+                </span>
+              </Space>
 
-        <QuestionContentSection
-          question={question}
-          isEditing={isEditing}
-          onEdit={() => setIsEditing(true)}
-          onSave={handleSave}
-        />
+              {/* Right Side: Actions */}
+              <Space size="small">
+                <Button 
+                  onClick={handleHeaderSave}
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  disabled={!isModified}
+                >
+                  שמור
+                </Button>
+                {question.publication_status === PublicationStatusEnum.DRAFT ? (
+                  <Tooltip title={currentValidation?.status === ValidationStatus.ERROR ? 
+                    'שים לב: חסרים שדות בשאלה (מותר בשלב הפיתוח)' : 
+                    'פרסם את השאלה'}>
+                    <Button 
+                      type="primary"
+                      className="publish-button"
+                      icon={<CheckCircleOutlined />}
+                      onClick={() => handleStatusChange(PublicationStatusEnum.PUBLISHED)}
+                    >
+                      פרסם
+                    </Button>
+                  </Tooltip>
+                ) : (
+                  <Button
+                    danger
+                    icon={<EditOutlined />}
+                    onClick={() => handleStatusChange(PublicationStatusEnum.DRAFT)}
+                  >
+                    בטל פרסום
+                  </Button>
+                )}
+              </Space>
+            </div>
+          </Space>
+        </HeaderCard>
 
-        <SolutionAndEvaluationSection
-          question={question}
-          isEditing={isEditing}
-          onEdit={() => setIsEditing(true)}
-          onSave={handleSave}
-        />
+        {renderValidationStatus()}
 
-        {/* Add JSON Data Display with LTR direction */}
-        <JsonSection>
-          <QuestionJsonData question={question} />
-        </JsonSection>
-        <QuestionImportInfo importInfo={question?.import_info} />
-      </MainContent>
+        <MainContent>
+          <QuestionContentSection
+            question={question}
+            isEditing={isEditing}
+            onEdit={() => setIsEditing(true)}
+            onSave={handleSave}
+          />
+          
+          <QuestionMetadataSection
+            question={question}
+            isEditing={isEditing}
+            onEdit={() => setIsEditing(true)}
+            onSave={handleSave}
+          />
+
+          <SolutionAndEvaluationSection
+            question={question}
+            isEditing={isEditing}
+            onEdit={() => setIsEditing(true)}
+            onSave={handleSave}
+          />
+
+          <JsonSection title="Question JSON Data">
+            <QuestionJsonData question={question} />
+          </JsonSection>
+
+          <JsonSection title="Import Info">
+            <QuestionImportInfo importInfo={question?.import_info} />
+          </JsonSection>
+        </MainContent>
+      </Space>
     </PageContainer>
   );
 }; 

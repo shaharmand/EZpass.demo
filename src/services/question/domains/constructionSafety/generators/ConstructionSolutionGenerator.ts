@@ -1,4 +1,4 @@
-import { OpenAIService } from '../../../../llm/openai';
+import { OpenAIService } from '../../../../llm/openAIService';
 import { Question, QuestionType } from '../../../../../types/question';
 import { logger } from '../../../../../utils/logger';
 import { ISolutionGenerator } from '../../../../../types/questionGeneration';
@@ -6,27 +6,31 @@ import { ISolutionGenerator } from '../../../../../types/questionGeneration';
 export class ConstructionSolutionGenerator implements ISolutionGenerator {
   constructor(private openAI: OpenAIService) {}
 
-  async generate(question: Partial<Question>): Promise<{ solution: Question['solution'] }> {
+  async generate(question: Partial<Question>): Promise<{ solution: Question['answer']['solution'] }> {
     try {
       if (!question.content) throw new Error('Question content is required');
 
       const prompt = this.buildSolutionPrompt(question);
       
       logger.info('Generating solution for construction safety question', {
-        type: question.type,
+        type: question.metadata?.type,
         questionId: question.id
       });
 
       const response = await this.openAI.complete(prompt, {
-        model: "gpt-4-turbo-preview",
-        temperature: 0.7,
-        response_format: { type: "json_object" }
+        temperature: 0.7
       });
 
       const solution = JSON.parse(response);
       this.validateSolution(question, solution);
       
-      return { solution };
+      return { 
+        solution: {
+          text: solution.solution.text || '',
+          format: 'markdown',
+          requiredSolution: true
+        }
+      };
 
     } catch (error) {
       logger.error('Error generating construction safety solution', { error });
@@ -44,8 +48,8 @@ export class ConstructionSolutionGenerator implements ISolutionGenerator {
     - הסבר את הרציונל הבטיחותי
     `;
 
-    switch (question.type) {
-      case 'multiple_choice':
+    switch (question.metadata?.type) {
+      case QuestionType.MULTIPLE_CHOICE:
         return `
         נתח את שאלת הבטיחות הבאה וספק את התשובה הנכונה:
 
@@ -53,7 +57,7 @@ export class ConstructionSolutionGenerator implements ISolutionGenerator {
         ${question.content!.text}
 
         אפשרויות:
-        ${question.options?.map((opt, i) => `${i + 1}. ${opt.text}`).join('\n')}
+        ${question.content?.options?.map((opt, i) => `${i + 1}. ${opt.text}`).join('\n')}
 
         ${commonInstructions}
 
@@ -65,8 +69,9 @@ export class ConstructionSolutionGenerator implements ISolutionGenerator {
         החזר בפורמט JSON:
         {
           "solution": {
+            "text": string,           // הסבר מפורט
+            "format": "markdown",
             "correctOption": number,  // מספר התשובה הנכונה
-            "explanation": string,    // הסבר מפורט
             "regulations": string[],  // מספרי תקנות רלוונטיות
             "optionAnalysis": [{     // ניתוח כל האפשרויות
               "optionNumber": number,
@@ -76,7 +81,7 @@ export class ConstructionSolutionGenerator implements ISolutionGenerator {
           }
         }`;
 
-      case 'open':
+      case QuestionType.OPEN:
         return `
         נתח את שאלת הבטיחות הפתוחה וספק פתרון מקיף:
 
@@ -107,7 +112,7 @@ export class ConstructionSolutionGenerator implements ISolutionGenerator {
           }
         }`;
 
-      case 'step_by_step':
+      case QuestionType.NUMERICAL:
         return `
         פתור את שאלת הבטיחות בשלבים:
 
@@ -125,6 +130,8 @@ export class ConstructionSolutionGenerator implements ISolutionGenerator {
         החזר בפורמט JSON:
         {
           "solution": {
+            "text": string,           // פתרון מלא
+            "format": "markdown",
             "steps": [{
               "stepNumber": number,
               "description": string,
@@ -132,7 +139,6 @@ export class ConstructionSolutionGenerator implements ISolutionGenerator {
               "result": string,
               "safetyChecks": string[]
             }],
-            "finalAnswer": string,
             "regulations": string[],
             "safetyEquipment": string[],
             "validation": string
@@ -140,7 +146,7 @@ export class ConstructionSolutionGenerator implements ISolutionGenerator {
         }`;
 
       default:
-        throw new Error(`סוג שאלה לא נתמך: ${question.type}`);
+        throw new Error(`סוג שאלה לא נתמך: ${question.metadata?.type}`);
     }
   }
 
@@ -149,28 +155,32 @@ export class ConstructionSolutionGenerator implements ISolutionGenerator {
       throw new Error('חסר פתרון');
     }
 
-    switch (question.type) {
-      case 'multiple_choice':
+    if (!solution.solution.text || !solution.solution.format) {
+      throw new Error('חסר תוכן הפתרון או פורמט');
+    }
+
+    switch (question.metadata?.type) {
+      case QuestionType.MULTIPLE_CHOICE:
         if (!solution.solution.correctOption || 
             solution.solution.correctOption < 1 || 
             solution.solution.correctOption > 4) {
           throw new Error('התשובה הנכונה חייבת להיות מספר בין 1 ל-4');
         }
-        if (!solution.solution.explanation || !solution.solution.regulations) {
-          throw new Error('חסר הסבר או תקנות רלוונטיות');
+        if (!solution.solution.regulations) {
+          throw new Error('חסרות תקנות רלוונטיות');
         }
         break;
 
-      case 'open':
-        if (!solution.solution.text || !solution.solution.keyPoints) {
-          throw new Error('חסר תוכן הפתרון או נקודות מפתח');
+      case QuestionType.OPEN:
+        if (!solution.solution.keyPoints) {
+          throw new Error('חסרות נקודות מפתח');
         }
         if (!solution.solution.regulations || !solution.solution.safetyMeasures) {
           throw new Error('חסרות תקנות או אמצעי בטיחות');
         }
         break;
 
-      case 'step_by_step':
+      case QuestionType.NUMERICAL:
         if (!solution.solution.steps || !solution.solution.steps.length) {
           throw new Error('חסרים שלבי הפתרון');
         }

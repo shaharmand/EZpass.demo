@@ -1,292 +1,329 @@
-import React, { useRef, useEffect } from 'react';
-import type { Question, QuestionFeedback } from '../../types/question';
+import React, { useRef, useEffect, useState } from 'react';
+import { 
+  Question, 
+  QuestionFeedback, 
+  BasicAnswerLevel, 
+  DetailedEvalLevel,
+  BinaryEvalLevel, 
+  isBasicFeedback, 
+  isDetailedFeedback,
+  BasicQuestionFeedback,
+  DetailedQuestionFeedback,
+  QuestionType,
+  EvalLevel
+} from '../../types/question';
 import { MultipleChoiceFeedback } from './MultipleChoiceFeedback';
 import { RubricFeedback } from './RubricFeedback';
 import { Card, Space, Button, Tabs, Typography, Progress, Tooltip } from 'antd';
-import { RedoOutlined, InfoCircleOutlined, CheckCircleOutlined, BookOutlined, ArrowLeftOutlined, StarOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { logger } from '../../utils/logger';
 import { MarkdownRenderer } from '../MarkdownRenderer';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
 import { AuthModal } from '../../components/Auth/AuthModal';
 import { JoinEZPassPlusMessage } from './JoinEZPassPlusMessage';
+import { getFeedbackColor, getFeedbackTitle } from '../../utils/feedbackStyles';
+import { LimitedFeedbackContainer } from './LimitedFeedbackContainer';
 
 const { Text, Title } = Typography;
 
 interface FeedbackContainerProps {
   question: Question;
   feedback: QuestionFeedback;
-  onRetry?: () => void;
-  onNext: () => void;
   selectedAnswer?: string;
   showDetailedFeedback?: boolean;
 }
 
-const getFeedbackTitle = (score: number, isCorrect: boolean) => {
-  if (score >= 90) return 'מצוין! 🎉';
-  if (score >= 80) return 'כל הכבוד! 👏';
-  if (score >= 60) return 'טוב! 👍';
-  return 'המשך להתאמן 💪';
+// Helper function to get the display level for feedback title
+const getDisplayLevel = (evalLevel: EvalLevel): BasicAnswerLevel | DetailedEvalLevel => {
+  if (evalLevel.type === 'binary') {
+    return evalLevel.level === BinaryEvalLevel.CORRECT ? 
+      BasicAnswerLevel.CORRECT : 
+      BasicAnswerLevel.INCORRECT;
+  }
+  return evalLevel.level;
 };
 
-const getScoreColor = (score: number) => {
-  if (score >= 90) return '#10b981';
-  if (score >= 80) return '#3b82f6';
-  if (score >= 60) return '#f59e0b';
-  return '#ef4444';
-};
-
-export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
-  question,
-  feedback,
-  onRetry,
-  onNext,
-  selectedAnswer,
-  showDetailedFeedback = true
-}) => {
-  const feedbackRef = useRef<HTMLDivElement>(null);
-  const { isGuestLimitExceeded } = usePracticeAttempts();
-  const [showAuthModal, setShowAuthModal] = React.useState(false);
-
-  useEffect(() => {
-    if (feedbackRef.current) {
-      const yOffset = -20;
-      const y = feedbackRef.current.getBoundingClientRect().top + window.pageYOffset + yOffset;
-      window.scrollTo({ top: y, behavior: 'smooth' });
-    }
-  }, [feedback]);
-
-  const handleRetry = () => {
-    logger.info('User clicked retry button', {
-      questionId: question.id,
-      feedbackType: question.type,
-      wasCorrect: feedback.isCorrect,
-      score: feedback.score
-    });
-    onRetry?.();
-  };
-
-  const shouldShowRetry = feedback.score < 80 && onRetry;
-  const isHighScore = feedback.score >= 80;
-
-  const renderFeedbackHeader = () => (
-    <div className="feedback-header">
-      <div className="feedback-header-content">
-        <div className="score-section">
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5, type: "spring" }}
-          >
-            <Progress
-              type="circle"
-              percent={feedback.score}
-              format={(percent) => `${percent}%`}
-              width={60}
-              strokeColor={getScoreColor(feedback.score)}
-            />
-          </motion.div>
-        </div>
+// This component shows the restricted version of feedback for free-tier users
+const LimitedFeedback: React.FC<{ 
+  feedback: QuestionFeedback;
+  question: Question;
+  selectedAnswer?: string;
+}> = ({ feedback, question, selectedAnswer }) => {
+  const isMultipleChoice = question.metadata.type === QuestionType.MULTIPLE_CHOICE;
+  
+  return (
+    <div className="limited-feedback">
+      {/* Clear Header Section */}
+      <div className="feedback-header">
+        <Progress
+          type="circle"
+          percent={feedback.score}
+          format={(percent) => `${percent}%`}
+          width={60}
+          strokeColor={getFeedbackColor(feedback.score)}
+        />
         <div className="feedback-title-section">
           <Title level={4} className="feedback-title">
-            {getFeedbackTitle(feedback.score, feedback.isCorrect)}
+            {getFeedbackTitle(feedback.score, getDisplayLevel(feedback.evalLevel))}
           </Title>
-          {showDetailedFeedback && (
-            <Text className="feedback-assessment">
-              {feedback.assessment}
+          {/* Show the feedback message which already contains the properly formatted answer */}
+          <Text className="feedback-message">
+            {feedback.message}
             </Text>
-          )}
         </div>
       </div>
-    </div>
-  );
 
-  return (
-    <div ref={feedbackRef} className="feedback-container">
-      {isGuestLimitExceeded ? (
-        <>
-          <div className="feedback-header guest-limit">
-            <div className="feedback-header-content">
-              <div className="feedback-title-section centered">
-                <Title level={4} className="feedback-title neutral">
-                  המשוב שלך מוכן!
-                </Title>
-                <Text className="feedback-assessment centered">
-                  {question.type === 'multiple_choice' ? 
-                    'התחבר כדי לצפות במשוב המלא כולל הסברים מפורטים למה נבחרה התשובה הנכונה' :
-                    'התחבר כדי לצפות במשוב המלא ולקבל ניתוח מפורט של התשובה שלך'
-                  }
-                </Text>
-              </div>
-            </div>
-          </div>
-          <div className="guest-limit-container">
-            <Button 
-              type="primary" 
-              size="large"
-              onClick={() => setShowAuthModal(true)}
-              className="guest-limit-button"
-            >
-              התחבר כדי לצפות במשוב
-            </Button>
-            {showAuthModal && (
-              <AuthModal 
-                open={true}
-                onClose={() => setShowAuthModal(false)}
-                returnUrl={window.location.pathname}
-              />
+      {/* Blurred Preview Section */}
+      <div className="feedback-preview-section">
+        <div className="feedback-content preview">
+          {/* Fake content structure that's blurred */}
+          <div className="preview-content">
+            <div className="preview-paragraph" />
+            <div className="preview-paragraph short" />
+            <div className="preview-paragraph" />
+            {isMultipleChoice && (
+              <>
+                <div className="preview-list-item" />
+                <div className="preview-list-item" />
+                <div className="preview-list-item" />
+              </>
             )}
           </div>
-        </>
-      ) : (
-        <>
-          {question.type === 'multiple_choice' ? (
-            <MultipleChoiceFeedback
-              question={question}
-              feedback={feedback}
-              selectedAnswer={selectedAnswer || ''}
-              showDetailedFeedback={showDetailedFeedback}
-              onRetry={onRetry}
-            />
-          ) : (
-            <>
-              {renderFeedbackHeader()}
-              {showDetailedFeedback ? (
-                <div className="feedback-content">
-                  <Tabs 
-                    defaultActiveKey="core"
-                    type="card"
-                    className="feedback-tabs"
-                    items={[
-                      {
-                        key: 'core',
-                        label: (
-                          <span className="tab-label">
-                            <CheckCircleOutlined /> המשוב שלך
-                          </span>
-                        ),
-                        children: (
-                          <div className="feedback-section">
-                            <MarkdownRenderer content={feedback.coreFeedback} />
-                            {feedback.rubricScores && (
-                              <RubricFeedback 
-                                rubricScores={feedback.rubricScores}
-                                rubricAssessment={question.evaluation?.rubricAssessment}
-                              />
-                            )}
-                          </div>
-                        )
-                      }
-                    ]}
-                  />
-                </div>
-              ) : (
-                <JoinEZPassPlusMessage 
-                  variant="full" 
-                  questionType={question.type === 'code' ? 'other' : 'other'} 
-                />
-              )}
-            </>
-          )}
-        </>
-      )}
+          
+          {/* Upgrade overlay */}
+          <div className="upgrade-overlay">
+            <LockOutlined className="lock-icon" />
+            <Text strong className="upgrade-text">
+              {isMultipleChoice ? 
+                'הסברים מפורטים על התשובה הנכונה' :
+                'ניתוח מפורט וטיפים לשיפור'
+              }
+            </Text>
+            <Text className="upgrade-subtext">
+              הצטרף ל-EZPass+ כדי לקבל גישה מלאה
+            </Text>
+          </div>
+        </div>
+      </div>
 
       <style>
         {`
-          .feedback-container {
-            width: 100%;
-            max-width: 800px;
-            margin: 0 auto;
+          .limited-feedback {
+            position: relative;
           }
 
-          .feedback-header {
-            width: 100%;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
+          .feedback-preview-section {
+            position: relative;
+            margin-top: 16px;
+          }
+
+          .preview-content {
             padding: 20px;
-            margin-bottom: 20px;
           }
 
-          .feedback-header-content {
-            display: flex;
-            align-items: center;
-            gap: 24px;
+          .preview-paragraph {
+            height: 16px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            width: 100%;
+            opacity: 0.7;
           }
 
-          .score-section {
+          .preview-paragraph.short {
+            width: 70%;
+          }
+
+          .preview-list-item {
+            height: 12px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            width: 90%;
+            opacity: 0.5;
+          }
+
+          .feedback-content.preview {
+            position: relative;
+            overflow: hidden;
+            filter: blur(3px);
+            user-select: none;
+            pointer-events: none;
+          }
+
+          .upgrade-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.95) 100%);
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-          }
-
-          .feedback-title-section {
-            flex: 1;
-          }
-
-          .feedback-title {
-            margin: 0 !important;
-            font-size: 24px !important;
-            color: #1f2937 !important;
-          }
-
-          .feedback-assessment {
-            color: #4b5563;
-            font-size: 15px;
-            margin-top: 4px;
-            display: block;
-          }
-
-          .feedback-content {
-            background: #ffffff;
+            padding: 24px;
+            text-align: center;
+            backdrop-filter: blur(8px);
             border-radius: 12px;
             border: 1px solid #e5e7eb;
-            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease;
           }
 
-          .feedback-tabs {
-            padding: 16px;
+          .upgrade-overlay:hover {
+            background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.98) 100%);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transform: translateY(-1px);
           }
 
-          .tab-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+          .lock-icon {
+            font-size: 32px;
+            color: #2563eb;
+            margin-bottom: 16px;
+          }
+
+          .upgrade-text {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 8px;
+          }
+
+          .upgrade-subtext {
+            color: #6b7280;
             font-size: 14px;
-          }
-
-          .feedback-section {
-            padding: 16px;
-            background: #f8fafc;
-            border-radius: 8px;
-          }
-
-          .guest-limit .feedback-title-section {
-            text-align: center;
-          }
-
-          .guest-limit .feedback-title {
-            color: #4b5563 !important;
-            margin-bottom: 8px !important;
-          }
-
-          .guest-limit .feedback-assessment {
-            text-align: center;
-          }
-
-          .guest-limit-container {
-            display: flex;
-            justify-content: center;
-            margin-top: 24px;
-          }
-
-          .guest-limit-button {
-            height: 44px;
-            padding: 0 32px;
-            font-size: 16px;
           }
         `}
       </style>
     </div>
   );
-}; 
+};
+
+const DetailedFeedback: React.FC<{ 
+  feedback: DetailedQuestionFeedback;
+  question: Question;
+}> = ({ feedback, question }) => {
+  return (
+    <div className="detailed-feedback">
+      <div className="feedback-header">
+        <Progress
+          type="circle"
+          percent={feedback.score}
+          format={(percent) => `${percent}%`}
+          width={60}
+          strokeColor={getFeedbackColor(feedback.score)}
+        />
+        <div className="feedback-title-section">
+          <Title level={4} className="feedback-title">
+            {getFeedbackTitle(feedback.score, getDisplayLevel(feedback.evalLevel))}
+          </Title>
+          <Text className="feedback-message">
+            {feedback.message}
+          </Text>
+        </div>
+      </div>
+      <div className="feedback-content">
+        <Tabs 
+          defaultActiveKey="core"
+          type="card"
+          className="feedback-tabs"
+          items={[
+            {
+              key: 'core',
+              label: (
+                <span className="tab-label">
+                  <CheckCircleOutlined /> המשוב שלך
+                </span>
+              ),
+              children: (
+                <div className="feedback-section">
+                  <MarkdownRenderer content={feedback.coreFeedback} />
+                  {feedback.rubricScores && (
+                    <RubricFeedback 
+                      rubricScores={feedback.rubricScores}
+                      rubricAssessment={question.evaluation?.rubricAssessment}
+                    />
+                  )}
+                </div>
+              )
+            }
+          ]}
+        />
+      </div>
+    </div>
+  );
+};
+
+export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
+  question,
+  feedback,
+  selectedAnswer,
+  showDetailedFeedback = true
+}) => {
+  const { getFeedbackMode } = usePracticeAttempts();
+  const feedbackMode = getFeedbackMode();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // For guests who haven't signed up
+  if (feedbackMode === 'none') {
+    return (
+      <>
+        <LimitedFeedbackContainer
+          question={question}
+          feedback={feedback}
+          selectedAnswer={selectedAnswer}
+          onShowUpgradeModal={() => setShowAuthModal(true)}
+          mode="guest"
+        />
+        <AuthModal 
+          open={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          returnUrl={window.location.pathname}
+        />
+      </>
+    );
+  }
+
+  // For users who exceeded their free feedback limit
+  if (feedbackMode === 'limited') {
+    return (
+        <LimitedFeedbackContainer 
+        question={question}
+          feedback={feedback}
+          selectedAnswer={selectedAnswer}
+        onShowUpgradeModal={() => window.open('https://ezpass.co.il/plus', '_blank')}
+        mode="limited"
+      />
+    );
+  }
+
+  // For users with remaining feedback attempts or paid users
+  // First check if it's a multiple choice question and basic feedback
+  if (question.metadata.type === QuestionType.MULTIPLE_CHOICE && isBasicFeedback(feedback)) {
+  return (
+        <MultipleChoiceFeedback
+          question={question}
+        feedback={feedback}
+          selectedAnswer={selectedAnswer || ''}
+        showDetailedFeedback={showDetailedFeedback}
+      />
+    );
+  }
+
+  // For other question types, show detailed feedback if available
+  if (isDetailedFeedback(feedback)) {
+    return <DetailedFeedback feedback={feedback} question={question} />;
+  }
+
+  // For basic feedback, show the limited feedback view
+  return (
+    <LimitedFeedbackContainer
+      question={question}
+      feedback={feedback}
+      selectedAnswer={selectedAnswer}
+      onShowUpgradeModal={() => window.open('https://ezpass.co.il/plus', '_blank')}
+      mode="limited"
+    />
+  );
+};

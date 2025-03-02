@@ -1,4 +1,12 @@
-import { Question, QuestionType, DifficultyLevel, SourceType, ValidationStatus } from '../types/question';
+import { 
+  Question, 
+  QuestionType, 
+  DifficultyLevel,
+  ValidationStatus,
+  QuestionFetchParams,
+  FilterState,
+  EzpassCreatorType
+} from '../types/question';
 import { universalTopicsV2 } from '../services/universalTopics';
 import { examService } from '../services/examService';
 import { validateContent } from './contentFormatValidator';
@@ -20,12 +28,11 @@ export interface ValidationResult {
 }
 
 // Valid values for union types
-const VALID_QUESTION_TYPES = ['multiple_choice', 'open', 'code', 'step_by_step'] as const;
+const VALID_QUESTION_TYPES = ['multiple_choice', 'numerical', 'open'] as const;
 const VALID_DIFFICULTY_LEVELS = [1, 2, 3, 4, 5] as const;
-const VALID_SOURCE_TYPES = ['exam', 'book', 'author', 'ezpass'] as const;
+const VALID_SOURCE_TYPES = ['exam', 'ezpass'] as const;
 const VALID_SEASONS = ['spring', 'summer'] as const;
 const VALID_MOEDS = ['a', 'b'] as const;
-const VALID_PROGRAMMING_LANGUAGES = ['java', 'c#', 'python'] as const;
 
 export function validateQuestion(question: Question): ValidationResult {
   const errors: ValidationError[] = [];
@@ -46,22 +53,18 @@ export function validateQuestion(question: Question): ValidationResult {
   // 1. Basic required fields
   if (!question.id) addError('id', 'מזהה שאלה חסר');
   
-  // Check for missing name - add warning
+  // Name is optional - just warn if missing
   if (!question.name) {
     addWarning('name', 'שם השאלה חסר');
   }
-  
-  // Validate question type
-  if (!question.type) {
-    addError('type', 'סוג שאלה חסר');
-  } else if (!VALID_QUESTION_TYPES.includes(question.type)) {
-    addError('type', `סוג שאלה לא חוקי: ${question.type}`);
-  }
 
-  // Validate content format
-  if (!question.content?.text) {
+  // 2. Content validation
+  if (!question.content) {
     addError('content', 'תוכן שאלה חסר');
   } else {
+    if (!question.content.text) {
+      addError('content.text', 'טקסט השאלה חסר');
+    }
     if (question.content.format !== 'markdown') {
       addError('content.format', 'תוכן השאלה חייב להיות בפורמט markdown');
     }
@@ -71,155 +74,164 @@ export function validateQuestion(question: Question): ValidationResult {
     formatWarnings.forEach(warning => {
       addWarning(`content.${warning.type}`, warning.message);
     });
-  }
 
-  // Also check solution format
-  if (!question.solution?.text) {
-    addError('solution', 'פתרון חסר');
-  } else {
-    if (question.solution.format !== 'markdown') {
-      addError('solution.format', 'הפתרון חייב להיות בפורמט markdown');
+    // Validate options for multiple choice
+    if (question.metadata?.type === QuestionType.MULTIPLE_CHOICE) {
+      if (!question.content.options) {
+        addError('content.options', 'שאלת רב-ברירה חייבת לכלול אפשרויות');
+      } else if (question.content.options.length !== 4) {
+        addError('content.options', 'שאלת רב-ברירה חייבת לכלול בדיוק 4 אפשרויות');
+      } else {
+        // Validate each option has text and format
+        question.content.options.forEach((option, index) => {
+          if (!option.text) {
+            addError(`content.options[${index}].text`, 'טקסט האפשרות חסר');
+          }
+          if (option.format !== 'markdown') {
+            addError(`content.options[${index}].format`, 'פורמט האפשרות חייב להיות markdown');
+          }
+        });
+      }
     }
-    
-    // Add format warnings for solution
-    const solutionFormatWarnings = validateContent(question.solution.text);
-    solutionFormatWarnings.forEach(warning => {
-      addWarning(`solution.${warning.type}`, warning.message);
-    });
   }
 
-  // 2. Topic hierarchy and metadata - ALL checks run regardless of previous failures
-  const metadata = question.metadata;
-  if (!metadata) {
+  // 3. Answer validation
+  if (!question.answer) {
+    addError('answer', 'תשובה חסרה');
+  } else {
+    // Validate solution
+    if (!question.answer.solution) {
+      addError('answer.solution', 'פתרון חסר');
+    } else {
+      if (!question.answer.solution.text) {
+        addError('answer.solution.text', 'טקסט הפתרון חסר');
+      }
+      if (question.answer.solution.format !== 'markdown') {
+        addError('answer.solution.format', 'פורמט הפתרון חייב להיות markdown');
+      }
+      if (question.answer.solution.requiredSolution === undefined) {
+        addError('answer.solution.requiredSolution', 'יש להגדיר את אופן הטיפול בתשובה הסופית מול הפתרון');
+      }
+    }
+  }
+
+  // 4. Metadata validation
+  if (!question.metadata) {
     addError('metadata', 'מטא-דאטה חסרה');
   } else {
     // Validate required metadata fields
-    if (!metadata.subjectId) addError('metadata.subjectId', 'נושא רחב חסר');
-    if (!metadata.domainId) addError('metadata.domainId', 'תחום חסר');
-    if (!metadata.topicId) addError('metadata.topicId', 'נושא חסר');
-    if (!metadata.subtopicId) addError('metadata.subtopicId', 'תת-נושא חסר');
+    if (!question.metadata.subjectId) addError('metadata.subjectId', 'נושא רחב חסר');
+    if (!question.metadata.domainId) addError('metadata.domainId', 'תחום חסר');
+    if (!question.metadata.topicId) addError('metadata.topicId', 'נושא חסר');
+    
+    // Subtopic is optional
+    if (question.metadata.subtopicId) {
+      const subtopic = universalTopicsV2.getSubTopicSafe(
+        question.metadata.subjectId, 
+        question.metadata.domainId, 
+        question.metadata.topicId, 
+        question.metadata.subtopicId
+      );
+      if (!subtopic) {
+        addError('metadata.subtopicId', `תת-נושא לא קיים בנושא ${question.metadata.topicId}`);
+      }
+    }
+
+    // Validate question type
+    if (!question.metadata.type) {
+      addError('metadata.type', 'סוג שאלה חסר');
+    } else if (!VALID_QUESTION_TYPES.includes(question.metadata.type)) {
+      addError('metadata.type', `סוג שאלה לא חוקי: ${question.metadata.type}`);
+    }
 
     // Validate difficulty level
-    if (!metadata.difficulty) {
+    if (!question.metadata.difficulty) {
       addError('metadata.difficulty', 'רמת קושי חסרה');
-    } else if (!VALID_DIFFICULTY_LEVELS.includes(metadata.difficulty)) {
-      addError('metadata.difficulty', `רמת קושי לא חוקית: ${metadata.difficulty}`);
+    } else if (!VALID_DIFFICULTY_LEVELS.includes(question.metadata.difficulty)) {
+      addError('metadata.difficulty', `רמת קושי לא חוקית: ${question.metadata.difficulty}`);
     }
 
-    // Validate estimated time - now mandatory
-    if (!metadata.estimatedTime) {
-      addError('metadata.estimatedTime', 'זמן מוערך חסר');
-    } else if (metadata.estimatedTime < 1) {
-      addError('metadata.estimatedTime', 'זמן מוערך חייב להיות לפחות דקה אחת');
+    // Validate estimated time - optional
+    if (question.metadata.estimatedTime !== undefined) {
+      if (question.metadata.estimatedTime < 1) {
+        addError('metadata.estimatedTime', 'זמן מוערך חייב להיות לפחות דקה אחת');
+      }
     }
 
-    // Check topic hierarchy existence
-    const subject = universalTopicsV2.getSubjectSafe(metadata.subjectId);
-    if (!subject) {
-      addError('metadata.subjectId', `נושא רחב לא קיים: ${metadata.subjectId}`);
-    }
-
-    const domain = universalTopicsV2.getDomainSafe(metadata.subjectId, metadata.domainId);
-    if (!domain) {
-      addError('metadata.domainId', `תחום לא קיים בנושא ${metadata.subjectId}`);
-    }
-
-    const topic = universalTopicsV2.getTopicSafe(metadata.subjectId, metadata.domainId, metadata.topicId);
-    if (!topic) {
-      addError('metadata.topicId', `נושא לא קיים בתחום ${metadata.domainId}`);
-    }
-
-    const subtopic = metadata.subtopicId ? universalTopicsV2.getSubTopicSafe(
-      metadata.subjectId, 
-      metadata.domainId, 
-      metadata.topicId, 
-      metadata.subtopicId
-    ) : null;
-    
-    if (metadata.subtopicId && !subtopic) {
-      addError('metadata.subtopicId', `תת-נושא לא קיים בנושא ${metadata.topicId}`);
-    }
-
-    // Validate source
-    if (!metadata.source?.sourceType) {
-      addError('metadata.source.sourceType', 'חובה לבחור סוג מקור');
-    } else if (!VALID_SOURCE_TYPES.includes(metadata.source.sourceType)) {
-      addError('metadata.source.sourceType', `סוג מקור לא חוקי: ${metadata.source.sourceType}`);
-    } else {
-      // Source type specific validations
-      switch (metadata.source.sourceType) {
-        case 'exam':
-          if (!metadata.source.examTemplateId) {
-            addError('metadata.source.examTemplateId', 'תבנית מבחן חסרה');
-          } else {
-            // Validate that exam template exists
-            const examTemplate = examService.getExamById(metadata.source.examTemplateId);
-            if (!examTemplate) {
-              addError('metadata.source.examTemplateId', `תבנית מבחן לא קיימת: ${metadata.source.examTemplateId}`);
+    // Validate source if present
+    if (question.metadata.source) {
+      if (!question.metadata.source.type) {
+        addError('metadata.source.type', 'סוג מקור חסר');
+      } else if (!VALID_SOURCE_TYPES.includes(question.metadata.source.type)) {
+        // For legacy data, add warning instead of error
+        addWarning('metadata.source.type', `סוג מקור ישן: ${question.metadata.source.type} - יש לעדכן ל-exam או ezpass`);
+      } else {
+        // Source type specific validations
+        switch (question.metadata.source.type) {
+          case 'exam':
+            if (!question.metadata.source.examTemplateId) {
+              addError('metadata.source.examTemplateId', 'תבנית מבחן חסרה');
+            } else {
+              // Validate that exam template exists
+              const examTemplate = examService.getExamById(question.metadata.source.examTemplateId);
+              if (!examTemplate) {
+                addError('metadata.source.examTemplateId', `תבנית מבחן לא קיימת: ${question.metadata.source.examTemplateId}`);
+              }
             }
-          }
-          if (!metadata.source.year) addError('metadata.source.year', 'שנה חסרה');
-          if (metadata.source.year && (metadata.source.year < 1900 || metadata.source.year > new Date().getFullYear() + 1)) {
-            addError('metadata.source.year', 'שנה לא חוקית');
-          }
-          if (!metadata.source.season) {
-            addError('metadata.source.season', 'תקופה חסרה');
-          } else if (!['spring', 'summer'].includes(metadata.source.season)) {
-            addError('metadata.source.season', `תקופה לא חוקית: ${metadata.source.season}`);
-          }
-          if (!metadata.source.moed) {
-            addError('metadata.source.moed', 'מועד חסר');
-          } else if (!['a', 'b'].includes(metadata.source.moed)) {
-            addError('metadata.source.moed', `מועד לא חוקי: ${metadata.source.moed}`);
-          }
-          break;
-        case 'book':
-          if (!metadata.source.bookName) addError('metadata.source.bookName', 'שם הספר חסר');
-          break;
-        case 'author':
-          if (!metadata.source.authorName) addError('metadata.source.authorName', 'שם המחבר חסר');
-          break;
+            if (!question.metadata.source.year) {
+              addError('metadata.source.year', 'שנה חסרה');
+            } else if (question.metadata.source.year < 1900 || question.metadata.source.year > new Date().getFullYear() + 1) {
+              addError('metadata.source.year', 'שנה לא חוקית');
+            }
+            if (!question.metadata.source.season) {
+              addError('metadata.source.season', 'תקופה חסרה');
+            } else if (!VALID_SEASONS.includes(question.metadata.source.season)) {
+              addError('metadata.source.season', `תקופה לא חוקית: ${question.metadata.source.season}`);
+            }
+            if (!question.metadata.source.moed) {
+              addError('metadata.source.moed', 'מועד חסר');
+            } else if (!VALID_MOEDS.includes(question.metadata.source.moed)) {
+              addError('metadata.source.moed', `מועד לא חוקי: ${question.metadata.source.moed}`);
+            }
+            break;
+          case 'ezpass':
+            if (!question.metadata.source.creatorType) {
+              addError('metadata.source.creatorType', 'סוג יוצר חסר');
+            } else if (!Object.values(EzpassCreatorType).includes(question.metadata.source.creatorType)) {
+              addError('metadata.source.creatorType', `סוג יוצר לא חוקי: ${question.metadata.source.creatorType}`);
+            }
+            break;
+        }
       }
-    }
-
-    // Validate programming language if specified
-    if (metadata.programmingLanguage && !['java', 'c#', 'python'].includes(metadata.programmingLanguage)) {
-      addError('metadata.programmingLanguage', `שפת תכנות לא חוקית: ${metadata.programmingLanguage}`);
     }
   }
 
-  // 3. Type specific validations - run regardless of previous failures
-  switch (question.type) {
-    case 'multiple_choice':
-      if (!question.options) {
-        addError('options', 'שאלת רב-ברירה חייבת לכלול אפשרויות');
-      } else if (question.options.length !== 4) {
-        addError('options', 'שאלת רב-ברירה חייבת לכלול בדיוק 4 אפשרויות');
-      }
-      if (!question.correctOption) {
-        addError('correctOption', 'שאלת רב-ברירה חייבת לכלול תשובה נכונה');
-      } else if (question.correctOption < 1 || question.correctOption > 4) {
-        addError('correctOption', 'התשובה הנכונה חייבת להיות מספר בין 1 ל-4');
-      }
-      break;
-
-    case 'code':
-      if (!metadata?.programmingLanguage) {
-        addError('metadata.programmingLanguage', 'שאלת קוד חייבת לכלול שפת תכנות');
-      } else if (!['java', 'c#', 'python'].includes(metadata.programmingLanguage)) {
-        addError('metadata.programmingLanguage', `שפת תכנות לא חוקית: ${metadata.programmingLanguage}`);
-      }
-      break;
-  }
-
-  // 4. Evaluation validation - skip for multiple choice questions
-  if (question.type !== 'multiple_choice') {
+  // 5. Evaluation validation - required for numerical and open questions
+  if (question.metadata?.type === QuestionType.MULTIPLE_CHOICE) {
+    // Multiple choice should NOT have evaluation
+    if (question.evaluation) {
+      addWarning('evaluation', 'שאלת רב-ברירה לא צריכה לכלול הערכה');
+    }
+  } else {
+    // Numerical and Open MUST have evaluation
     if (!question.evaluation) {
-      addError('evaluation', 'הערכה חסרה');
+      addError('evaluation', 'הערכה חסרה - נדרשת לשאלות מספריות ופתוחות');
     } else {
+      // Validate rubric assessment
       if (!question.evaluation.rubricAssessment?.criteria?.length) {
         addError('evaluation.rubricAssessment', 'קריטריוני הערכה חסרים');
+      } else {
+        // Validate criteria weights sum to 100
+        const totalWeight = question.evaluation.rubricAssessment.criteria.reduce(
+          (sum, criterion) => sum + criterion.weight, 
+          0
+        );
+        if (Math.abs(totalWeight - 100) > 0.01) {
+          addError('evaluation.rubricAssessment', 'משקלי הקריטריונים חייבים להסתכם ל-100');
+        }
       }
+
+      // Validate answer requirements
       if (!question.evaluation.answerRequirements?.requiredElements?.length) {
         addError('evaluation.answerRequirements', 'דרישות תשובה חסרות');
       }
@@ -227,11 +239,11 @@ export function validateQuestion(question: Question): ValidationResult {
   }
 
   // Determine status based on errors and warnings
-  let status = ValidationStatus.Valid;
+  let status = ValidationStatus.VALID;
   if (errors.length > 0) {
-    status = ValidationStatus.Error;
+    status = ValidationStatus.ERROR;
   } else if (warnings.length > 0) {
-    status = ValidationStatus.Warning;
+    status = ValidationStatus.WARNING;
   }
 
   return {
@@ -239,4 +251,182 @@ export function validateQuestion(question: Question): ValidationResult {
     warnings,
     status
   };
+}
+
+/**
+ * Validates if a set of question parameters satisfies the filter constraints
+ */
+export function validateQuestionFilter(params: QuestionFetchParams, filter: FilterState): ValidationResult {
+  const errors: ValidationError[] = [];
+  const warnings: ValidationWarning[] = [];
+
+  // Helper to add errors
+  const addError = (field: string, message: string) => {
+    errors.push({ field, message });
+  };
+
+  // Check each filter constraint
+  if (filter.topics?.length && !filter.topics.includes(params.topic)) {
+    addError('topic', `נושא ${params.topic} לא נמצא ברשימת הנושאים המבוקשים`);
+  }
+  
+  if (filter.subTopics?.length && !filter.subTopics.includes(params.subtopic || '')) {
+    addError('subtopic', `תת-נושא ${params.subtopic} לא נמצא ברשימת תתי-הנושאים המבוקשים`);
+  }
+
+  if (filter.questionTypes?.length && !filter.questionTypes.includes(params.type)) {
+    addError('type', `סוג שאלה ${params.type} לא נמצא ברשימת הסוגים המבוקשים`);
+  }
+
+  if (filter.difficulty?.length && !filter.difficulty.includes(params.difficulty)) {
+    addError('difficulty', `רמת קושי ${params.difficulty} לא נמצאת ברשימת רמות הקושי המבוקשות`);
+  }
+
+  // Check source if specified
+  if (filter.source && params.source) {
+    if (params.source.type !== filter.source.type) {
+      addError('source.type', `סוג מקור ${params.source.type} לא תואם לסוג המבוקש ${filter.source.type}`);
+    }
+    
+    // Only validate exam-specific fields if both filter and params are exam sources
+    if (filter.source.type === 'exam' && params.source.type === 'exam') {
+      if (filter.source.year && params.source.year !== filter.source.year) {
+        addError('source.year', `שנת מבחן ${params.source.year} לא תואמת לשנה המבוקשת ${filter.source.year}`);
+      }
+      if (filter.source.season && params.source.season !== filter.source.season) {
+        addError('source.season', `תקופת מבחן ${params.source.season} לא תואמת לתקופה המבוקשת ${filter.source.season}`);
+      }
+      if (filter.source.moed && params.source.moed !== filter.source.moed) {
+        addError('source.moed', `מועד מבחן ${params.source.moed} לא תואם למועד המבוקש ${filter.source.moed}`);
+      }
+    }
+  }
+
+  // Determine status based on errors and warnings
+  let status = ValidationStatus.VALID;
+  if (errors.length > 0) {
+    status = ValidationStatus.ERROR;
+  } else if (warnings.length > 0) {
+    status = ValidationStatus.WARNING;
+  }
+
+  return { errors, warnings, status };
+}
+
+/**
+ * Validates if a question matches the given filter criteria
+ */
+export function satisfiesFilter(params: Question, filter: FilterState): boolean {
+  // Check topics if specified
+  if (filter.topics?.length && !filter.topics.includes(params.metadata.topicId)) {
+    return false;
+  }
+  
+  // Check subtopics if specified
+  if (filter.subTopics?.length && !filter.subTopics.includes(params.metadata.subtopicId || '')) {
+    return false;
+  }
+
+  // Check question types if specified
+  if (filter.questionTypes?.length && !filter.questionTypes.includes(params.metadata.type)) {
+    return false;
+  }
+
+  // Check difficulty levels if specified
+  if (filter.difficulty?.length && !filter.difficulty.includes(params.metadata.difficulty)) {
+    return false;
+  }
+
+  // Check source if specified
+  if (filter.source && params.metadata.source) {
+    if (filter.source.type !== params.metadata.source.type) {
+      return false;
+    }
+    
+    // Only check exam-specific fields if both are exam sources
+    if (filter.source.type === 'exam' && params.metadata.source.type === 'exam') {
+      if (filter.source.year && params.metadata.source.year !== filter.source.year) {
+        return false;
+      }
+      if (filter.source.season && params.metadata.source.season !== filter.source.season) {
+        return false;
+      }
+      if (filter.source.moed && params.metadata.source.moed !== filter.source.moed) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+/** 
+ * Filter state interface for the simplified system
+ */
+export interface QuestionFilter {
+  topics?: string[];
+  subTopics?: string[];
+  questionTypes?: QuestionType[];
+  difficulty?: DifficultyLevel[];
+  source?: {
+    type: 'exam' | 'ezpass';
+    year?: number;
+    season?: 'spring' | 'summer';
+    moed?: 'a' | 'b';
+  };
+}
+
+/**
+ * Validates the teacher's reference answer based on question type
+ */
+function validateFinalAnswer(finalAnswer: any, questionType?: QuestionType): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (!questionType) {
+    errors.push({ field: 'metadata.type', message: 'סוג שאלה חסר - נדרש לאימות התשובה' });
+    return errors;
+  }
+
+  if (!finalAnswer || typeof finalAnswer !== 'object') {
+    errors.push({ field: 'answer.finalAnswer', message: 'תשובה סופית חסרה או לא תקינה' });
+    return errors;
+  }
+
+  // Validate type matches question type
+  switch (questionType) {
+    case QuestionType.MULTIPLE_CHOICE:
+      if (finalAnswer.type !== 'multiple_choice') {
+        errors.push({ field: 'answer.finalAnswer.type', message: 'סוג תשובה חייב להיות multiple_choice עבור שאלת רב-ברירה' });
+      } else if (!finalAnswer.value?.multipleChoice || 
+                 typeof finalAnswer.value.multipleChoice !== 'number' || 
+                 finalAnswer.value.multipleChoice < 1 || 
+                 finalAnswer.value.multipleChoice > 4) {
+        errors.push({ field: 'answer.finalAnswer.value', message: 'תשובה לשאלת רב-ברירה חייבת להיות מספר בין 1 ל-4' });
+      }
+      break;
+
+    case QuestionType.NUMERICAL:
+      if (finalAnswer.type !== 'numerical') {
+        errors.push({ field: 'answer.finalAnswer.type', message: 'סוג תשובה חייב להיות numerical עבור שאלה מספרית' });
+      } else {
+        if (!finalAnswer.value?.numerical || typeof finalAnswer.value.numerical.value !== 'number') {
+          errors.push({ field: 'answer.finalAnswer.value', message: 'ערך מספרי חסר או לא תקין' });
+        }
+        if (typeof finalAnswer.value?.numerical.tolerance !== 'number' || finalAnswer.value.numerical.tolerance < 0) {
+          errors.push({ field: 'answer.finalAnswer.tolerance', message: 'טולרנס חייב להיות מספר אי-שלילי' });
+        }
+      }
+      break;
+
+    case QuestionType.OPEN:
+      if (finalAnswer.type !== 'none') {
+        errors.push({ field: 'answer.finalAnswer.type', message: 'שאלה פתוחה צריכה להיות מסוג none' });
+      }
+      break;
+
+    default:
+      errors.push({ field: 'metadata.type', message: `סוג שאלה לא נתמך: ${questionType}` });
+  }
+
+  return errors;
 } 

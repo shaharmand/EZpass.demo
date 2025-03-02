@@ -1,4 +1,12 @@
-import { Question, QuestionType, DifficultyLevel, SourceType } from '../../../types/question';
+import { 
+  Question, 
+  QuestionType, 
+  DifficultyLevel,
+  SourceType,
+  EzpassCreatorType,
+  ValidationStatus,
+  PublicationStatusEnum
+} from '../../../types/question';
 import { questionStorage } from '../questionStorage';
 import { logger } from '../../../utils/logger';
 import { BaseImporter, ImportResult } from './BaseImporter';
@@ -9,6 +17,29 @@ import { examService } from '../../../services/examService';
 import { generateQuestionId, validateQuestionId } from '../../../utils/idGenerator';
 import { getSupabase } from '../../supabaseClient';
 const TurndownService = require('turndown');
+
+interface WordPressEzPassQuestion {
+  _id: number;          // Post ID
+  _dbId?: number;       // Database ID (if different)
+  _title: string;
+  _question: string;
+  _correctMsg: string;
+  _incorrectMsg: string;
+  _answerType: string;
+  _answerData: Array<{
+    _answer: string;
+    _correct: boolean;
+    _html: boolean;
+  }>;
+  _category?: string;
+  _createdAt?: string;
+  _updatedAt?: string;
+}
+
+interface TopicMapping {
+  subtopicId: string;
+  topicId: string;
+}
 
 const NEWLINE_MARKER = '{{PRESERVED_NEWLINE}}';
 
@@ -45,29 +76,6 @@ turndown.addRule('lists', {
     return items.join('\n');
   }
 });
-
-interface WordPressEzPassQuestion {
-  _id: number;          // Post ID
-  _dbId?: number;       // Database ID (if different)
-  _title: string;
-  _question: string;
-  _correctMsg: string;
-  _incorrectMsg: string;
-  _answerType: string;
-  _answerData: Array<{
-    _answer: string;
-    _correct: boolean;
-    _html: boolean;
-  }>;
-  _category?: string;
-  _createdAt?: string;
-  _updatedAt?: string;
-}
-
-interface TopicMapping {
-  subtopicId: string;
-  topicId: string;
-}
 
 export class WordPressEzPassImporter extends BaseImporter {
   private htmlEntities: { [key: string]: string } = {
@@ -344,7 +352,7 @@ export class WordPressEzPassImporter extends BaseImporter {
             .upsert({
                 id: question.id,
                 data: question,
-                status: 'draft' as const,
+                publication_status: PublicationStatusEnum.DRAFT,
                 validation_status: validationResult.errors.length > 0 
                     ? 'error' 
                     : validationResult.warnings.length > 0 
@@ -457,8 +465,8 @@ export class WordPressEzPassImporter extends BaseImporter {
     cleanedText: string;
     examInfo?: {
       year?: number;
-      season?: string;
-      moed?: string;
+      season?: 'spring' | 'summer';
+      moed?: 'a' | 'b';
       order?: number;
     }
   } {
@@ -473,10 +481,7 @@ export class WordPressEzPassImporter extends BaseImporter {
     if (examInfo.year || examInfo.season || examInfo.moed) {
       return {
         cleanedText: lines.slice(1).join('\n').trim(),
-        examInfo: {
-          ...examInfo,
-          order: examInfo.order // rename order to examInfo.order
-        }
+        examInfo
       };
     }
 
@@ -525,19 +530,8 @@ export class WordPressEzPassImporter extends BaseImporter {
    */
   protected transformQuestion(wpQuestion: WordPressEzPassQuestion): Question {
     // Extract exam info from title and question text
-    const titleExamInfo: {
-      year?: number;
-      season?: 'spring' | 'summer';
-      moed?: 'a' | 'b';
-      order?: number;
-    } = this.parseExamInfo(wpQuestion._title);
-
-    const questionExamInfo: {
-      year?: number;
-      season?: 'spring' | 'summer';
-      moed?: 'a' | 'b';
-      order?: number;
-    } = this.parseExamInfo(wpQuestion._question);
+    const titleExamInfo = this.parseExamInfo(wpQuestion._title);
+    const { cleanedText: questionText, examInfo: questionExamInfo } = this.extractExamInfoFromQuestion(wpQuestion._question);
 
     // Generate ID for non-dry run
     const id = `CIV-SAF-${String(wpQuestion._id).padStart(6, '0')}`;
@@ -553,33 +547,61 @@ export class WordPressEzPassImporter extends BaseImporter {
     // Map category to topic structure
     const { topicId, subtopicId } = this.mapCategory(wpQuestion._category || '');
 
+    // Find correct answer index
+    const correctIndex = wpQuestion._answerData.findIndex(answer => answer._correct);
+
     return {
       id,
-      type: 'multiple_choice' as QuestionType,
       content: {
-        text: wpQuestion._question,
-        format: 'markdown'
+        text: questionText,
+        format: 'markdown',
+        options: wpQuestion._answerData.map(answer => ({
+          text: answer._answer,
+          format: 'markdown'
+        }))
+      },
+      answer: {
+        finalAnswer: {
+          type: 'multiple_choice',
+          value: (correctIndex + 1) as 1 | 2 | 3 | 4
+        },
+        solution: {
+          text: wpQuestion._correctMsg || 'No explanation provided',
+          format: 'markdown',
+          requiredSolution: true
+        }
       },
       metadata: {
         subjectId: 'civil_engineering',
         domainId: 'construction_safety',
         topicId,
         subtopicId,
-        difficulty: 3 as DifficultyLevel,
+        type: QuestionType.MULTIPLE_CHOICE,
+        difficulty: 3,
         estimatedTime: 5,
-        source: {
-          sourceType: SourceType.EZPASS,
-          year: titleExamInfo?.year || questionExamInfo?.year,
-          season: titleExamInfo?.season || questionExamInfo?.season,
-          moed: titleExamInfo?.moed || questionExamInfo?.moed,
-          order: titleExamInfo?.order || questionExamInfo?.order
+        source: titleExamInfo?.year ? {
+          type: 'exam',
+          examTemplateId: 'civil_safety',
+          year: titleExamInfo.year,
+          season: titleExamInfo.season || 'summer',
+          moed: titleExamInfo.moed || 'a'
+        } : {
+          type: 'ezpass',
+          creatorType: EzpassCreatorType.HUMAN
         }
       },
-      options: wpQuestion._answerData.map(answer => ({
-        text: answer._answer,
-        format: 'markdown'
-      })),
-      correctOption: wpQuestion._answerData.findIndex(answer => answer._correct) + 1
+      evaluation: {
+        rubricAssessment: {
+          criteria: [{
+            name: 'basic_correctness',
+            description: 'תשובה נכונה ומלאה',
+            weight: 100
+          }]
+        },
+        answerRequirements: {
+          requiredElements: []
+        }
+      }
     };
   }
 }

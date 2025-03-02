@@ -125,19 +125,19 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
             }}
           >
             <div className={`type-selector ${hasTypeFocus() ? 'focused' : ''}`}>
-              <span className="type-label">{getQuestionTypeLabel(question.type)}</span>
+              <span className="type-label">{getQuestionTypeLabel(question.metadata.type)}</span>
               <span className="focus-status" style={{
                 fontSize: '12px',
-                color: hasTypeFocus() && isTypeFocused(question.type) ? '#2563eb' : '#94a3b8',
-                fontWeight: hasTypeFocus() && isTypeFocused(question.type) ? '500' : 'normal',
-                backgroundColor: hasTypeFocus() && isTypeFocused(question.type) ? '#e0f2fe' : 'transparent',
+                color: hasTypeFocus() && isTypeFocused(question.metadata.type) ? '#2563eb' : '#94a3b8',
+                fontWeight: hasTypeFocus() && isTypeFocused(question.metadata.type) ? '500' : 'normal',
+                backgroundColor: hasTypeFocus() && isTypeFocused(question.metadata.type) ? '#e0f2fe' : 'transparent',
                 padding: '2px 8px',
                 borderRadius: '10px'
               }}>
-                {hasTypeFocus() && isTypeFocused(question.type) ? 'במיקוד' : 'ללא מיקוד'}
+                {hasTypeFocus() && isTypeFocused(question.metadata.type) ? 'במיקוד' : 'ללא מיקוד'}
               </span>
               <AimOutlined className="focus-icon" style={{ 
-                color: hasTypeFocus() && isTypeFocused(question.type) ? '#2563eb' : '#64748b',
+                color: hasTypeFocus() && isTypeFocused(question.metadata.type) ? '#2563eb' : '#64748b',
                 fontSize: '14px'
               }} />
             </div>

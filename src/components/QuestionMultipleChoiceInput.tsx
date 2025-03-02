@@ -1,6 +1,7 @@
 import React from 'react';
 import { Typography } from 'antd';
 import type { Question, QuestionFeedback } from '../types/question';
+import { isSuccessfulAnswer } from '../types/question';
 import './QuestionMultipleChoiceInput.css';
 
 const { Text } = Typography;
@@ -13,6 +14,35 @@ interface QuestionMultipleChoiceInputProps {
   feedback?: QuestionFeedback;
 }
 
+type OptionStatus = 'correct' | 'incorrect' | 'default';
+
+const getCorrectOption = (question: Question): number | null => {
+  if (question.answer.finalAnswer.type === 'multiple_choice') {
+    return question.answer.finalAnswer.value;
+  }
+  return null;
+};
+
+const getOptionStatus = (
+  isSelected: boolean,
+  optionNumber: number,
+  correctOption: number | null,
+  feedback?: QuestionFeedback
+): OptionStatus => {
+  if (!feedback) return 'default';
+  
+  if (isSelected) {
+    return isSuccessfulAnswer(feedback.evalLevel) ? 'correct' : 'incorrect';
+  }
+  
+  // Show correct answer after feedback
+  if (correctOption === optionNumber) {
+    return 'correct';
+  }
+  
+  return 'default';
+};
+
 export const QuestionMultipleChoiceInput: React.FC<QuestionMultipleChoiceInputProps> = ({
   question,
   onChange,
@@ -20,7 +50,7 @@ export const QuestionMultipleChoiceInput: React.FC<QuestionMultipleChoiceInputPr
   disabled,
   feedback
 }) => {
-  if (!question.options) return null;
+  if (!question.content.options) return null;
 
   const handleOptionSelect = (optionNumber: number) => {
     if (!disabled) {
@@ -28,36 +58,34 @@ export const QuestionMultipleChoiceInput: React.FC<QuestionMultipleChoiceInputPr
     }
   };
 
+  const correctOption = getCorrectOption(question);
+
   return (
     <div className="options-list">
-      {question.options.map((option, index) => {
+      {question.content.options.map((option, index) => {
         const optionNumber = index + 1;
         const isSelected = value === optionNumber;
-        const isCorrectOption = feedback && question.correctOption === optionNumber;
         
-        // Build class names - Show correct answer only after feedback
+        const status = getOptionStatus(isSelected, optionNumber, correctOption, feedback);
+        
+        // Build class names using the status
         const optionClasses = [
-          'option-card',
+          'option',
           isSelected ? 'selected' : '',
           disabled ? 'disabled' : '',
-          // Show incorrect only on selected wrong answer
-          feedback && isSelected && !feedback.isSuccess ? 'incorrect' : '',
-          // Show correct on either correct selection or correct answer after feedback
-          feedback && (isCorrectOption || (isSelected && feedback.isSuccess)) ? 'correct' : ''
+          status !== 'default' ? status : ''
         ].filter(Boolean).join(' ');
 
         const numberClasses = [
           'option-number',
           isSelected ? 'selected' : '',
-          feedback && isSelected && !feedback.isSuccess ? 'incorrect' : '',
-          feedback && (isCorrectOption || (isSelected && feedback.isSuccess)) ? 'correct' : ''
+          status !== 'default' ? status : ''
         ].filter(Boolean).join(' ');
 
         const textClasses = [
           'option-text',
           isSelected ? 'selected' : '',
-          feedback && isSelected && !feedback.isSuccess ? 'incorrect' : '',
-          feedback && (isCorrectOption || (isSelected && feedback.isSuccess)) ? 'correct' : ''
+          status !== 'default' ? status : ''
         ].filter(Boolean).join(' ');
         
         return (

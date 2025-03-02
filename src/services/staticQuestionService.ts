@@ -1,13 +1,12 @@
 import questions from '../data/questions.json';
 import type { Question, QuestionType, QuestionFetchParams, DifficultyLevel } from '../types/question';
-import { satisfiesFilter } from '../types/question';
 
 export class StaticQuestionService {
   private questions: Question[] = (questions.questions as any[]).map(q => ({
     ...q,
-    type: q.type as QuestionType,
     metadata: {
       ...q.metadata,
+      type: q.metadata.type as QuestionType,
       difficulty: q.metadata.difficulty as DifficultyLevel
     }
   }));
@@ -17,7 +16,7 @@ export class StaticQuestionService {
     const matchingQuestions = this.questions.filter(q => 
       q.metadata.topicId === params.topic &&
       q.metadata.difficulty === params.difficulty &&
-      q.type === params.type &&
+      q.metadata.type === params.type &&
       (!params.subtopic || q.metadata.subtopicId === params.subtopic)
     );
 

@@ -1,11 +1,14 @@
 import type { TopicSelection } from '../types/prepState';
-import type { QuestionType, QuestionFetchParams, FilterState, DifficultyLevel } from '../types/question';
-import { satisfiesFilter } from '../types/question';
+import { QuestionType, type QuestionFetchParams, type FilterState, type DifficultyLevel } from '../types/question';
 import type { ExamTemplate } from '../types/examTemplate';
 import { getExamInstitution } from '../types/examTemplate';
 import { logger, CRITICAL_SECTIONS } from '../utils/logger';
 
-const QUESTION_TYPES: QuestionType[] = ['multiple_choice', 'open', 'step_by_step'];
+const QUESTION_TYPES: QuestionType[] = [
+  QuestionType.MULTIPLE_CHOICE,
+  QuestionType.OPEN,
+  QuestionType.NUMERICAL
+];
 const DIFFICULTY_LEVELS: DifficultyLevel[] = [1, 2, 3, 4, 5];
 
 interface StudentSubTopicProgress {
@@ -204,15 +207,14 @@ export class QuestionRotationManager {
       throw new Error(`Could not find parent topic for subtopic ${subtopicId}`);
     }
 
-    // Step 6: Create and return parameters
+    // Step 6: Create and return parameters with required fields
     const params: QuestionFetchParams = {
       topic: parentTopic.id,
       subtopic: subtopicId,
       type: questionType,
       difficulty,
       subject: this.exam.subjectId,
-      educationType: getExamInstitution(this.exam.examType),
-      includeTestCases: filter.hasTestCases
+      educationType: getExamInstitution(this.exam.examType)
     };
 
     console.log('FORCE LOG - ROTATION MANAGER final parameters:', {

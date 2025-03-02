@@ -37,10 +37,8 @@ const difficultyTranslations: Record<DifficultyLevel, string> = {
 };
 
 const sourceTypeTranslations: Record<SourceType, string> = {
-  'exam': 'מבחן',
-  'book': 'ספר',
-  'author': 'מחבר',
-  'ezpass': 'איזיפס'
+  [SourceType.EXAM]: 'מבחן',
+  [SourceType.EZPASS]: 'איזיפס'
 };
 
 const statusTranslations: Record<QuestionStatus, string> = {
@@ -121,8 +119,6 @@ const enumMappings: EnumMappings = {
 
   sourceType: {
     'exam': 'מבחן',
-    'book': 'ספר',
-    'author': 'מחבר',
     'ezpass': 'איזיפס'
   },
 
@@ -181,8 +177,6 @@ const fieldNameMapping: Record<string, string> = {
 
   // Source Types
   'source.type.exam': 'מבחן',
-  'source.type.book': 'ספר',
-  'source.type.author': 'מחבר',
   'source.type.ezpass': 'איזיפס',
 
   // Specific field values

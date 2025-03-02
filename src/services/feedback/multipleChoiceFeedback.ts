@@ -1,7 +1,6 @@
-import type { Question, QuestionFeedback } from '../../types/question';
-import { AnswerLevel } from '../../types/question';
+import type { Question, BasicQuestionFeedback } from '../../types/question';
+import { BinaryEvalLevel } from '../../types/question';
 import { logger } from '../../utils/logger';
-import { feedbackSchema } from '../../schemas/feedbackSchema';
 
 /**
  * Service for generating feedback for multiple choice questions
@@ -10,48 +9,42 @@ export class MultipleChoiceFeedbackService {
   /**
    * Generates feedback for a multiple choice question based on the selected option
    */
-  generateFeedback(question: Question, selectedOption: number): QuestionFeedback {
+  generateFeedback(question: Question, selectedOption: number): BasicQuestionFeedback {
     // Log raw input data immediately
-    logger.info('Raw input data for feedback:', {
+    logger.debug('Multiple choice answer validation', {
       rawSelectedOption: selectedOption,
       rawSelectedOptionType: typeof selectedOption,
-      rawCorrectOption: question.correctOption,
-      rawCorrectOptionType: typeof question.correctOption,
-      rawOptions: question.options?.map((opt, idx) => `${idx + 1}: ${opt.text.substring(0, 30)}...`)
+      rawCorrectOption: question.answer.finalAnswer.type === 'multiple_choice' ? question.answer.finalAnswer.value : null,
+      rawCorrectOptionType: question.answer.finalAnswer.type === 'multiple_choice' ? typeof question.answer.finalAnswer.value : null,
+      rawOptions: question.content.options?.map((opt, idx) => `${idx + 1}: ${opt.text.substring(0, 30)}...`)
     });
 
-    if (!question.correctOption) {
-      throw new Error('Question does not have a correct option defined');
+    if (question.answer.finalAnswer.type !== 'multiple_choice') {
+      throw new Error('Question is not a multiple choice question');
     }
 
-    const isCorrect = selectedOption === question.correctOption;
+    const correctOption = question.answer.finalAnswer.value;
+    const isCorrect = selectedOption === correctOption;
     const score = isCorrect ? 100 : 0; // Binary scoring for multiple choice - full credit or none
-    const level = isCorrect ? AnswerLevel.PERFECT : AnswerLevel.WRONG;
 
     // Log the feedback generation
     logger.info('Generating multiple choice feedback', {
       questionId: question.id,
       selectedOption,
-      correctOption: question.correctOption,
-      isCorrect,
-      level
+      correctOption,
+      isCorrect
     });
 
-    // Create the feedback object
-    const feedback = {
-      level,
+    // Create and return the feedback object with correct type
+    return {
       score,
-      assessment: isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה',
-      coreFeedback: this.generateCoreFeedback(isCorrect, selectedOption, question)
+      evalLevel: { 
+        type: 'binary', 
+        level: isCorrect ? BinaryEvalLevel.CORRECT : BinaryEvalLevel.INCORRECT 
+      },
+      message: isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה',
+      basicExplanation: this.generateCoreFeedback(isCorrect, selectedOption, question)
     };
-
-    // Validate using Zod schema
-    try {
-      return feedbackSchema.parse(feedback);
-    } catch (error) {
-      logger.error('Invalid feedback format', { error, feedback });
-      throw new Error('Failed to generate valid feedback format');
-    }
   }
 
   private generateAssessment(isCorrect: boolean, selected: number, correct: number): string {
@@ -62,22 +55,27 @@ export class MultipleChoiceFeedbackService {
   }
 
   private generateCoreFeedback(isCorrect: boolean, selected: number, question: Question): string {
-    // We already validated these in generateFeedback
-    if (!question.options || !question.correctOption) return '';
+    if (question.answer.finalAnswer.type !== 'multiple_choice' || !question.content.options) {
+      return '';
+    }
 
-    const selectedText = question.options[selected - 1]?.text || '';
-    const correctText = question.options[question.correctOption - 1]?.text || '';
+    const correctOption = question.answer.finalAnswer.value;
+    const selectedText = question.content.options[selected - 1]?.text || '';
+    const correctText = question.content.options[correctOption - 1]?.text || '';
+
+    // Use the solution text as the explanation
+    const explanation = question.answer.solution.text || 'אין הסבר זמין כרגע';
 
     let feedback;
     if (isCorrect) {
       feedback = `<span style="color: #22c55e; font-size: 1.2em">✓ תשובה נכונה!</span>\n\n` +
              `בחרת נכון באפשרות ${selected}: <span style="color: #22c55e">${selectedText}</span>\n\n` +
-             `### הסבר\n${question.solution?.text || 'אין הסבר זמין כרגע'}`;
+             `### הסבר\n${explanation}`;
     } else {
       feedback = `<span style="color: #ef4444; font-size: 1.2em">✗ תשובה שגויה</span>\n\n` +
            `בחרת באפשרות ${selected}: <span style="color: #ef4444">${selectedText}</span>\n` +
-           `התשובה הנכונה היא אפשרות ${question.correctOption}: <span style="color: #22c55e">${correctText}</span>\n\n` +
-           `### הסבר\n${question.solution?.text || 'אין הסבר זמין כרגע'}`;
+           `התשובה הנכונה היא אפשרות ${correctOption}: <span style="color: #22c55e">${correctText}</span>\n\n` +
+           `### הסבר\n${explanation}`;
     }
 
     logger.info('Generated core feedback:', {

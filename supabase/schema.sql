@@ -1,13 +1,14 @@
--- Create enum type for question status
-CREATE TYPE question_status AS ENUM ('draft', 'approved');
+-- Create enum types
 CREATE TYPE validation_status_enum AS ENUM ('valid', 'warning', 'error');
+CREATE TYPE publication_status_enum AS ENUM ('draft', 'published', 'archived');
 
 -- Create the questions table
 CREATE TABLE questions (
   id TEXT PRIMARY KEY,
   data JSONB NOT NULL,
   import_info JSONB NOT NULL DEFAULT '{}'::jsonb,
-  status question_status NOT NULL DEFAULT 'draft',
+  publication_status publication_status_enum NOT NULL DEFAULT 'draft',
+  publication_metadata JSONB,
   validation_status validation_status_enum NOT NULL DEFAULT 'valid',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -19,8 +20,8 @@ CREATE INDEX questions_data_gin ON questions USING gin (data);
 -- Create an index on the import_info field for better JSON querying performance
 CREATE INDEX questions_import_info_gin ON questions USING gin (import_info);
 
--- Create an index on the status field
-CREATE INDEX questions_status_idx ON questions (status);
+-- Create an index on publication_status for efficient querying
+CREATE INDEX questions_publication_status_idx ON questions (publication_status);
 
 -- Create an index on validation_status field
 CREATE INDEX questions_validation_status_idx ON questions (validation_status);
@@ -34,7 +35,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create a trigger to automatically update the updated_at column
+-- Create a trigger to automatically update the updated_at timestamp
 CREATE TRIGGER update_questions_updated_at
   BEFORE UPDATE ON questions
   FOR EACH ROW

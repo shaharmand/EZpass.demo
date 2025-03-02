@@ -1,45 +1,37 @@
 import React from 'react';
-import { Space } from 'antd';
-import { RedoOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import { AnswerLevel } from '../../types/question';
+import { ArrowLeftOutlined, RedoOutlined } from '@ant-design/icons';
+import { QuestionFeedback, isSuccessfulAnswer } from '../../types/question';
 import './FeedbackActionBar.css';
 
 interface FeedbackActionBarProps {
+  feedback: QuestionFeedback;
   onRetry: () => void;
   onNext: () => void;
-  isLastQuestion?: boolean;
-  answerLevel: AnswerLevel;
+  showRetry: boolean;
 }
 
 export const FeedbackActionBar: React.FC<FeedbackActionBarProps> = ({
+  feedback,
   onRetry,
   onNext,
-  isLastQuestion = false,
-  answerLevel
+  showRetry,
 }) => {
-  // Only show retry for non-perfect answers
-  const showRetry = answerLevel !== AnswerLevel.PERFECT;
-  
-  // Success styles for good or perfect answers
-  const isSuccess = answerLevel === AnswerLevel.PERFECT || answerLevel === AnswerLevel.GOOD;
+  const isSuccess = isSuccessfulAnswer(feedback.evalLevel);
 
   return (
     <div className="feedback-action-bar">
       <div className="feedback-action-bar-content">
         {showRetry && (
-          <button 
-            className="action-button retry-button"
-            onClick={onRetry}
-          >
+          <button className="action-button retry-button" onClick={onRetry}>
             <RedoOutlined className="button-icon" />
             נסה שוב
           </button>
         )}
         <button 
-          className={`action-button next-button ${isSuccess ? 'success' : ''}`}
+          className={`action-button next-button ${isSuccess ? 'success' : 'error'}`} 
           onClick={onNext}
         >
-          {isLastQuestion ? 'סיים' : 'המשך לשאלה הבאה'}
+          המשך
           <ArrowLeftOutlined className="button-icon" />
         </button>
       </div>

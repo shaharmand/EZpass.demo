@@ -15,7 +15,7 @@
       "domainId": "basic_math",
       "duration": 180,
       "totalQuestions": 6,
-      "allowedQuestionTypes": ["multiple_choice", "step_by_step"],
+      "allowedQuestionTypes": ["multiple_choice", "numerical"],
       "topics": [
         {
           "id": "algebra_hsp",
@@ -50,7 +50,7 @@
       "domainId": "advanced_math",
       "duration": 180,
       "totalQuestions": 7,
-      "allowedQuestionTypes": ["multiple_choice", "step_by_step"],
+      "allowedQuestionTypes": ["multiple_choice", "numerical"],
       "topics": [
         {
           "id": "algebra_hsp",
@@ -85,7 +85,7 @@
       "domainId": "advanced_math",
       "duration": 180,
       "totalQuestions": 8,
-      "allowedQuestionTypes": ["multiple_choice", "open", "step_by_step"],
+      "allowedQuestionTypes": ["multiple_choice", "open", "numerical"],
       "topics": [
         {
           "id": "algebra_hsp",

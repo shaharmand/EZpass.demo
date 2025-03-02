@@ -1,15 +1,15 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { ExamTemplate } from '../types/examTemplate';
 import type { StudentPrep, QuestionState, TopicSelection, PrepState } from '../types/prepState';
-import type { ActivePracticeQuestion, SkipReason, QuestionAnswer, QuestionPracticeState } from '../types/prepUI';
-import type { Question, QuestionType, FilterState } from '../types/question';
-import type { QuestionFeedback } from '../types/question';
+import type { ActivePracticeQuestion, SkipReason, QuestionPracticeState } from '../types/prepUI';
+import { QuestionType, QuestionFeedback, BasicQuestionFeedback, isSuccessfulAnswer, PublicationStatusEnum } from '../types/question';
+import type { Question, FilterState, FullAnswer } from '../types/question';
 import type { Topic } from '../types/subject';
 import { PrepStateManager } from '../services/PrepStateManager';
 import { questionService } from '../services/llm/questionGenerationService';
 import { QuestionRotationManager } from '../services/QuestionRotationManager';
 import { FeedbackService } from '../services/llm/feedbackGenerationService';
-import { logger, CRITICAL_SECTIONS } from '../utils/logger';
+import { logger } from '../utils/logger';
 import { ExamType } from '../types/examTemplate';
 import { examService } from '../services/examService';
 import { universalTopics } from '../services/universalTopics';
@@ -40,12 +40,47 @@ interface StudentPrepContextType {
 
 const StudentPrepContext = createContext<StudentPrepContextType | null>(null);
 
-const QUESTION_TYPES: QuestionType[] = ['multiple_choice', 'open', 'code', 'step_by_step'];
+const QUESTION_TYPES = [
+  QuestionType.MULTIPLE_CHOICE,
+  QuestionType.NUMERICAL,
+  QuestionType.OPEN
+] as const;
 const MIN_DIFFICULTY = 1;
 const MAX_DIFFICULTY = 5;
 
 const PREP_STORAGE_KEY = 'active_preps';
 const CURRENT_QUESTION_KEY = 'current_question';
+
+const createAnswerObject = (type: QuestionType, value: string): FullAnswer => {
+  const emptyMarkdownSolution = { text: '', format: 'markdown' as const, requiredSolution: false };
+  
+  switch (type) {
+    case QuestionType.MULTIPLE_CHOICE:
+      const numValue = parseInt(value, 10);
+      if (numValue >= 1 && numValue <= 4) {
+        return {
+          finalAnswer: { type: 'multiple_choice', value: numValue as 1 | 2 | 3 | 4 },
+          solution: emptyMarkdownSolution
+        };
+      }
+      throw new Error('Multiple choice answer must be between 1 and 4');
+      
+    case QuestionType.OPEN:
+      return {
+        finalAnswer: { type: 'none' },
+        solution: { text: value, format: 'markdown', requiredSolution: true }
+      };
+      
+    case QuestionType.NUMERICAL:
+      return {
+        finalAnswer: { type: 'numerical', value: parseFloat(value), tolerance: 0 },
+        solution: emptyMarkdownSolution
+      };
+      
+    default:
+      throw new Error(`Unsupported question type: ${type}`);
+  }
+};
 
 export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [prep, setPrep] = useState<StudentPrep | null>(null);
@@ -159,73 +194,37 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   /**
-   * Handles feedback generation for multiple choice questions
-   */
-  const generateMultipleChoiceFeedback = (
-    question: Question,
-    selectedOption: number
-  ): QuestionFeedback => {
-    const isCorrect = selectedOption === question.correctOption;
-    
-    logger.info('Generating multiple choice feedback', {
-      questionId: question.id,
-      selectedOption,
-      correctOption: question.correctOption,
-      isCorrect
-    });
-
-    return {
-      isCorrect,
-      score: isCorrect ? 100 : 0,
-      assessment: isCorrect ? 'תשובה נכונה' : 'תשובה לא נכונה',
-      coreFeedback: question.solution?.text || 'אין פתרון זמין כרגע',
-      detailedFeedback: undefined // Not used for multiple choice
-    };
-  };
-
-  /**
    * Handles feedback generation for all question types
    */
   const generateFeedback = async (question: Question, answer: string, prep: StudentPrep): Promise<QuestionFeedback> => {
-    // For multiple choice questions, handle feedback directly
-    if (question.type === 'multiple_choice') {
-      const selectedOption = parseInt(answer);
-      if (isNaN(selectedOption) || selectedOption < 1 || selectedOption > 4) {
-        throw new Error('Invalid multiple choice answer');
-      }
-      return generateMultipleChoiceFeedback(question, selectedOption);
-    }
+    // Get subject name from universal topics
+    const subject = universalTopics.getSubjectName(question.metadata.topicId);
 
-    if (!prep?.exam) {
-      throw new Error('No exam in prep session');
-    }
-
-    // For other question types, use the feedback service directly
-    const topicId = question.metadata.topicId;
-    let subject: string;
+    // Wrap feedback generation with timeout
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Feedback generation timed out after 10 seconds')), 10000);
+    });
 
     try {
-      subject = universalTopics.getSubjectName(topicId);
-      logger.info('Successfully retrieved subject name:', {
-        topicId,
-        subjectName: subject
-      });
+      // Race between feedback generation and timeout
+      return await Promise.race([
+        feedbackService.current.generateFeedback({
+          question,
+          studentAnswer: answer,
+          formalExamName: prep.exam.names.full,
+          examType: prep.exam.examType as ExamType,
+          subject
+        }),
+        timeoutPromise
+      ]);
     } catch (error) {
-      logger.error('Failed to get subject name:', {
+      logger.error('Failed to generate feedback:', {
         error,
-        topicId,
+        questionId: question.id,
         errorMessage: error instanceof Error ? error.message : 'Unknown error'
       });
-      throw error;
+      throw new Error('שגיאה בשליחת התשובה');
     }
-
-    return feedbackService.current.generateFeedback({
-      question,
-      studentAnswer: answer,
-      formalExamName: prep.exam.names.full,
-      examType: prep.exam.examType as ExamType,
-      subject
-    });
   };
 
   const submitAnswer = useCallback(async (answer: string, prep: StudentPrep) => {
@@ -235,16 +234,34 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     try {
       // Create answer object based on question type
-      const createAnswerObject = (type: QuestionType, value: string): QuestionAnswer => {
+      const createAnswerObject = (type: QuestionType, value: string): FullAnswer => {
+        const emptyMarkdownSolution = { text: '', format: 'markdown' as const, requiredSolution: false };
+        
         switch (type) {
-          case 'multiple_choice':
-            return { type: 'multiple_choice', selectedOption: parseInt(value, 10) };
-          case 'code':
-            return { type: 'code', codeText: value };
-          case 'open':
-            return { type: 'open', markdownText: value };
-          case 'step_by_step':
-            return { type: 'step_by_step', markdownText: value };
+          case QuestionType.MULTIPLE_CHOICE:
+            const numValue = parseInt(value, 10);
+            if (numValue >= 1 && numValue <= 4) {
+              return {
+                finalAnswer: { type: 'multiple_choice', value: numValue as 1 | 2 | 3 | 4 },
+                solution: emptyMarkdownSolution
+              };
+            }
+            throw new Error('Multiple choice answer must be between 1 and 4');
+            
+          case QuestionType.OPEN:
+            return {
+              finalAnswer: { type: 'none' },
+              solution: { text: value, format: 'markdown', requiredSolution: true }
+            };
+            
+          case QuestionType.NUMERICAL:
+            return {
+              finalAnswer: { type: 'numerical', value: parseFloat(value), tolerance: 0 },
+              solution: emptyMarkdownSolution
+            };
+            
+          default:
+            throw new Error(`Unsupported question type: ${type}`);
         }
       };
 
@@ -252,7 +269,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const submittingState: QuestionPracticeState = {
         ...currentQuestion.practiceState,
         status: 'submitted',
-        currentAnswer: createAnswerObject(currentQuestion.question.type, answer),
+        currentAnswer: createAnswerObject(currentQuestion.question.metadata.type, answer),
         lastSubmittedAt: Date.now()
       };
 
@@ -261,39 +278,48 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
         practiceState: submittingState
       });
 
-      // Generate feedback
-      const feedback = await generateFeedback(currentQuestion.question, answer, prep);
+      // Generate feedback with timeout handling
+      try {
+        const feedback = await generateFeedback(currentQuestion.question, answer, prep);
 
-      // Update state with feedback
-      const completedState: QuestionPracticeState = {
-        ...submittingState,
-        status: 'receivedFeedback',
-        submissions: [
-          ...submittingState.submissions,
-          {
-            answer: submittingState.currentAnswer!,
-            feedback,
-            submittedAt: Date.now()
-          }
-        ]
-      };
+        // Update state with feedback
+        const completedState: QuestionPracticeState = {
+          ...submittingState,
+          status: 'receivedFeedback',
+          submissions: [
+            ...submittingState.submissions,
+            {
+              answer: submittingState.currentAnswer!,
+              feedback,
+              submittedAt: Date.now()
+            }
+          ]
+        };
 
-      setCurrentQuestion({
-        question: currentQuestion.question,
-        practiceState: completedState
-      });
+        setCurrentQuestion({
+          question: currentQuestion.question,
+          practiceState: completedState
+        });
 
-      // Update prep state
-      PrepStateManager.updateProgress(
-        prep, 
-        feedback.isCorrect,
-        feedback.score,
-        currentQuestion.question.id
-      );
+        // Update prep state
+        PrepStateManager.updateProgress(
+          prep, 
+          isSuccessfulAnswer(feedback.evalLevel),
+          feedback.score,
+          currentQuestion.question.id
+        );
+
+      } catch (error) {
+        // Handle timeout or other feedback generation errors
+        if (error instanceof Error && error.message.includes('timed out')) {
+          throw new Error('התשובה לא נשלחה - תקלה בשרת. אנא נסה שוב');
+        }
+        throw error;
+      }
 
     } catch (error) {
       console.error('Error submitting answer:', error);
-      throw new Error('שגיאה בשליחת התשובה');
+      throw error instanceof Error ? error : new Error('שגיאה בשליחת התשובה');
     }
   }, [currentQuestion, generateFeedback]);
 
@@ -309,72 +335,24 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const params = rotationManager.current.getNextParameters(filters);
       
       console.log('🔍 SEARCH PARAMS:', {
+        params,
+        timestamp: new Date().toISOString()
+      });
+
+      // Use questionStorage with the same filter structure as admin
+      const questions = await questionStorage.getFilteredQuestions({
         topic: params.topic,
-        subtopic: params.subtopic,
-        type: params.type,
-        timestamp: new Date().toISOString()
+        type: params.type
       });
 
-      // Try to find existing questions that match our criteria
-      const supabase = getSupabase();
-      if (!supabase) throw new Error('Supabase client not initialized');
-
-      // First, let's see what questions we have in the database
-      const { data: allQuestions, error: allError } = await supabase
-        .from('questions')
-        .select('*')
-        .limit(5);
-
-      console.log('🔍 SAMPLE OF ALL QUESTIONS:', {
-        count: allQuestions?.length,
-        firstQuestion: allQuestions?.[0] ? {
-          id: allQuestions[0].id,
-          type: allQuestions[0].data?.type,
-          metadata: allQuestions[0].data?.metadata,
-          status: allQuestions[0].status
-        } : null,
-        timestamp: new Date().toISOString()
-      });
-
-      // Now try our filtered query
-      const query = supabase
-        .from('questions')
-        .select('*')
-        .eq('data->metadata->>topicId', params.topic)
-        .eq('data->metadata->>subtopicId', params.subtopic)
-        .eq('data->>type', params.type)
-        .eq('status', 'draft');
-
-      console.log('🔍 QUERY DETAILS:', {
-        filters: {
-          topic: params.topic,
-          subtopic: params.subtopic,
-          type: params.type,
-          status: 'draft'
-        },
-        timestamp: new Date().toISOString()
-      });
-
-      const { data: questions, error } = await query.limit(20);
-
-      if (error) {
-        console.error('❌ DB SEARCH ERROR:', {
-          error,
-          params,
-          timestamp: new Date().toISOString()
-        });
-        throw error;
-      }
-
-      // Log the search results with more detail
       console.log('📊 SEARCH RESULTS:', {
         found: questions ? questions.length : 0,
         params,
         firstQuestionId: questions?.[0]?.id,
         firstQuestionData: questions?.[0] ? {
-          type: questions[0].data?.type,
-          metadata: questions[0].data?.metadata,
-          status: questions[0].status
+          type: questions[0].metadata?.type,
+          metadata: questions[0].metadata,
+          status: questions[0].publication_status
         } : null,
         timestamp: new Date().toISOString()
       });
@@ -382,10 +360,10 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // If we found matching questions, randomly select one
       if (questions && questions.length > 0) {
         const randomIndex = Math.floor(Math.random() * questions.length);
-        const selectedQuestion = questions[randomIndex].data;
+        const selectedQuestion = questions[randomIndex];
         console.log('✅ SELECTED QUESTION:', {
           id: selectedQuestion.id,
-          type: selectedQuestion.type,
+          type: selectedQuestion.metadata.type,
           topic: selectedQuestion.metadata.topicId,
           subtopic: selectedQuestion.metadata.subtopicId,
           timestamp: new Date().toISOString()

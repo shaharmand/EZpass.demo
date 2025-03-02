@@ -1,28 +1,37 @@
 import React, { useCallback, useEffect, useMemo, useState, memo } from 'react';
 import { Space, Spin, Typography, Card, Button } from 'antd';
 import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
-import { Question, QuestionType, FilterState, QuestionFeedback, AnswerLevel } from '../../types/question';
-import { SkipReason, QuestionAnswer, QuestionPracticeState } from '../../types/prepUI';
+import { 
+  Question, 
+  FilterState, 
+  QuestionFeedback, 
+  BasicAnswerLevel, 
+  DetailedEvalLevel, 
+  isSuccessfulAnswer,
+  FullAnswer,
+  QuestionType
+} from '../../types/question';
+import { SkipReason, QuestionPracticeState } from '../../types/prepUI';
 import type { StudentPrep } from '../../types/prepState';
 import QuestionContent from '../QuestionContent';
 import { FeedbackContainer } from '../feedback/FeedbackContainer';
-import QuestionResponseInput from '../../components/QuestionResponseInput';
+import { QuestionHeader } from './QuestionHeader';
+import QuestionResponseInput from '../QuestionResponseInput';
+import { AnsweringActionBar } from './AnsweringActionBar';
+import { getQuestionTopicName, getQuestionTypeLabel } from '../../utils/questionUtils';
+import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
+import { FeedbackActionBar } from './FeedbackActionBar';
+import { TopicSelectionDialog } from './TopicSelectionDialog';
 import QuestionSetProgress from './QuestionSetProgress';
 import { motion, AnimatePresence } from 'framer-motion';
 import { logger } from '../../utils/logger';
-import { getQuestionSourceDisplay } from '../../utils/translations';
-import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
-import AnsweringActionBar from './AnsweringActionBar';
-import FeedbackActionBar from './FeedbackActionBar';
-import { QuestionHeader } from './QuestionHeader';
-import { TopicSelectionDialog } from './TopicSelectionDialog';
 import './QuestionInteractionContainer.css';
 
 const { Text } = Typography;
 
 interface QuestionInteractionContainerProps {
   question: Question;
-  onSubmit: (answer: QuestionAnswer) => void;
+  onSubmit: (answer: FullAnswer) => void;
   onSkip: (reason: SkipReason, filters?: FilterState) => Promise<void>;
   onNext: () => void;
   onPrevious: () => void;
@@ -47,8 +56,9 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   showDetailedFeedback = true,
   state
 }) => {
-  const { isInLimitedFeedbackMode } = usePracticeAttempts();
-  const [answer, setAnswer] = useState<QuestionAnswer | null>(null);
+  const { getFeedbackMode } = usePracticeAttempts();
+  const isLimitedFeedback = getFeedbackMode() === 'limited';
+  const [answer, setAnswer] = useState<FullAnswer | null>(null);
   const [isSubmitEnabled, setIsSubmitEnabled] = useState(false);
   const [currentQuestionBatch, setCurrentQuestionBatch] = useState<Question[]>([]);
   const [isTopicSelectionDialogOpen, setIsTopicSelectionDialogOpen] = useState(false);
@@ -88,7 +98,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     const newBatch = [...currentBatch];
     newBatch[currentIndex] = {
       ...newBatch[currentIndex],
-      isCorrect: lastSubmission.feedback.isSuccess,
+      isCorrect: isSuccessfulAnswer(lastSubmission.feedback.evalLevel),
       score: lastSubmission.feedback.score,
       status: 'completed'
     };
@@ -100,7 +110,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     setCurrentBatch(newBatch);
   }, [state.submissions]);
 
-  const handleAnswerChange = useCallback((answer: QuestionAnswer) => {
+  const handleAnswerChange = useCallback((answer: FullAnswer) => {
     setAnswer(answer);
     setIsSubmitEnabled(true);
   }, []);
@@ -144,20 +154,23 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     // TODO: Implement help functionality
   };
 
-  const getAnswerDisplayValue = (answer: QuestionAnswer | null): string | undefined => {
+  const getAnswerDisplayValue = (answer: FullAnswer | null): string | undefined => {
     if (!answer) return undefined;
     
-    switch (answer.type) {
-      case 'multiple_choice':
-        return answer.selectedOption.toString();
-      case 'code':
-        return answer.codeText;
-      case 'open':
-      case 'step_by_step':
-        return answer.markdownText;
-      default:
-        return undefined;
+    // For multiple choice questions, use the selected option
+    if (question.metadata.type === QuestionType.MULTIPLE_CHOICE) {
+      return answer.finalAnswer.type === 'multiple_choice' ? 
+        answer.finalAnswer.value.toString() : undefined;
     }
+    
+    // For numerical questions, use the value with unit
+    if (question.metadata.type === QuestionType.NUMERICAL) {
+      return answer.finalAnswer.type === 'numerical' ? 
+        `${answer.finalAnswer.value}${answer.finalAnswer.unit || ''}` : undefined;
+    }
+    
+    // For open questions, use the solution text (user's input)
+    return answer.solution.text;
   };
 
   const renderQuestionContent = () => {
@@ -173,7 +186,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
           {question.metadata.source && (
             <div className="source-info">
               <Text type="secondary" italic>
-                {getQuestionSourceDisplay(question.metadata.source)}
+                {getQuestionTopicName(question)}
               </Text>
             </div>
           )}
@@ -238,7 +251,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
             />
           </div>
 
-          <Card className={`question-card question-type-${question.type}`}>
+          <Card className={`question-card question-type-${question.metadata.type}`}>
             <QuestionHeader
               question={question}
               filters={filters}
@@ -275,8 +288,6 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
                     <FeedbackContainer 
                       question={question}
                       feedback={state.submissions[state.submissions.length - 1].feedback}
-                      onRetry={handleRetry}
-                      onNext={onNext}
                       selectedAnswer={getAnswerDisplayValue(answer)}
                       showDetailedFeedback={showDetailedFeedback}
                     />
@@ -290,10 +301,10 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
         {state.submissions.length > 0 && (
           <div className="daily-practice-action-bar">
             <FeedbackActionBar
+              feedback={state.submissions[state.submissions.length - 1].feedback}
               onRetry={handleRetry}
               onNext={onNext}
-              isLastQuestion={false}
-              answerLevel={state.submissions[state.submissions.length - 1].feedback.level}
+              showRetry={!isSuccessfulAnswer(state.submissions[state.submissions.length - 1].feedback.evalLevel)}
             />
           </div>
         )}

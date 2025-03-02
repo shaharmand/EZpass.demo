@@ -5,16 +5,11 @@ import type { Question, QuestionFeedback } from '../types/question';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import { questionService } from '../services/llm/questionGenerationService';
 import { QuestionRotationManager } from '../services/QuestionRotationManager';
-import { MultipleChoiceFeedbackService } from '../services/feedback/multipleChoiceFeedback';
-import { FeedbackService } from '../services/llm/feedbackGenerationService';
 import { logger } from '../utils/logger';
 import { ExamType } from '../types/examTemplate';   
 import { examService } from '../services/examService';
 import { universalTopics } from '../services/universalTopics';
-
-// Initialize services
-const multipleChoiceFeedbackService = new MultipleChoiceFeedbackService();
-const feedbackService = new FeedbackService();
+import { isSuccessfulAnswer } from '../types/question';
 
 export const usePrepState = () => {
     const { 
@@ -65,7 +60,7 @@ export const usePrepState = () => {
             const question = await questionService.generateQuestion(params);
             logger.info('Generated new question', {
                 questionId: question.id,
-                type: question.type,
+                type: question.metadata.type,
                 topic: question.metadata.topicId
             });
 
@@ -97,96 +92,15 @@ export const usePrepState = () => {
             }
 
             const prep = await getCurrentPrep();
-            const question = studentPrepCurrentQuestion.question;
-            let feedback: QuestionFeedback;
-
+            
             try {
-                logger.info('Processing answer submission', {
-                    questionId: question.id,
-                    type: question.type,
-                    answerLength: answer.length,
-                    rawAnswer: answer,
-                    answerType: typeof answer
-                });
-
-                if (question.type === 'multiple_choice') {
-                    const selectedOption = parseInt(answer);
-                    if (isNaN(selectedOption) || selectedOption < 1 || selectedOption > 4) {
-                        logger.error('Invalid multiple choice answer', { answer });
-                        throw new Error('Invalid multiple choice answer');
-                    }
-
-                    logger.info('Generating multiple choice feedback', {
-                        questionId: question.id,
-                        selectedOption,
-                        rawAnswer: answer
-                    });
-
-                    const mcFeedback = multipleChoiceFeedbackService.generateFeedback(question, selectedOption);
-                    feedback = {
-                        ...mcFeedback,
-                        detailedFeedback: mcFeedback.detailedFeedback || 'No detailed feedback available'
-                    };
-
-                    logger.info('Generated multiple choice feedback', {
-                        questionId: question.id,
-                        isCorrect: feedback.isCorrect,
-                        score: feedback.score,
-                        submittedAnswer: answer
-                    });
-                } else {
-                    logger.info('Generating feedback for non-multiple choice question', {
-                        questionId: question.id,
-                        type: question.type,
-                        topicId: question.metadata.topicId
-                    });
-
-                    // Debug topic data retrieval
-                    let subject: string;
-                    try {
-                        subject = universalTopics.getSubjectName(question.metadata.topicId);
-                        logger.info('Retrieved subject for topic:', {
-                            topicId: question.metadata.topicId,
-                            subject
-                        });
-                    } catch (error) {
-                        logger.error('Failed to get subject for topic:', {
-                            error,
-                            topicId: question.metadata.topicId,
-                            errorMessage: error instanceof Error ? error.message : 'Unknown error',
-                            errorStack: error instanceof Error ? error.stack : undefined
-                        });
-                        throw error; // Re-throw to prevent feedback generation with unknown subject
-                    }
-
-                    feedback = await feedbackService.generateFeedback({
-                        question,
-                        studentAnswer: answer,
-                        formalExamName: prep.exam.names.full,
-                        examType: prep.exam.examType as ExamType,
-                        subject
-                    });
-
-                    logger.info('Generated question feedback', {
-                        questionId: question.id,
-                        isCorrect: feedback.isCorrect,
-                        score: feedback.score,
-                        subject: subject
-                    });
-                }
-
+                // Delegate to context's submitAnswer
                 await contextSubmitAnswer(answer, prep);
-                logger.info('Answer submitted successfully', {
-                    questionId: question.id,
-                    score: feedback.score
-                });
-
-                return feedback;
+                logger.info('Answer submitted successfully');
             } catch (error) {
-                logger.error('Failed to generate feedback', {
+                logger.error('Failed to submit answer', {
                     error,
-                    questionId: question.id,
-                    type: question.type
+                    questionId: studentPrepCurrentQuestion.question.id,
                 });
                 throw error;
             }

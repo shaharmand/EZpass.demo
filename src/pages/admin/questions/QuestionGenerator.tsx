@@ -3,7 +3,7 @@ import { Card, Form, Input, Button, Select, InputNumber, Space, Typography, Divi
 import { useNavigate } from 'react-router-dom';
 import { LLMService } from '../../../services/llm/llmService';
 import { QuestionStorage } from '../../../services/admin/questionStorage';
-import { Question, QuestionStatus, SourceType, EzpassCreatorType } from '../../../types/question';
+import { Question, QuestionStatus, SourceType, QuestionType, EzpassCreatorType, PublicationStatusEnum } from '../../../types/question';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -82,10 +82,26 @@ Format the response as a JSON object with the following structure:
       const questionData = JSON.parse(response);
       
       // Update the source information with actual prompts
-      if (questionData.metadata?.source?.details?.ezpass?.ai) {
-        questionData.metadata.source.details.ezpass.ai.systemPrompt = systemPrompt;
-        questionData.metadata.source.details.ezpass.ai.userPrompt = userPrompt;
-      }
+      questionData.metadata = {
+        ...questionData.metadata,
+        source: {
+          sourceType: SourceType.EZPASS,
+          details: {
+            ezpass: {
+              creatorType: EzpassCreatorType.AI,
+              createdAt: new Date().toISOString(),
+              ai: {
+                model: 'gpt-4',
+                systemPrompt,
+                userPrompt,
+                parameters: {
+                  temperature: 0.7
+                }
+              }
+            }
+          }
+        }
+      };
       
       // Create the question with source information
       const question: Question = {
@@ -96,7 +112,7 @@ Format the response as a JSON object with the following structure:
       // Save to database - validation will be handled by storage service
       await questionStorage.saveQuestion({
         ...question,
-        status: QuestionStatus.Draft
+        publication_status: PublicationStatusEnum.DRAFT
       });
 
       // Save the result
@@ -171,7 +187,8 @@ Format the response as a JSON object with the following structure:
               <Select>
                 <Select.Option value="multiple_choice">רב ברירה</Select.Option>
                 <Select.Option value="open">פתוחה</Select.Option>
-                <Select.Option value="true_false">נכון/לא נכון</Select.Option>
+                <Select.Option value="code">קוד</Select.Option>
+                <Select.Option value="step_by_step">שלב אחר שלב</Select.Option>
               </Select>
             </Form.Item>
 

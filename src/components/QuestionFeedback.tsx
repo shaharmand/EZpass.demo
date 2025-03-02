@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Card, Space, Button, Typography, Tooltip, Progress, Collapse } from 'antd';
-import { CopyOutlined, CheckCircleOutlined, CloseCircleOutlined, ArrowUpOutlined, InfoCircleOutlined, RedoOutlined } from '@ant-design/icons';
+import { CopyOutlined, CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined, RedoOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
-import type { QuestionFeedback } from '../types/question';
+import type { QuestionFeedback, BasicQuestionFeedback, DetailedQuestionFeedback } from '../types/question';
+import { isSuccessfulAnswer, type EvalLevel, BinaryEvalLevel, DetailedEvalLevel } from '../types/question';
 import { motion } from 'framer-motion';
 
 const { Title, Text, Paragraph } = Typography;
@@ -13,25 +14,38 @@ interface QuestionFeedbackViewProps {
   onRetry?: () => void;
 }
 
-const getScoreColor = (score: number) => {
-  if (score >= 90) return '#10b981';
-  if (score >= 80) return '#3b82f6';
-  if (score >= 70) return '#f59e0b';
-  return '#ef4444';
+const getScoreColor = (evalLevel: EvalLevel) => {
+  if (isSuccessfulAnswer(evalLevel)) {
+    return '#10b981'; // Green for success
+  }
+  
+  // For detailed evaluation, GOOD is partial success
+  if (evalLevel.type === 'detailed' && evalLevel.level === DetailedEvalLevel.GOOD) {
+    return '#f59e0b'; // Yellow for partial
+  }
+  
+  return '#ef4444'; // Red for issues
+};
+
+const isDetailedFeedback = (feedback: QuestionFeedback): feedback is DetailedQuestionFeedback => {
+  return 'coreFeedback' in feedback;
+};
+
+const isBasicFeedback = (feedback: QuestionFeedback): feedback is BasicQuestionFeedback => {
+  return 'basicExplanation' in feedback;
 };
 
 const QuestionFeedbackView: React.FC<QuestionFeedbackViewProps> = ({ feedback, onRetry }) => {
   const [copiedText, setCopiedText] = useState<string>('');
 
-  const handleCopy = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedText(text);
-      setTimeout(() => setCopiedText(''), 2000);
-    } catch (err) {
-      console.error('Failed to copy text:', err);
-    }
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedText(text);
+    setTimeout(() => setCopiedText(''), 2000);
   };
+
+  const feedbackText = isDetailedFeedback(feedback) ? feedback.coreFeedback : feedback.basicExplanation;
+  const hasDetailedFeedback = isDetailedFeedback(feedback) && feedback.detailedFeedback;
 
   return (
     <motion.div 
@@ -56,7 +70,7 @@ const QuestionFeedbackView: React.FC<QuestionFeedbackViewProps> = ({ feedback, o
                   type="circle"
                   percent={feedback.score}
                   format={(percent) => `${percent}%`}
-                  strokeColor={getScoreColor(feedback.score)}
+                  strokeColor={getScoreColor(feedback.evalLevel)}
                   width={120}
                 />
               </div>
@@ -64,24 +78,24 @@ const QuestionFeedbackView: React.FC<QuestionFeedbackViewProps> = ({ feedback, o
               {/* Status and Assessment */}
               <div className="assessment-container">
                 <div className="status-indicator">
-                  {feedback.isCorrect ? (
+                  {isSuccessfulAnswer(feedback.evalLevel) ? (
                     <CheckCircleOutlined className="success-icon" />
                   ) : (
                     <CloseCircleOutlined className="error-icon" />
                   )}
-                  <Title level={3} className={`status-text ${feedback.isCorrect ? 'success' : 'error'}`}>
-                    {feedback.isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה'}
+                  <Title level={3} className={`status-text ${isSuccessfulAnswer(feedback.evalLevel) ? 'success' : 'error'}`}>
+                    {isSuccessfulAnswer(feedback.evalLevel) ? 'תשובה נכונה!' : 'תשובה שגויה'}
                   </Title>
                 </div>
                 <Paragraph className="assessment-text">
-                  {feedback.assessment}
+                  {feedback.message}
                 </Paragraph>
               </div>
             </div>
           </Card>
         </motion.div>
 
-        {/* Detailed Feedback Sections */}
+        {/* Feedback Sections */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -89,7 +103,7 @@ const QuestionFeedbackView: React.FC<QuestionFeedbackViewProps> = ({ feedback, o
           className="feedback-details"
         >
           <Collapse defaultActiveKey={['core']} className="feedback-collapse">
-            {/* Core Feedback */}
+            {/* Core/Basic Feedback */}
             <Panel 
               header={
                 <div className="panel-header">
@@ -101,20 +115,48 @@ const QuestionFeedbackView: React.FC<QuestionFeedbackViewProps> = ({ feedback, o
               className="feedback-panel"
             >
               <div className="feedback-content">
-                <ReactMarkdown>{feedback.coreFeedback}</ReactMarkdown>
-                <Tooltip title={copiedText === feedback.coreFeedback ? 'הועתק! ✓' : 'העתק למחברת'}>
+                <div className="feedback-score">
+                  <Progress
+                    type="circle"
+                    percent={feedback.score}
+                    format={(percent) => `${percent}%`}
+                    strokeColor={getScoreColor(feedback.evalLevel)}
+                    width={120}
+                  />
+                </div>
+                <div className="feedback-message">
+                  <Text strong>{feedback.message}</Text>
+                </div>
+                {isBasicFeedback(feedback) && (
+                  <div className="feedback-explanation">
+                    <ReactMarkdown>{feedback.basicExplanation}</ReactMarkdown>
+                  </div>
+                )}
+                {isDetailedFeedback(feedback) && (
+                  <div className="feedback-details">
+                    <ReactMarkdown>{feedback.detailedFeedback}</ReactMarkdown>
+                    <div className="feedback-rubric">
+                      {Object.entries(feedback.rubricScores).map(([criterion, score]) => (
+                        <div key={criterion} className="rubric-item">
+                          <Text strong>{criterion}:</Text>
+                          <Text>{score.feedback}</Text>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <Tooltip title={copiedText === feedback.message ? 'הועתק! ✓' : 'העתק למחברת'}>
                   <Button 
-                    type="text" 
-                    icon={<CopyOutlined />}
-                    onClick={() => feedback.coreFeedback && handleCopy(feedback.coreFeedback)}
+                    icon={<CopyOutlined />} 
+                    onClick={() => handleCopy(feedback.message)}
                     className="copy-button"
                   />
                 </Tooltip>
               </div>
             </Panel>
 
-            {/* Detailed Analysis */}
-            {feedback.detailedFeedback && (
+            {/* Detailed Analysis - only for detailed feedback */}
+            {hasDetailedFeedback && (
               <Panel 
                 header={
                   <div className="panel-header">
@@ -131,7 +173,7 @@ const QuestionFeedbackView: React.FC<QuestionFeedbackViewProps> = ({ feedback, o
                     <Button 
                       type="text" 
                       icon={<CopyOutlined />}
-                      onClick={() => feedback.detailedFeedback && handleCopy(feedback.detailedFeedback)}
+                      onClick={() => handleCopy(feedback.detailedFeedback)}
                       className="copy-button"
                     />
                   </Tooltip>
@@ -152,10 +194,10 @@ const QuestionFeedbackView: React.FC<QuestionFeedbackViewProps> = ({ feedback, o
             <Button 
               size="large"
               icon={<CopyOutlined />}
-              onClick={() => feedback.coreFeedback && handleCopy(feedback.coreFeedback)}
+              onClick={() => handleCopy(feedbackText)}
               className="copy-feedback-button"
             >
-              {copiedText === feedback.coreFeedback ? 'הועתק! ✓' : 'העתק משוב'}
+              {copiedText === feedbackText ? 'הועתק! ✓' : 'העתק משוב'}
             </Button>
 
             {onRetry && (
@@ -217,7 +259,7 @@ const QuestionFeedbackView: React.FC<QuestionFeedbackViewProps> = ({ feedback, o
 
           .success-icon {
             font-size: 32px;
-            color: #22c55e;
+            color: #10b981;
           }
 
           .error-icon {
@@ -230,7 +272,7 @@ const QuestionFeedbackView: React.FC<QuestionFeedbackViewProps> = ({ feedback, o
           }
 
           .status-text.success {
-            color: #15803d;
+            color: #047857;
           }
 
           .status-text.error {

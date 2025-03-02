@@ -112,9 +112,11 @@ export const QuestionFilter: React.FC<QuestionFilterProps> = ({
 
   const getAvailableQuestionTypes = () => {
     return prep.exam.allowedQuestionTypes.map(type => ({
+      // TODO: Fix QuestionType enum usage when this component is needed
+      // Currently commented out due to type import issues
       label: type === 'multiple_choice' ? 'רב ברירה' :
              type === 'open' ? 'פתוח' :
-             type === 'step_by_step' ? 'שלב אחר שלב' : type,
+             type === 'numerical' ? 'חישובית' : type,
       value: type
     }));
   };
@@ -142,7 +144,10 @@ export const QuestionFilter: React.FC<QuestionFilterProps> = ({
 
     onFiltersChange({
       ...rest,
-      source: sources.length ? { examType: sources[0] } : undefined
+      source: sources.length ? { 
+        type: 'exam',
+        examTemplateId: sources[0]
+      } : undefined
     });
   };
 
@@ -211,7 +216,9 @@ export const QuestionFilter: React.FC<QuestionFilterProps> = ({
           mode="multiple"
           style={{ width: '100%' }}
           placeholder="בחר מקור"
-          value={filters.source ? [filters.source.examType] : []}
+          value={filters.source?.type === 'exam' && filters.source.examTemplateId ? 
+            [filters.source.examTemplateId as ('bagrut' | 'mahat')] : 
+            []}
           onChange={handleSourceChange}
           options={[
             { label: 'בגרות', value: 'bagrut' },

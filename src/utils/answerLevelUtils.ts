@@ -1,57 +1,57 @@
-import { AnswerLevel } from '../types/question';
+import { EvalLevel } from '../types/question';
 
 /**
  * Get CSS classes for styling based on answer level
  */
-export function getAnswerLevelClasses(level: AnswerLevel): {
+export function getAnswerLevelClasses(level: EvalLevel): {
   textColor: string;
   bgColor: string;
   borderColor: string;
 } {
   switch (level) {
-    case AnswerLevel.PERFECT:
+    case EvalLevel.PERFECT:
       return {
         textColor: 'text-emerald-700',
         bgColor: 'bg-emerald-50',
         borderColor: 'border-emerald-500'
       };
-    case AnswerLevel.EXCELLENT:
+    case EvalLevel.EXCELLENT:
       return {
         textColor: 'text-green-700',
         bgColor: 'bg-green-50',
         borderColor: 'border-green-500'
       };
-    case AnswerLevel.GOOD:
+    case EvalLevel.GOOD:
       return {
         textColor: 'text-lime-700',
         bgColor: 'bg-lime-50',
         borderColor: 'border-lime-500'
       };
-    case AnswerLevel.PARTIAL:
+    case EvalLevel.PARTIAL:
       return {
         textColor: 'text-yellow-700',
         bgColor: 'bg-yellow-50',
         borderColor: 'border-yellow-500'
       };
-    case AnswerLevel.WEAK:
+    case EvalLevel.WEAK:
       return {
         textColor: 'text-orange-700',
         bgColor: 'bg-orange-50',
         borderColor: 'border-orange-500'
       };
-    case AnswerLevel.INSUFFICIENT:
+    case EvalLevel.INSUFFICIENT:
       return {
         textColor: 'text-red-700',
         bgColor: 'bg-red-50',
         borderColor: 'border-red-500'
       };
-    case AnswerLevel.NO_UNDERSTANDING:
+    case EvalLevel.NO_UNDERSTANDING:
       return {
         textColor: 'text-red-800',
         bgColor: 'bg-red-100',
         borderColor: 'border-red-600'
       };
-    case AnswerLevel.IRRELEVANT:
+    case EvalLevel.IRRELEVANT:
       return {
         textColor: 'text-gray-700',
         bgColor: 'bg-gray-100',
@@ -63,23 +63,23 @@ export function getAnswerLevelClasses(level: AnswerLevel): {
 /**
  * Get Hebrew display text for answer level
  */
-export function getAnswerLevelDisplayText(level: AnswerLevel): string {
+export function getAnswerLevelDisplayText(level: EvalLevel): string {
   switch (level) {
-    case AnswerLevel.PERFECT:
+    case EvalLevel.PERFECT:
       return 'מושלם';
-    case AnswerLevel.EXCELLENT:
+    case EvalLevel.EXCELLENT:
       return 'מצוין';
-    case AnswerLevel.GOOD:
+    case EvalLevel.GOOD:
       return 'טוב מאוד';
-    case AnswerLevel.PARTIAL:
+    case EvalLevel.PARTIAL:
       return 'חלקי';
-    case AnswerLevel.WEAK:
+    case EvalLevel.WEAK:
       return 'חלש';
-    case AnswerLevel.INSUFFICIENT:
+    case EvalLevel.INSUFFICIENT:
       return 'לא מספיק';
-    case AnswerLevel.NO_UNDERSTANDING:
+    case EvalLevel.NO_UNDERSTANDING:
       return 'חוסר הבנה';
-    case AnswerLevel.IRRELEVANT:
+    case EvalLevel.IRRELEVANT:
       return 'לא רלוונטי';
   }
 }
@@ -87,23 +87,23 @@ export function getAnswerLevelDisplayText(level: AnswerLevel): string {
 /**
  * Get appropriate icon for answer level
  */
-export function getAnswerLevelIcon(level: AnswerLevel): string {
+export function getAnswerLevelIcon(level: EvalLevel): string {
   switch (level) {
-    case AnswerLevel.PERFECT:
+    case EvalLevel.PERFECT:
       return '🌟';
-    case AnswerLevel.EXCELLENT:
+    case EvalLevel.EXCELLENT:
       return '✨';
-    case AnswerLevel.GOOD:
+    case EvalLevel.GOOD:
       return '👍';
-    case AnswerLevel.PARTIAL:
+    case EvalLevel.PARTIAL:
       return '🔸';
-    case AnswerLevel.WEAK:
+    case EvalLevel.WEAK:
       return '⚠️';
-    case AnswerLevel.INSUFFICIENT:
+    case EvalLevel.INSUFFICIENT:
       return '❌';
-    case AnswerLevel.NO_UNDERSTANDING:
+    case EvalLevel.NO_UNDERSTANDING:
       return '❓';
-    case AnswerLevel.IRRELEVANT:
+    case EvalLevel.IRRELEVANT:
       return '🤔';
   }
 }
@@ -111,35 +111,35 @@ export function getAnswerLevelIcon(level: AnswerLevel): string {
 /**
  * Check if an answer level is considered passing
  */
-export function isPassingLevel(level: AnswerLevel): boolean {
+export function isPassingLevel(level: EvalLevel): boolean {
   return [
-    AnswerLevel.PERFECT,
-    AnswerLevel.EXCELLENT,
-    AnswerLevel.GOOD,
-    AnswerLevel.PARTIAL
+    EvalLevel.PERFECT,
+    EvalLevel.EXCELLENT,
+    EvalLevel.GOOD,
+    EvalLevel.PARTIAL
   ].includes(level);
 }
 
 /**
  * Get appropriate action text based on answer level
  */
-export function getAnswerLevelActionText(level: AnswerLevel): string {
+export function getAnswerLevelActionText(level: EvalLevel): string {
   switch (level) {
-    case AnswerLevel.PERFECT:
+    case EvalLevel.PERFECT:
       return 'המשך לשאלה הבאה';
-    case AnswerLevel.EXCELLENT:
+    case EvalLevel.EXCELLENT:
       return 'המשך לשאלה הבאה';
-    case AnswerLevel.GOOD:
+    case EvalLevel.GOOD:
       return 'נסה לשפר או המשך הלאה';
-    case AnswerLevel.PARTIAL:
+    case EvalLevel.PARTIAL:
       return 'כדאי לנסות שוב';
-    case AnswerLevel.WEAK:
+    case EvalLevel.WEAK:
       return 'מומלץ לחזור על החומר ולנסות שוב';
-    case AnswerLevel.INSUFFICIENT:
+    case EvalLevel.INSUFFICIENT:
       return 'חזור על החומר ונסה שוב';
-    case AnswerLevel.NO_UNDERSTANDING:
+    case EvalLevel.NO_UNDERSTANDING:
       return 'חזור למושגי היסוד ונסה שוב';
-    case AnswerLevel.IRRELEVANT:
+    case EvalLevel.IRRELEVANT:
       return 'קרא שוב את השאלה ונסה שוב';
   }
 } 

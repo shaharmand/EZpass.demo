@@ -1,72 +1,78 @@
-import { Question, QuestionFetchParams } from '../../../types/question';
-import { BaseQuestionGenerator } from './BaseQuestionGenerator';
+import { Question, QuestionType, SourceType, EzpassCreatorType } from '../../../types/question';
+import { QuestionGenerationRequirements } from '../../../types/questionGeneration';
 import { logger } from '../../../utils/logger';
+import { IQuestionGenerator } from './IQuestionGenerator';
 
 export class QuestionGenerationManager {
-  private domainGenerators: Map<string, BaseQuestionGenerator>;
+  private domainGenerators = new Map<string, IQuestionGenerator>();
 
-  constructor() {
-    this.domainGenerators = new Map();
-  }
-
-  /**
-   * Register a domain-specific generator
-   */
-  registerDomainGenerator(domainId: string, generator: BaseQuestionGenerator) {
+  registerGenerator(domainId: string, generator: IQuestionGenerator) {
     this.domainGenerators.set(domainId, generator);
-    logger.info(`Registered question generator for domain: ${domainId}`);
   }
 
   /**
-   * Generate a question using the appropriate domain generator
+   * Generates a question based on the provided parameters
+   * @param params Question generation parameters
+   * @returns Generated question
    */
-  async generateQuestion(params: QuestionFetchParams): Promise<Question> {
-    const domainId = this.getDomainFromTopic(params.topic);
+  async generateQuestion(params: QuestionGenerationRequirements): Promise<Question> {
+    const domainId = this.getDomainFromTopic(params.hierarchy.topic.id);
     const generator = this.domainGenerators.get(domainId);
 
     if (!generator) {
-      throw new Error(`No question generator registered for domain: ${domainId}`);
+      throw new Error(`No generator registered for domain ${domainId}`);
     }
 
-    logger.info('Starting question generation', {
-      domain: domainId,
-      topic: params.topic,
-      type: params.type,
-      difficulty: params.difficulty
-    });
-
     try {
-      // Generate the question
-      const question = await generator.generateQuestion(params);
-
-      // Log success
-      logger.info('Question generated successfully', {
+      logger.info('Starting question generation', {
         domain: domainId,
-        questionId: question.id,
-        type: question.type
+        topic: params.hierarchy.topic.name,
+        type: params.type,
+        difficulty: params.difficulty
       });
 
-      return question;
+      const question = await generator.generate(params);
+
+      // Initialize metadata with required fields
+      if (!question.metadata) {
+        question.metadata = {
+          subjectId: params.hierarchy.subject.id,
+          domainId,
+          topicId: params.hierarchy.topic.id,
+          type: params.type,
+          difficulty: params.difficulty
+        };
+      }
+
+      // Add standard metadata
+      question.metadata = {
+        ...question.metadata,
+        subjectId: params.hierarchy.subject.id,
+        domainId,
+        topicId: params.hierarchy.topic.id,
+        subtopicId: params.hierarchy.subtopic.id,
+        difficulty: params.difficulty,
+        type: params.type,
+        source: {
+          type: SourceType.EZPASS,
+          creatorType: EzpassCreatorType.AI
+        }
+      };
+
+      return question as Question;
 
     } catch (error) {
       logger.error('Question generation failed', {
         domain: domainId,
-        topic: params.topic,
+        topic: params.hierarchy.topic.name,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
       throw error;
     }
   }
 
-  /**
-   * Extract domain ID from topic ID
-   */
   private getDomainFromTopic(topicId: string): string {
-    // Assuming topic IDs are in format: DOMAIN-TOPIC-XXX
-    const parts = topicId.split('-');
-    if (parts.length < 2) {
-      throw new Error(`Invalid topic ID format: ${topicId}`);
-    }
-    return parts[0];
+    // TODO: Implement proper domain mapping
+    return 'construction_safety';
   }
 } 

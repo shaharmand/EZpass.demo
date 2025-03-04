@@ -62,7 +62,7 @@ export abstract class BaseQuestionGenerator {
    */
   protected validateCommonRequirements(question: Question): boolean {
     // Basic structure validation
-    if (!question.content?.text || !question.answer?.solution?.text) {
+    if (!question.content?.text || !question.schoolAnswer?.solution?.text) {
       return false;
     }
 
@@ -80,8 +80,9 @@ export abstract class BaseQuestionGenerator {
     }
 
     // Validate rubric weights sum to 100%
-    const rubricWeights = Object.values(question.evaluation?.rubricAssessment?.criteria || [])
-      .reduce((sum, criterion) => sum + (criterion.weight || 0), 0);
+    const criteria = question.evaluationGuidelines?.requiredCriteria || [];
+    const rubricWeights = criteria.reduce((sum, criterion) => sum + (criterion.weight || 0), 0);
+    
     if (Math.abs(rubricWeights - 100) > 0.01) {
       return false;
     }

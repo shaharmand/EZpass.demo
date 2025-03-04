@@ -1,8 +1,13 @@
 import { 
   DetailedEvalLevel,
-  type DetailedQuestionFeedback,
+  BinaryEvalLevel
+} from '../../types/feedback/levels';
+import { 
+  type DetailedQuestionFeedback
+} from '../../types/feedback/types';
+import { 
   type CriterionFeedback
-} from '../../types/question';
+} from '../../types/feedback/scoring';
 
 /**
  * Validates the basic structure and content of feedback from OpenAI
@@ -83,25 +88,31 @@ export class FeedbackValidator {
   /**
    * Validates level is a valid enum value
    */
-  private static isValidLevel(level: string): boolean {
+  private static isValidLevel(level: DetailedEvalLevel | BinaryEvalLevel): boolean {
+    if (level === BinaryEvalLevel.CORRECT || level === BinaryEvalLevel.INCORRECT) {
+      return true;
+    }
     return Object.values(DetailedEvalLevel).includes(level as DetailedEvalLevel);
   }
 
   /**
    * Validates score matches the specified level's range
    */
-  private static isValidScoreLevelMatch(score: number, level: DetailedEvalLevel): boolean {
+  private static isValidScoreLevelMatch(score: number, level: DetailedEvalLevel | BinaryEvalLevel): boolean {
+    if (level === BinaryEvalLevel.CORRECT) return score === 100;
+    if (level === BinaryEvalLevel.INCORRECT) return score === 0;
+
     const scoreRanges: Record<DetailedEvalLevel, (score: number) => boolean> = {
       [DetailedEvalLevel.PERFECT]: (s: number) => s === 100,      // מושלם
       [DetailedEvalLevel.EXCELLENT]: (s: number) => s >= 95 && s <= 99,  // מצוין
       [DetailedEvalLevel.VERY_GOOD]: (s: number) => s >= 80 && s <= 94,  // טוב מאוד
       [DetailedEvalLevel.GOOD]: (s: number) => s >= 70 && s <= 79,  // טוב
-      [DetailedEvalLevel.FAIR]: (s: number) => s >= 55 && s <= 69,  // מספיק
-      [DetailedEvalLevel.POOR]: (s: number) => s < 55 && s > 0,  // חלש
+      [DetailedEvalLevel.FAIR]: (s: number) => s >= 60 && s <= 69,  // מספיק
+      [DetailedEvalLevel.POOR]: (s: number) => s < 60,  // לא מספיק
       [DetailedEvalLevel.IRRELEVANT]: (s: number) => s === 0  // לא רלוונטי
     };
 
-    return scoreRanges[level]?.(score) ?? false;
+    return scoreRanges[level as DetailedEvalLevel](score);
   }
 
   /**
@@ -190,9 +201,8 @@ export class FeedbackValidator {
         (level === DetailedEvalLevel.EXCELLENT && (score < 95 || score > 99)) ||
         (level === DetailedEvalLevel.VERY_GOOD && (score < 80 || score > 94)) ||
         (level === DetailedEvalLevel.GOOD && (score < 70 || score > 79)) ||
-        (level === DetailedEvalLevel.FAIR && (score < 55 || score > 69)) ||
-        (level === DetailedEvalLevel.POOR && (score <= 0 || score >= 55)) ||
-        (level === DetailedEvalLevel.IRRELEVANT && score !== 0)
+        (level === DetailedEvalLevel.FAIR && (score < 60 || score > 69)) ||
+        (level === DetailedEvalLevel.POOR && (score < 0 || score >= 60))
       ) {
         console.error('Score does not match level range:', { score, level });
         return false;

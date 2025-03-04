@@ -314,17 +314,10 @@ export function PracticeAttemptsProvider({ children }: { children: React.ReactNo
         closable
         className="guest-limit-modal"
       >
-        {(() => {
-          console.log('Rendering Modal Content:', {
-            hasShownInitialGuestLimit,
-            showGuestModal,
-            guestAttemptsCount,
-            userAttemptsCount
-          });
-          return !hasShownInitialGuestLimit ? 
-            <InitialGuestLimitContent onClose={handleModalClose} /> :
-            <SubsequentGuestLimitContent onClose={handleModalClose} />;
-        })()}
+        {!hasShownInitialGuestLimit ? 
+          <InitialGuestLimitContent onClose={handleModalClose} /> :
+          <SubsequentGuestLimitContent onClose={handleModalClose} />
+        }
       </Modal>
     </PracticeAttemptsContext.Provider>
   );

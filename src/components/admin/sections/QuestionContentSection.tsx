@@ -91,8 +91,8 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
         <QuestionAndOptionsDisplay 
           question={{
             options: question.content.options,
-            correctOption: question.answer.finalAnswer.type === 'multiple_choice' ? 
-              question.answer.finalAnswer.value : undefined
+            correctOption: question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' ? 
+              question.schoolAnswer.finalAnswer.value : undefined
           }}
           showCorrectAnswer={true}
         />

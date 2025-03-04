@@ -35,6 +35,12 @@ export class CoreConstructionQuestionGenerator {
           subtopicId: params.hierarchy.subtopic.id,
           estimatedTime: params.estimatedTime,
           type: params.type,
+          answerFormat: {
+            hasFinalAnswer: params.type !== QuestionType.OPEN,
+            finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' :
+                           params.type === QuestionType.NUMERICAL ? 'numerical' : 'multiple_choice',
+            requiresSolution: true
+          },
           source: {
             type: SourceType.EZPASS,
             creatorType: EzpassCreatorType.AI

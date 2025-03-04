@@ -166,8 +166,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
                   alignItems: 'center',
                   gap: '6px',
                   padding: '4px 12px',
-                  background: type === 'open' ? 'rgba(16, 185, 129, 0.1)' :
-                            type === 'multiple_choice' ? 'rgba(99, 102, 241, 0.1)' :
+                  background: type === QuestionType.OPEN ? 'rgba(16, 185, 129, 0.1)' :
+                            type === QuestionType.MULTIPLE_CHOICE ? 'rgba(99, 102, 241, 0.1)' :
                             type === QuestionType.NUMERICAL ? 'rgba(245, 158, 11, 0.1)' :
                             'rgba(236, 72, 153, 0.1)',
                   borderRadius: '12px',
@@ -178,20 +178,20 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  background: type === 'open' ? '#10b981' :
-                             type === 'multiple_choice' ? '#6366f1' :
+                  background: type === QuestionType.OPEN ? '#10b981' :
+                             type === QuestionType.MULTIPLE_CHOICE ? '#6366f1' :
                              type === QuestionType.NUMERICAL ? '#f59e0b' :
                              '#ec4899'
                 }} />
                 <Text style={{ 
-                  color: type === 'open' ? '#065f46' :
-                          type === 'multiple_choice' ? '#3730a3' :
+                  color: type === QuestionType.OPEN ? '#065f46' :
+                          type === QuestionType.MULTIPLE_CHOICE ? '#3730a3' :
                           type === QuestionType.NUMERICAL ? '#92400e' :
                           '#831843',
                   fontSize: '14px'
                 }}>
-                  {type === 'open' ? 'פתוחות' :
-                   type === 'multiple_choice' ? 'סגורות' :
+                  {type === QuestionType.OPEN ? 'פתוחות' :
+                   type === QuestionType.MULTIPLE_CHOICE ? 'סגורות' :
                    type === QuestionType.NUMERICAL ? 'חישוביות' :
                    'קוד'}
                 </Text>

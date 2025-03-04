@@ -4,17 +4,20 @@ import { LockOutlined, StarOutlined, TrophyOutlined, CheckCircleOutlined } from 
 import { motion } from 'framer-motion';
 import { 
   Question, 
-  QuestionFeedback, 
-  BasicAnswerLevel, 
-  DetailedEvalLevel,
-  BinaryEvalLevel,
-  isBasicFeedback, 
-  isDetailedFeedback,
-  QuestionType,
-  EvalLevel
+  QuestionType
 } from '../../types/question';
+import { 
+  QuestionFeedback,
+  isBasicFeedback,
+  isDetailedFeedback
+} from '../../types/feedback/types';
+import { 
+  BinaryEvalLevel,
+  DetailedEvalLevel
+} from '../../types/feedback/levels';
 import { getFeedbackColor, getFeedbackTitle } from '../../utils/feedbackStyles';
 import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
+import { getFeedbackStatus } from '../../types/feedback/status';
 
 const { Text, Title } = Typography;
 
@@ -25,16 +28,6 @@ interface LimitedFeedbackContainerProps {
   onShowUpgradeModal: () => void;
   mode?: 'guest' | 'limited';
 }
-
-// Helper function to get the display level for feedback title
-const getDisplayLevel = (evalLevel: EvalLevel): BasicAnswerLevel | DetailedEvalLevel => {
-  if (evalLevel.type === 'binary') {
-    return evalLevel.level === BinaryEvalLevel.CORRECT ? 
-      BasicAnswerLevel.CORRECT : 
-      BasicAnswerLevel.INCORRECT;
-  }
-  return evalLevel.level;
-};
 
 export const LimitedFeedbackContainer: React.FC<LimitedFeedbackContainerProps> = ({
   question,
@@ -50,8 +43,8 @@ export const LimitedFeedbackContainer: React.FC<LimitedFeedbackContainerProps> =
   } = usePracticeAttempts();
 
   const isMultipleChoice = question.metadata.type === QuestionType.MULTIPLE_CHOICE;
-  const correctAnswerIndex = isMultipleChoice && question.answer?.finalAnswer?.type === 'multiple_choice' ? 
-    question.answer.finalAnswer.value - 1 : -1;
+  const correctAnswerIndex = isMultipleChoice && question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' ? 
+    question.schoolAnswer.finalAnswer.value - 1 : -1;
   const correctAnswerText = correctAnswerIndex >= 0 ? 
     question.content.options?.[correctAnswerIndex]?.text : '';
 
@@ -86,16 +79,16 @@ export const LimitedFeedbackContainer: React.FC<LimitedFeedbackContainerProps> =
             percent={feedback.score}
             format={(percent) => `${percent}%`}
             width={60}
-            strokeColor={getFeedbackColor(feedback.score)}
+            strokeColor={getFeedbackColor(getFeedbackStatus(feedback.score))}
           />
           <div className="feedback-title-section">
             <Title level={4} className="feedback-title">
-              {getFeedbackTitle(feedback.score, getDisplayLevel(feedback.evalLevel))}
+              {getFeedbackTitle(feedback.score, feedback.evalLevel)}
             </Title>
             {/* For multiple choice, show correct answer */}
             {isMultipleChoice && isBasicFeedback(feedback) && (
               <Text className="feedback-basic-result">
-                {getDisplayLevel(feedback.evalLevel) === BasicAnswerLevel.CORRECT ? 
+                {feedback.evalLevel === BinaryEvalLevel.CORRECT ? 
                   'תשובה נכונה!' : 
                   `התשובה הנכונה היא: ${correctAnswerText}`
                 }

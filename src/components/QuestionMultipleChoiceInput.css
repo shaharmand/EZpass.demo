@@ -37,12 +37,12 @@
 .option-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 48px;
 }
 
 .option-number {
-  min-width: 24px;
-  height: 24px;
+  min-width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -51,7 +51,7 @@
   color: #6b7280;
   font-weight: 500;
   transition: all 0.2s ease;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .option-number.selected {
@@ -75,4 +75,35 @@
 .option-card.disabled .option-text {
   color: #374151;
   opacity: 0.85;
+}
+
+/* Feedback states */
+.option-card.correct {
+  border-color: #10b981;  /* Primary green */
+  background: rgba(16, 185, 129, 0.1);  /* Light green background */
+}
+
+.option-card.incorrect {
+  border-color: #dc2626;  /* Red */
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.option-number.correct {
+  background: #10b981;  /* Primary green */
+  color: white;
+}
+
+.option-number.incorrect {
+  background: #dc2626;  /* Red */
+  color: white;
+}
+
+.option-text.correct {
+  color: #10b981;  /* Primary green */
+  font-weight: 500;
+}
+
+.option-text.incorrect {
+  color: #dc2626;  /* Red */
+  font-weight: 500;
 } 

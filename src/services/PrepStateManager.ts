@@ -1,10 +1,35 @@
-import type { StudentPrep, PrepState, TopicSelection } from '../types/prepState';
+import type { StudentPrep, PrepState, TopicSelection, SubTopicProgress, QuestionHistoryEntry } from '../types/prepState';
+import type { Topic, SubTopic } from '../types/subject';
+import { QuestionType } from '../types/question';
+import { DetailedEvalLevel } from '../types/feedback/levels';
+import { DifficultyLevel } from '../types/question';
+import { PrepProgressTracker, SubTopicProgressInfo } from './PrepProgressTracker';
+import { SetProgressTracker, SetProgress, SetQuestionStatus } from './SetProgressTracker';
 import type { ExamTemplate } from '../types/examTemplate';
-import type { Topic } from '../types/subject';
-import type { FilterState } from '../types/question';
+import type { FullAnswer } from '../types/question';
+import type { QuestionSubmission } from '../types/submissionTypes';
+import { DetailedQuestionFeedback } from '../types/feedback/types';
+import type { Question } from '../types/question';
+import moment from 'moment';
 
 // Key for localStorage
 const PREP_STORAGE_KEY = 'active_preps';
+
+interface DetailedProgress {
+  successRates: {
+    multipleChoice: number;
+    open: number;
+    numerical: number;
+    overall: number;
+  };
+  progressByType: {
+    multipleChoice: number;
+    open: number;
+    numerical: number;
+    total: number;
+  };
+  subTopicProgress: SubTopicProgressInfo[];
+}
 
 export type PrepStateStatus = 
     | { 
@@ -42,8 +67,77 @@ export type PrepStateStatus =
       };
 
 export class PrepStateManager {
+    private static progressTrackers: Map<string, PrepProgressTracker> = new Map();
+    private static setTracker: SetProgressTracker = new SetProgressTracker();
+    private static prepsCache: Record<string, StudentPrep> | null = null;
+    private static lastLoadTime: number = 0;
+    private static CACHE_TTL = 1000; // 1 second TTL
+    private static instance: PrepStateManager | null = null;
+    private topics: Topic[];
+
+    // Internal state tracking
+    private static questionResults: Map<string, Map<string, SetQuestionStatus>> = new Map(); // prepId -> (questionId -> result)
+    private static currentSets: Map<string, {
+        questions: string[];
+        currentIndex: number;
+        completedInSet: number;
+    }> = new Map();
+
+    // Public accessor for setTracker
+    static getSetTracker(): SetProgressTracker {
+        return this.setTracker;
+    }
+
+    private constructor(examData: { topics: Topic[] }) {
+        this.topics = examData.topics;
+    }
+
+    static getInstance(examData: { topics: Topic[] }): PrepStateManager {
+        if (!this.instance) {
+            this.instance = new PrepStateManager(examData);
+        }
+        return this.instance;
+    }
+
+    private static initializeProgressTracker(prep: StudentPrep): PrepProgressTracker {
+        // Initialize weights from prep's subtopics
+        const subTopicWeights = prep.exam.topics.flatMap((topic: Topic) => 
+            topic.subTopics.map((st: SubTopic) => ({
+                id: st.id,
+                percentageOfTotal: st.percentageOfTotal || 0
+            }))
+        );
+        
+        const tracker = new PrepProgressTracker(subTopicWeights);
+
+        // Add existing question history
+        if ('questionHistory' in prep.state && prep.state.questionHistory) {
+            prep.state.questionHistory.forEach(question => {
+                const subTopic = prep.exam.topics
+                    .flatMap(t => t.subTopics)
+                    .find(st => st.id === question.questionId);
+
+                tracker.addResult(
+                    subTopic?.id || null,
+                    question.type,
+                    question.score,
+                    question.timestamp,
+                    question.questionId,
+                    question.isCorrect
+                );
+            });
+        }
+
+        return tracker;
+    }
+
     // Load preps from storage
     private static loadPreps(): Record<string, StudentPrep> {
+        const now = Date.now();
+        if (this.prepsCache && (now - this.lastLoadTime) < this.CACHE_TTL) {
+            return this.prepsCache;
+        }
+
         try {
             const stored = localStorage.getItem(PREP_STORAGE_KEY);
             const preps = stored ? JSON.parse(stored) : {};
@@ -57,7 +151,9 @@ export class PrepStateManager {
                     };
                 }
             });
-            
+
+            this.prepsCache = preps;
+            this.lastLoadTime = now;
             return preps as Record<string, StudentPrep>;
         } catch (error) {
             console.error('Error loading preps:', error);
@@ -68,8 +164,9 @@ export class PrepStateManager {
     // Save preps to storage
     private static savePreps(preps: Record<string, StudentPrep>): void {
         try {
-            // No need for conversion, just save directly
             localStorage.setItem(PREP_STORAGE_KEY, JSON.stringify(preps));
+            this.prepsCache = preps;
+            this.lastLoadTime = Date.now();
         } catch (error) {
             console.error('Error saving preps:', error);
         }
@@ -83,7 +180,6 @@ export class PrepStateManager {
 
     // Factory method to create new prep instance
     static createPrep(exam: ExamTemplate, selectedTopics?: TopicSelection): StudentPrep {
-        // Validate exam has topics
         if (!exam.topics || exam.topics.length === 0) {
             throw new Error('Cannot create prep: exam has no topics');
         }
@@ -91,32 +187,42 @@ export class PrepStateManager {
             throw new Error('Cannot create prep: some topics have no subtopics');
         }
 
-        // Load existing preps
         const preps = this.loadPreps();
-        
-        // Create new prep ID with timestamp to ensure uniqueness
         const prepId = `prep_${exam.id}_${Date.now()}`;
         
-        // Calculate study goals
-        const TOTAL_HOURS = 50;
+        // Calculate exam date (keeping this but not using it for calculations)
         const WEEKS_UNTIL_EXAM = 4;
-        const examDate = Date.now() + (WEEKS_UNTIL_EXAM * 7 * 24 * 60 * 60 * 1000); // 4 weeks from now
+        const examDate = Date.now() + (WEEKS_UNTIL_EXAM * 7 * 24 * 60 * 60 * 1000);
         
-        // Create new prep
+        const allExamSubtopics = exam.topics.flatMap(t => t.subTopics.map(st => st.id));
+        const selectedSubTopics = selectedTopics?.subTopics || allExamSubtopics;
+        
+        // Initialize subtopic progress
+        const subTopicProgress: Record<string, SubTopicProgress> = {};
+        selectedSubTopics.forEach(subtopicId => {
+            subTopicProgress[subtopicId] = {
+                subtopicId,
+                currentDifficulty: 1 as DifficultyLevel,
+                questionsAnswered: 0,
+                correctAnswers: 0,
+                totalQuestions: 20,
+                estimatedTimePerQuestion: 4,
+                lastAttemptDate: Date.now()
+            };
+        });
+
         const newPrep: StudentPrep = {
             id: prepId,
             exam,
-            selection: selectedTopics || {
-                subTopics: exam.topics.flatMap(t => t.subTopics.map(st => st.id))
+            selection: {
+                subTopics: selectedSubTopics
             },
             goals: {
-                examDate,
-                totalHours: TOTAL_HOURS,
-                weeklyHours: TOTAL_HOURS / WEEKS_UNTIL_EXAM,
-                dailyHours: TOTAL_HOURS / (WEEKS_UNTIL_EXAM * 7),
-                questionGoal: selectedTopics?.subTopics.length ? selectedTopics.subTopics.length * 50 : exam.topics.reduce((acc, topic) => acc + topic.subTopics.length, 0) * 50
+                examDate
             },
-            userFocus: {}, // Initialize empty user focus
+            focusedType: null,
+            focusedSubTopic: null,
+            subTopicProgress,
             state: {
                 status: 'active' as const,
                 startedAt: Date.now(),
@@ -129,7 +235,6 @@ export class PrepStateManager {
             }
         };
 
-        // Save updated preps
         preps[prepId] = newPrep;
         this.savePreps(preps);
 
@@ -291,42 +396,16 @@ export class PrepStateManager {
         this.savePreps(preps);
     }
 
-    // Helper to get active time
-    static getActiveTime(prep: StudentPrep): number {
-        if (prep.state.status === 'active') {
-            return prep.state.activeTime + (Date.now() - prep.state.lastTick);
-        }
-        if ('activeTime' in prep.state) {
-            return prep.state.activeTime;
-        }
-        return 0;
-    }
-
     // Get daily progress metrics
     static getDailyProgress(prep: StudentPrep) {
-        // Calculate days until exam
-        const daysUntilExam = Math.max(1, Math.ceil((prep.goals.examDate - Date.now()) / (24 * 60 * 60 * 1000)));
-        
-        // Calculate daily goals
-        const dailyQuestionsGoal = Math.ceil(prep.goals.questionGoal / daysUntilExam);
-        const dailyTimeGoalMinutes = Math.ceil((prep.goals.totalHours * 60) / daysUntilExam);
-
-        // Calculate last 24 hours progress
-        const last24Hours = Date.now() - (24 * 60 * 60 * 1000);
-        const questionsAnsweredToday = prep.state.status !== 'initializing' && prep.state.status !== 'not_started'
-            ? prep.state.questionHistory?.filter(q => q.timestamp >= last24Hours).length || 0
-            : 0;
-
-        // Calculate daily time progress in minutes
-        const dailyTimeProgress = Math.round(this.getActiveTime(prep) / (60 * 1000));
-
+        let tracker = this.progressTrackers.get(prep.id);
+        if (!tracker) {
+            tracker = this.initializeProgressTracker(prep);
+            this.progressTrackers.set(prep.id, tracker);
+        }
         return {
-            questionsAnsweredToday,
-            dailyQuestionsGoal,
-            dailyTimeProgress,
-            dailyTimeGoalMinutes,
-            isDailyTimeGoalExceeded: dailyTimeProgress > dailyTimeGoalMinutes,
-            isQuestionsGoalExceeded: questionsAnsweredToday > dailyQuestionsGoal
+            questionsAnswered: tracker.getCompletedQuestions(),
+            averageScore: tracker.getAverageScore()
         };
     }
 
@@ -346,180 +425,360 @@ export class PrepStateManager {
         }
     }
 
-    // Update prep progress
-    static updateProgress(prep: StudentPrep, isCorrect: boolean, score: number, questionId: string): StudentPrep {
-        if (prep.state.status !== 'active') {
-            throw new Error('Can only update progress in active state');
+    // Get progress info - delegate to trackers
+    static getProgress(prep: StudentPrep) {
+        let tracker = this.progressTrackers.get(prep.id);
+        if (!tracker) {
+            tracker = this.initializeProgressTracker(prep);
+            this.progressTrackers.set(prep.id, tracker);
         }
 
-        // Always add to question history
-        const questionHistory = [
-            ...prep.state.questionHistory,
-            {
-                questionId,
-                score,
-                isCorrect,
-                timestamp: Date.now()
-            }
-        ];
-
-        // Check if this is the first submission for this question
-        const isFirstSubmission = !prep.state.questionHistory.some(q => q.questionId === questionId);
-        
-        // Only update metrics if this is the first submission
-        const completedQuestions = isFirstSubmission ? prep.state.completedQuestions + 1 : prep.state.completedQuestions;
-        const correctAnswers = isFirstSubmission && isCorrect ? prep.state.correctAnswers + 1 : prep.state.correctAnswers;
-        const averageScore = isFirstSubmission ? 
-            Math.round(((prep.state.averageScore * (completedQuestions - 1)) + score) / completedQuestions) :
-            prep.state.averageScore;
-
         const now = Date.now();
-        const newPrep: StudentPrep = {
-            ...prep,
-            state: {
-                status: 'active',
-                startedAt: prep.state.startedAt,
-                activeTime: prep.state.activeTime + (now - prep.state.lastTick),
-                lastTick: now,
-                completedQuestions,
-                correctAnswers,
-                averageScore,
-                questionHistory
+        const activeTime = prep.state.status === 'active' 
+            ? (prep.state as { activeTime: number; lastTick: number }).activeTime + (now - (prep.state as { lastTick: number }).lastTick)
+            : (prep.state as { activeTime: number }).activeTime || 0;
+
+        const subTopicProgress = tracker.getSubTopicProgressTable();
+        const totalQuestions = 20 * subTopicProgress.length * 5; // 20 questions per level, 5 levels per subtopic
+        
+        return {
+            metrics: {
+                status: prep.state.status,
+                activeTime
+            },
+            progress: {
+                overall: tracker.getOverallProgress(),
+                byType: {
+                    multipleChoice: subTopicProgress.reduce((acc, st) => acc + st.multipleChoiceProgress, 0) / subTopicProgress.length,
+                    open: subTopicProgress.reduce((acc, st) => acc + st.openProgress, 0) / subTopicProgress.length,
+                    numerical: tracker.getNumericProgress()
+                },
+                bySubTopic: subTopicProgress
+            },
+            successRate: {
+                overall: tracker.getCorrectAnswers() / Math.max(1, tracker.getCompletedQuestions()),
+                byType: {
+                    multipleChoice: tracker.getCorrectAnswers() / Math.max(1, tracker.getCompletedQuestions()),
+                    open: tracker.getCorrectAnswers() / Math.max(1, tracker.getCompletedQuestions()),
+                    numerical: tracker.getCorrectAnswers() / Math.max(1, tracker.getCompletedQuestions())
+                }
+            },
+            completion: {
+                questions: {
+                    completed: tracker.getCompletedQuestions(),
+                    correct: tracker.getCorrectAnswers(),
+                    total: totalQuestions
+                },
+                time: {
+                    completed: activeTime,
+                    remaining: prep.goals.examDate - now
+                }
+            },
+            overall: {
+                time: {
+                    completed: activeTime,
+                    target: prep.goals.examDate - now
+                }
+            },
+            weekly: {
+                time: {
+                    completed: activeTime,
+                    target: Math.ceil((prep.goals.examDate - now) / Math.max(1, moment(prep.goals.examDate).diff(moment(), 'weeks')))
+                }
+            },
+            daily: {
+                time: {
+                    completed: activeTime,
+                    target: Math.ceil((prep.goals.examDate - now) / Math.max(1, moment(prep.goals.examDate).diff(moment(), 'days')))
+                }
             }
+        };
+    }
+
+    // Get detailed progress info - delegate to trackers
+    static getDetailedProgress(prep: StudentPrep): DetailedProgress {
+        let tracker = this.progressTrackers.get(prep.id);
+        if (!tracker) {
+            tracker = this.initializeProgressTracker(prep);
+            this.progressTrackers.set(prep.id, tracker);
+        }
+        return {
+            successRates: {
+                multipleChoice: tracker.getSubTopicProgressTable().reduce((acc, st) => acc + st.multipleChoiceProgress, 0) / tracker.getSubTopicProgressTable().length,
+                open: tracker.getSubTopicProgressTable().reduce((acc, st) => acc + st.openProgress, 0) / tracker.getSubTopicProgressTable().length,
+                numerical: tracker.getNumericProgress(),
+                overall: tracker.getOverallProgress()
+            },
+            progressByType: {
+                multipleChoice: tracker.getSubTopicProgressTable().reduce((acc, st) => acc + st.multipleChoiceProgress, 0) / tracker.getSubTopicProgressTable().length,
+                open: tracker.getSubTopicProgressTable().reduce((acc, st) => acc + st.openProgress, 0) / tracker.getSubTopicProgressTable().length,
+                numerical: tracker.getNumericProgress(),
+                total: tracker.getOverallProgress()
+            },
+            subTopicProgress: tracker.getSubTopicProgressTable()
+        };
+    }
+
+    // Get set progress
+    static getSetProgress(prepId: string): SetProgress | null {
+        const progress = this.setTracker.getSetProgress(prepId);
+        if (!progress) return null;
+        
+        return progress;
+    }
+
+    // Get header progress - overall metrics
+    static getHeaderProgress(prep: StudentPrep) {
+        let tracker = this.progressTrackers.get(prep.id);
+        if (!tracker) {
+            tracker = this.initializeProgressTracker(prep);
+            this.progressTrackers.set(prep.id, tracker);
+        }
+
+        return {
+            overall: tracker.getOverallProgress(),
+            completed: tracker.getCompletedQuestions(),
+            correct: tracker.getCorrectAnswers(),
+            successRate: tracker.getCorrectAnswers() / Math.max(1, tracker.getCompletedQuestions()),
+            remainingTime: prep.goals.examDate - Date.now()
+        };
+    }
+
+    // Get question result at position
+    static getQuestionResult(prepId: string, position: number): SetQuestionStatus {
+        const progress = this.setTracker.getSetProgress(prepId);
+        return progress?.results[position] || SetQuestionStatus.PENDING;
+    }
+
+    // Clear current set
+    static clearSet(prepId: string): void {
+        this.setTracker.clearSet(prepId);
+    }
+
+    // Check if current set is complete
+    static isSetComplete(prepId: string): boolean {
+        const progress = this.setTracker.getSetProgress(prepId);
+        if (!progress) return false;
+        return progress.results.every(result => result !== SetQuestionStatus.PENDING);
+    }
+
+    // Get current focus state
+    static getFocusState(prepId: string): { focusedType: QuestionType | null, focusedSubTopic: string | null } | null {
+        const prep = this.getPrep(prepId);
+        if (!prep) return null;
+
+        return {
+            focusedType: prep.focusedType,
+            focusedSubTopic: prep.focusedSubTopic
+        };
+    }
+
+    // Update topic/subtopic selection for a prep
+    static updateSelection(prep: StudentPrep, selection: TopicSelection): StudentPrep {
+        // Initialize progress for any new subtopics
+        const subTopicProgress = { ...prep.subTopicProgress };
+        selection.subTopics.forEach(subtopicId => {
+            if (!subTopicProgress[subtopicId]) {
+                subTopicProgress[subtopicId] = {
+                    subtopicId,
+                    currentDifficulty: 1 as DifficultyLevel,
+                    questionsAnswered: 0,
+                    correctAnswers: 0,
+                    totalQuestions: 20,
+                    estimatedTimePerQuestion: 4,
+                    lastAttemptDate: Date.now()
+                };
+            }
+        });
+
+        const updatedPrep: StudentPrep = {
+            ...prep,
+            selection,
+            subTopicProgress
         };
 
         // Save to storage
         const preps = this.loadPreps();
-        preps[newPrep.id] = newPrep;
+        preps[updatedPrep.id] = updatedPrep;
         this.savePreps(preps);
 
-        return newPrep;
+        return updatedPrep;
     }
 
-    // Skip current question (don't count it)
-    static skipQuestion(prep: StudentPrep): StudentPrep {
+    // Directly adjust difficulty level for a subtopic
+    static adjustDifficulty(
+        prep: StudentPrep,
+        subtopicId: string,
+        adjustment: 'increase' | 'decrease'
+    ): StudentPrep {
         if (prep.state.status !== 'active') {
-            throw new Error('Can only skip question in active state');
+            throw new Error('Can only adjust difficulty in active state');
         }
-        
-        // No need to update state or save to storage for skipping
-        // Just return the prep as is
-        return prep;
+
+        const subtopicProgress = prep.subTopicProgress[subtopicId];
+        if (!subtopicProgress) {
+            throw new Error(`No progress found for subtopic ${subtopicId}`);
+        }
+
+        // Adjust by one level at a time
+        const currentDifficulty = subtopicProgress.currentDifficulty;
+        if (adjustment === 'increase') {
+            subtopicProgress.currentDifficulty = Math.min(5, currentDifficulty + 1) as DifficultyLevel;
+        } else {
+            subtopicProgress.currentDifficulty = Math.max(1, currentDifficulty - 1) as DifficultyLevel;
+        }
+
+        // Update last attempt date
+        subtopicProgress.lastAttemptDate = Date.now();
+
+        // Save changes
+        return this.updatePrep(prep);
     }
 
-    // Move to next question
-    static moveToNextQuestion(prep: StudentPrep): StudentPrep {
+    // Submit answer
+    static submitAnswer(
+        prep: StudentPrep,
+        submission: {
+            questionId: string;
+            answer: { text: string };
+            subTopicId: string | null;
+            type: QuestionType;
+            evalDetail: DetailedEvalLevel;
+            score: number;
+            isCorrect: boolean;
+            helpRequested: boolean;
+            confidence?: 'low' | 'medium' | 'high';
+        }
+    ): StudentPrep {
         if (prep.state.status !== 'active') {
-            throw new Error('Can only move to next question in active state');
+            throw new Error('Can only submit answers in active state');
         }
 
-        const completedQuestions = prep.state.completedQuestions + 1;
-        
-        const newPrep: StudentPrep = {
+        // Update set progress with result
+        this.getSetTracker().handleFeedback(prep.id, submission.score);
+
+        // Create history entry
+        const historyEntry: QuestionHistoryEntry = {
+            questionId: submission.questionId,
+            score: submission.score,
+            isCorrect: submission.isCorrect,
+            timestamp: Date.now(),
+            type: submission.type,
+            subTopicId: submission.subTopicId,
+            answer: submission.answer.text,
+            evalDetail: submission.evalDetail,
+            confidence: submission.confidence,
+            helpRequested: submission.helpRequested
+        };
+
+        // Update prep state
+        const updatedPrep: StudentPrep = {
             ...prep,
             state: {
                 ...prep.state,
-                completedQuestions
-            }
+                completedQuestions: prep.state.completedQuestions + 1,
+                correctAnswers: prep.state.correctAnswers + (submission.isCorrect ? 1 : 0),
+                averageScore: (
+                    (prep.state.averageScore * prep.state.completedQuestions + submission.score) / 
+                    (prep.state.completedQuestions + 1)
+                ),
+                questionHistory: [...prep.state.questionHistory, historyEntry]
+            } as PrepState
         };
 
-        // Save to storage
-        const preps = this.loadPreps();
-        preps[newPrep.id] = newPrep;
-        this.savePreps(preps);
+        // Let PrepProgressTracker handle all progress tracking
+        let tracker = this.progressTrackers.get(prep.id);
+        if (!tracker) {
+            tracker = this.initializeProgressTracker(updatedPrep);
+            this.progressTrackers.set(prep.id, tracker);
+        }
+        tracker.addResult(
+            submission.subTopicId,
+            submission.type,
+            submission.score,
+            Date.now(),
+            submission.questionId,
+            submission.isCorrect
+        );
 
-        return newPrep;
+        return this.updatePrep(updatedPrep);
     }
 
-    // Update prep
+    // Add the missing updatePrep method
     static updatePrep(prep: StudentPrep): StudentPrep {
         // Save to storage
         const preps = this.loadPreps();
         preps[prep.id] = prep;
         this.savePreps(preps);
-        
         return prep;
     }
 
-    // Comprehensive progress calculation - Single source of truth
-    static getProgress(prep: StudentPrep) {
+    // Get active time for prep
+    static getActiveTime(prep: StudentPrep): number {
+        if (!prep) return 0;
+        
         const now = Date.now();
-        const activeTime = this.getActiveTime(prep);
-        const daysUntilExam = Math.max(1, Math.ceil((prep.goals.examDate - now) / (24 * 60 * 60 * 1000)));
-        const weeksUntilExam = Math.max(1, Math.ceil(daysUntilExam / 7));
-        const last24Hours = now - (24 * 60 * 60 * 1000);
+        return prep.state.status === 'active' 
+            ? (prep.state as { activeTime: number; lastTick: number }).activeTime + (now - (prep.state as { lastTick: number }).lastTick)
+            : (prep.state as { activeTime: number }).activeTime || 0;
+    }
 
-        // Daily progress
-        const dailyProgress = {
-            questions: {
-                completed: prep.state.status !== 'initializing' && prep.state.status !== 'not_started'
-                    ? prep.state.questionHistory?.filter(q => q.timestamp >= last24Hours).length || 0
-                    : 0,
-                goal: Math.ceil(prep.goals.questionGoal / daysUntilExam)
-            },
-            time: {
-                completed: Math.round(activeTime / (60 * 1000)), // Convert to minutes
-                goal: Math.ceil((prep.goals.totalHours * 60) / daysUntilExam) // Convert hours to minutes
-            }
-        };
+    // Get current question from set
+    static getCurrentQuestion(prepId: string): string | null {
+        // We don't track questions anymore - this should be handled by the context
+        return null;
+    }
 
-        // Weekly progress
-        const weeklyProgress = {
-            questions: {
-                completed: prep.state.status !== 'initializing' && prep.state.status !== 'not_started'
-                    ? prep.state.questionHistory?.filter(q => q.timestamp >= (now - 7 * 24 * 60 * 60 * 1000)).length || 0
-                    : 0,
-                goal: Math.ceil(prep.goals.questionGoal / weeksUntilExam)
-            },
-            time: {
-                completed: Math.round(activeTime / (60 * 60 * 1000)), // Convert to hours
-                goal: Math.ceil(prep.goals.totalHours / weeksUntilExam)
-            }
-        };
-
-        // Overall progress
-        const overallProgress = {
-            questions: {
-                completed: prep.state.status !== 'initializing' && prep.state.status !== 'not_started'
-                    ? prep.state.completedQuestions || 0
-                    : 0,
-                goal: prep.goals.questionGoal
-            },
-            time: {
-                completed: Math.round(activeTime / (60 * 60 * 1000)), // Convert to hours
-                goal: prep.goals.totalHours
-            },
-            accuracy: prep.state.status !== 'initializing' && prep.state.status !== 'not_started'
-                ? Math.round(prep.state.averageScore || 0)
-                : 0
-        };
-
+    // Get set progress metrics
+    static getSetProgressMetrics(prepId: string): {
+        currentQuestion: number;
+    } {
+        const progress = this.setTracker.getSetProgress(prepId);
         return {
-            daily: dailyProgress,
-            weekly: weeklyProgress,
-            overall: overallProgress,
-            metrics: {
-                daysUntilExam,
-                weeksUntilExam,
-                activeTime,
-                lastActiveTime: prep.state.status === 'active' ? prep.state.lastTick : null,
-                status: prep.state.status
-            }
+            currentQuestion: progress ? progress.currentIndex + 1 : 1
         };
     }
 
-    // Update user focus for a prep
-    static updateUserFocus(prepId: string, filters: FilterState): StudentPrep | null {
-        const prep = this.getPrep(prepId);
-        if (!prep) return null;
-
-        prep.userFocus = { ...filters };
-        return this.updatePrep(prep);
+    // In handleSubmission method
+    async handleSubmission(prep: StudentPrep, submission: QuestionSubmission): Promise<void> {
+        // Create history entry
+        // ... rest of the method ...
     }
 
-    // Get user focus for a prep
-    static getUserFocus(prepId: string): FilterState | null {
-        const prep = this.getPrep(prepId);
-        return prep ? prep.userFocus : null;
+    // Subscribe to progress changes
+    static subscribeToProgressChanges(prepId: string, callback: (progress: SetProgress) => void): void {
+        this.setTracker.onProgressChange(prepId, callback);
+    }
+
+    // Subscribe to question changes
+    static subscribeToQuestionChanges(prepId: string, callback: (index: number) => void): void {
+        this.setTracker.onQuestionChange(prepId, callback);
+    }
+
+    // Unsubscribe from progress changes
+    static unsubscribeFromProgressChanges(prepId: string, callback: (progress: SetProgress) => void): void {
+        this.setTracker.offProgressChange(prepId, callback);
+    }
+
+    // Unsubscribe from question changes
+    static unsubscribeFromQuestionChanges(prepId: string, callback: (index: number) => void): void {
+        this.setTracker.offQuestionChange(prepId, callback);
+    }
+
+    // Get current index in set
+    static getCurrentSetIndex(prepId: string): number {
+        const progress = this.setTracker.getSetProgress(prepId);
+        return progress ? progress.currentIndex : 0;
+    }
+
+    // Get display index (1-based) for current question
+    static getDisplayIndex(prepId: string): number {
+        const progress = this.setTracker.getSetProgress(prepId);
+        return progress ? this.setTracker.getDisplayIndex(progress.currentIndex) : 1;
+    }
+
+    // Get set progress with questions
+    static getSetProgressWithQuestions(prepId: string): SetProgress | null {
+        return this.setTracker.getSetProgress(prepId);
     }
 } 

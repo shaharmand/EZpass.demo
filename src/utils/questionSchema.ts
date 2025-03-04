@@ -1,3 +1,5 @@
+import { QuestionType } from '../types/question';
+
 export const questionSchema = {
   type: "object",
   required: ["id", "type", "content", "solution", "metadata"],
@@ -14,8 +16,8 @@ export const questionSchema = {
     },
     type: {
       type: "string",
-      enum: ["multiple_choice", "open", "code", "step_by_step"],
-      description: "Question type"
+      enum: Object.values(QuestionType),
+      description: "Type of question (multiple choice, numerical, or open)"
     },
     content: {
       type: "object",

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Space, Typography } from 'antd';
-import { Question } from '../../types/question';
+import { Question, DifficultyLevel } from '../../types/question';
 import { SkipReason } from '../../types/prepUI';
 import './DifficultyFeedback.css';
 
@@ -12,7 +12,7 @@ interface DifficultyFeedbackContentProps {
   onClose: () => void;
 }
 
-const getDifficultyLabel = (difficulty: number): string => {
+const getDifficultyLabel = (difficulty: DifficultyLevel): string => {
   switch (difficulty) {
     case 1: return 'קל מאוד';
     case 2: return 'קל';
@@ -62,7 +62,7 @@ export const DifficultyFeedbackContent: React.FC<DifficultyFeedbackContentProps>
   );
 };
 
-export const DifficultyStars: React.FC<{ difficulty: number }> = ({ difficulty }) => (
+export const DifficultyStars: React.FC<{ difficulty: DifficultyLevel }> = ({ difficulty }) => (
   <div className="difficulty-stars">
     {[...Array(5)].map((_, i) => (
       <span key={i} className={i < difficulty ? 'star filled' : 'star'}>★</span>

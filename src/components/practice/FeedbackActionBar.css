@@ -6,6 +6,8 @@
   border: 1px solid #e5e7eb;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
 }
 
 .feedback-action-bar-content {
@@ -14,6 +16,7 @@
   align-items: center;
   gap: 16px;
   width: 100%;
+  position: relative;
 }
 
 /* Common Button Styles */
@@ -29,58 +32,76 @@
   align-items: center;
   gap: 12px;
   transition: all 0.2s ease;
+  position: relative;
+  z-index: 2;
 }
 
 /* Retry Button */
 .retry-button {
-  background: white;
-  color: #64748b;
-  border: 2px solid #e2e8f0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.retry-button:hover {
-  color: #3b82f6;
-  border-color: #93c5fd;
-  background: #eff6ff;
-  transform: translateY(-1px);
-}
-
-/* Next Button */
-.next-button {
   background: #2563eb;
   color: white;
   border: none;
   min-width: 200px;
   box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
 }
 
-.next-button:hover {
+.retry-button:hover {
   background: #1d4ed8;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
 }
 
+/* Next Button */
+.next-button {
+  background: transparent;
+  color: #64748b;
+  border: 2px solid #94a3b8;
+  min-width: 200px;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 3;
+}
+
+.next-button:hover {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: #64748b;
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
 /* Success State */
 .next-button.success {
-  background: #10b981;
+  background: #10b981;  /* Primary green */
+  color: white;
+  border: none;
   box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
 .next-button.success:hover {
-  background: #059669;
-  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+  background: #059669;  /* Slightly darker shade of the same green */
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);  /* Keep same shadow as non-hover */
+  transform: translateY(-1px);
 }
 
 /* Error State */
 .next-button.error {
-  background: #ef4444;
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+  background: transparent;
+  color: #64748b;
+  border: 2px solid #94a3b8;
+  box-shadow: none;
 }
 
 .next-button.error:hover {
-  background: #dc2626;
-  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+  background: rgba(148, 163, 184, 0.1);
+  border-color: #64748b;
+  box-shadow: none;
 }
 
 /* Button Icons */
@@ -94,6 +115,24 @@
 
 .next-button .button-icon {
   order: 2;
+  margin-right: 0;
+  margin-left: 8px;
+}
+
+/* Feedback states */
+.option-card.correct {
+  border-color: #10b981;  /* Primary green */
+  background: rgba(16, 185, 129, 0.1);  /* Light green background */
+}
+
+.option-number.correct {
+  background: #10b981;  /* Primary green */
+  color: white;
+}
+
+.option-text.correct {
+  color: #10b981;  /* Primary green */
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {

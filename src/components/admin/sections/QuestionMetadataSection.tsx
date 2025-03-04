@@ -14,7 +14,8 @@ import {
   DifficultyLevel, 
   PublicationStatusEnum,
   DatabaseQuestion,
-  EzpassCreatorType 
+  EzpassCreatorType,
+  SourceType
 } from '../../../types/question';
 import { ValidationDisplay } from '../../validation/ValidationDisplay';
 import { getEnumTranslation, getFieldTranslation, formatValidationDetails, fieldNameMapping, getQuestionSourceDisplay } from '../../../utils/translations';
@@ -121,6 +122,7 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
 }) => {
   const [examTemplate, setExamTemplate] = useState<ExamTemplate | null>(null);
   const [validationState, setValidationState] = useState<MetadataValidationResult | null>(null);
+  const [sourceDisplay, setSourceDisplay] = useState<string>('');
 
   if (!question?.metadata) {
     return (
@@ -164,6 +166,25 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
       }
     };
     loadExamTemplate();
+  }, [question?.metadata?.source]);
+
+  useEffect(() => {
+    const loadSourceDisplay = async () => {
+      if (question?.metadata?.source) {
+        const display = await getQuestionSourceDisplay({
+          sourceType: question.metadata.source.type as SourceType,
+          ...(question.metadata.source.type === SourceType.EXAM ? {
+            examTemplateId: question.metadata.source.examTemplateId,
+            year: question.metadata.source.year,
+            season: question.metadata.source.season,
+            moed: question.metadata.source.moed,
+            order: question.metadata.source.order
+          } : {})
+        });
+        setSourceDisplay(display);
+      }
+    };
+    loadSourceDisplay();
   }, [question?.metadata?.source]);
 
   const getDisplayValue = (
@@ -364,31 +385,22 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
     const source = question?.metadata?.source;
     if (!source) return null;
 
-    switch (source.type) {
-      case 'exam': {
-        return (
-          <div>
-            <Text>מקור: מבחן</Text>
-            <Text>תבנית: {examTemplate?.names?.medium || source.examTemplateId}</Text>
-            <Text>שנה: {source.year}</Text>
-            <Text>מועד: {source.moed}</Text>
-            <Text>עונה: {source.season}</Text>
-          </div>
-        );
-      }
-      
-      case 'ezpass': {
-        return (
-          <div>
-            <Text>מקור: EZPass</Text>
-            <Text>סוג יוצר: {source.creatorType}</Text>
-          </div>
-        );
-      }
-      
-      default:
-        return null;
-    }
+    return (
+      <div>
+        <Text>
+          {getQuestionSourceDisplay({
+            sourceType: source.type as SourceType,
+            ...(source.type === SourceType.EXAM ? {
+              examTemplateId: source.examTemplateId,
+              year: source.year,
+              season: source.season,
+              moed: source.moed,
+              order: source.order
+            } : {})
+          })}
+        </Text>
+      </div>
+    );
   };
 
   return (

@@ -341,4 +341,35 @@ When providing help, you focus on:
 - Highlighting key concepts and relationships
 - Providing relevant examples and analogies
 - Encouraging critical thinking and problem-solving skills`;
+}
+
+/**
+ * Builds the expected feedback response format
+ */
+export function buildFeedbackResponseFormat(isDetailed: boolean): string {
+  if (isDetailed) {
+    return `{
+      "type": "detailed",
+      "score": number,                // Score between 0-100
+      "evalLevel": string,           // One of the detailed evaluation levels
+      "message": string,             // Short summary like "תשובה נכונה!" or "תשובה שגויה"
+      "coreFeedback": string,        // Main evaluation points with ✅❌⚠️🔹 symbols
+      "detailedFeedback": string,    // Analysis of solution path and explanation
+      "criteriaFeedback": [          // Array matching evaluationGuidelines.requiredCriteria order
+        {
+          "score": number,           // 0-100 score for this criterion
+          "feedback": string         // Specific feedback for this criterion
+        }
+      ]
+    }`;
+  }
+
+  return `{
+    "type": "basic",
+    "score": number,                // Score between 0-100 (100 for correct, 0 for incorrect)
+    "evalLevel": string,           // "CORRECT" or "INCORRECT"
+    "message": string,             // Short summary like "תשובה נכונה!" or "תשובה שגויה"
+    "basicExplanation": string,    // Basic solution explanation with ✅❌⚠️🔹 symbols
+    "fullExplanation": string      // Optional in-depth discussion (optional)
+  }`;
 } 

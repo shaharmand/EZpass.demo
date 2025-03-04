@@ -18,13 +18,15 @@ import {
   BarChartOutlined,
   HistoryOutlined,
   LockOutlined,
-  CopyOutlined
+  CopyOutlined,
+  SolutionOutlined,
+  CheckSquareOutlined
 } from '@ant-design/icons';
 import QuestionViewer from '../../components/QuestionViewer';
 import QuestionContent from '../../components/QuestionContent';
 import QuestionMetadata from '../../components/QuestionMetadata';
 import { MarkdownRenderer } from '../../components/MarkdownRenderer';
-import type { Question } from '../../types/question';
+import { Question, QuestionType, NumericalAnswer } from '../../types/question';
 import { questionStorage } from '../../services/admin/questionStorage';
 import { logger } from '../../utils/logger';
 import { QuestionAndOptionsDisplay } from '../../components/question/QuestionAndOptionsDisplay';
@@ -213,7 +215,7 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
           <QuestionMetadata 
             metadata={{
               topicId: question.metadata.topicId,
-              type: question.metadata.type,
+              type: question.metadata.type as QuestionType,
               difficulty: String(question.metadata.difficulty),
               source: question.metadata.source?.type === 'exam' ? {
                 examTemplateId: question.metadata.source.examTemplateId,
@@ -229,13 +231,13 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
           <QuestionContent content={question.content.text} />
           
           {/* Question Options */}
-          {question.metadata.type === 'multiple_choice' && question.content.options && (
+          {question.metadata.type === QuestionType.MULTIPLE_CHOICE && question.content.options && (
             <div style={{ marginTop: '1rem' }}>
               <QuestionAndOptionsDisplay 
                 question={{
                   options: question.content.options,
-                  correctOption: question.answer.finalAnswer.type === 'multiple_choice' ? 
-                    question.answer.finalAnswer.value : undefined
+                  correctOption: question.schoolAnswer.finalAnswer?.type === 'multiple_choice' ? 
+                    question.schoolAnswer.finalAnswer.value : undefined
                 }}
                 showCorrectAnswer={true}
               />
@@ -245,41 +247,89 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
       </Card>
 
       {/* Solution Section */}
-      <Card 
-        className="solution-section"
-        style={{ marginBottom: '1rem' }}
+      <Card
         title={
-          <Title level={4} style={{ margin: 0 }}>
-            <CheckCircleOutlined /> פתרון מלא ומחוון בדיקה
-          </Title>
+          <Space>
+            <SolutionOutlined />
+            <span>פתרון</span>
+          </Space>
         }
       >
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {question.answer.solution && (
+          {question.schoolAnswer.solution && (
             <>
               <div className="solution-content">
-                <MarkdownRenderer content={question.answer.solution.text} />
+                <MarkdownRenderer content={question.schoolAnswer.solution.text} />
               </div>
               <Divider>תשובה סופית</Divider>
               <div className="final-answer" style={{
                 padding: '16px',
-                background: '#f0fdf4',
+                background: '#f8fafc',
                 borderRadius: '8px',
-                border: '1px solid #86efac'
+                border: '1px solid #e2e8f0'
               }}>
                 <MarkdownRenderer content={
-                  question.answer.finalAnswer.type === 'none' ? 
-                    question.answer.solution.text :
-                    question.answer.finalAnswer.type === 'multiple_choice' ?
-                      `תשובה ${question.answer.finalAnswer.value}` :
-                      question.answer.finalAnswer.type === 'numerical' ?
-                        `${question.answer.finalAnswer.value}${question.answer.finalAnswer.unit || ''}` :
-                        question.answer.solution.text
+                  !question.schoolAnswer.finalAnswer ? 
+                    question.schoolAnswer.solution.text :
+                    question.schoolAnswer.finalAnswer.type === 'multiple_choice' ?
+                      `תשובה ${question.schoolAnswer.finalAnswer.value}` :
+                      question.schoolAnswer.finalAnswer.type === 'numerical' ?
+                        `${question.schoolAnswer.finalAnswer.value}${(question.schoolAnswer.finalAnswer as NumericalAnswer).unit || ''}` :
+                        question.schoolAnswer.solution.text
                 } />
               </div>
             </>
           )}
         </Space>
+      </Card>
+
+      {/* Evaluation Guidelines Section */}
+      <Card
+        title={
+          <Space>
+            <CheckCircleOutlined />
+            <span>קריטריונים להערכה</span>
+          </Space>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {question.evaluationGuidelines.requiredCriteria.map((criterion, index: number) => (
+            <div key={index} style={{ 
+              padding: '16px', 
+              background: '#f8fafc',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <Text strong>{criterion.name}</Text>
+              <div style={{ marginTop: '8px' }}>
+                <MarkdownRenderer content={criterion.description} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Required Elements Section */}
+      <Card
+        title={
+          <Space>
+            <CheckSquareOutlined />
+            <span>אלמנטים נדרשים בתשובה</span>
+          </Space>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {question.evaluationGuidelines.requiredCriteria.map((criterion, index: number) => (
+            <div key={index} style={{
+              padding: '12px 16px',
+              background: '#f8fafc',
+              borderRadius: '6px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <MarkdownRenderer content={criterion.description} />
+            </div>
+          ))}
+        </div>
       </Card>
 
       {/* Assessment Requirements Section */}
@@ -299,7 +349,7 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {question.evaluation?.rubricAssessment?.criteria.map((criterion, index: number) => (
+            {question.evaluationGuidelines.requiredCriteria.map((criterion, index: number) => (
               <div key={index} style={{ 
                 padding: '16px', 
                 background: '#f8fafc',
@@ -337,7 +387,7 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {question.evaluation?.answerRequirements?.requiredElements.map((element: string, index: number) => (
+            {question.evaluationGuidelines.requiredCriteria.map((criterion, index: number) => (
               <div key={index} style={{
                 padding: '12px 16px',
                 background: '#f0f9ff',
@@ -362,7 +412,7 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
                 }}>
                   {index + 1}
                 </div>
-                <Text style={{ color: '#0369a1' }}>{element}</Text>
+                <Text style={{ color: '#0369a1' }}>{criterion.description}</Text>
               </div>
             ))}
           </div>

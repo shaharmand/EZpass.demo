@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, Space, Spin } from 'antd';
-import { Question } from '../types/question';
+import { Question, QuestionType } from '../types/question';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
 const { Title, Text } = Typography;
@@ -23,8 +23,8 @@ const QuestionViewer: React.FC<QuestionViewerProps> = ({
   onOptionSelect
 }) => {
   const getCorrectAnswer = () => {
-    if (question.answer.finalAnswer.type === 'multiple_choice') {
-      return question.answer.finalAnswer.value;
+    if (question.schoolAnswer.finalAnswer?.type === 'multiple_choice') {
+      return question.schoolAnswer.finalAnswer.value;
     }
     return null;
   };
@@ -63,7 +63,7 @@ const QuestionViewer: React.FC<QuestionViewerProps> = ({
       </div>
 
       {/* Options (if multiple choice and showOptions is true) */}
-      {showOptions && question.metadata.type === 'multiple_choice' && question.content.options && (
+      {showOptions && question.metadata.type === QuestionType.MULTIPLE_CHOICE && question.content.options && (
         <div className="question-options" style={{ marginTop: '1rem' }}>
           <Space direction="vertical" style={{ width: '100%' }}>
             {question.content.options.map((option, index) => {
@@ -103,12 +103,12 @@ const QuestionViewer: React.FC<QuestionViewerProps> = ({
       )}
 
       {/* Solution (if showSolution is true) */}
-      {showSolution && question.answer.solution && (
+      {showSolution && question.schoolAnswer.solution && (
         <div className="question-solution" style={{ marginTop: '1.5rem' }}>
           <Text strong style={{ display: 'block', marginBottom: '0.5rem' }}>
             פתרון:
           </Text>
-          <MarkdownRenderer content={question.answer.solution.text} />
+          <MarkdownRenderer content={question.schoolAnswer.solution.text} />
         </div>
       )}
     </div>

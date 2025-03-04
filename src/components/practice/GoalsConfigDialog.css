@@ -1,0 +1,16 @@
+.rtl-modal .ant-modal-footer {
+  text-align: left;
+}
+
+.rtl-modal .ant-modal-close {
+  right: auto;
+  left: 17px;
+}
+
+.rtl-modal .ant-form-item-label {
+  text-align: right;
+}
+
+.rtl-modal .ant-input-number {
+  direction: ltr;
+} 

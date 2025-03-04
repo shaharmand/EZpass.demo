@@ -1,48 +1,46 @@
 import React from 'react';
 import { Button, Space, Typography } from 'antd';
 import { AimOutlined } from '@ant-design/icons';
-import { Question, QuestionType, FilterState } from '../../types/question';
+import { Question, QuestionType } from '../../types/question';
 import { SkipReason } from '../../types/prepUI';
+import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import './TypeFilter.css';
 
 const { Text } = Typography;
 
 interface TypeFilterContentProps {
   question: Question;
-  filters: FilterState;
-  onFiltersChange: (filters: FilterState) => void;
-  onSkip: (reason: SkipReason, filters?: FilterState) => void;
+  onSkip: (reason: SkipReason) => void;
   onClose: () => void;
 }
 
 export const TypeFilterContent: React.FC<TypeFilterContentProps> = ({
   question,
-  filters,
-  onFiltersChange,
   onSkip,
   onClose
 }) => {
+  const { prep, setFocusedType } = useStudentPrep();
+  
   const questionTypes = [
-    { type: 'multiple_choice' as QuestionType, label: 'שאלות סגורות' },
-    { type: 'open' as QuestionType, label: 'שאלות פתוחות' },
-    { type: 'step_by_step' as QuestionType, label: 'שאלות חישוביות' }
+    { type: QuestionType.MULTIPLE_CHOICE, label: 'שאלות סגורות' },
+    { type: QuestionType.OPEN, label: 'שאלות פתוחות' },
+    { type: QuestionType.NUMERICAL, label: 'שאלות חישוביות' }
   ];
 
-  const hasTypeFocus = () => !!filters.questionTypes?.length;
-  const isTypeFocused = (type: QuestionType) => 
-    filters.questionTypes?.length === 1 && filters.questionTypes[0] === type;
+  const hasTypeFocus = () => !!prep?.focusedType;
+  const isTypeFocused = (type: QuestionType) => prep?.focusedType === type;
 
   const handleTypeSelect = (selectedType: QuestionType | null) => {
     if (selectedType === null) {
       // Just remove focus
-      const { questionTypes, ...otherFilters } = filters;
-      onFiltersChange(otherFilters);
+      setFocusedType(null);
     } else if (selectedType === question.metadata.type) {
-      // Current type - just update filter
-      onFiltersChange({ ...filters, questionTypes: [selectedType] });
+      // Current type - just update focus
+      setFocusedType(selectedType);
     } else {
-      // Different type - skip with filter change
-      onSkip('filter_change' as SkipReason, { questionTypes: [selectedType] });
+      // Different type - skip with focus change
+      setFocusedType(selectedType);
+      onSkip('filter_change');
     }
     onClose();
   };

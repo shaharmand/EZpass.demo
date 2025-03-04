@@ -7,7 +7,10 @@ import { Question, FullAnswer } from '../../types/question';
 interface QuestionSolutionDisplayProps {
   /** The solution and evaluation data */
   solution: FullAnswer['solution'];
-  evaluation?: Question['evaluation'];
+  /** The school's answer for evaluation */
+  schoolAnswer: FullAnswer;
+  /** The evaluation guidelines */
+  evaluationGuidelines: Question['evaluationGuidelines'];
   /** Whether to show the evaluation rubric */
   showEvaluation?: boolean;
   /** Whether to wrap sections in Cards */
@@ -23,8 +26,9 @@ interface QuestionSolutionDisplayProps {
  */
 export const QuestionSolutionDisplay: React.FC<QuestionSolutionDisplayProps> = ({
   solution,
-  evaluation,
-  showEvaluation = false,
+  schoolAnswer,
+  evaluationGuidelines,
+  showEvaluation = true,
   useCards = true,
   className = ''
 }) => {
@@ -39,9 +43,9 @@ export const QuestionSolutionDisplay: React.FC<QuestionSolutionDisplayProps> = (
       )}
 
       {/* Evaluation Section */}
-      {showEvaluation && evaluation && (
+      {showEvaluation && (
         <QuestionEvaluation 
-          evaluation={evaluation}
+          evaluation={evaluationGuidelines}
           showCard={useCards}
         />
       )}

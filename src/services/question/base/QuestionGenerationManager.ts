@@ -40,7 +40,13 @@ export class QuestionGenerationManager {
           domainId,
           topicId: params.hierarchy.topic.id,
           type: params.type,
-          difficulty: params.difficulty
+          difficulty: params.difficulty,
+          answerFormat: {
+            hasFinalAnswer: params.type !== QuestionType.OPEN,
+            finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' :
+                           params.type === QuestionType.NUMERICAL ? 'numerical' : 'none',
+            requiresSolution: true
+          }
         };
       }
 
@@ -53,6 +59,12 @@ export class QuestionGenerationManager {
         subtopicId: params.hierarchy.subtopic.id,
         difficulty: params.difficulty,
         type: params.type,
+        answerFormat: {
+          hasFinalAnswer: params.type !== QuestionType.OPEN,
+          finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' :
+                         params.type === QuestionType.NUMERICAL ? 'numerical' : 'none',
+          requiresSolution: true
+        },
         source: {
           type: SourceType.EZPASS,
           creatorType: EzpassCreatorType.AI

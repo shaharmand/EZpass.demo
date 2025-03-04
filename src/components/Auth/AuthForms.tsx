@@ -8,6 +8,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 interface AuthFormData {
   email: string;
   password: string;
+  full_name?: string;
 }
 
 interface AuthFormsProps {
@@ -43,7 +44,9 @@ export function AuthForms({ returnUrl }: AuthFormsProps) {
 
   const handleSignUp = async (values: AuthFormData) => {
     try {
-      const { error } = await signUp(values.email, values.password);
+      // Split full name into first and last name
+      const [firstName = '', lastName = ''] = (values.full_name || '').split(' ');
+      const { error } = await signUp(values.email, values.password, firstName, lastName);
       if (error) throw error;
       message.success('ההרשמה הצליחה! אנא בדוק את האימייל שלך לאימות.');
       handleSuccessfulAuth();
@@ -128,6 +131,13 @@ export function AuthForms({ returnUrl }: AuthFormsProps) {
           layout="vertical"
           requiredMark={false}
         >
+          <Form.Item
+            name="full_name"
+            rules={[{ required: true, message: 'אנא הכנס שם מלא' }]}
+          >
+            <Input prefix={<UserOutlined />} placeholder="שם מלא" />
+          </Form.Item>
+
           <Form.Item
             name="email"
             rules={[

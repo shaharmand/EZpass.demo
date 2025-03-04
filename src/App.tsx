@@ -1,6 +1,5 @@
 import React from 'react';
 import { Routes, Route, Outlet } from 'react-router-dom';
-import { ConfigProvider } from 'antd';
 import { AuthProvider } from './contexts/AuthContext';
 import { StudentPrepProvider } from './contexts/StudentPrepContext';
 import { PracticeAttemptsProvider } from './contexts/PracticeAttemptsContext';
@@ -19,40 +18,38 @@ import AuthCallback from './pages/AuthCallback';
 
 const App: React.FC = () => {
   return (
-    <ConfigProvider direction="rtl">
-      <AuthProvider>
-        <StudentPrepProvider>
-          <PracticeAttemptsProvider>
-            <ExamProvider>
-              <Routes>
-                <Route path="/" element={<ExamDashboard />} />
-                <Route path="/auth" element={<AuthForms />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/practice/:prepId" element={<PracticePage />} />
-                <Route path="/profile" element={
-                  <ProtectedRoute>
-                    <UserProfile />
-                  </ProtectedRoute>
-                } />
-                <Route path="/admin" element={
-                  <ProtectedRoute>
-                    <AdminLayout children={<Outlet />} />
-                  </ProtectedRoute>
-                }>
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="questions">
-                    <Route index element={<QuestionLibraryPage />} />
-                    <Route path="new" element={<QuestionEditor />} />
-                    <Route path=":id" element={<QuestionEditor />} />
-                    <Route path="import" element={<QuestionImport />} />
-                  </Route>
+    <AuthProvider>
+      <StudentPrepProvider>
+        <PracticeAttemptsProvider>
+          <ExamProvider>
+            <Routes>
+              <Route path="/" element={<ExamDashboard />} />
+              <Route path="/auth" element={<AuthForms />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/practice/:prepId" element={<PracticePage />} />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <UserProfile />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin" element={
+                <ProtectedRoute>
+                  <AdminLayout children={<Outlet />} />
+                </ProtectedRoute>
+              }>
+                <Route index element={<AdminDashboard />} />
+                <Route path="questions">
+                  <Route index element={<QuestionLibraryPage />} />
+                  <Route path="new" element={<QuestionEditor />} />
+                  <Route path=":id" element={<QuestionEditor />} />
+                  <Route path="import" element={<QuestionImport />} />
                 </Route>
-              </Routes>
-            </ExamProvider>
-          </PracticeAttemptsProvider>
-        </StudentPrepProvider>
-      </AuthProvider>
-    </ConfigProvider>
+              </Route>
+            </Routes>
+          </ExamProvider>
+        </PracticeAttemptsProvider>
+      </StudentPrepProvider>
+    </AuthProvider>
   );
 };
 

@@ -21,6 +21,7 @@ export const QuestionGenerator: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<GenerationResult | null>(null);
+  const [questionType, setQuestionType] = useState<QuestionType>(QuestionType.MULTIPLE_CHOICE);
   const questionStorage = new QuestionStorage();
 
   const onFinish = async (values: any) => {
@@ -185,10 +186,9 @@ Format the response as a JSON object with the following structure:
             {/* Question Type */}
             <Form.Item name="type" label="סוג שאלה" rules={[{ required: true }]}>
               <Select>
-                <Select.Option value="multiple_choice">רב ברירה</Select.Option>
-                <Select.Option value="open">פתוחה</Select.Option>
-                <Select.Option value="code">קוד</Select.Option>
-                <Select.Option value="step_by_step">שלב אחר שלב</Select.Option>
+                <Select.Option value={QuestionType.MULTIPLE_CHOICE}>רב ברירה</Select.Option>
+                <Select.Option value={QuestionType.OPEN}>פתוחה</Select.Option>
+                <Select.Option value={QuestionType.NUMERICAL}>חישובית</Select.Option>
               </Select>
             </Form.Item>
 

@@ -1,15 +1,14 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Space, Button, Layout, Typography, Card, message } from 'antd';
+import { Alert, Space, Button, Layout, Typography, Card, message, Result } from 'antd';
 import { HomeOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { PracticeHeader } from '../components/PracticeHeader';
 import QuestionInteractionContainer from '../components/practice/QuestionInteractionContainer';
 import { WelcomeScreen } from '../components/practice/WelcomeScreen';
 import type { ActivePracticeQuestion, SkipReason } from '../types/prepUI';
-import type { FullAnswer } from '../types/question';
+import type { Question, FullAnswer } from '../types/question';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-import type { FilterState, Question } from '../types/question';
 import type { QuestionStatus } from '../types/prepState';
 import type { StudentPrep } from '../types/prepState';
 import { logger } from '../utils/logger';
@@ -18,10 +17,10 @@ import { useAuth } from '../contexts/AuthContext';
 import './PracticePage.css';
 import { memo } from 'react';
 import moment from 'moment';
+import { examService } from '../services/examService';
 
 interface PageState {
   error?: string;
-  filters: FilterState;
   prep?: StudentPrep;
   isLoading: boolean;
 }
@@ -29,17 +28,63 @@ interface PageState {
 const PracticePage: React.FC = () => {
   const { prepId } = useParams<{ prepId: string }>();
   const navigate = useNavigate();
-  const { getPrep, getNextQuestion, skipQuestion, setCurrentQuestion, submitAnswer, currentQuestion } = useStudentPrep();
+  const { 
+    prep,
+    currentQuestion,
+    submitAnswer,
+    skipQuestion,
+    getPreviousQuestion,
+    isQuestionLoading,
+    questionState,
+    setQuestionState,
+    getNext,
+    startPrep
+  } = useStudentPrep();
   const { incrementAttempt, getFeedbackMode, checkAndShowGuestLimitIfNeeded } = usePracticeAttempts();
   const { user } = useAuth();
   const [state, setState] = useState<PageState>({
-    filters: {},
-    isLoading: false
+    isLoading: false,
+    prep: prep || undefined
   });
   const hasInitialized = useRef(false);
 
+  // Handle new prep creation
+  useEffect(() => {
+    const initializePrep = async () => {
+      if (!prepId) return;
+      
+      // Check if this is a new prep request
+      if (prepId.startsWith('new/')) {
+        const examId = prepId.split('/')[1];
+        try {
+          setState(prev => ({ ...prev, isLoading: true }));
+          const exam = await examService.getExamById(examId);
+          if (!exam) {
+            throw new Error('Failed to load exam template');
+          }
+          const newPrepId = await startPrep(exam);
+          navigate(`/practice/${newPrepId}`, { replace: true });
+        } catch (error) {
+          setState(prev => ({
+            ...prev,
+            error: error instanceof Error ? error.message : 'Failed to start practice'
+          }));
+        } finally {
+          setState(prev => ({ ...prev, isLoading: false }));
+        }
+      }
+    };
+
+    initializePrep();
+  }, [prepId, startPrep, navigate]);
+
+  // Update state.prep when prep changes
+  useEffect(() => {
+    setState(prev => ({ ...prev, prep: prep || undefined }));
+  }, [prep]);
+
   // Helper function to create new question state
-  const createQuestionState = useCallback((question: Question, prevQuestion?: ActivePracticeQuestion): ActivePracticeQuestion => {
+  const createQuestionState = useCallback((question: Question): ActivePracticeQuestion => {
     return {
       question,
       practiceState: {
@@ -52,143 +97,32 @@ const PracticePage: React.FC = () => {
     };
   }, []);
 
-  // Shared utility for handling question transitions
-  const handleQuestionTransition = useCallback(async (
-    operation: 'skip' | 'next' | 'retry',
-    filters?: FilterState,
-    validateFn?: () => { canProceed: boolean; reason?: string }
-  ) => {
-    // Check loading state first
-    if (state.isLoading) {
-      console.log(`⚠️ Cannot ${operation}: loading in progress`);
-      return;
+  const handleSkip = useCallback(async (reason: SkipReason) => {
+    await skipQuestion(reason);
+  }, [skipQuestion]);
+
+  const handleNext = useCallback(async () => {
+    await getNext();
+  }, [getNext]);
+
+  const handlePrevious = useCallback(() => {
+    getPreviousQuestion();
+  }, [getPreviousQuestion]);
+
+  const handleSubmit = useCallback((answer: FullAnswer) => {
+    let answerString = '';
+    
+    if (answer.finalAnswer?.type === 'multiple_choice') {
+      answerString = String(answer.finalAnswer?.value);
+    } else if (answer.finalAnswer?.type === 'numerical') {
+      answerString = String(answer.finalAnswer?.value);
+    } else {
+      // For open answers, use the solution text
+      answerString = answer.solution.text;
     }
-
-    // Run operation-specific validation if provided
-    if (validateFn) {
-      const { canProceed, reason } = validateFn();
-      if (!canProceed) {
-        console.log(`⚠️ Cannot ${operation}: ${reason}`);
-        return;
-      }
-    }
-
-    try {
-      setState(prev => ({ ...prev, isLoading: true }));
-      setCurrentQuestion(null); // Clear current question to show loading state
-      
-      const nextQuestion = await getNextQuestion(filters);
-      
-      if (nextQuestion) {
-        console.log(`✅ ${operation} successful:`, nextQuestion.id);
-        setCurrentQuestion(createQuestionState(nextQuestion, currentQuestion || undefined));
-      }
-    } catch (err) {
-      console.error(`Failed to ${operation}:`, err);
-      setState(prev => ({ 
-        ...prev,
-        error: err instanceof Error ? err.message : `Failed to ${operation}`
-      }));
-    } finally {
-      setState(prev => ({ ...prev, isLoading: false }));
-    }
-  }, [state.isLoading, getNextQuestion, setCurrentQuestion, createQuestionState, currentQuestion]);
-
-  // Operation-specific handlers
-  const handleSkip = useCallback(async (reason: SkipReason, skipFilters?: FilterState) => {
-    console.log('FORCE LOG - PracticePage handleSkip:', {
-      reason,
-      currentFilters: state.filters,
-      skipFilters,
-      questionId: currentQuestion?.question.id,
-      timestamp: new Date().toISOString()
-    });
-
-    if (state.isLoading) {
-      console.log('⚠️ Cannot skip: loading in progress');
-      return;
-    }
-
-    try {
-      setState(prev => ({ ...prev, isLoading: true }));
-      setCurrentQuestion(null);
-      
-      console.log('FORCE LOG - PracticePage calling skipQuestion:', {
-        reason,
-        filters: skipFilters || state.filters,
-        timestamp: new Date().toISOString()
-      });
-      
-      const nextQuestion = await skipQuestion(reason, skipFilters || state.filters);
-      
-      if (nextQuestion) {
-        console.log('FORCE LOG - PracticePage skip successful:', {
-          nextQuestionId: nextQuestion.id,
-          timestamp: new Date().toISOString()
-        });
-        setCurrentQuestion(createQuestionState(nextQuestion, currentQuestion || undefined));
-      }
-    } catch (err) {
-      console.error('FORCE LOG - PracticePage skip failed:', err);
-      setState(prev => ({ 
-        ...prev,
-        error: err instanceof Error ? err.message : 'Failed to skip'
-      }));
-    } finally {
-      setState(prev => ({ ...prev, isLoading: false }));
-    }
-  }, [state.isLoading, state.filters, skipQuestion, setCurrentQuestion, createQuestionState, currentQuestion]);
-
-  const handleNext = useCallback(async (filters?: FilterState) => {
-    console.log('👤 USER ACTION - Next Question:', {
-      providedFilters: filters,
-      currentFilters: state.filters,
-      currentQuestionId: currentQuestion?.question.id,
-      hasAnswered: Boolean(currentQuestion?.practiceState.currentAnswer),
-      timestamp: new Date().toISOString()
-    });
-
-    // Check guest limits before proceeding
-    if (!checkAndShowGuestLimitIfNeeded()) {
-      return; // Stop if guest has reached their limit
-    }
-
-    // Use provided filters or fall back to current state filters
-    const filtersToUse = filters || state.filters;
-
-    await handleQuestionTransition('next', filtersToUse, () => ({
-      canProceed: Boolean(currentQuestion?.practiceState.currentAnswer),
-      reason: !currentQuestion ? 'no current question' : 
-              !currentQuestion.practiceState.currentAnswer ? 'question not completed' : undefined
-    }));
-  }, [currentQuestion, handleQuestionTransition, checkAndShowGuestLimitIfNeeded, state.filters]);
-
-  const handleSubmit = useCallback(async (answer: FullAnswer) => {
-    if (!currentQuestion || !prepId || !state.prep) return;
-
-    try {
-      // Convert FullAnswer to string format expected by backend
-      const answerString = answer.finalAnswer.type === 'multiple_choice' 
-        ? answer.finalAnswer.value.toString()
-        : answer.finalAnswer.type === 'numerical'
-        ? answer.finalAnswer.value.toString()
-        : answer.solution.text;
-
-      // Submit the answer
-      await submitAnswer(answerString, state.prep);
-      
-      // Increment attempt count
-      await incrementAttempt();
-
-      // Check if we need to show guest limit warning
-      if (checkAndShowGuestLimitIfNeeded()) {
-        return;
-      }
-    } catch (error) {
-      console.error('Error submitting answer:', error);
-      message.error('Failed to submit answer');
-    }
-  }, [currentQuestion, handleQuestionTransition, checkAndShowGuestLimitIfNeeded, state.filters, state.prep, submitAnswer, incrementAttempt]);
+    
+    submitAnswer(answerString);
+  }, [submitAnswer]);
 
   const handleExamDateChange = useCallback((date: moment.Moment) => {
     if (!state.prep) return;
@@ -210,10 +144,7 @@ const PracticePage: React.FC = () => {
     
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-      const nextQuestion = await getNextQuestion();
-      if (nextQuestion) {
-        setCurrentQuestion(createQuestionState(nextQuestion));
-      }
+      await skipQuestion('filter_change');
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -222,57 +153,35 @@ const PracticePage: React.FC = () => {
     } finally {
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, [state.prep, getNextQuestion, setCurrentQuestion, createQuestionState]);
+  }, [state.prep, skipQuestion]);
 
-  // First effect: Handle prep loading
-  useEffect(() => {
-    const loadPrep = async () => {
-      if (!prepId) return;
-
-      console.log('FORCE LOG - Loading prep:', {
-        prepId,
-        hasInitialized: hasInitialized.current,
-        timestamp: new Date().toISOString()
-      });
-
-      try {
-        const prep = await getPrep(prepId);
-        if (!prep) {
-          console.error('Practice session not found');
-          return;
+  if (!prep) {
+    return (
+      <Result
+        status="warning"
+        title="No active preparation session"
+        extra={
+          <Button type="primary" onClick={() => navigate('/')}>
+            Return Home
+          </Button>
         }
+      />
+    );
+  }
 
-        setState(prev => ({ ...prev, prep }));
-      } catch (error) {
-        console.error('Failed to load practice session:', error);
-        setState(prev => ({ 
-          ...prev,
-          error: error instanceof Error ? error.message : 'Failed to load practice session'
-        }));
-      }
-    };
-
-    loadPrep();
-  }, [prepId, getPrep]);
-
-  // Second effect: Handle question initialization after prep is loaded
-  useEffect(() => {
-    const initializeQuestion = async () => {
-      // Only initialize if we have a prep and haven't initialized yet
-      if (!state.prep || hasInitialized.current || state.isLoading) {
-        return;
-      }
-
-      // Don't automatically load a question - wait for user to start
-      hasInitialized.current = true;
-    };
-
-    initializeQuestion();
-  }, [state.prep, state.isLoading]);
+  const activePracticeQuestion = currentQuestion ? {
+    question: currentQuestion,
+    practiceState: questionState
+  } : undefined;
 
   return (
-    <Layout className="practice-page">
-      <PracticeHeader prepId={prepId || ''} />
+    <Layout style={{ minHeight: '100vh' }}>
+      <PracticeHeader 
+        prepId={prepId || ''} 
+        currentQuestion={activePracticeQuestion}
+        question={currentQuestion || undefined}
+        prep={state.prep}
+      />
       <Layout.Content className="practice-content">
         {state.error && (
           <Alert
@@ -298,17 +207,15 @@ const PracticePage: React.FC = () => {
           <div className="practice-container">
             <div className="practice-main">
               <QuestionInteractionContainer
-                question={currentQuestion.question}
+                question={currentQuestion}
                 onSubmit={handleSubmit}
                 onSkip={handleSkip}
                 onNext={handleNext}
-                onPrevious={() => {}}
-                filters={state.filters}
-                onFiltersChange={(filters) => setState(prev => ({ ...prev, filters }))}
+                onPrevious={handlePrevious}
                 prep={state.prep}
                 isQuestionLoading={state.isLoading}
-                showDetailedFeedback={getFeedbackMode() === 'detailed'}
-                state={currentQuestion.practiceState}
+                state={questionState}
+                setState={setQuestionState}
               />
             </div>
           </div>

@@ -446,8 +446,13 @@ export class WordPressEzPassImporter extends BaseImporter {
       .trim()
       // Remove any tabs anywhere in the text (including middle of text)
       .replace(/\t+/g, ' ')
-      // Remove Hebrew letter prefix patterns
-      .replace(/^[אבגד](?:\. |\.|\ )/, '')
+      // Remove Hebrew letter prefix patterns - only at start of string and only if followed by space/dot
+      // (?:^|\n) - match start of string or newline
+      // [אבגד] - match any of these Hebrew letters
+      // (?:\.?\s+|\.\s*) - match either:
+      //   - optional dot followed by one or more spaces
+      //   - dot followed by zero or more spaces
+      .replace(/(?:^|\n)[אבגד](?:\.?\s+|\.\s*)/, '')
       // Fix escaped quotes in Hebrew units
       .replace(/ק\\"ג/g, 'ק"ג')
       .replace(/מ\\"ר/g, 'מ"ר')
@@ -556,19 +561,18 @@ export class WordPressEzPassImporter extends BaseImporter {
         text: questionText,
         format: 'markdown',
         options: wpQuestion._answerData.map(answer => ({
-          text: answer._answer,
+          text: this.cleanOptionText(answer._answer),
           format: 'markdown'
         }))
       },
-      answer: {
+      schoolAnswer: {
         finalAnswer: {
           type: 'multiple_choice',
           value: (correctIndex + 1) as 1 | 2 | 3 | 4
         },
         solution: {
           text: wpQuestion._correctMsg || 'No explanation provided',
-          format: 'markdown',
-          requiredSolution: true
+          format: 'markdown'
         }
       },
       metadata: {
@@ -578,29 +582,30 @@ export class WordPressEzPassImporter extends BaseImporter {
         subtopicId,
         type: QuestionType.MULTIPLE_CHOICE,
         difficulty: 3,
+        answerFormat: {
+          hasFinalAnswer: true,
+          finalAnswerType: 'multiple_choice',
+          requiresSolution: false
+        },
         estimatedTime: 5,
         source: titleExamInfo?.year ? {
           type: 'exam',
-          examTemplateId: 'civil_safety',
+          examTemplateId: 'mahat_civil_safety',
           year: titleExamInfo.year,
           season: titleExamInfo.season || 'summer',
-          moed: titleExamInfo.moed || 'a'
+          moed: titleExamInfo.moed || 'a',
+          order: titleExamInfo.order
         } : {
           type: 'ezpass',
           creatorType: EzpassCreatorType.HUMAN
         }
       },
-      evaluation: {
-        rubricAssessment: {
-          criteria: [{
-            name: 'basic_correctness',
-            description: 'תשובה נכונה ומלאה',
-            weight: 100
-          }]
-        },
-        answerRequirements: {
-          requiredElements: []
-        }
+      evaluationGuidelines: {
+        requiredCriteria: [{
+          name: 'basic_correctness',
+          description: 'תשובה נכונה ומלאה',
+          weight: 100
+        }]
       }
     };
   }

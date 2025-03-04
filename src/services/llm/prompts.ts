@@ -1,4 +1,17 @@
-export const FORMATTING_GUIDELINES = {
+import { QuestionType } from '../../types/question';
+
+type FormattingGuidelineType = {
+  COMMON: string;
+  OPEN_QUESTION: string;
+  CODE_QUESTION: string;
+  MULTIPLE_CHOICE_QUESTION: string;
+};
+
+type QuestionPromptType = {
+  [K in QuestionType]: string;
+};
+
+export const FORMATTING_GUIDELINES: FormattingGuidelineType = {
   COMMON: `Common Formatting Guidelines:
 
 1. Content Integration:
@@ -54,20 +67,6 @@ export const FORMATTING_GUIDELINES = {
    - Code analysis
    - Connection between concepts`,
 
-  STEP_BY_STEP_QUESTION: `Step-by-Step Question Guidelines:
-1. Purpose: Show problem-solving process
-2. Structure:
-   - Mathematical formulation
-   - Code implementation
-   - Step-by-step solution
-   Example:
-   "נתונה הנוסחה $V = \\frac{4}{3}πr^3$ לחישוב נפח כדור.
-   \`\`\`python
-   import math
-   def sphere_volume(r):
-       return (4/3) * math.pi * r**3
-   \`\`\`"`,
-
   CODE_QUESTION: `Code Question Guidelines:
 1. Purpose: Test programming with mathematical context
 2. Structure:
@@ -96,4 +95,52 @@ export const FORMATTING_GUIDELINES = {
    ב) $y = 10$
    ג) $y = 5^2$
    ד) $y = 7$"`
-}; 
+} as const;
+
+export const QUESTION_PROMPTS: QuestionPromptType = {
+  [QuestionType.NUMERICAL]: `Numerical Question Guidelines:
+1. Purpose: Test calculation and problem-solving abilities
+2. Structure:
+   - Clear problem statement with given values and units
+   - Required calculations clearly stated
+   - Example:
+     "חשבו את העומס המרבי המותר על פיגום בגובה 12 מטר עם מפתח של 3 מטר."
+3. Solution Requirements:
+   - Step-by-step solution with calculations
+   - Include units in each step
+   - Final answer with appropriate units
+4. Specify acceptable tolerance range
+5. Include validation criteria for partial credit`,
+
+  [QuestionType.OPEN]: `Open Question Guidelines:
+1. Purpose: Test understanding through explanation and analysis
+2. Structure:
+   - Clear problem statement combining theory and practice
+   - Include both mathematical concepts and code implementation
+   - Example:
+     "הסבירו את הקשר בין הנוסחה $f(x) = ax + b$ לבין הקוד:
+     \`\`\`python
+     def linear_function(x, a, b):
+         return a * x + b
+     \`\`\`"
+3. Answer Requirements:
+   - Mathematical explanation
+   - Code analysis
+   - Connection between concepts`,
+
+  [QuestionType.MULTIPLE_CHOICE]: `Multiple Choice Question Guidelines:
+1. Purpose: Test understanding of concepts
+2. Structure:
+   - Question combining theory and implementation
+   - Options with both mathematical and code aspects
+   Example:
+   "מה יהיה הערך של $y$ לאחר ביצוע הקוד:
+   \`\`\`python
+   x = 5
+   y = x ** 2
+   \`\`\`
+   א) $y = 25$
+   ב) $y = 10$
+   ג) $y = 5^2$
+   ד) $y = 7$"`
+} as const; 

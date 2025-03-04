@@ -6,6 +6,7 @@ import { QuestionSolution } from '../../question/QuestionSolution';
 import { QuestionEvaluation } from '../../question/QuestionEvaluation';
 import { validateQuestion, ValidationError } from '../../../utils/questionValidator';
 import { ValidationDisplay } from '../../validation/ValidationDisplay';
+import { QuestionType } from '../../../types/question';
 
 const { Text } = Typography;
 
@@ -44,7 +45,7 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
     </Space>
   );
 
-  if (!question?.answer?.solution) {
+  if (!question?.schoolAnswer?.solution) {
     return renderEmptyState();
   }
 
@@ -56,13 +57,13 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
         border: `1px solid ${solutionErrors.length > 0 ? '#ff4d4f' : '#d9d9d9'}`,
         borderRadius: '6px'
       }}>
-        {!question.answer.solution?.text ? renderEmptyState() : (
-          <QuestionSolution solution={question.answer.solution} showCard={false} />
+        {!question.schoolAnswer.solution?.text ? renderEmptyState() : (
+          <QuestionSolution solution={question.schoolAnswer.solution} showCard={false} />
         )}
       </div>
 
       {/* Evaluation - only show for non-multiple choice questions */}
-      {question.metadata.type !== 'multiple_choice' && (
+      {question.metadata.type !== QuestionType.MULTIPLE_CHOICE && (
         <Card size="small">
           <Space style={{ width: '100%', justifyContent: 'space-between' }}>
             <Space>
@@ -83,7 +84,7 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
             border: `1px solid ${evaluationErrors.length > 0 ? '#ff4d4f' : '#d9d9d9'}`,
             borderRadius: '6px'
           }}>
-            {!question.evaluation || (!question.evaluation.rubricAssessment?.criteria?.length && !question.evaluation.answerRequirements?.requiredElements?.length) ? (
+            {!question.evaluationGuidelines || !question.evaluationGuidelines.requiredCriteria?.length ? (
               <Space direction="vertical" style={{ width: '100%', textAlign: 'center', padding: '20px' }}>
                 <CheckOutlined style={{ fontSize: '24px', color: '#ff4d4f' }} />
                 <Text type="danger">הערכה חסרה</Text>
@@ -98,7 +99,7 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
                 </Button>
               </Space>
             ) : (
-              <QuestionEvaluation evaluation={question.evaluation} />
+              <QuestionEvaluation evaluation={question.evaluationGuidelines} />
             )}
           </div>
         </Card>

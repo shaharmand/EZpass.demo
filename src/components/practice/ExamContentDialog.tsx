@@ -52,18 +52,8 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
       ? selection.subTopics.filter(id => id !== subtopicId)
       : [...selection.subTopics, subtopicId];
     
-    // Update local state
+    // Only update local state, don't update PrepStateManager yet
     setSelection({ subTopics: newSelection });
-
-    // Update prep state
-    const updatedPrep: StudentPrep = {
-      ...currentPrep,
-      selection: { subTopics: newSelection }
-    };
-
-    // Save to storage and update local state
-    PrepStateManager.updatePrep(updatedPrep);
-    setCurrentPrep(updatedPrep);
   };
 
   // Handle closing the dialog
@@ -91,6 +81,17 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
     }
     
     onClose();
+  };
+
+  // Handle confirming changes
+  const handleConfirm = () => {
+    if (!currentPrep) return;
+
+    // Update prep state with new selection
+    const updatedPrep = PrepStateManager.updateSelection(currentPrep, selection);
+    setCurrentPrep(updatedPrep);
+    
+    handleClose();
   };
 
   // Calculate total stats
@@ -149,7 +150,7 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
             <Button 
               type="primary"
               size="large"
-              onClick={handleClose}
+              onClick={handleConfirm}
               style={{
                 minWidth: '100px',
                 height: '40px',

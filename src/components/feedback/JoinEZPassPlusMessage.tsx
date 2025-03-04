@@ -1,13 +1,14 @@
 import React from 'react';
 import { Typography } from 'antd';
 import { StarOutlined } from '@ant-design/icons';
+import { QuestionType } from '../../types/question';
 
 const { Text } = Typography;
 
 interface JoinEZPassPlusMessageProps {
   variant?: 'compact' | 'full';
   className?: string;
-  questionType?: 'multiple_choice' | 'other';
+  questionType?: QuestionType | 'other';
 }
 
 export const JoinEZPassPlusMessage: React.FC<JoinEZPassPlusMessageProps> = ({ 
@@ -16,7 +17,7 @@ export const JoinEZPassPlusMessage: React.FC<JoinEZPassPlusMessageProps> = ({
   questionType = 'other'
 }) => {
   const getMessage = () => {
-    if (questionType === 'multiple_choice') {
+    if (questionType === QuestionType.MULTIPLE_CHOICE) {
       return 'הצטרף לאיזיפס פלוס וקבל הסברים מפורטים לתשובה, עזרה והנחיה אישיים ותכני לימוד מותאמים לצרכיך';
     }
     return 'הצטרף לאיזיפס פלוס וקבל משוב מפורט, פתרונות מלאים, עזרה והנחיה אישית ותכני לימוד מותאמים לצרכיך';

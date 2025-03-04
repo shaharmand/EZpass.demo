@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons';
 import { getQuestionTypeLabel } from '../utils/questionUtils';
 import { universalTopics } from '../services/universalTopics';
+import { QuestionType } from '../types/question';
 
 const { Text, Title } = Typography;
 
@@ -22,7 +23,7 @@ interface QuestionMetadataProps {
   metadata: {
     topicId: string;
     subtopicId?: string;
-    type: string;
+    type: QuestionType;
     difficulty: string;
     estimatedTime?: number;
     source?: {

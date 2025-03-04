@@ -28,7 +28,7 @@
   bottom: 0;
   overflow-y: auto;
   background: #f3f4f6;
-  padding-top: 330px;
+  padding-top: 185px;
 }
 
 .daily-practice-container {
@@ -44,21 +44,21 @@
 
 .daily-practice-content {
   flex: 1;
-  padding: 24px;
+  padding: 8px;
   padding-top: 0;
-  padding-bottom: 24px;
+  padding-bottom: 8px;
   position: relative;
   z-index: 1;
 }
 
 .progress-section {
-  margin: 0 0 24px 0;
+  margin: 0 0 8px 0;
   position: relative;
   z-index: 2;
   background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   border: 1px solid #e5e7eb;
 }
 
@@ -80,12 +80,12 @@
   border-right: 4px solid #10b981;
 }
 
-.question-card.question-type-code {
-  border-right: 4px solid #8b5cf6;
+.question-card.question-type-numerical {
+  border-right: 4px solid #f59e0b;
 }
 
-.question-card.question-type-step_by_step {
-  border-right: 4px solid #f59e0b;
+.question-card.question-type-code {
+  border-right: 4px solid #8b5cf6;
 }
 
 .question-content {
@@ -94,7 +94,7 @@
 }
 
 .question-body {
-  padding: 24px;
+  padding: 32px;
   background: #ffffff;
 }
 
@@ -106,7 +106,7 @@
   font-size: 18px;
   line-height: 1.7;
   color: #1f2937;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .question-content-wrapper:hover {
@@ -125,8 +125,11 @@
   border-right: 3px solid #2196F3;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   margin-right: auto;
+  margin-left: 0;
   max-width: fit-content;
   font-style: italic;
+  margin-top: 8px;
+  float: left;
 }
 
 .source-info:hover {
@@ -151,7 +154,7 @@
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   border: 1px solid #e5e7eb;
-  padding: 24px;
+  padding: 32px;
   margin-top: 24px;
 }
 
@@ -167,8 +170,8 @@
 }
 
 .action-bar-wrapper {
-  margin-top: 24px;
-  margin-bottom: 24px;
+  margin-top: 16px;
+  margin-bottom: 16px;
   border-radius: 12px;
   background: #ffffff;
   border: 1px solid #e5e7eb;
@@ -187,27 +190,38 @@
   left: 0;
   right: 0;
   background: white;
-  padding: 16px 24px;
+  padding: 24px;
   border-top: 1px solid #e5e7eb;
   z-index: 100;
+  margin-top: 32px;
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.feedback-container {
+  margin-bottom: 48px;
 }
 
 @media (max-width: 768px) {
   .question-body {
-    padding: 16px;
+    padding: 24px;
   }
 
   .question-content-wrapper {
-    padding: 20px;
+    padding: 24px;
     font-size: 16px;
   }
 
   .answer-section {
-    padding: 16px;
-    margin-top: 16px;
+    padding: 24px;
+    margin-top: 24px;
   }
 
   .daily-practice-action-bar {
-    padding: 12px 16px;
+    padding: 16px;
+    margin-top: 24px;
+  }
+  
+  .feedback-container {
+    margin-bottom: 32px;
   }
 } 

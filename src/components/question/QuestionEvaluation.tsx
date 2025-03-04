@@ -2,24 +2,12 @@ import React from 'react';
 import { Card, Space, Typography, List } from 'antd';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { CheckOutlined } from '@ant-design/icons';
+import { AnswerContentGuidelines } from '../../types/question';
 
 const { Text, Title } = Typography;
 
-interface RubricCriterion {
-  name: string;
-  description: string;
-  weight: number;
-}
-
 interface QuestionEvaluationProps {
-  evaluation: {
-    rubricAssessment?: {
-      criteria: RubricCriterion[];
-    };
-    answerRequirements?: {
-      requiredElements: string[];
-    };
-  };
+  evaluation: AnswerContentGuidelines;
   className?: string;
   showCard?: boolean;
 }
@@ -41,12 +29,12 @@ export const QuestionEvaluation: React.FC<QuestionEvaluationProps> = ({
 }) => {
   const EvaluationContent = () => (
     <div className={`evaluation-content ${className}`} style={{ direction: 'rtl', textAlign: 'right' }}>
-      {/* Rubric Assessment */}
+      {/* Required Criteria */}
       <div style={{ marginBottom: '24px' }}>
         <Title level={5} style={{ marginBottom: '16px' }}>קריטריונים להערכה:</Title>
-        {evaluation.rubricAssessment?.criteria?.length ? (
+        {evaluation.requiredCriteria?.length ? (
           <List
-            dataSource={evaluation.rubricAssessment.criteria}
+            dataSource={evaluation.requiredCriteria}
             renderItem={(criterion, index) => (
               <List.Item style={listItemStyle}>
                 <Space direction="vertical" style={{ width: '100%' }}>
@@ -63,29 +51,7 @@ export const QuestionEvaluation: React.FC<QuestionEvaluationProps> = ({
             )}
           />
         ) : (
-          <Text type="secondary" style={listItemStyle}>-</Text>
-        )}
-      </div>
-
-      {/* Required Elements */}
-      <div>
-        <Title level={5} style={{ marginBottom: '16px' }}>דרישות מהתשובה:</Title>
-        {evaluation.answerRequirements?.requiredElements?.length ? (
-          <List
-            dataSource={evaluation.answerRequirements.requiredElements}
-            renderItem={(element, index) => (
-              <List.Item style={listItemStyle}>
-                <Space align="baseline">
-                  <Text strong>{index + 1}.</Text>
-                  <div style={{ flex: 1 }}>
-                    <MarkdownRenderer content={element} />
-                  </div>
-                </Space>
-              </List.Item>
-            )}
-          />
-        ) : (
-          <Text type="secondary" style={listItemStyle}>-</Text>
+          <Text type="secondary" style={listItemStyle}>יש להגדיר קריטריונים להערכה</Text>
         )}
       </div>
     </div>

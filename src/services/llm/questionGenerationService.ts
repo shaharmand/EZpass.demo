@@ -9,7 +9,10 @@ import {
   SourceType, 
   EzpassCreatorType,
   PublicationStatusEnum,
-  EMPTY_EVALUATION
+  EMPTY_EVALUATION_GUIDELINES,
+  FinalAnswerType,
+  AnswerFormatRequirements,
+  FullAnswer
 } from "../../types/question";
 import { universalTopics } from "../universalTopics";
 import type { Domain, Topic } from "../../types/subject";
@@ -17,6 +20,8 @@ import { logger } from '../../utils/logger';
 import { CRITICAL_SECTIONS } from '../../utils/logger';
 import { buildQuestionSystemMessage } from './aiSystemMessages';
 import { questionStorage } from '../admin/questionStorage';
+import { ExamType } from '../../types/examTemplate';
+import { generateQuestionId } from '../../utils/idGenerator';
 
 const openai = new OpenAI({
   apiKey: process.env.REACT_APP_OPENAI_API_KEY,
@@ -102,6 +107,11 @@ export class QuestionService {
     
     return `Generate a ${params.type} question in ${params.subject} for ${params.educationType} students.
 
+METADATA REQUIREMENTS:
+- Always include creatorType: "ai" in the source object
+- Source object must have both sourceType and creatorType fields
+${metadataRequirements}
+
 LANGUAGE REQUIREMENTS:
 - Generate ALL content in Hebrew (עברית)
 - Question text must be in Hebrew
@@ -146,71 +156,6 @@ DIFFICULTY LEVEL SCALE:
 3 (בינוני): Multiple concepts, 3-4 steps
 4 (קשה): Complex analysis, multiple approaches
 5 (קשה מאוד): Advanced integration of concepts
-
-${metadataRequirements}
-
-ANSWER REQUIREMENTS:
-You MUST include a list of required elements that must be present in a complete answer. These will be used to evaluate student responses. For example:
-
-For open questions:
-- Key concepts that must be mentioned
-- Required formulas or equations
-- Critical analysis points
-- Important conclusions
-
-For code questions:
-- Required functions/methods
-- Essential algorithms
-- Error handling
-- Input validation
-- Performance considerations
-
-For step-by-step:
-- All required calculation steps
-- Specific formulas used
-- Unit conversions
-- Final answer with units
-
-RUBRIC ASSESSMENT REQUIREMENTS:
-You MUST include assessment criteria that sum to 100%. Include the following for each question:
-
-2. For open questions:
-
-When creating a construction safety question, develop a customized rubric assessment by following these steps:
-
-1. Analyze the question to identify 3-5 most relevant assessment criteria based on what knowledge and skills the question is testing.
-
-2. For each selected criterion:
-   - Provide a brief description of what this criterion evaluates
-   - Assign a percentage weight based on its importance to this specific question (total must equal 100%)
-
-3. Choose your criteria from this standard set:
-   - Regulatory Knowledge: Understanding of relevant laws, codes, and standards
-   - Hazard Identification: Ability to recognize safety risks in the scenario
-   - Risk Assessment: Evaluation of severity and likelihood of identified hazards
-   - Mitigation Strategy: Quality of proposed safety solutions and controls
-   - Procedural Accuracy: Correctness of safety procedures and sequencing
-   - Documentation Requirements: Knowledge of required forms and record-keeping
-   - Emergency Response: Understanding of proper incident reactions
-   - Equipment Safety: Knowledge of tool/machinery safety protocols
-   - Communication: Clear explanation using appropriate terminology
-   - Real-World Application: Connection between theory and practical implementation
-
-4. Ensure the selected criteria directly align with what the question is asking students to demonstrate.
-
-5. Make sure criterion descriptions are specific enough that both the AI and human reviewers would understand exactly what to evaluate.
-
-
-3. For code questions:
-   - Functionality (40%): Code works as required
-   - Efficiency (20%): Optimal solution and performance
-   - Style (20%): Code organization and readability
-   - Testing (20%): Handling edge cases
-
-4. For step-by-step:
-   - Process (40%): Following correct solution steps
-   - Calculations (30%): Accurate computations
-   - Validation (30%): Checking results at each step
 
 ${params.type === QuestionType.MULTIPLE_CHOICE ? `
 MULTIPLE CHOICE QUESTION REQUIREMENTS:
@@ -287,32 +232,32 @@ NUMERICAL QUESTION REQUIREMENTS:
 SCHEMA VALIDATION REQUIREMENTS:
 ${formatInstructions}
 
-IMPORTANT: 
-1. The response MUST include an evaluation object that contains:
-   - rubricAssessment: An object with criteria that sum to exactly 100% weights
-   - answerRequirements: An object with a list of requiredElements
-
-Example structure:
+Required fields and structure:
 {
-  "evaluation": {
-    "rubricAssessment": {
-      "criteria": [
-        {
-          "name": "Accuracy",
-          "description": "...",
-          "weight": 40
-        },
-        // ... more criteria
-      ]
+  "type": "${params.type}",
+  "content": {
+    "text": "Your question text here",
+    "format": "markdown"
+  },
+  "metadata": {
+    "type": "${params.type}",
+    "difficulty": "${params.difficulty}",
+    "answerFormat": {
+      "format": "markdown"
     },
-    "answerRequirements": {
-      "requiredElements": [
-        "First required element",
-        "Second required element"
-      ]
+    "source": {
+      "sourceType": "ezpass",
+      "creatorType": "ai"
     }
+  },
+  "solution": {
+    "text": "Step by step solution here",
+    "format": "markdown"
   }
-}`;
+}
+
+IMPORTANT: Focus on generating high-quality question content and solution. The system will handle other metadata fields.
+`;
   }
 
   private async generateQuestionId(subjectId: string, domainId: string): Promise<string> {
@@ -324,92 +269,84 @@ Example structure:
   }
 
   async generateQuestion(params: QuestionFetchParams): Promise<Question> {
-    // Add detailed parameter logging
-    logger.info('Generating question with parameters:', {
-      topic: params.topic,
-      subtopic: params.subtopic,
-      difficulty: params.difficulty,
-      type: params.type,
-      subject: params.subject
-    });
-
-    // Get subject and domain info for ID generation
-    const subject = universalTopics.getSubjectForTopic(params.topic);
-    if (!subject) {
-      throw new Error(`Subject not found for topic ${params.topic}`);
-    }
-
-    const domain = subject.domains.find(d => 
-      d.topics.some(t => t.id === params.topic)
-    );
-    if (!domain) {
-      throw new Error(`Domain not found for topic ${params.topic}`);
-    }
-
     try {
-      // Generate question ID first
-      const nextId = await questionStorage.getNextQuestionId(subject.code, domain.code);
-      
-      console.log('%c🎯 Generating Question:', 'color: #2563eb; font-weight: bold', {
-        topic: params.topic,
-        type: params.type,
-        difficulty: params.difficulty,
-        subject: params.subject,
-        educationType: params.educationType
-      });
-      
-      const systemPrompt = 'You are an expert educator specializing in creating high-quality exam questions. ' +
-        'IMPORTANT: For ALL code examples in the response:\n' +
-        '1. Include code as normal text in the markdown content\n' +
-        '2. Do not use any special formatting or backticks\n' +
-        '3. Code must be left-aligned and properly indented\n' +
-        '4. Example of how to include code in markdown text:\n\n' +
-        'Here is the code:\n\n' +
-        'public class Example {\n' +
-        '    public static void main(String[] args) {\n' +
-        '        System.out.println("Hello");\n' +
-        '    }\n' +
-        '}\n';
-
-      console.log('%c📋 System Message:', 'color: #059669; font-weight: bold', '\n' + systemPrompt);
-      
-      // Get subject and domain info for metadata requirements
-      const subjectInfo = universalTopics.getSubjectForTopic(params.topic);
-      const domainInfo = subjectInfo?.domains.find((d: Domain) => 
-        d.topics.some((t: Topic) => t.id === params.topic)
-      );
-
-      if (!subjectInfo || !domainInfo) {
-        throw new Error(`Invalid topic ID: ${params.topic} - Cannot find subject or domain`);
+      // Check rate limits
+      if (!this.checkRateLimits()) {
+        throw new Error('Rate limit exceeded. Please try again later.');
       }
 
-      const metadataRequirements = `METADATA REQUIREMENTS:
-1. Difficulty: Use exactly ${params.difficulty} (no other value is acceptable)
-2. EstimatedTime: MUST provide a numeric value in minutes (e.g., 15 for a 15-minute question). Choose a realistic time for ${params.educationType} level.
-3. SubjectId: Use "${subjectInfo.id}"
-4. DomainId: Use "${domainInfo.id}"
-5. TopicId: Use "${params.topic}"
-${params.subtopic ? `6. SubtopicId: Use "${params.subtopic}"` : ''}
-7. Type: Use "${params.type}"
-8. Source: Use sourceType "${SourceType.EZPASS}"
+      // Get subject and domain info for ID generation
+      const subject = universalTopics.getSubjectForTopic(params.topic);
+      if (!subject) {
+        throw new Error(`Subject not found for topic ${params.topic}`);
+      }
 
-IMPORTANT: You MUST include all of the above metadata fields in your response, using the exact values provided. The response will be rejected if any fields are missing or incorrect values.`;
-      
+      const domain = subject.domains.find(d => 
+        d.topics.some(t => t.id === params.topic)
+      );
+      if (!domain) {
+        throw new Error(`Domain not found for topic ${params.topic}`);
+      }
+
+      // Generate question ID
+      const questionId = await generateQuestionId(subject.code, domain.code);
+
+      // Build metadata requirements
+      const metadataRequirements = `
+METADATA REQUIREMENTS:
+The metadata object MUST follow this exact structure:
+{
+  "metadata": {
+    "subjectId": "${subject.code}",
+    "domainId": "${domain.code}",
+    "topicId": "${params.topic}",
+    "subtopicId": "${params.subtopic || ''}",
+    "type": "${params.type}",
+    "difficulty": "${params.difficulty}",
+    "estimatedTime": 10,
+    "answerFormat": {
+      "format": "markdown",
+      "requirements": {
+        "maxLength": 1000,
+        "minLength": 50
+      }
+    },
+    "source": {
+      "type": "ezpass",
+      "creatorType": "ai"
+    }
+  }
+}
+
+IMPORTANT: ALL fields shown above are REQUIRED and must be included exactly as shown.
+`;
+
+      // Build the prompt
       const prompt = await this.buildPrompt(params, metadataRequirements);
-      console.log('%c📝 OpenAI Prompt:', 'color: #059669; font-weight: bold', '\n' + prompt);
-      
+
+      // Get response from OpenAI
       const response = await this.llm.chat.completions.create({
+        model: 'gpt-4-0125-preview',
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
+          {
+            role: 'system',
+            content: buildQuestionSystemMessage(
+              params.subject,
+              ExamType.UNI_COURSE_EXAM, // Use proper enum value
+              params.subject // Use subject name as exam name
+            )
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
         ],
-        model: "gpt-4-turbo-preview",
         temperature: 0.7,
-        response_format: { type: "json_object" }
+        max_tokens: 2000
       });
 
-      // Log the raw response for debugging
-      console.log('%c📥 Raw OpenAI Response:', 'color: #059669; font-weight: bold', {
+      // Log raw response for debugging
+      logger.debug('📥 Raw OpenAI Response:', {
         content: response.choices[0].message.content,
         usage: response.usage,
         model: response.model,
@@ -420,244 +357,220 @@ IMPORTANT: You MUST include all of the above metadata fields in your response, u
         }
       });
 
-      // PHASE 1: Immediate raw response analysis
+      // Parse and validate the response
       const content = response.choices[0].message.content;
       if (!content) {
-        throw new Error('Unexpected response format from OpenAI');
+        throw new Error('Empty response from OpenAI');
       }
 
-      // Clean up the response content
-      let cleanContent = content
-        .trim() // Remove leading/trailing whitespace and newlines
-        .replace(/^\uFEFF/, ''); // Remove BOM if present
-
-      // Log the raw response and any potential issues
-      console.log('%c📥 Response Analysis:', 'color: #059669; font-weight: bold', {
+      // Analyze response for debugging
+      const analysis = {
         originalLength: content.length,
-        cleanedLength: cleanContent.length,
-        hasLeadingWhitespace: content.startsWith(' ') || content.startsWith('\n'),
-        hasTrailingWhitespace: content.endsWith(' ') || content.endsWith('\n'),
-        hasBOM: content.startsWith('\uFEFF'),
-        hasBackticks: cleanContent.includes('`'),
-        preview: cleanContent.slice(0, 100) + '...'
-      });
-
-      // If we still find any backticks, that's an error
-      if (cleanContent.includes('`')) {
-        console.error('%c❌ Found backticks in response despite instructions:', 'color: #dc2626', 
-          cleanContent.match(/`[^`]*`/g)
-        );
-        throw new Error('Response contains backticks despite instructions to use plain text');
-      }
+        cleanedLength: content.length,
+        hasLeadingWhitespace: /^\s/.test(content),
+        hasTrailingWhitespace: /\s$/.test(content),
+        hasBOM: content.charCodeAt(0) === 0xFEFF,
+        firstChar: content[0],
+        lastChar: content[content.length - 1]
+      };
+      logger.debug('📥 Response Analysis:', analysis);
 
       try {
-        // Try parsing the cleaned content
-        const parsedContent = JSON.parse(cleanContent);
+        const parsedQuestion = await this.parser.parse(content);
         
-        // No special processing needed anymore, just use the content as is
-        let processedContent = cleanContent;
+        // Ensure creatorType is set to AI
+        if (!parsedQuestion.metadata?.source) {
+          parsedQuestion.metadata = {
+            ...parsedQuestion.metadata,
+            source: {
+              type: 'ezpass' as const,
+              creatorType: EzpassCreatorType.AI
+            }
+          };
+        }
 
-        // Pre-process the response to handle code blocks
-        try {
-          // First try to parse as is
-          await this.parser.parse(processedContent);
-        } catch (error: any) {
-          console.error('%c🔄 JSON Parse Error:', 'color: #dc2626', {
-            error: error.message,
-            content: processedContent
-          });
+        // Add required properties
+        const answerFormat: AnswerFormatRequirements = {
+          hasFinalAnswer: params.type === QuestionType.MULTIPLE_CHOICE || params.type === QuestionType.NUMERICAL,
+          finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' as const : 
+                         params.type === QuestionType.NUMERICAL ? 'numerical' as const : 
+                         'none' as const,
+          requiresSolution: true
+        };
 
-          // Check if this is a math formula validation error
-          if (error.message.includes('Math expressions must not contain Hebrew text')) {
-            // Log warning instead of throwing error
-            console.warn('%c⚠️ Math Formula Warning:', 'color: #f59e0b; font-weight: bold', {
-              message: 'Found Hebrew text in math expressions - This may affect rendering',
-              details: {
-                mathExpressions: processedContent.match(/\$\$[\s\S]*?\$\$|\$[^\$]*?\$/g) || [],
-                suggestions: [
-                  'Move Hebrew text outside math delimiters',
-                  'Use English/Latin subscripts for variables',
-                  'Write units in Hebrew outside the math',
-                  'Use \\begin{align*} for multi-line equations'
-                ],
-                examples: {
-                  variables: '$F_{max}$ (כוח מקסימלי)',
-                  units: '$$v = 5$$ מטר לשנייה',
-                  multiLine: '$$\\begin{align*} F &= ma \\\\ m &= 5 \\end{align*}$$ כאשר:'
+        const metadata = {
+          subjectId: subject.code,
+          domainId: domain.code,
+          topicId: params.topic,
+          subtopicId: params.subtopic,
+          type: params.type,
+          difficulty: params.difficulty,
+          estimatedTime: 10,
+          answerFormat,
+          source: {
+            type: 'ezpass' as const,
+            creatorType: EzpassCreatorType.AI
+          }
+        } satisfies Question['metadata'];
+
+        const schoolAnswer: FullAnswer = {
+          finalAnswer: answerFormat.finalAnswerType !== 'none' ? (
+            answerFormat.finalAnswerType === 'multiple_choice' && parsedQuestion.correctOption 
+              ? { type: 'multiple_choice' as const, value: parsedQuestion.correctOption as 1 | 2 | 3 | 4 }
+              : answerFormat.finalAnswerType === 'numerical' && parsedQuestion.solution?.text
+              ? { 
+                  type: 'numerical' as const, 
+                  value: 0, // Will be extracted from solution text by validation
+                  tolerance: 0.01, // Default 1% tolerance
+                  unit: undefined // Will be extracted from solution text by validation
                 }
-              }
-            });
-            // Continue processing instead of throwing error
-            processedContent = cleanContent;
+              : undefined
+          ) : undefined,
+          solution: {
+            text: parsedQuestion.solution.text,
+            format: 'markdown'
+          }
+        };
+
+        const question: Question = {
+          id: questionId,
+          content: {
+            text: parsedQuestion.content.text,
+            format: 'markdown',
+            ...(params.type === QuestionType.MULTIPLE_CHOICE && parsedQuestion.options ? {
+              options: parsedQuestion.options.map((opt: { text: string; format: string }) => ({
+                text: opt.text,
+                format: 'markdown'
+              }))
+            } : {})
+          },
+          metadata,
+          schoolAnswer,
+          evaluationGuidelines: EMPTY_EVALUATION_GUIDELINES
+        };
+
+        return question;
+      } catch (parseError) {
+        logger.error('📋 Schema Validation Error:', parseError);
+        
+        // Try to extract the question data even if validation fails
+        try {
+          const jsonData = JSON.parse(content);
+          
+          // Ensure creatorType is set
+          if (jsonData.metadata?.source) {
+            jsonData.metadata.source.creatorType = EzpassCreatorType.AI;
           }
           
-          try {
-            // Try to parse as JSON first to validate structure
-            const parsedJson = JSON.parse(processedContent);
-            
-            // If JSON parsing succeeds but Zod fails, it's a schema validation error
-            console.error('%c📋 Schema Validation Error:', 'color: #dc2626', error);
-            
-            // Pre-process code blocks in the content
-            if (parsedJson.content?.text) {
-              // Only clean up empty blocks and normalize newlines
-              parsedJson.content.text = parsedJson.content.text
-                // Remove empty code blocks
-                .replace(/```\s*```/g, '')
-                // Remove multiple consecutive newlines
-                .replace(/\n{3,}/g, '\n\n');
-              
-              processedContent = JSON.stringify(parsedJson, null, 2);
-              console.log('%c📝 Processed Content:', 'color: #059669', processedContent);
-              
-              // Try parsing again with processed content
-              await this.parser.parse(processedContent);
-            } else {
-              throw error;
-            }
-          } catch (jsonError) {
-            // If JSON parsing fails, try to process the content
-            processedContent = processedContent
-              .replace(/^\uFEFF/, '')
-              .trim()
-              .replace(/```[\s\S]*?```/g, (match: string) => {
-                const [firstLine, ...rest] = match.split('\n');
-                const content = rest.slice(0, -1).join('\\n');
-                return `${firstLine}\\n${content}\\n\`\`\``;
-              });
+          // Add required properties
+          const answerFormat: AnswerFormatRequirements = {
+            hasFinalAnswer: params.type === QuestionType.MULTIPLE_CHOICE || params.type === QuestionType.NUMERICAL,
+            finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' as const : 
+                           params.type === QuestionType.NUMERICAL ? 'numerical' as const : 
+                           'none' as const,
+            requiresSolution: true
+          };
 
-            console.log('%c📝 Processed Content:', 'color: #059669', processedContent);
-            
-            // Try parsing again after processing
-            try {
-              await this.parser.parse(processedContent);
-            } catch (finalError: any) {
-              console.error('%c❌ Final Parse Error:', 'color: #dc2626', {
-                error: finalError.message,
-                processedContent
-              });
-              throw finalError;
-            }
-          }
-        }
-
-        // Parse and validate with Zod schema
-        const parsed = await this.parser.parse(processedContent);
-        
-        // Additional validation for type-specific fields
-        if (parsed.type === QuestionType.MULTIPLE_CHOICE) {
-          if (!parsed.options || parsed.options.length !== 4) {
-            throw new Error('Multiple choice questions must have exactly 4 options');
-          }
-          if (!parsed.correctOption || parsed.correctOption < 1 || parsed.correctOption > 4) {
-            throw new Error('Multiple choice questions must have a valid correctOption (1-4)');
-          }
-        } else {
-          // For non-multiple choice questions, these fields should not be present
-          if (parsed.options || parsed.correctOption) {
-            throw new Error(`${parsed.type} questions should not have options or correctOption fields`);
-          }
-        }
-
-        // Validate metadata matches request
-        if (parsed.metadata.topicId !== params.topic) {
-          throw new Error('Generated question topic does not match requested topic');
-        }
-        if (parsed.metadata.difficulty !== params.difficulty) {
-          throw new Error('Generated question difficulty does not match requested difficulty');
-        }
-        if (params.subtopic && parsed.metadata.subtopicId !== params.subtopic) {
-          throw new Error('Generated question subtopic does not match requested subtopic');
-        }
-
-        this.updateRequestTracker(true);
-        
-        // After successful generation and parsing, create the question object
-        const question: Question = {
-          id: `${subject.code}-${domain.code}-${nextId}`,
-          metadata: {
+          const metadata = {
             subjectId: subject.code,
             domainId: domain.code,
             topicId: params.topic,
             subtopicId: params.subtopic,
+            type: params.type,
             difficulty: params.difficulty,
-            estimatedTime: parsed.metadata.estimatedTime || 5,
-            source: params.source || {
-              type: 'ezpass',
+            estimatedTime: 10,
+            answerFormat,
+            source: {
+              type: 'ezpass' as const,
               creatorType: EzpassCreatorType.AI
-            },
-            type: params.type
-          },
-          content: {
-            text: parsed.content.text,
-            format: 'markdown',
-            options: params.type === QuestionType.MULTIPLE_CHOICE ? parsed.options : undefined
-          },
-          answer: {
-            finalAnswer: params.type === QuestionType.MULTIPLE_CHOICE && parsed.correctOption 
-              ? { type: 'multiple_choice', value: parsed.correctOption as 1 | 2 | 3 | 4 } 
-              : params.type === QuestionType.NUMERICAL && !isNaN(Number(parsed.content.text))
-              ? { type: 'numerical', value: Number(parsed.content.text), tolerance: 0.01 }
-              : { type: 'none' },
-            solution: {
-              text: parsed.solution.text,
-              format: 'markdown',
-              requiredSolution: true
             }
-          },
-          evaluation: EMPTY_EVALUATION
-        };
+          } satisfies Question['metadata'];
 
-        // Save to database with 'draft' status
-        await questionStorage.saveQuestion({
-          ...question,
-          publication_status: PublicationStatusEnum.DRAFT
-        });
+          const schoolAnswer: FullAnswer = {
+            finalAnswer: answerFormat.finalAnswerType !== 'none' ? (
+              answerFormat.finalAnswerType === 'multiple_choice' && jsonData.correctOption 
+                ? { type: 'multiple_choice' as const, value: jsonData.correctOption as 1 | 2 | 3 | 4 }
+                : answerFormat.finalAnswerType === 'numerical' && jsonData.solution?.text
+                ? { 
+                    type: 'numerical' as const, 
+                    value: 0, // Will be extracted from solution text by validation
+                    tolerance: 0.01, // Default 1% tolerance
+                    unit: undefined // Will be extracted from solution text by validation
+                  }
+                : undefined
+            ) : undefined,
+            solution: {
+              text: jsonData.solution.text,
+              format: 'markdown'
+            }
+          };
 
-        // Cache the generated question
-        this.generationCache.set(question.id, question);
-
-        // Log success
-        logger.info('Generated question successfully', {
-          id: question.id,
-          type: question.metadata.type,
-          topic: question.metadata.topicId,
-          difficulty: question.metadata.difficulty,
-          estimatedTime: question.metadata.estimatedTime,
-          contentLength: question.content.text.length
-        });
-
-        return question;
-      } catch (error) {
-        console.error('%c❌ Error generating question:', 'color: #dc2626; font-weight: bold', error);
-        const is429Error = error instanceof Error && error.message.includes('429');
-        this.updateRequestTracker(false, is429Error);
-        
-        if (error instanceof Error) {
-          if (error.message.includes('401')) {
-            throw new Error('Authentication failed. Please check your API key.');
-          }
-          if (error.message.includes('429')) {
-            throw new Error('OpenAI rate limit exceeded. Please try again in a few minutes.');
-          }
+          const question: Question = {
+            id: questionId,
+            content: {
+              text: jsonData.content.text,
+              format: 'markdown',
+              ...(params.type === QuestionType.MULTIPLE_CHOICE && jsonData.options ? {
+                options: jsonData.options.map((opt: { text: string; format: string }) => ({
+                  text: opt.text,
+                  format: 'markdown'
+                }))
+              } : {})
+            },
+            metadata: {
+              subjectId: subject.code,
+              domainId: domain.code,
+              topicId: params.topic,
+              subtopicId: params.subtopic,
+              type: params.type,
+              difficulty: params.difficulty,
+              estimatedTime: 10,
+              answerFormat: {
+                hasFinalAnswer: params.type === QuestionType.MULTIPLE_CHOICE || params.type === QuestionType.NUMERICAL,
+                finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' as const : 
+                               params.type === QuestionType.NUMERICAL ? 'numerical' as const : 
+                               'none' as const,
+                requiresSolution: true
+              },
+              source: {
+                type: 'ezpass' as const,
+                creatorType: EzpassCreatorType.AI
+              }
+            },
+            schoolAnswer: {
+              finalAnswer: metadata.answerFormat.finalAnswerType !== 'none' ? (
+                metadata.answerFormat.finalAnswerType === 'multiple_choice' && jsonData.correctOption 
+                  ? { type: 'multiple_choice' as const, value: jsonData.correctOption as 1 | 2 | 3 | 4 }
+                  : metadata.answerFormat.finalAnswerType === 'numerical' && jsonData.solution?.text
+                  ? { 
+                      type: 'numerical' as const, 
+                      value: 0, // Will be extracted from solution text by validation
+                      tolerance: 0.01, // Default 1% tolerance
+                      unit: undefined // Will be extracted from solution text by validation
+                    }
+                  : undefined
+              ) : undefined,
+              solution: {
+                text: jsonData.solution.text,
+                format: 'markdown'
+              }
+            },
+            evaluationGuidelines: EMPTY_EVALUATION_GUIDELINES
+          } satisfies Question;
+          
+          // Try parsing again with fixed data
+          const parsedQuestion = await this.parser.parse(JSON.stringify(question));
+          return question; // Return the original typed question instead of the parsed one
+        } catch (jsonError) {
+          logger.error('❌ Final Parse Error:', {
+            error: parseError,
+            processedContent: content
+          });
+          throw parseError;
         }
-        
-        throw error;
       }
     } catch (error) {
-      console.error('%c❌ Error generating question:', 'color: #dc2626; font-weight: bold', error);
-      const is429Error = error instanceof Error && error.message.includes('429');
-      this.updateRequestTracker(false, is429Error);
-      
-      if (error instanceof Error) {
-        if (error.message.includes('401')) {
-          throw new Error('Authentication failed. Please check your API key.');
-        }
-        if (error.message.includes('429')) {
-          throw new Error('OpenAI rate limit exceeded. Please try again in a few minutes.');
-        }
-      }
-      
+      logger.error('❌ Error generating question:', error);
       throw error;
     }
   }

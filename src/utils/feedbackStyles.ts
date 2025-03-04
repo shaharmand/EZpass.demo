@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react';
-import { BasicAnswerLevel, DetailedEvalLevel, isSuccessfulAnswer, type EvalLevel } from '../types/question';
+import { BinaryEvalLevel, DetailedEvalLevel } from '../types/feedback/levels';
+import { FeedbackStatus, getFeedbackStatus } from '../types/feedback/status';
 
 // Define colors inline since we don't have a colors module
-const colors = {
+export const colors = {
   success: '#10b981',    // Green for success (80%+ or CORRECT)
   warning: '#f59e0b',    // Yellow/Orange for good (55-79%)
   error: '#ef4444',      // Red for needs improvement (<55%)
@@ -24,19 +25,50 @@ export const transitionStyles = {
   }
 };
 
-export const getFeedbackColor = (score: number): string => {
-  if (score >= 80) return colors.success;  // Matches isSuccessfulAnswer threshold
-  if (score >= 70) return colors.warning;  // Good but not quite successful
-  return colors.error;                     // Needs improvement
+export const getFeedbackColor = (statusOrLevel: FeedbackStatus | BinaryEvalLevel | DetailedEvalLevel): string => {
+  // If it's already a FeedbackStatus, use it directly
+  if (Object.values(FeedbackStatus).includes(statusOrLevel as FeedbackStatus)) {
+    const status = statusOrLevel as FeedbackStatus;
+    switch (status) {
+      case FeedbackStatus.SUCCESS:
+        return colors.success;
+      case FeedbackStatus.PARTIAL:
+        return colors.warning;
+      case FeedbackStatus.FAILURE:
+        return colors.error;
+    }
+  }
+
+  // Otherwise, convert the evaluation level to a FeedbackStatus
+  const status = getFeedbackStatus(statusOrLevel as BinaryEvalLevel | DetailedEvalLevel);
+  switch (status) {
+    case FeedbackStatus.SUCCESS:
+      return colors.success;
+    case FeedbackStatus.PARTIAL:
+      return colors.warning;
+    case FeedbackStatus.FAILURE:
+      return colors.error;
+  }
+  
+  return colors.gray; // Default fallback
 };
 
-export const getFeedbackTitle = (score: number, level: BasicAnswerLevel | DetailedEvalLevel): string => {
-  if (level === BasicAnswerLevel.CORRECT) return 'מצוין! 🎉';
-  if (level === DetailedEvalLevel.PERFECT) return 'מושלם! 🌟';
-  if (level === DetailedEvalLevel.EXCELLENT) return 'מצוין! 🎉';
-  if (level === DetailedEvalLevel.VERY_GOOD) return 'טוב מאוד! 👏';
-  if (level === DetailedEvalLevel.GOOD) return 'טוב! 👍';
-  return 'המשך להתאמן 💪';
+export const getFeedbackTitle = (score: number, level: DetailedEvalLevel | BinaryEvalLevel): string => {
+  // Binary feedback
+  if (level === BinaryEvalLevel.CORRECT) return 'נכון! ✅';
+  if (level === BinaryEvalLevel.INCORRECT) return 'לא נכון ❌';
+  
+  // Detailed feedback - use the Hebrew values directly from the enum
+  switch (level) {
+    case DetailedEvalLevel.PERFECT: return `${DetailedEvalLevel.PERFECT} 🌟`;
+    case DetailedEvalLevel.EXCELLENT: return `${DetailedEvalLevel.EXCELLENT} ✨`;
+    case DetailedEvalLevel.VERY_GOOD: return `${DetailedEvalLevel.VERY_GOOD} 🎉`;
+    case DetailedEvalLevel.GOOD: return `${DetailedEvalLevel.GOOD} 👏`;
+    case DetailedEvalLevel.FAIR: return `${DetailedEvalLevel.FAIR} 👍`;
+    case DetailedEvalLevel.POOR: return `${DetailedEvalLevel.POOR} 💪`;
+    case DetailedEvalLevel.IRRELEVANT: return `${DetailedEvalLevel.IRRELEVANT} ❓`;
+    default: return 'תשובה לא מוגדרת';
+  }
 };
 
 // Base styles for all feedback types
@@ -158,7 +190,10 @@ export const getDetailedFeedbackStyles = (evalLevel: DetailedEvalLevel): {
   text: CSSProperties;
   details: CSSProperties;
 } => {
-  const isSuccess = [DetailedEvalLevel.PERFECT, DetailedEvalLevel.EXCELLENT, DetailedEvalLevel.VERY_GOOD].includes(evalLevel);
+  const isSuccess = [
+    DetailedEvalLevel.PERFECT,
+    DetailedEvalLevel.VERY_GOOD
+  ].includes(evalLevel);
   const isGood = evalLevel === DetailedEvalLevel.GOOD;
   
   const styles = {

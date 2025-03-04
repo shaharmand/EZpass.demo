@@ -24,31 +24,22 @@ export function isEffectivelyEmpty(answer: string, questionType: QuestionType): 
 
   // Type-specific checks
   switch (questionType) {
-    case 'code':
-      // For code questions, check if it's just comments or whitespace
-      const codeWithoutComments = normalizedAnswer
-        .replace(/\/\*[\s\S]*?\*\//g, '') // Remove multi-line comments
-        .replace(/\/\/.*/g, '')           // Remove single-line comments
-        .trim();
-      
-      if (!codeWithoutComments) {
-        return { isEmpty: true, reason: 'Code answer contains only comments' };
-      }
-      break;
-
-    case 'multiple_choice':
+    case QuestionType.MULTIPLE_CHOICE:
       // For multiple choice, answer should be a number 1-4
       if (!/^[1-4]$/.test(normalizedAnswer)) {
         return { isEmpty: true, reason: 'Invalid multiple choice answer (should be 1-4)' };
       }
       break;
 
-    case 'open':
-    case 'step_by_step':
-      // For text answers, check minimum meaningful length (e.g., 3 words)
+    case QuestionType.OPEN:
+    case QuestionType.NUMERICAL:
+      // For text/numerical answers, check minimum meaningful length
       const words = normalizedAnswer.split(/\s+/);
-      if (words.length < 3) {
+      if (words.length < 3 && questionType === QuestionType.OPEN) {
         return { isEmpty: true, reason: 'Answer is too short (minimum 3 words required)' };
+      }
+      if (!/^-?\d*\.?\d+$/.test(normalizedAnswer) && questionType === QuestionType.NUMERICAL) {
+        return { isEmpty: true, reason: 'Invalid numerical answer' };
       }
       break;
   }

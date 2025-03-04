@@ -6,7 +6,7 @@ import { ISolutionGenerator } from '../../../../../types/questionGeneration';
 export class ConstructionSolutionGenerator implements ISolutionGenerator {
   constructor(private openAI: OpenAIService) {}
 
-  async generate(question: Partial<Question>): Promise<{ solution: Question['answer']['solution'] }> {
+  async generate(question: Partial<Question>): Promise<{ solution: Question['schoolAnswer']['solution'] }> {
     try {
       if (!question.content) throw new Error('Question content is required');
 
@@ -27,8 +27,7 @@ export class ConstructionSolutionGenerator implements ISolutionGenerator {
       return { 
         solution: {
           text: solution.solution.text || '',
-          format: 'markdown',
-          requiredSolution: true
+          format: 'markdown'
         }
       };
 

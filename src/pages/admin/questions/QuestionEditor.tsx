@@ -5,7 +5,9 @@ import {
   Question, 
   DatabaseQuestion,
   ValidationStatus,
-  PublicationStatusEnum
+  PublicationStatusEnum,
+  ReviewStatusEnum,
+  SaveQuestion
 } from '../../../types/question';
 import { ValidationResult, ValidationError, ValidationWarning, validateQuestion } from '../../../utils/questionValidator';
 import { questionStorage } from '../../../services/admin/questionStorage';
@@ -281,16 +283,23 @@ export const QuestionEditor: FC = () => {
     if (!question) return;
     
     try {
-      const mergedQuestion: DatabaseQuestion = {
+      // When saving a question, we update all management fields except review_metadata
+      // which is handled by DB triggers
+      const saveQuestion: SaveQuestion = {
         ...question,
         ...updatedQuestion,
-        publication_status: question.publication_status,
-        validation_status: currentValidation?.status || ValidationStatus.ERROR
+        id: question.id,
+        publication_status: question.publication_status
       };
       
-      await questionStorage.saveQuestion(mergedQuestion);
+      await questionStorage.saveQuestion(saveQuestion);
+      
+      // Update local state with the changes
+      setQuestion({
+        ...question,
+        ...updatedQuestion
+      });
       message.success('Question saved successfully');
-      setQuestion(mergedQuestion);
       setIsEditing(false);
       setIsModified(true);
     } catch (error) {
@@ -299,118 +308,78 @@ export const QuestionEditor: FC = () => {
     }
   };
 
-  const handleStatusChange = async (newStatus: PublicationStatusEnum) => {
+  const handleReviewStatusChange = async (updatedQuestion: Question & { 
+    publication_status: PublicationStatusEnum;
+    review_status: ReviewStatusEnum;
+  }) => {
     if (!question) return;
     
     try {
-      await questionStorage.updateQuestionStatus(question.id, newStatus);
-      
-      const updatedQuestion: DatabaseQuestion = {
+      const saveQuestion: SaveQuestion = {
         ...question,
-        publication_status: newStatus,
-        updated_at: new Date().toISOString()
+        id: question.id,
+        publication_status: question.publication_status,
+        review_status: updatedQuestion.review_status
       };
-
-      await questionStorage.saveQuestion(updatedQuestion);
-      setQuestion(updatedQuestion);
-      message.success(`Question ${newStatus.toLowerCase()} successfully`);
-      setIsModified(false);
+      
+      await questionStorage.saveQuestion(saveQuestion);
+      
+      // Add a small delay to ensure DB trigger has completed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Force reload the question to get updated metadata from DB
+      const updatedQuestionData = await questionStorage.getQuestion(question.id, true);
+      if (updatedQuestionData) {
+        setQuestion(updatedQuestionData);
+        message.success('Review status updated successfully');
+        setIsModified(false);
+      }
     } catch (error) {
-      console.error('Failed to update status:', error);
-      message.error('Failed to update status');
+      console.error('Failed to update review status:', error);
+      message.error('Failed to update review status');
     }
   };
 
-  const handleHeaderSave = () => {
-    if (question) {
-      handleSave(question);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (prevQuestionId) {
-      navigate(`/admin/questions/${prevQuestionId}`);
-    }
-  };
-
-  const handleNext = () => {
-    if (nextQuestionId) {
-      navigate(`/admin/questions/${nextQuestionId}`);
-    }
-  };
-
-  const renderValidationStatus = () => {
-    if (!currentValidation) return null;
-
-    const { errors, warnings, status } = currentValidation;
+  const handlePublicationStatusChange = async (updatedQuestion: Question & { 
+    publication_status: PublicationStatusEnum;
+    review_status: ReviewStatusEnum;
+  }) => {
+    if (!question) return;
     
-    return (
-      <ValidationSection>
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Title level={4} style={{ margin: 0 }}>Validation Status (Development)</Title>
-            <Tag color={status === ValidationStatus.VALID ? 'green' : 
-                      status === ValidationStatus.WARNING ? 'orange' : 'gold'}>
-              {status === ValidationStatus.VALID ? 'Valid' : 
-               status === ValidationStatus.WARNING ? 'Warning' : 'In Development'}
-            </Tag>
-          </div>
-          {errors.map((error: ValidationError, idx: number) => (
-            <ValidationMessage key={`error-${idx}`}>
-              <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-              <Text>{error.message}</Text>
-            </ValidationMessage>
-          ))}
-          {warnings.map((warning: ValidationWarning, idx: number) => (
-            <ValidationMessage key={`warning-${idx}`}>
-              <WarningOutlined style={{ color: '#faad14' }} />
-              <Text>{warning.message}</Text>
-            </ValidationMessage>
-          ))}
-        </Space>
-      </ValidationSection>
-    );
+    try {
+      const saveQuestion: SaveQuestion = {
+        ...question,
+        id: question.id,
+        publication_status: updatedQuestion.publication_status,
+        publication_metadata: {
+          ...question.publication_metadata,
+          publishedAt: updatedQuestion.publication_status === PublicationStatusEnum.PUBLISHED ? new Date().toISOString() : question.publication_metadata?.publishedAt,
+          publishedBy: updatedQuestion.publication_status === PublicationStatusEnum.PUBLISHED ? 'current_user' : question.publication_metadata?.publishedBy,
+          archivedAt: updatedQuestion.publication_status === PublicationStatusEnum.ARCHIVED ? new Date().toISOString() : question.publication_metadata?.archivedAt,
+          archivedBy: updatedQuestion.publication_status === PublicationStatusEnum.ARCHIVED ? 'current_user' : question.publication_metadata?.archivedBy
+        }
+      };
+      
+      await questionStorage.saveQuestion(saveQuestion);
+      
+      // Add a small delay to ensure DB trigger has completed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Force reload the question to get updated metadata from DB
+      const updatedQuestionData = await questionStorage.getQuestion(question.id, true);
+      if (updatedQuestionData) {
+        setQuestion(updatedQuestionData);
+        message.success('Publication status updated successfully');
+        setIsModified(false);
+      }
+    } catch (error) {
+      console.error('Failed to update publication status:', error);
+      message.error('Failed to update publication status');
+    }
   };
 
-  const renderActions = () => {
-    if (!question) return null;
-
-    const status = question.publication_status;
-
-    return (
-      <HeaderActions>
-        <Button 
-          onClick={handleHeaderSave}
-          type="primary"
-          icon={<SaveOutlined />}
-          disabled={!isModified}
-        >
-          שמור
-        </Button>
-        {status === PublicationStatusEnum.DRAFT ? (
-          <Tooltip title={currentValidation?.status === ValidationStatus.ERROR ? 
-            'שים לב: חסרים שדות בשאלה (מותר בשלב הפיתוח)' : 
-            'פרסם את השאלה'}>
-            <Button 
-              type="primary"
-              className="publish-button"
-              icon={<CheckCircleOutlined />}
-              onClick={() => handleStatusChange(PublicationStatusEnum.PUBLISHED)}
-            >
-              פרסם
-            </Button>
-          </Tooltip>
-        ) : (
-          <Button
-            danger
-            icon={<EditOutlined />}
-            onClick={() => handleStatusChange(PublicationStatusEnum.DRAFT)}
-          >
-            בטל פרסום
-          </Button>
-        )}
-      </HeaderActions>
-    );
+  const handleBack = () => {
+    navigate('/admin/questions');
   };
 
   if (loading) {
@@ -421,99 +390,64 @@ export const QuestionEditor: FC = () => {
     return null;
   }
 
-  const hasErrors = currentValidation?.errors.length ?? 0 > 0;
-  const hasWarnings = currentValidation?.warnings.length ?? 0 > 0;
-
   return (
     <PageContainer>
       <Space direction="vertical" style={{ width: '100%' }}>
-        <HeaderCard>
-          <Space direction="vertical" style={{ width: '100%' }} size={8}>
-            {/* Page Title */}
-            <Title level={4} style={{ margin: 0, marginBottom: '8px' }}>
-              ממשק מנהל - עריכת שאלה
-            </Title>
+        <QuestionHeaderSection
+          question={{
+            ...question,
+            review_metadata: question.review_metadata || {
+              reviewedAt: new Date().toISOString(),
+              reviewedBy: '',
+              comments: ''
+            }
+          }}
+          onBack={handleBack}
+          onSave={() => handleSave(question)}
+          isModified={isModified}
+          onPrevious={prevQuestionId ? () => navigate(`/admin/questions/${prevQuestionId}`) : undefined}
+          onNext={nextQuestionId ? () => navigate(`/admin/questions/${nextQuestionId}`) : undefined}
+          hasPrevious={!!prevQuestionId}
+          hasNext={!!nextQuestionId}
+          currentPosition={listPosition ? {
+            current: listPosition.currentIndex + 1,
+            total: listPosition.totalQuestions
+          } : undefined}
+          onReviewStatusChange={handleReviewStatusChange}
+          onPublicationStatusChange={handlePublicationStatusChange}
+        />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {/* Left Side: Navigation + ID */}
-              <Space size="large">
-                <NavigationGroup>
-                  <Button 
-                    icon={<HomeOutlined />} 
-                    onClick={() => navigate('/admin/questions')}
-                  />
-                  <Button 
-                    icon={<RightOutlined />} 
-                    onClick={handlePrevious}
-                    disabled={!prevQuestionId}
-                  />
-                  <Button 
-                    icon={<LeftOutlined />} 
-                    onClick={handleNext}
-                    disabled={!nextQuestionId}
-                  />
-                  {listPosition && (
-                    <span style={{ 
-                      padding: '0 12px',
-                      borderRight: '1px solid #f0f0f0',
-                      color: '#666',
-                      fontSize: '14px'
-                    }}>
-                      {listPosition.currentIndex + 1} / {listPosition.totalQuestions}
-                    </span>
-                  )}
-                </NavigationGroup>
-
-                <span style={{ 
-                  color: '#1677ff', 
-                  background: '#e6f4ff', 
-                  padding: '4px 8px', 
-                  borderRadius: '4px',
-                  border: '1px solid #91caff',
-                  fontSize: '14px'
-                }}>
-                  ID: {question.id}
-                </span>
-              </Space>
-
-              {/* Right Side: Actions */}
-              <Space size="small">
-                <Button 
-                  onClick={handleHeaderSave}
-                  type="primary"
-                  icon={<SaveOutlined />}
-                  disabled={!isModified}
-                >
-                  שמור
-                </Button>
-                {question.publication_status === PublicationStatusEnum.DRAFT ? (
-                  <Tooltip title={currentValidation?.status === ValidationStatus.ERROR ? 
-                    'שים לב: חסרים שדות בשאלה (מותר בשלב הפיתוח)' : 
-                    'פרסם את השאלה'}>
-                    <Button 
-                      type="primary"
-                      className="publish-button"
-                      icon={<CheckCircleOutlined />}
-                      onClick={() => handleStatusChange(PublicationStatusEnum.PUBLISHED)}
-                    >
-                      פרסם
-                    </Button>
-                  </Tooltip>
-                ) : (
-                  <Button
-                    danger
-                    icon={<EditOutlined />}
-                    onClick={() => handleStatusChange(PublicationStatusEnum.DRAFT)}
-                  >
-                    בטל פרסום
-                  </Button>
-                )}
-              </Space>
-            </div>
-          </Space>
-        </HeaderCard>
-
-        {renderValidationStatus()}
+        {currentValidation && (
+          <ValidationSection>
+            <div className="section-header">בדיקת תקינות</div>
+            {currentValidation.errors.length > 0 && (
+              <div className="validation-errors">
+                <div className="validation-header">
+                  <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+                  <Text strong>שגיאות</Text>
+                </div>
+                <div className="validation-tags">
+                  {currentValidation.errors.map((error, index) => (
+                    <Tag key={index} color="error">{error.message}</Tag>
+                  ))}
+                </div>
+              </div>
+            )}
+            {currentValidation.warnings.length > 0 && (
+              <div className="validation-warnings">
+                <div className="validation-header">
+                  <WarningOutlined style={{ color: '#faad14' }} />
+                  <Text strong>אזהרות</Text>
+                </div>
+                <div className="validation-tags">
+                  {currentValidation.warnings.map((warning, index) => (
+                    <Tag key={index} color="warning">{warning.message}</Tag>
+                  ))}
+                </div>
+              </div>
+            )}
+          </ValidationSection>
+        )}
 
         <MainContent>
           <QuestionContentSection

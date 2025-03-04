@@ -5,7 +5,8 @@ import {
   ValidationStatus,
   QuestionFetchParams,
   FilterState,
-  EzpassCreatorType
+  EzpassCreatorType,
+  isValidQuestionType
 } from '../types/question';
 import { universalTopicsV2 } from '../services/universalTopics';
 import { examService } from '../services/examService';
@@ -28,7 +29,11 @@ export interface ValidationResult {
 }
 
 // Valid values for union types
-const VALID_QUESTION_TYPES = ['multiple_choice', 'numerical', 'open'] as const;
+const VALID_QUESTION_TYPES = [
+  QuestionType.MULTIPLE_CHOICE,
+  QuestionType.NUMERICAL,
+  QuestionType.OPEN
+] as const;
 const VALID_DIFFICULTY_LEVELS = [1, 2, 3, 4, 5] as const;
 const VALID_SOURCE_TYPES = ['exam', 'ezpass'] as const;
 const VALID_SEASONS = ['spring', 'summer'] as const;
@@ -96,21 +101,18 @@ export function validateQuestion(question: Question): ValidationResult {
   }
 
   // 3. Answer validation
-  if (!question.answer) {
-    addError('answer', 'תשובה חסרה');
+  if (!question.schoolAnswer) {
+    addError('schoolAnswer', 'תשובה חסרה');
   } else {
     // Validate solution
-    if (!question.answer.solution) {
-      addError('answer.solution', 'פתרון חסר');
+    if (!question.schoolAnswer.solution) {
+      addError('schoolAnswer.solution', 'פתרון חסר');
     } else {
-      if (!question.answer.solution.text) {
-        addError('answer.solution.text', 'טקסט הפתרון חסר');
+      if (!question.schoolAnswer.solution.text) {
+        addError('schoolAnswer.solution.text', 'טקסט הפתרון חסר');
       }
-      if (question.answer.solution.format !== 'markdown') {
-        addError('answer.solution.format', 'פורמט הפתרון חייב להיות markdown');
-      }
-      if (question.answer.solution.requiredSolution === undefined) {
-        addError('answer.solution.requiredSolution', 'יש להגדיר את אופן הטיפול בתשובה הסופית מול הפתרון');
+      if (question.schoolAnswer.solution.format !== 'markdown') {
+        addError('schoolAnswer.solution.format', 'פורמט הפתרון חייב להיות markdown');
       }
     }
   }
@@ -140,7 +142,7 @@ export function validateQuestion(question: Question): ValidationResult {
     // Validate question type
     if (!question.metadata.type) {
       addError('metadata.type', 'סוג שאלה חסר');
-    } else if (!VALID_QUESTION_TYPES.includes(question.metadata.type)) {
+    } else if (!isValidQuestionType(question.metadata.type)) {
       addError('metadata.type', `סוג שאלה לא חוקי: ${question.metadata.type}`);
     }
 
@@ -209,32 +211,83 @@ export function validateQuestion(question: Question): ValidationResult {
   // 5. Evaluation validation - required for numerical and open questions
   if (question.metadata?.type === QuestionType.MULTIPLE_CHOICE) {
     // Multiple choice should NOT have evaluation
-    if (question.evaluation) {
-      addWarning('evaluation', 'שאלת רב-ברירה לא צריכה לכלול הערכה');
+    if (question.evaluationGuidelines) {
+      addWarning('evaluationGuidelines', 'שאלת רב-ברירה לא צריכה לכלול הערכה');
     }
   } else {
     // Numerical and Open MUST have evaluation
-    if (!question.evaluation) {
-      addError('evaluation', 'הערכה חסרה - נדרשת לשאלות מספריות ופתוחות');
+    if (!question.evaluationGuidelines) {
+      addError('evaluationGuidelines', 'הערכה חסרה - נדרשת לשאלות מספריות ופתוחות');
     } else {
-      // Validate rubric assessment
-      if (!question.evaluation.rubricAssessment?.criteria?.length) {
-        addError('evaluation.rubricAssessment', 'קריטריוני הערכה חסרים');
+      // Validate required criteria
+      if (!question.evaluationGuidelines.requiredCriteria?.length) {
+        addError('evaluationGuidelines.requiredCriteria', 'קריטריוני הערכה חסרים');
       } else {
         // Validate criteria weights sum to 100
-        const totalWeight = question.evaluation.rubricAssessment.criteria.reduce(
+        const totalWeight = question.evaluationGuidelines.requiredCriteria.reduce(
           (sum, criterion) => sum + criterion.weight, 
           0
         );
         if (Math.abs(totalWeight - 100) > 0.01) {
-          addError('evaluation.rubricAssessment', 'משקלי הקריטריונים חייבים להסתכם ל-100');
+          addError('evaluationGuidelines.requiredCriteria', 'משקלי הקריטריונים חייבים להסתכם ל-100');
         }
-      }
 
-      // Validate answer requirements
-      if (!question.evaluation.answerRequirements?.requiredElements?.length) {
-        addError('evaluation.answerRequirements', 'דרישות תשובה חסרות');
+        // Validate each criterion has name and description
+        question.evaluationGuidelines.requiredCriteria.forEach((criterion, index) => {
+          if (!criterion.name?.trim()) {
+            addError(`evaluationGuidelines.requiredCriteria[${index}].name`, 'שם הקריטריון חסר');
+          }
+          if (!criterion.description?.trim()) {
+            addError(`evaluationGuidelines.requiredCriteria[${index}].description`, 'תיאור הקריטריון חסר');
+          }
+          if (criterion.weight <= 0 || criterion.weight > 100) {
+            addError(`evaluationGuidelines.requiredCriteria[${index}].weight`, 'משקל הקריטריון חייב להיות בין 1 ל-100');
+          }
+        });
       }
+    }
+  }
+
+  // Type-specific validation
+  if (question.metadata?.type) {
+    switch (question.metadata.type) {
+      case QuestionType.MULTIPLE_CHOICE:
+        if (!question.content?.options?.length) {
+          errors.push({
+            field: 'content.options',
+            message: 'שאלת רב-ברירה חייבת לכלול אפשרויות'
+          });
+        }
+        if (question.schoolAnswer?.finalAnswer?.type !== 'multiple_choice') {
+          errors.push({
+            field: 'schoolAnswer.finalAnswer',
+            message: 'שאלת רב-ברירה חייבת לכלול תשובה מסוג רב-ברירה'
+          });
+        }
+        break;
+
+      case QuestionType.NUMERICAL:
+        if (question.schoolAnswer?.finalAnswer?.type !== 'numerical') {
+          errors.push({
+            field: 'schoolAnswer.finalAnswer',
+            message: 'שאלה מספרית חייבת לכלול תשובה מספרית'
+          });
+        } else if (!question.schoolAnswer?.finalAnswer?.unit) {
+          warnings.push({
+            field: 'schoolAnswer.finalAnswer.unit',
+            message: 'מומלץ לציין יחידות מידה בשאלות מספריות'
+          });
+        }
+        break;
+
+      case QuestionType.OPEN:
+        if (!question.schoolAnswer?.solution?.text) {
+          warnings.push({
+            field: 'schoolAnswer.solution.text',
+            message: 'מומלץ לכלול טקסט פתרון בשאלות פתוחות'
+          });
+        }
+        break;
     }
   }
 
@@ -388,7 +441,7 @@ function validateFinalAnswer(finalAnswer: any, questionType?: QuestionType): Val
   }
 
   if (!finalAnswer || typeof finalAnswer !== 'object') {
-    errors.push({ field: 'answer.finalAnswer', message: 'תשובה סופית חסרה או לא תקינה' });
+    errors.push({ field: 'schoolAnswer.finalAnswer', message: 'תשובה סופית חסרה או לא תקינה' });
     return errors;
   }
 
@@ -396,31 +449,43 @@ function validateFinalAnswer(finalAnswer: any, questionType?: QuestionType): Val
   switch (questionType) {
     case QuestionType.MULTIPLE_CHOICE:
       if (finalAnswer.type !== 'multiple_choice') {
-        errors.push({ field: 'answer.finalAnswer.type', message: 'סוג תשובה חייב להיות multiple_choice עבור שאלת רב-ברירה' });
+        errors.push({ field: 'schoolAnswer.finalAnswer.type', message: 'סוג תשובה חייב להיות multiple_choice עבור שאלת רב-ברירה' });
       } else if (!finalAnswer.value?.multipleChoice || 
                  typeof finalAnswer.value.multipleChoice !== 'number' || 
                  finalAnswer.value.multipleChoice < 1 || 
                  finalAnswer.value.multipleChoice > 4) {
-        errors.push({ field: 'answer.finalAnswer.value', message: 'תשובה לשאלת רב-ברירה חייבת להיות מספר בין 1 ל-4' });
+        errors.push({ field: 'schoolAnswer.finalAnswer.value', message: 'תשובה לשאלת רב-ברירה חייבת להיות מספר בין 1 ל-4' });
       }
       break;
 
     case QuestionType.NUMERICAL:
       if (finalAnswer.type !== 'numerical') {
-        errors.push({ field: 'answer.finalAnswer.type', message: 'סוג תשובה חייב להיות numerical עבור שאלה מספרית' });
+        errors.push({ field: 'schoolAnswer.finalAnswer.type', message: 'סוג תשובה חייב להיות numerical עבור שאלה מספרית' });
       } else {
+        // Validate value
         if (!finalAnswer.value?.numerical || typeof finalAnswer.value.numerical.value !== 'number') {
-          errors.push({ field: 'answer.finalAnswer.value', message: 'ערך מספרי חסר או לא תקין' });
+          errors.push({ field: 'schoolAnswer.finalAnswer.value', message: 'ערך מספרי חסר או לא תקין' });
+        } else if (isNaN(finalAnswer.value.numerical.value)) {
+          errors.push({ field: 'schoolAnswer.finalAnswer.value', message: 'הערך המספרי אינו תקין' });
         }
+
+        // Validate tolerance
         if (typeof finalAnswer.value?.numerical.tolerance !== 'number' || finalAnswer.value.numerical.tolerance < 0) {
-          errors.push({ field: 'answer.finalAnswer.tolerance', message: 'טולרנס חייב להיות מספר אי-שלילי' });
+          errors.push({ field: 'schoolAnswer.finalAnswer.tolerance', message: 'טולרנס חייב להיות מספר אי-שלילי' });
+        } else if (finalAnswer.value.numerical.tolerance > Math.abs(finalAnswer.value.numerical.value)) {
+          errors.push({ field: 'schoolAnswer.finalAnswer.tolerance', message: 'טולרנס לא יכול להיות גדול מהערך עצמו' });
+        }
+
+        // Validate unit if provided
+        if (finalAnswer.value?.numerical.unit && typeof finalAnswer.value.numerical.unit !== 'string') {
+          errors.push({ field: 'schoolAnswer.finalAnswer.unit', message: 'יחידת מידה חייבת להיות מחרוזת' });
         }
       }
       break;
 
     case QuestionType.OPEN:
       if (finalAnswer.type !== 'none') {
-        errors.push({ field: 'answer.finalAnswer.type', message: 'שאלה פתוחה צריכה להיות מסוג none' });
+        errors.push({ field: 'schoolAnswer.finalAnswer.type', message: 'שאלה פתוחה צריכה להיות מסוג none' });
       }
       break;
 

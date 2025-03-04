@@ -22,6 +22,7 @@ interface RawSubTopic {
   name?: string;
   description?: string;
   order?: number;
+  percentageOfTotal?: number;
 }
 
 interface RawTopic {
@@ -69,6 +70,9 @@ class ExamService {
 
   private async initializeExams() {
     try {
+      // Wait for UniversalTopics to be initialized first
+      await universalTopics.waitForInitialization();
+      
       const rawExams: RawExam[] = [
         ...bagrutCS.exams.map((exam: any) => ({ ...exam, examType: exam.examType as ExamType })),
         ...mahatCS.exams.map((exam: any) => ({ ...exam, examType: exam.examType as ExamType })),
@@ -88,11 +92,12 @@ class ExamService {
             name: topic.name || '',
             description: topic.description || '',
             order: topic.order ?? 0,
-            subTopics: topic.subTopics.map((st: RawSubTopic) => ({
+            subTopics: topic.subTopics.map((st): RawSubTopic => ({
               id: st.id,
               name: st.name || '',
               description: st.description || '',
-              order: st.order ?? 0
+              order: st.order ?? 0,
+              percentageOfTotal: st.percentageOfTotal ?? 0
             }))
           })) as Topic[]
         };
@@ -104,14 +109,18 @@ class ExamService {
           name: topic.name,  // Already validated as string
           description: topic.description,  // Already validated as string
           order: topic.order,  // Already validated as number
-          subTopics: topic.subTopics.map(st => ({
-            id: st.id,
-            name: st.name,  // Already validated as string
-            description: st.description,  // Already validated as string
-            order: st.order,  // Already validated as number
-            questionTemplate: undefined,  // Default undefined
-            typicalQuestions: undefined  // Default undefined
-          }))
+          subTopics: topic.subTopics.map(st => {
+            const subtopic = st as unknown as SubTopic;
+            return {
+              id: subtopic.id,
+              name: subtopic.name,
+              description: subtopic.description,
+              order: subtopic.order,
+              questionTemplate: subtopic.questionTemplate,
+              typicalQuestions: subtopic.typicalQuestions,
+              percentageOfTotal: subtopic.percentageOfTotal
+            } as SubTopic;
+          })
         }));
 
         // Enrich with universal topic data

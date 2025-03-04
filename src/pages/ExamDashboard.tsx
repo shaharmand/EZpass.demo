@@ -12,23 +12,31 @@ import {
   ArrowLeft
 } from "@phosphor-icons/react";
 import Footer from '../components/Footer/Footer';
-import { examService } from '../services/examService';
 import { ExamType, type ExamTemplate } from '../types/examTemplate';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
+import { examService } from '../services/examService';
 
 const { Title, Text } = Typography;
+
+type ExamTypeKey = 'safety' | 'mahat' | 'bagrut';
 
 const ExamDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { startPrep } = useStudentPrep();
   const [flippedCard, setFlippedCard] = useState<string | null>(null);
-  const [examsByType, setExamsByType] = useState<Record<string, ExamTemplate[]>>({});
+  const [examsByType, setExamsByType] = useState<Record<ExamTypeKey, ExamTemplate[]>>({
+    safety: [],
+    mahat: [],
+    bagrut: []
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('ExamDashboard mounted');
     const loadExams = async () => {
       try {
+        console.log('Starting to load exams...');
         setLoading(true);
         const [safetyExams, mahatExams, bagrutExams] = await Promise.all([
           examService.getExamsByType(ExamType.GOVERNMENT_EXAM),
@@ -36,12 +44,18 @@ const ExamDashboard: React.FC = () => {
           examService.getExamsByType(ExamType.BAGRUT_EXAM)
         ]);
 
+        console.log('Loaded exams:', {
+          safety: safetyExams.length,
+          mahat: mahatExams.length,
+          bagrut: bagrutExams.length
+        });
+
         // Manually add safety-related exams to safety section
         const safetyRelatedIds = ['mahat_civil_safety', 'construction_manager_certification', 'construction_manager_safety_full', 'renovation_contractor_131'];
         const allSafetyExams = [...safetyExams];
         
         // Add any matching exams from mahat section
-        mahatExams.forEach(exam => {
+        mahatExams.forEach((exam: ExamTemplate) => {
           if (safetyRelatedIds.includes(exam.id)) {
             allSafetyExams.push(exam);
           }
@@ -54,6 +68,7 @@ const ExamDashboard: React.FC = () => {
         });
       } catch (error) {
         console.error('Error loading exams:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load exams');
       } finally {
         setLoading(false);
       }
@@ -62,29 +77,64 @@ const ExamDashboard: React.FC = () => {
     loadExams();
   }, []);
 
+  // Add loading and error UI
+  if (loading) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: '16px'
+      }}>
+        <Spin size="large" />
+        <Text>טוען בחינות...</Text>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+      }}>
+        <Alert
+          message="שגיאה בטעינת הבחינות"
+          description={error}
+          type="error"
+          showIcon
+        />
+      </div>
+    );
+  }
+
   const examTypes = [
     {
-      id: 'safety',
+      id: 'safety' as const,
       title: 'בטיחות',
       icon: <HardHat weight="duotone" />,
       color: '#3b82f6',
       description: 'מנהל עבודה, ממונה בטיחות, קבלן שיפוצים'
     },
     {
-      id: 'mahat',
+      id: 'mahat' as const,
       title: 'מה״ט',
       icon: <GraduationCap weight="duotone" />,
       color: '#10b981',
       description: 'הנדסת תוכנה, הנדסה אזרחית'
     },
     {
-      id: 'bagrut',
+      id: 'bagrut' as const,
       title: 'בגרות',
       icon: <Books weight="duotone" />,
       color: '#6366f1',
       description: 'מתמטיקה, פיזיקה, מחשבים'
     }
-  ];
+  ] as const;
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -302,7 +352,7 @@ const ExamDashboard: React.FC = () => {
                       <Text style={{ fontSize: '14px' }}>חזרה</Text>
                     </motion.div>
 
-                    {examsByType[type.id]?.map((exam, index) => (
+                    {examsByType[type.id]?.map((exam: ExamTemplate, index: number) => (
                       <motion.div
                         key={exam.id}
                         initial={{ opacity: 0, x: -20 }}
@@ -312,13 +362,13 @@ const ExamDashboard: React.FC = () => {
                           e.stopPropagation();
                           try {
                             setError(null);
-                            // Create new prep session
+                            // Create new prep first
                             const prepId = await startPrep(exam);
-                            // Navigate to practice with the prep ID
+                            // Then navigate to practice page
                             navigate(`/practice/${prepId}`, { replace: true });
                           } catch (error) {
-                            console.error('Failed to start practice:', error);
-                            setError(error instanceof Error ? error.message : 'Failed to start practice');
+                            console.error('Failed to navigate to practice:', error);
+                            setError(error instanceof Error ? error.message : 'Failed to navigate to practice');
                           }
                         }}
                         style={{
@@ -357,15 +407,6 @@ const ExamDashboard: React.FC = () => {
                         }} />
                       </motion.div>
                     ))}
-                    {loading && (
-                      <div style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        padding: '20px'
-                      }}>
-                        <Spin />
-                      </div>
-                    )}
                   </motion.div>
                 </motion.div>
               </motion.div>

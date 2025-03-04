@@ -1,4 +1,4 @@
-import { Question, QuestionType, DifficultyLevel, SourceType, EzpassCreatorType, RubricAssessment, AnswerRequirements } from '../../../../types/question';
+import { Question, QuestionType, DifficultyLevel, SourceType, EzpassCreatorType, AnswerFormatRequirements, AnswerContentGuidelines } from '../../../../types/question';
 import { BaseQuestionGenerator } from '../../base/BaseQuestionGenerator';
 import { DomainConfig } from '../../base/BaseQuestionGenerator';
 import { OpenAIService } from '../../../llm/openAIService';
@@ -157,6 +157,12 @@ export class ConstructionSafetyGenerator extends BaseQuestionGenerator {
           subtopicId: requirements.hierarchy.subtopic.id,
           difficulty: requirements.difficulty,
           type: requirements.type,
+          answerFormat: {
+            hasFinalAnswer: requirements.type !== QuestionType.OPEN,
+            finalAnswerType: requirements.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' :
+                           requirements.type === QuestionType.NUMERICAL ? 'numerical' : 'multiple_choice',
+            requiresSolution: true
+          },
           source: {
             type: SourceType.EZPASS,
             creatorType: EzpassCreatorType.AI
@@ -166,18 +172,18 @@ export class ConstructionSafetyGenerator extends BaseQuestionGenerator {
           text: parsed.content.text,
           format: 'markdown'
         },
-        answer: {
-          finalAnswer: { type: 'none' },
+        schoolAnswer: {
+          finalAnswer: requirements.type === QuestionType.MULTIPLE_CHOICE ? 
+            { type: 'multiple_choice', value: 1 } :
+            requirements.type === QuestionType.NUMERICAL ?
+            { type: 'numerical', value: 0, tolerance: 0 } :
+            undefined,
           solution: {
             text: '',
-            format: 'markdown',
-            requiredSolution: true
+            format: 'markdown'
           }
         },
-        evaluation: {
-          rubricAssessment: this.generateRubric(requirements.type),
-          answerRequirements: this.generateAnswerRequirements(requirements.type)
-        }
+        evaluationGuidelines: this.generateAnswerRequirements(requirements.type)
       };
 
       return {
@@ -239,59 +245,27 @@ Return the question in the following JSON format:
 }`;
   }
 
-  private generateRubric(type: QuestionType): RubricAssessment {
-    const weights = CONSTRUCTION_SAFETY_CONFIG.defaultRubricWeights[type];
-    return {
-      criteria: Object.entries(weights).map(([name, weight]) => ({
-        name,
-        description: `Evaluates ${name.replace('_', ' ')}`,
-        weight
-      }))
-    };
-  }
-
-  private generateAnswerRequirements(type: QuestionType): AnswerRequirements {
+  private generateAnswerRequirements(type: QuestionType): AnswerContentGuidelines {
     const baseRequirements = [
-      'Safety regulations compliance',
-      'Risk assessment',
-      'Hazard identification'
+      {
+        name: 'safety_compliance',
+        description: 'Safety regulations compliance',
+        weight: 40
+      },
+      {
+        name: 'risk_assessment',
+        description: 'Risk assessment',
+        weight: 30
+      },
+      {
+        name: 'hazard_identification',
+        description: 'Hazard identification',
+        weight: 30
+      }
     ];
 
-    switch (type) {
-      case QuestionType.MULTIPLE_CHOICE:
-        return {
-          requiredElements: [
-            ...baseRequirements,
-            'Selection justification'
-          ]
-        };
-      case QuestionType.OPEN:
-        return {
-          requiredElements: [
-            ...baseRequirements,
-            'Mitigation strategies',
-            'Implementation plan'
-          ],
-          optionalElements: [
-            'Cost considerations',
-            'Timeline estimates'
-          ]
-        };
-      case QuestionType.NUMERICAL:
-        return {
-          requiredElements: [
-            ...baseRequirements,
-            'Calculations',
-            'Units',
-            'Safety margins'
-          ],
-          optionalElements: [
-            'Alternative calculations',
-            'Error analysis'
-          ]
-        };
-      default:
-        return { requiredElements: baseRequirements };
-    }
+    return {
+      requiredCriteria: baseRequirements
+    };
   }
 } 

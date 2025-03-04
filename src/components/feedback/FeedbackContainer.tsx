@@ -1,17 +1,23 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { Question, QuestionType } from '../../types/question';
 import { 
-  Question, 
   QuestionFeedback, 
-  BasicAnswerLevel, 
-  DetailedEvalLevel,
-  BinaryEvalLevel, 
-  isBasicFeedback, 
-  isDetailedFeedback,
   BasicQuestionFeedback,
   DetailedQuestionFeedback,
-  QuestionType,
-  EvalLevel
-} from '../../types/question';
+  LimitedQuestionFeedback,
+  isBasicFeedback, 
+  isDetailedFeedback,
+  isLimitedFeedback
+} from '../../types/feedback/types';
+import { QuestionSubmission } from '../../types/submissionTypes';
+import { 
+  DetailedEvalLevel,
+  BinaryEvalLevel
+} from '../../types/feedback/levels';
+import {
+  FeedbackStatus,
+  getFeedbackStatus
+} from '../../types/feedback/status';
 import { MultipleChoiceFeedback } from './MultipleChoiceFeedback';
 import { RubricFeedback } from './RubricFeedback';
 import { Card, Space, Button, Tabs, Typography, Progress, Tooltip } from 'antd';
@@ -34,16 +40,6 @@ interface FeedbackContainerProps {
   showDetailedFeedback?: boolean;
 }
 
-// Helper function to get the display level for feedback title
-const getDisplayLevel = (evalLevel: EvalLevel): BasicAnswerLevel | DetailedEvalLevel => {
-  if (evalLevel.type === 'binary') {
-    return evalLevel.level === BinaryEvalLevel.CORRECT ? 
-      BasicAnswerLevel.CORRECT : 
-      BasicAnswerLevel.INCORRECT;
-  }
-  return evalLevel.level;
-};
-
 // This component shows the restricted version of feedback for free-tier users
 const LimitedFeedback: React.FC<{ 
   feedback: QuestionFeedback;
@@ -61,11 +57,11 @@ const LimitedFeedback: React.FC<{
           percent={feedback.score}
           format={(percent) => `${percent}%`}
           width={60}
-          strokeColor={getFeedbackColor(feedback.score)}
+          strokeColor={getFeedbackColor(feedback.evalLevel)}
         />
         <div className="feedback-title-section">
           <Title level={4} className="feedback-title">
-            {getFeedbackTitle(feedback.score, getDisplayLevel(feedback.evalLevel))}
+            {getFeedbackTitle(feedback.score, feedback.evalLevel)}
           </Title>
           {/* Show the feedback message which already contains the properly formatted answer */}
           <Text className="feedback-message">
@@ -212,11 +208,11 @@ const DetailedFeedback: React.FC<{
           percent={feedback.score}
           format={(percent) => `${percent}%`}
           width={60}
-          strokeColor={getFeedbackColor(feedback.score)}
+          strokeColor={getFeedbackColor(feedback.evalLevel)}
         />
         <div className="feedback-title-section">
           <Title level={4} className="feedback-title">
-            {getFeedbackTitle(feedback.score, getDisplayLevel(feedback.evalLevel))}
+            {getFeedbackTitle(feedback.score, feedback.evalLevel)}
           </Title>
           <Text className="feedback-message">
             {feedback.message}
@@ -239,10 +235,18 @@ const DetailedFeedback: React.FC<{
               children: (
                 <div className="feedback-section">
                   <MarkdownRenderer content={feedback.coreFeedback} />
-                  {feedback.rubricScores && (
+                  {feedback.criteriaFeedback && question.evaluationGuidelines?.requiredCriteria && (
                     <RubricFeedback 
-                      rubricScores={feedback.rubricScores}
-                      rubricAssessment={question.evaluation?.rubricAssessment}
+                      rubricScores={feedback.criteriaFeedback.reduce((acc, curr) => ({
+                        ...acc,
+                        [curr.criterionName]: {
+                          score: curr.score,
+                          feedback: curr.feedback
+                        }
+                      }), {})}
+                      rubricAssessment={{
+                        criteria: question.evaluationGuidelines.requiredCriteria
+                      }}
                     />
                   )}
                 </div>
@@ -264,22 +268,47 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   const { getFeedbackMode } = usePracticeAttempts();
   const feedbackMode = getFeedbackMode();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Create a submission object from the props
+  const submission: QuestionSubmission = {
+    questionId: question.id,
+    answer: {
+      finalAnswer: question.metadata.type === QuestionType.MULTIPLE_CHOICE ? {
+        type: 'multiple_choice',
+        value: parseInt(selectedAnswer || '1') as 1 | 2 | 3 | 4
+      } : undefined,
+      solution: {
+        text: selectedAnswer || '',
+        format: 'markdown'
+      }
+    },
+    feedback: {
+      data: feedback,
+      receivedAt: Date.now()
+    },
+    metadata: {
+      submittedAt: Date.now(),
+      timeSpentMs: 0,
+      helpRequested: false
+    }
+  };
 
   // For guests who haven't signed up
   if (feedbackMode === 'none') {
     return (
       <>
-        <LimitedFeedbackContainer
+        <LimitedFeedbackContainer 
+          feedback={feedback as LimitedQuestionFeedback}
           question={question}
-          feedback={feedback}
           selectedAnswer={selectedAnswer}
-          onShowUpgradeModal={() => setShowAuthModal(true)}
+          onShowUpgradeModal={() => {}}
           mode="guest"
         />
-        <AuthModal 
+        <AuthModal
           open={showAuthModal}
           onClose={() => setShowAuthModal(false)}
-          returnUrl={window.location.pathname}
         />
       </>
     );
@@ -288,11 +317,11 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   // For users who exceeded their free feedback limit
   if (feedbackMode === 'limited') {
     return (
-        <LimitedFeedbackContainer 
+      <LimitedFeedbackContainer 
+        feedback={feedback as LimitedQuestionFeedback}
         question={question}
-          feedback={feedback}
-          selectedAnswer={selectedAnswer}
-        onShowUpgradeModal={() => window.open('https://ezpass.co.il/plus', '_blank')}
+        selectedAnswer={selectedAnswer}
+        onShowUpgradeModal={() => {}}
         mode="limited"
       />
     );
@@ -301,11 +330,10 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   // For users with remaining feedback attempts or paid users
   // First check if it's a multiple choice question and basic feedback
   if (question.metadata.type === QuestionType.MULTIPLE_CHOICE && isBasicFeedback(feedback)) {
-  return (
-        <MultipleChoiceFeedback
-          question={question}
-        feedback={feedback}
-          selectedAnswer={selectedAnswer || ''}
+    return (
+      <MultipleChoiceFeedback
+        question={question}
+        submission={submission}
         showDetailedFeedback={showDetailedFeedback}
       />
     );
@@ -320,7 +348,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   return (
     <LimitedFeedbackContainer
       question={question}
-      feedback={feedback}
+      feedback={feedback as LimitedQuestionFeedback}
       selectedAnswer={selectedAnswer}
       onShowUpgradeModal={() => window.open('https://ezpass.co.il/plus', '_blank')}
       mode="limited"

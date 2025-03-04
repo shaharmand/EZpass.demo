@@ -1,46 +1,41 @@
 import React from 'react';
 import { Button, Space, Divider, Typography } from 'antd';
 import { AimOutlined, StopOutlined } from '@ant-design/icons';
-import { Question, FilterState } from '../../types/question';
+import { Question } from '../../types/question';
 import { universalTopics } from '../../services/universalTopics';
 import { getQuestionTopicName } from '../../utils/questionUtils';
+import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import './SubtopicPopover.css';
 
 const { Text } = Typography;
 
 interface SubtopicPopoverContentProps {
   question: Question;
-  filters: FilterState;
-  onFiltersChange: (filters: FilterState) => void;
   onClose: () => void;
 }
 
 export const SubtopicPopoverContent: React.FC<SubtopicPopoverContentProps> = ({
   question,
-  filters,
-  onFiltersChange,
   onClose
 }) => {
+  const { prep, setFocusedSubTopic } = useStudentPrep();
   const subtopicInfo = getSubtopicInfo(question);
   const isSubtopicFocused = question.metadata.subtopicId && 
-    filters.subTopics?.length === 1 && 
-    filters.subTopics[0] === question.metadata.subtopicId;
+    prep?.focusedSubTopic === question.metadata.subtopicId;
 
   // Get the topic name from the parent topic of the subtopic
   const topicName = universalTopics.getTopic(question.metadata.topicId)?.name || getQuestionTopicName(question);
 
-  // Handle removing focus (filter only)
+  // Handle removing focus
   const handleRemoveFocus = () => {
-    // Create new filters object without subTopics, preserving all other filters
-    const { subTopics, ...otherFilters } = filters;
-    onFiltersChange(otherFilters);
+    setFocusedSubTopic(null);
     onClose();
   };
 
   // Handle setting focus on current subtopic
   const handleSetFocus = () => {
     if (question.metadata.subtopicId) {
-      onFiltersChange({ ...filters, subTopics: [question.metadata.subtopicId] });
+      setFocusedSubTopic(question.metadata.subtopicId);
     }
     onClose();
   };

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { RefinementCtx } from 'zod';
-import { DifficultyLevel, QuestionType, SourceType } from '../types/question';
+import { DifficultyLevel, QuestionType, SourceType, EzpassCreatorType } from '../types/question';
 import { Topic } from '../types/subject';
 import { universalTopics, universalTopicsV2 } from '../services/universalTopics';
 import { createValidationMessage } from '../utils/validationMessages';
@@ -37,14 +37,20 @@ F_{max} &= \\frac{W}{FS} \\\\
 };
 
 // Core validation schemas for question-related types
-export const difficultySchema = z.number()
-  .min(1)
-  .max(5)
-  .transform((n): DifficultyLevel => n as DifficultyLevel);
+export const difficultySchema = z.union([
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+  z.literal(4),
+  z.literal(5)
+]) as z.ZodType<DifficultyLevel>;
 
 export const programmingLanguageSchema = z.enum(['java', 'c#', 'python'] as const);
 
-export const questionTypeSchema = z.nativeEnum(QuestionType);
+export const questionTypeSchema = z.nativeEnum(QuestionType, {
+  required_error: "חובה לבחור סוג שאלה",
+  invalid_type_error: "סוג שאלה לא חוקי"
+});
 
 // More question-specific schemas can be added here...
 
@@ -192,7 +198,15 @@ const formattedTextSchema = z.object({
 });
 
 // Source type schema
-export const sourceTypeSchema = z.nativeEnum(SourceType);
+export const sourceTypeSchema = z.nativeEnum(SourceType, {
+  required_error: "חובה לבחור סוג מקור",
+  invalid_type_error: "סוג מקור לא חוקי"
+});
+
+const creatorTypeSchema = z.nativeEnum(EzpassCreatorType, {
+  required_error: "חובה לבחור סוג יוצר",
+  invalid_type_error: "סוג יוצר לא חוקי"
+});
 
 // Metadata schema with comprehensive validation
 export const metadataSchema = z.object({
@@ -203,7 +217,7 @@ export const metadataSchema = z.object({
   difficulty: difficultySchema,
   estimatedTime: z.number().min(1, { message: "זמן מוערך חייב להיות לפחות דקה אחת" }),
   source: z.object({
-    sourceType: z.enum(['exam', 'book', 'author', 'ezpass'] as const, {
+    type: z.enum(['exam', 'ezpass'] as const, {
       required_error: "חובה לבחור סוג מקור",
       invalid_type_error: "סוג מקור לא חוקי"
     }),
@@ -214,20 +228,21 @@ export const metadataSchema = z.object({
     order: z.number().min(1).optional(),
     authorName: z.string().min(2, { message: "שם המחבר חייב להכיל לפחות 2 תווים" }).optional(),
     bookName: z.string().min(2, { message: "שם הספר חייב להכיל לפחות 2 תווים" }).optional(),
-    bookLocation: z.string().optional()
+    bookLocation: z.string().optional(),
+    creatorType: creatorTypeSchema.optional()
   }).superRefine((source, ctx) => {
     // First validate source type exists
-    if (!source.sourceType) {
+    if (!source.type) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "חובה לבחור סוג מקור",
-        path: ["sourceType"]
+        path: ["type"]
       });
       return; // Stop here since we can't validate further without source type
     }
 
     // Then validate required fields based on source type
-    switch (source.sourceType) {
+    switch (source.type) {
       case 'exam':
         if (!source.examTemplateId) {
           ctx.addIssue({
@@ -258,32 +273,20 @@ export const metadataSchema = z.object({
           });
         }
         break;
-      case 'book':
-        if (!source.bookName) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "שם הספר חסר",
-            path: ["bookName"]
-          });
-        }
-        break;
-      case 'author':
-        if (!source.authorName) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "שם המחבר חסר",
-            path: ["authorName"]
-          });
-        }
-        break;
       case 'ezpass':
-        // No additional fields required for ezpass
+        if (!source.creatorType) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "סוג יוצר חסר",
+            path: ["creatorType"]
+          });
+        }
         break;
       default:
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "סוג מקור לא חוקי",
-          path: ["sourceType"]
+          path: ["type"]
         });
     }
   }),
@@ -332,7 +335,7 @@ const solutionSchema = z.object({
 - For multiple_choice: Explain why correct answer is right and others wrong
 - For code: Include complete working solution
 - For open: Provide model answer and evaluation criteria
-- For step_by_step: Detail each step's solution and progression`),
+- For numerical: Step-by-step solution with calculations and units`),
   format: z.literal('markdown'),
   answer: z.string().optional()
 });
@@ -387,7 +390,7 @@ export const questionSchema = z.object({
     difficulty: difficultySchema,
     estimatedTime: z.number().min(1, { message: "זמן מוערך חייב להיות לפחות דקה אחת" }),
     source: z.object({
-      sourceType: z.enum(['exam', 'book', 'author', 'ezpass'] as const, {
+      type: z.enum(['exam', 'ezpass'] as const, {
         required_error: "חובה לבחור סוג מקור",
         invalid_type_error: "סוג מקור לא חוקי"
       }),
@@ -398,20 +401,21 @@ export const questionSchema = z.object({
       order: z.number().min(1).optional(),
       authorName: z.string().min(2, { message: "שם המחבר חייב להכיל לפחות 2 תווים" }).optional(),
       bookName: z.string().min(2, { message: "שם הספר חייב להכיל לפחות 2 תווים" }).optional(),
-      bookLocation: z.string().optional()
+      bookLocation: z.string().optional(),
+      creatorType: creatorTypeSchema.optional()
     }).superRefine((source, ctx) => {
       // First validate source type exists
-      if (!source.sourceType) {
+      if (!source.type) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "חובה לבחור סוג מקור",
-          path: ["sourceType"]
+          path: ["type"]
         });
         return; // Stop here since we can't validate further without source type
       }
 
       // Then validate required fields based on source type
-      switch (source.sourceType) {
+      switch (source.type) {
         case 'exam':
           if (!source.examTemplateId) {
             ctx.addIssue({
@@ -442,32 +446,20 @@ export const questionSchema = z.object({
             });
           }
           break;
-        case 'book':
-          if (!source.bookName) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: "שם הספר חסר",
-              path: ["bookName"]
-            });
-          }
-          break;
-        case 'author':
-          if (!source.authorName) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: "שם המחבר חסר",
-              path: ["authorName"]
-            });
-          }
-          break;
         case 'ezpass':
-          // No additional fields required for ezpass
+          if (!source.creatorType) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "סוג יוצר חסר",
+              path: ["creatorType"]
+            });
+          }
           break;
         default:
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "סוג מקור לא חוקי",
-            path: ["sourceType"]
+            path: ["type"]
           });
       }
     }),

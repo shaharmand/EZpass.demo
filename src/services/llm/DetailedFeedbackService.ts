@@ -1,4 +1,4 @@
-import { type DetailedQuestionFeedback } from '../../types/question';
+import { type DetailedQuestionFeedback } from '../../types/feedback/types';
 import { FeedbackValidator } from './feedbackValidation';
 import { logger } from '../../utils/logger';
 
@@ -29,7 +29,7 @@ export class DetailedFeedbackService {
       logger.info('Successfully generated detailed feedback', {
         questionId,
         score: feedback.score,
-        level: feedback.evalLevel.level
+        level: feedback.evalLevel
       });
 
       return feedback;

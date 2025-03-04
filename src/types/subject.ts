@@ -14,6 +14,8 @@ export interface SubTopic {
   questionTemplate?: string;
   /** List of typical questions for this subtopic (optional) */
   typicalQuestions?: string[];
+  /** Percentage of total exam weight for this subtopic */
+  percentageOfTotal?: number;
 }
 
 /**

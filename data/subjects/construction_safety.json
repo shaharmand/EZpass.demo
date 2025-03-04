@@ -15,7 +15,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על הגדרות תאונות עבודה, מחלות מקצוע וסמכויות בעלי תפקידים",
                         "open": "הסבר על תהליכי דיווח תאונות ונהלי בטיחות"
-                    }
+                    },
+                    "percentageOfTotal": 4.9
                 },
                 {
                     "id": "work_inspection_service",
@@ -24,7 +25,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על סמכויות מפקחי עבודה וסוגי צווים",
                         "open": "ניתוח תפקידי המוסד לבטיחות וגיהות"
-                    }
+                    },
+                    "percentageOfTotal": 2.9
                 },
                 {
                     "id": "workplace_safety_roles",
@@ -33,7 +35,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על סמכויות ואחריות בעלי תפקידים",
                         "open": "ניתוח מבנה ארגוני של מערך הבטיחות"
-                    }
+                    },
+                    "percentageOfTotal": 2.3
                 },
                 {
                     "id": "employee_training",
@@ -42,7 +45,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על חובות הדרכה ותדירות",
                         "open": "תכנון תכנית הדרכה שנתית"
-                    }
+                    },
+                    "percentageOfTotal": 1.8
                 },
                 {
                     "id": "safety_planning",
@@ -51,7 +55,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על מרכיבי תכנית בטיחות",
                         "open": "ניתוח והכנת תכנית בטיחות לאתר"
-                    }
+                    },
+                    "percentageOfTotal": 4.6
                 },
                 {
                     "id": "construction_site_safety_management",
@@ -60,7 +65,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על אחריות מנהל עבודה ומבצע בניה",
                         "open": "ניתוח מקרה של ניהול בטיחות באתר"
-                    }
+                    },
+                    "percentageOfTotal": 6.8
                 }
             ]
         },
@@ -76,8 +82,9 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על מידות ודרישות למשטחי עבודה",
                         "open": "תכנון מערך משטחי עבודה",
-                        "step_by_step": "חישובי עומסים ומרחקים במשטחי עבודה"
-                    }
+                        "numerical": "חישובי עומסים ומרחקים במשטחי עבודה"
+                    },
+                    "percentageOfTotal": 3.5
                 },
                 {
                     "id": "scaffolding",
@@ -86,19 +93,20 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על סוגי פיגומים, דרישות בטיחות, מרחקי עיגון ורוחב מינימלי",
                         "open": "תכנון מערך פיגומים ומערכת העיגונים",
-                        "step_by_step": "חישובי עומסים, יציבות, נקודות עיגון ומידות מינימליות של פיגומים"
-                    }
+                        "numerical": "חישובי עומסים, יציבות, נקודות עיגון ומידות מינימליות של פיגומים"
+                    },
+                    "percentageOfTotal": 11.5
                 },
                 {
                     "id": "concrete_formwork",
                     "name": "טפסות",
-                    "description": "טפסות רגילות וטפסות מתועשות, מבנה, ביסוס, תומכות, תכנון, בדיקות ופירוק והובלה"
-,
+                    "description": "טפסות רגילות וטפסות מתועשות, מבנה, ביסוס, תומכות, תכנון, בדיקות ופירוק והובלה",
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על סוגי טפסות ודרישות בטיחות",
                         "open": "תכנון מערך טפסות",
-                        "step_by_step": "חישובי לחצי בטון ועומסים בטפסות"
-                    }
+                        "numerical": "חישובי לחצי בטון ועומסים בטפסות"
+                    },
+                    "percentageOfTotal": 5.2
                 },
                 {
                     "id": "precast_construction",
@@ -107,7 +115,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על דרישות בטיחות בבניה טרומית",
                         "open": "תכנון הרכבת אלמנטים טרומיים"
-                    }
+                    },
+                    "percentageOfTotal": 2.0
                 },
                 {
                     "id": "steel_construction",
@@ -116,7 +125,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על בטיחות בהקמת מבני מתכת",
                         "open": "תכנון רצף עבודה בהקמת מבנה מתכת"
-                    }
+                    },
+                    "percentageOfTotal": 2.0
                 },
                 {
                     "id": "excavation_and_earthworks",
@@ -125,8 +135,9 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על דרישות דיפון, שיפועים ומרחקי בטיחות",
                         "open": "תכנון עבודות חפירה ומערכי בטיחות",
-                        "step_by_step": "חישובי שיפועים, מרחקי בטיחות, ועומסים מותרים"
-                    }
+                        "numerical": "חישובי שיפועים, מרחקי בטיחות, ועומסים מותרים"
+                    },
+                    "percentageOfTotal": 6.0
                 },
                 {
                     "id": "demolition_and_explosives",
@@ -135,7 +146,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על בטיחות בהריסות ושימוש בחומרי נפץ",
                         "open": "תכנון עבודות הריסה"
-                    }
+                    },
+                    "percentageOfTotal": 4.1
                 }
             ]
         },
@@ -151,8 +163,9 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על אמצעי בטיחות בעבודה על גגות",
                         "open": "תכנון עבודה על גג שביר",
-                        "step_by_step": "חישובי שיפועי גג ועומסים"
-                    }
+                        "numerical": "חישובי שיפועי גג ועומסים"
+                    },
+                    "percentageOfTotal": 1.4
                 },
                 {
                     "id": "work_at_height",
@@ -161,8 +174,9 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על ציוד מגן ואמצעי בטיחות",
                         "open": "תכנון עבודה בגובה",
-                        "step_by_step": "חישובי מרחקי נפילה ועומסי ציוד"
-                    }
+                        "numerical": "חישובי מרחקי נפילה ועומסי ציוד"
+                    },
+                    "percentageOfTotal": 5.1
                 },
                 {
                     "id": "ladders",
@@ -171,8 +185,9 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על סוגי סולמות והצבתם",
                         "open": "תכנון שימוש בסולמות",
-                        "step_by_step": "חישובי זוויות הצבה ועומסים"
-                    }
+                        "numerical": "חישובי זוויות הצבה ועומסים"
+                    },
+                    "percentageOfTotal": 3.9
                 }
             ]
         },
@@ -188,8 +203,9 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על בדיקות ואחזקת ציוד הרמה",
                         "open": "תכנון מערך הרמה",
-                        "step_by_step": "חישובי עומסי הרמה וכושר הרמה"
-                    }
+                        "numerical": "חישובי עומסי הרמה וכושר הרמה"
+                    },
+                    "percentageOfTotal": 4.0
                 },
                 {
                     "id": "cranes",
@@ -198,8 +214,9 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על הפעלת עגורנים, בטיחות, זוויות הרמה וכבלים",
                         "open": "תכנון עבודה עם עגורנים ומערך הרמה",
-                        "step_by_step": "חישובי עומסים, מרחקי הרמה, חוזק כבלים וזוויות הרמה"
-                    }
+                        "numerical": "חישובי עומסים, מרחקי הרמה, חוזק כבלים וזוויות הרמה"
+                    },
+                    "percentageOfTotal": 12.1
                 }
             ]
         },
@@ -215,7 +232,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על בטיחות אש וטיפול בביטומן חם",
                         "open": "תכנון עבודה עם ביטומן חם"
-                    }
+                    },
+                    "percentageOfTotal": 2.5
                 },
                 {
                     "id": "electrical",
@@ -224,8 +242,9 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על בטיחות חשמל, ציוד מגן, ונהלי חירום",
                         "open": "תכנון עבודות חשמל והכנת נהלי חירום",
-                        "step_by_step": "חישובי מרחקי בטיחות מקווי מתח ותכנון מערכי הגנה"
-                    }
+                        "numerical": "חישובי מרחקי בטיחות מקווי מתח ותכנון מערכי הגנה"
+                    },
+                    "percentageOfTotal": 5.8
                 },
                 {
                     "id": "confined_spaces",
@@ -234,7 +253,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על בטיחות במקום מוקף",
                         "open": "תכנון עבודה במקום מוקף"
-                    }
+                    },
+                    "percentageOfTotal": 2.3
                 },
                 {
                     "id": "welding_and_cutting",
@@ -243,7 +263,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על בטיחות בריתוך וחיתוך",
                         "open": "תכנון עבודות ריתוך"
-                    }
+                    },
+                    "percentageOfTotal": 1.0
                 }
             ]
         },
@@ -255,11 +276,12 @@
                 {
                     "id": "mechanical_equipment",
                     "name": "מכונות שונות ציוד מכאני וכלי עבודה",
-                    "description": "שימוש בטוח במכונות, כלי עבודה וציוד מכאני, כולל תחזוקה ובדיקות בטיחותיות",
+                    "description": "שימוש נכון במכונות, כלי עבודה וציוד מכאני, כולל תחזוקה ובדיקות בטיחותיות",
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על דרישות בטיחות בשימוש בציוד מכאני",
                         "open": "ניתוח סיכונים בשימוש במכונות ותכנון אמצעי בטיחות"
-                    }
+                    },
+                    "percentageOfTotal": 3.4
                 },
                 {
                     "id": "hygiene",
@@ -268,7 +290,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על תקנות גיהות תעסוקתית והשפעות סביבתיות",
                         "open": "תכנון מערך גיהות באתרי עבודה"
-                    }
+                    },
+                    "percentageOfTotal": 3.3
                 },
                 {
                     "id": "personal_protective_equipment",
@@ -277,7 +300,8 @@
                     "typicalQuestions": {
                         "multiple_choice": "שאלות על סוגי ציוד מגן אישי והתאמתו לסיכונים",
                         "open": "ניתוח דרישות ציוד מגן אישי עבור עבודות שונות"
-                    }
+                    },
+                    "percentageOfTotal": 1.6
                 }
             ]
         }

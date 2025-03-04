@@ -89,9 +89,6 @@ export interface ExamTemplate {
   difficulty: DifficultyLevel;
   /** Maximum difficulty level (optional) */
   maxDifficulty?: DifficultyLevel;
-  /** Programming language for CS exams */
-  /** Programming language for CS exams */
-  programming_language?: ProgrammingLanguage;
   
   /** Subject ID this exam belongs to */
   subjectId: string;

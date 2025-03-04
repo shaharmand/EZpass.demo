@@ -10,12 +10,12 @@
 
 import type { 
   Question, 
-  QuestionFeedback, 
-  FilterState, 
   FullAnswer,
   QuestionType
 } from './question';
 import type { QuestionStatus } from './prepState';
+import type { QuestionSubmission } from './submissionTypes';
+import type { QuestionFeedback } from './feedback/types';
 
 // Help request tracking
 export type HelpType = 'hint' | 'solution' | 'explanation' | 'teach';
@@ -30,17 +30,11 @@ export type SkipReason = 'too_hard' | 'too_easy' | 'not_in_material' | 'filter_c
 
 // Practice session status (different from DB QuestionStatus)
 export type QuestionPracticeStatus = 
-  | 'idle'             // Question loaded but not started
+  | 'moved_on'          // Question exists but we've moved on to the next one
+  | 'idle'             // User has just started seeing and working on the question
   | 'active'           // User is working on the question
   | 'submitted'        // Answer submitted, waiting for feedback
   | 'receivedFeedback' // Feedback received, can retry or move on
-
-// Single submission within a practice session
-export interface QuestionSubmission {
-  answer: FullAnswer;
-  feedback: QuestionFeedback;
-  submittedAt: number;  // More specific than generic timestamp
-}
 
 // Dynamic state for a question being practiced
 export interface QuestionPracticeState {
@@ -79,7 +73,7 @@ export type PrepAction =
 export interface PracticeContainerProps {
   question: Question;
   onAnswer: (answer: FullAnswer) => Promise<void>;
-  onSkip: (reason: SkipReason, filters?: FilterState) => Promise<void>;
+  onSkip: (reason: SkipReason) => Promise<void>;
   onHelp: (type: HelpType) => void;  // Make help type explicit
   onNext: () => void;
   onRetry: () => void;

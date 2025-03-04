@@ -8,84 +8,8 @@
  */
 export enum QuestionType {
   MULTIPLE_CHOICE = 'multiple_choice',
-  NUMERICAL = 'numerical',
-  OPEN = 'open'
-}
-
-/**
- * Binary evaluation for multiple choice only
- */
-export enum BinaryEvalLevel {
-  CORRECT = 'correct',      // Selected the correct option
-  INCORRECT = 'incorrect'   // Selected wrong option
-}
-
-/**
- * Detailed evaluation levels for questions requiring solution path
- * Used for:
- * - Numerical (with solution steps)
- * - Open-ended (essays, proofs)
- * 
- * Success thresholds:
- * - Green (✅): 80-100% (PERFECT, EXCELLENT, VERY_GOOD)
- * - Yellow (⚠️): 70-79% (GOOD)
- * - Red (❌): <70% (FAIR, POOR, IRRELEVANT)
- */
-export enum DetailedEvalLevel {
-  PERFECT = 'מושלם',         // 100%    - Perfect solution
-  EXCELLENT = 'מצוין',       // 90-99%  - Near perfect solution
-  VERY_GOOD = 'טוב מאוד',    // 80-89%  - Strong solution with minor issues
-  GOOD = 'טוב',              // 70-79%  - Good solution with some gaps
-  FAIR = 'מספיק',            // 55-69%  - Basic understanding, significant gaps
-  POOR = 'חלש',              // <55%    - Major gaps or incorrect solution
-  IRRELEVANT = 'לא רלוונטי'  // 0%      - Off-topic or unrelated
-}
-
-// Combined type for all evaluation levels
-export type EvalLevel = 
-  | { type: 'binary'; level: BinaryEvalLevel }
-  | { type: 'detailed'; level: DetailedEvalLevel };
-
-// Base feedback interface with minimal common fields
-interface BaseFeedback {
-  score: number;
-  evalLevel: EvalLevel;
-  message: string;  // Short summary like "תשובה נכונה!" or "תשובה שגויה"
-}
-
-// Basic feedback (multiple choice only)
-export interface BasicQuestionFeedback extends BaseFeedback {
-  basicExplanation: string;  // Why the chosen option is correct/incorrect
-  fullExplanation?: string;  // Optional in-depth discussion
-}
-
-// Detailed feedback (numerical and open-ended)
-export interface DetailedQuestionFeedback extends BaseFeedback {
-  coreFeedback: string;      // Main evaluation points
-  detailedFeedback: string;  // Analysis of solution path and explanation
-  rubricScores: Record<string, CriterionFeedback>;  // Scoring of different aspects (steps, clarity, etc)
-}
-
-// Union type for all possible feedback types
-export type QuestionFeedback = BasicQuestionFeedback | DetailedQuestionFeedback;
-
-/**
- * Determines if an answer evaluation level indicates a successful answer
- * Success means:
- * - For binary: CORRECT only
- * - For detailed: Score of 80% or higher (PERFECT, EXCELLENT, VERY_GOOD)
- */
-export function isSuccessfulAnswer(evalLevel: EvalLevel): boolean {
-  switch (evalLevel.type) {
-    case 'binary':
-      return evalLevel.level === BinaryEvalLevel.CORRECT;
-    case 'detailed':
-      return [
-        DetailedEvalLevel.PERFECT,
-        DetailedEvalLevel.EXCELLENT,
-        DetailedEvalLevel.VERY_GOOD
-      ].includes(evalLevel.level);
-  }
+  OPEN = 'open',
+  NUMERICAL = 'numerical'
 }
 
 /** 
@@ -93,66 +17,34 @@ export function isSuccessfulAnswer(evalLevel: EvalLevel): boolean {
  */
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
 
-/** 
- * Represents a criterion score and feedback
+/**
+ * Common interface for answer format requirements
  */
-export interface CriterionFeedback {
-  /** Score from 0-100 for this criterion */
-  score: number;
-  /** Specific feedback for this criterion */
-  feedback: string;
+export interface AnswerFormat {
+  hasFinalAnswer: boolean;
+  finalAnswerType: FinalAnswerType;
+  requiresSolution: boolean;
 }
 
 /**
- * Markdown-formatted feedback text with specific requirements
+ * Requirements for the format/structure of an answer
  */
-export interface StructuredFeedback {
-  /** Must include:
-   * - ✅ for correct parts
-   * - ❌ for critical mistakes
-   * - ⚠️ for partially correct parts
-   * - 🔹 for important insights
+export interface AnswerFormatRequirements extends AnswerFormat {}
+
+/**
+ * Requirements for the content of an answer
+ */
+export interface AnswerContentGuidelines {
+  /** 
+   * Core criteria that must be met for basic correctness.
+   * These are evaluated first and must all be present to get any points.
+   * Total weight of required criteria should sum to 100%.
    */
-  text: string;
-}
-
-/**
- * Represents the evaluation criteria for a question.
- */
-export interface RubricAssessment {
-  criteria: Array<{
-    /** The name of the criterion (e.g., Accuracy, Completeness, Clarity) */
+  requiredCriteria: Array<{
     name: string;
-    /** Description of what this criterion evaluates */
     description: string;
-    /** Weight percentage of this criterion (should sum to 100 across all criteria) */
     weight: number;
   }>;
-}
-
-export interface AnswerRequirements {
-  requiredElements: string[];
-  optionalElements?: string[];
-  scoringGuidelines?: {
-    [key: string]: {
-      points: number;
-      description: string;
-    };
-  };
-}
-
-export interface Evaluation {
-  /** 
-   * Rubric assessment criteria for evaluating answers.
-   * Defines how points are allocated across different aspects.
-   */
-  rubricAssessment: RubricAssessment;
-
-  /**
-   * Defines required key elements in the answer.
-   * Ensures AI properly evaluates completeness.
-   */
-  answerRequirements: AnswerRequirements;
 }
 
 export enum EzpassCreatorType {
@@ -178,26 +70,50 @@ export interface MultipleChoiceOption {
 }
 
 /**
- * Complete answer structure with both validation and solution
+ * Type of final answer expected for a question
+ */
+export type FinalAnswerType = 
+  | 'multiple_choice'
+  | 'numerical'
+  | 'none';
+
+/**
+ * Multiple choice answer structure
+ */
+export interface MultipleChoiceAnswer {
+  type: 'multiple_choice';
+  value: 1 | 2 | 3 | 4;
+}
+
+/**
+ * Numerical answer structure
+ */
+export interface NumericalAnswer {
+  type: 'numerical';
+  value: number;
+  tolerance: number;
+  unit?: string;
+}
+
+/**
+ * Complete answer structure with both final answer and solution
  */
 export interface FullAnswer {
   /** 
-   * The concrete final answer for validation, if applicable.
-   * 'none' type for questions without concrete answer (e.g. essay)
+   * The concrete final answer for validation.
+   * Required for multiple choice and numerical questions.
+   * Not allowed for open questions.
    */
-  finalAnswer: 
-    | { type: 'multiple_choice'; value: 1 | 2 | 3 | 4 }
-    | { type: 'numerical'; value: number; tolerance: number; unit?: string }
-    | { type: 'none' };
+  finalAnswer?: MultipleChoiceAnswer | NumericalAnswer;
   
   /** 
    * Complete solution explanation.
-   * Primary answer format for essay/proof type questions.
+   * Required for open questions and numerical questions.
+   * Optional for multiple choice.
    */
   solution: {
     text: string;
     format: 'markdown';
-    requiredSolution: boolean;
   };
 }
 
@@ -266,7 +182,7 @@ export interface Question {
       format: 'markdown'
     }>;
   };
-  answer: FullAnswer;
+  schoolAnswer: FullAnswer;  // Sample answer that follows the format requirements
   metadata: {
     subjectId: string;
     domainId: string;
@@ -275,43 +191,34 @@ export interface Question {
     type: QuestionType;
     difficulty: DifficultyLevel;
     estimatedTime?: number;
+    
+    /** Requirements for how answers should be structured */
+    answerFormat: AnswerFormatRequirements;
+    
     source?: 
       | { type: 'exam';
           examTemplateId: string;
           year: number;
           season: 'spring' | 'summer';
           moed: 'a' | 'b';
+          order?: number;
         }
       | { type: 'ezpass';
           creatorType: EzpassCreatorType;
         };
   };
-  evaluation: {
-    rubricAssessment: {
-      criteria: Array<{
-        name: string;
-        description: string;
-        weight: number;
-      }>;
-    };
-    answerRequirements: {
-      requiredElements: string[];
-    };
-  };
+  
+  /** Guidelines for evaluating answer content */
+  evaluationGuidelines: AnswerContentGuidelines;
 }
 
-// Helper constant for empty evaluation
-export const EMPTY_EVALUATION: Question['evaluation'] = {
-  rubricAssessment: {
-    criteria: [{
-      name: 'basic_correctness',
-      description: 'תשובה נכונה ומלאה',
-      weight: 100
-    }]
-  },
-  answerRequirements: {
-    requiredElements: []
-  }
+// Helper constant for empty evaluation guidelines
+export const EMPTY_EVALUATION_GUIDELINES: AnswerContentGuidelines = {
+  requiredCriteria: [{
+    name: 'basic_correctness',
+    description: 'תשובה נכונה ומלאה',
+    weight: 100
+  }]
 };
 
 /**
@@ -331,6 +238,35 @@ export interface SaveQuestion extends Omit<Question, 'createdAt' | 'updatedAt'> 
   id: string;
   publication_status: PublicationStatusEnum;
   publication_metadata?: PublicationMetadata;
+  review_status?: ReviewStatusEnum;  // Add review_status as optional
+}
+
+/**
+ * Question's review status in the system
+ */
+export enum ReviewStatusEnum {
+  PENDING_REVIEW = 'pending_review',  // Needs human review
+  APPROVED = 'approved'               // Ready for publication
+}
+
+/**
+ * Metadata about the review process
+ */
+export interface ReviewMetadata {
+  reviewedAt: string;
+  reviewedBy: string;
+  comments?: string;
+}
+
+/**
+ * Information about AI-generated fields
+ */
+export interface AIGeneratedFields {
+  fields: string[];  // Array of field paths that were AI-generated
+  confidence: {
+    [key: string]: number;  // Confidence score for each field (0-1)
+  };
+  generatedAt: string;      // When these fields were generated
 }
 
 // Question as stored in DB - includes server-managed fields
@@ -339,6 +275,9 @@ export interface DatabaseQuestion extends Question {
   publication_status: PublicationStatusEnum;
   publication_metadata?: PublicationMetadata;
   validation_status: ValidationStatus;
+  review_status: ReviewStatusEnum;
+  ai_generated_fields: AIGeneratedFields;
+  review_metadata?: ReviewMetadata;
   import_info?: ImportInfo;
   created_at?: string;
   updated_at?: string;
@@ -358,29 +297,6 @@ export interface QuestionListItem {
 
   publication_status: PublicationStatusEnum;
   created_at: string;
-}
-
-/** 
- * Filter state for the UI that allows multiple values per field
- */
-export interface FilterState {
-  subject?: string;
-  domain?: string;
-  topics?: string[];
-  subTopics?: string[];
-  questionTypes?: string[];
-  timeLimit?: [number, number];
-  difficulty?: DifficultyLevel[];
-  source?: 
-    | { type: 'exam';
-        examTemplateId?: string;
-        year?: number;
-        season?: 'spring' | 'summer';
-        moed?: 'a' | 'b';
-      }
-    | { type: 'ezpass';
-        creatorType?: EzpassCreatorType;
-      };
 }
 
 /** 
@@ -425,27 +341,146 @@ export interface QuestionFetchParams {
 // export interface Solution { ... }
 // export interface QuestionController { ... } 
 
-export enum BasicAnswerLevel {
-  CORRECT = 'correct',
-  INCORRECT = 'incorrect'
+/**
+ * Type guard to check if a string is a valid QuestionType
+ */
+export function isValidQuestionType(type: string): type is QuestionType {
+  return Object.values(QuestionType).includes(type as QuestionType);
 }
 
 /**
- * Type guard to check if feedback is basic feedback
+ * Default question type to use when type is invalid or not specified
  */
-export function isBasicFeedback(feedback: QuestionFeedback): feedback is BasicQuestionFeedback {
-  return 'basicExplanation' in feedback;
+export const DEFAULT_QUESTION_TYPE = QuestionType.OPEN;
+
+/**
+ * Type guard to check if a string is a valid SourceType
+ */
+export function isValidSourceType(type: string): type is SourceType {
+  return Object.values(SourceType).includes(type as SourceType);
 }
 
 /**
- * Type guard to check if feedback is detailed feedback
+ * Type guard to check if a string is a valid EzpassCreatorType
  */
-export function isDetailedFeedback(feedback: QuestionFeedback): feedback is DetailedQuestionFeedback {
-  return 'detailedFeedback' in feedback;
+export function isValidCreatorType(type: string): type is EzpassCreatorType {
+  return Object.values(EzpassCreatorType).includes(type as EzpassCreatorType);
 }
 
-export type Feedback = {
-  evalLevel: BasicAnswerLevel | string;
-  basicExplanation?: string;
-  detailedFeedback?: string;
-}; 
+/**
+ * Default source type to use when type is invalid or not specified
+ */
+export const DEFAULT_SOURCE_TYPE = SourceType.EZPASS;
+
+/**
+ * Default creator type to use when type is invalid or not specified
+ */
+export const DEFAULT_CREATOR_TYPE = EzpassCreatorType.HUMAN;
+
+/**
+ * Type guard to check if a number is a valid DifficultyLevel
+ */
+export function isValidDifficultyLevel(level: number): level is DifficultyLevel {
+  return Number.isInteger(level) && level >= 1 && level <= 5;
+}
+
+/**
+ * Default difficulty level to use when level is invalid or not specified
+ */
+export const DEFAULT_DIFFICULTY_LEVEL: DifficultyLevel = 3;
+
+/**
+ * Maps difficulty level to descriptive text
+ */
+export const DIFFICULTY_DESCRIPTIONS: Record<DifficultyLevel, string> = {
+  1: 'קל מאוד',
+  2: 'קל',
+  3: 'בינוני',
+  4: 'קשה',
+  5: 'קשה מאוד'
+};
+
+/**
+ * Type guard to check if a string is a valid PublicationStatusEnum
+ */
+export function isValidPublicationStatus(status: string): status is PublicationStatusEnum {
+  return Object.values(PublicationStatusEnum).includes(status as PublicationStatusEnum);
+}
+
+/**
+ * Default publication status to use when status is invalid or not specified
+ */
+export const DEFAULT_PUBLICATION_STATUS = PublicationStatusEnum.DRAFT;
+
+/**
+ * Maps publication status to descriptive text
+ */
+export const PUBLICATION_STATUS_DESCRIPTIONS: Record<PublicationStatusEnum, string> = {
+  [PublicationStatusEnum.DRAFT]: 'טיוטה',
+  [PublicationStatusEnum.PUBLISHED]: 'פורסם',
+  [PublicationStatusEnum.ARCHIVED]: 'בארכיון'
+};
+
+/**
+ * Type guard to check if a string is a valid ReviewStatusEnum
+ */
+export function isValidReviewStatus(status: string): status is ReviewStatusEnum {
+  return Object.values(ReviewStatusEnum).includes(status as ReviewStatusEnum);
+}
+
+/**
+ * Maps review status to descriptive text
+ */
+export const REVIEW_STATUS_DESCRIPTIONS: Record<ReviewStatusEnum, string> = {
+  [ReviewStatusEnum.PENDING_REVIEW]: 'ממתין לבדיקה',
+  [ReviewStatusEnum.APPROVED]: 'אושר'
+};
+
+export interface QuestionMetadata {
+  subjectId: string;
+  domainId: string;
+  topicId: string;
+  subtopicId?: string;
+  type: QuestionType;
+  difficulty: DifficultyLevel;
+  estimatedTime?: number;
+  answerFormat: AnswerFormat;  // Using the common interface
+  source?: {
+    name: string;
+    year?: number;
+    semester?: string;
+  };
+  correctAnswer?: number;
+  numericalAnswer?: {
+    value: number;
+    tolerance: number;
+  };
+}
+
+export type QuestionWithMetadata = Question;
+
+/**
+ * Feedback for a student's answer to a question
+ */
+export interface QuestionFeedback {
+  evalLevel: 'correct' | 'partially_correct' | 'incorrect';
+  score: number;
+  feedback: string;
+  format: 'markdown';
+}
+
+/**
+ * Filter state for question search/filtering
+ */
+export interface FilterState {
+  topics?: string[];
+  subTopics?: string[];
+  questionTypes?: QuestionType[];
+  difficulty?: DifficultyLevel[];
+  source?: {
+    type: 'exam' | 'ezpass';
+    year?: number;
+    season?: 'spring' | 'summer';
+    moed?: 'a' | 'b';
+  };
+} 

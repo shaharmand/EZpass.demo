@@ -139,11 +139,7 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
       const updatedPrep: StudentPrep = {
         ...freshPrep,
         goals: {
-          examDate: values.examDate.valueOf(),
-          totalHours: values.hourlyGoal,
-          weeklyHours: Math.ceil(values.hourlyGoal / 4),
-          dailyHours: Math.ceil(values.hourlyGoal / 28),
-          questionGoal: values.questionGoal
+          examDate: values.examDate.valueOf()
         },
         selection: {
           subTopics: values.selectedNodes.filter((key: string) => 
@@ -191,8 +187,6 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
       form.setFieldsValue({
         prepName: getDefaultPrepName(examDate),
         examDate,
-        hourlyGoal: freshPrep.goals.totalHours,
-        questionGoal: freshPrep.goals.questionGoal,
         selectedNodes: freshPrep.selection.subTopics
       });
     }
@@ -255,6 +249,10 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
           gap: '20px',
           display: 'flex',
           flexDirection: 'column'
+        }}
+        initialValues={{
+          examDate: moment(prep.goals.examDate),
+          selectedNodes: prep.selection.subTopics
         }}
       >
         <Form.Item

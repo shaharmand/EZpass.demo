@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { Card, Space, Typography, Divider, Button } from 'antd';
 import { CheckCircleFilled, CloseCircleFilled, StarOutlined, RedoOutlined } from '@ant-design/icons';
+import { Question } from '../../types/question';
 import { 
-  Question, 
-  QuestionFeedback, 
-  BasicQuestionFeedback, 
-  BasicAnswerLevel,
-  BinaryEvalLevel 
-} from '../../types/question';
+  QuestionFeedback,
+  BasicQuestionFeedback
+} from '../../types/feedback/types';
+import { QuestionSubmission } from '../../types/submissionTypes';
+import { BinaryEvalLevel } from '../../types/feedback/levels';
+import { FeedbackStatus, getFeedbackStatus } from '../../types/feedback/status';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { logger } from '../../utils/logger';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,31 +16,40 @@ import { JoinEZPassPlusMessage } from './JoinEZPassPlusMessage';
 
 const { Text, Title } = Typography;
 
+// Convert number to Hebrew letter (1 -> א, 2 -> ב, etc.)
+const numberToHebrewLetter = (num: number): string => {
+  const letters = ['א', 'ב', 'ג', 'ד'];
+  return letters[num - 1] || '';
+};
+
 interface MultipleChoiceFeedbackProps {
   question: Question;
-  feedback: BasicQuestionFeedback;
-  selectedAnswer: string;
+  submission: QuestionSubmission;
   showDetailedFeedback?: boolean;
   onRetry?: () => void;
 }
 
 export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
   question,
-  feedback,
-  selectedAnswer,
+  submission,
   showDetailedFeedback = true,
   onRetry
 }) => {
-  const correctAnswerIndex = question.answer?.finalAnswer?.type === 'multiple_choice' ? 
-    question.answer.finalAnswer.value - 1 : -1;
+  const correctAnswerIndex = question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' ? 
+    question.schoolAnswer.finalAnswer.value - 1 : -1;
+
+  // Get selected answer from submission
+  const selectedAnswer = submission.answer.finalAnswer?.type === 'multiple_choice' ? 
+    String(submission.answer.finalAnswer.value) : '';
+  const feedback = submission.feedback?.data as BasicQuestionFeedback;
 
   useEffect(() => {
     // Component mount/update log with more prominent message
     console.log('🎯 MULTIPLE CHOICE FEEDBACK RECEIVED:', {
       questionId: question.id,
       feedbackData: {
-        evalLevel: feedback.evalLevel,
-        score: feedback.score,
+        evalLevel: feedback?.evalLevel,
+        score: feedback?.score,
         allFeedbackKeys: Object.keys(feedback || {}),
         fullFeedback: feedback
       },
@@ -62,8 +72,8 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
         index: correctAnswerIndex,
         value: correctAnswerIndex + 1
       },
-      evalLevel: feedback.evalLevel,
-      score: feedback.score,
+      evalLevel: feedback?.evalLevel,
+      score: feedback?.score,
       fullFeedbackObject: JSON.stringify(feedback, null, 2)
     });
 
@@ -87,13 +97,14 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
       isNumber: selectedAnswer ? !isNaN(parseInt(selectedAnswer)) : false,
       answerRange: selectedAnswer ? (parseInt(selectedAnswer) >= 1 && parseInt(selectedAnswer) <= 4) : false,
       totalOptions: question.content.options?.length || 0,
-      evalLevel: feedback.evalLevel
+      evalLevel: feedback?.evalLevel
     });
   }, [question.id, feedback, question.content.options, correctAnswerIndex, selectedAnswer]);
 
   // Get the selected and correct answer texts and numbers - with validation
   const selectedOptionNumber = !isNaN(parseInt(selectedAnswer)) ? parseInt(selectedAnswer) : null;
-  const correctOptionNumber = correctAnswerIndex + 1;
+  const correctOptionNumber = question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' ? 
+    question.schoolAnswer.finalAnswer.value : null;
 
   const selectedOption = selectedOptionNumber !== null && question.content.options && 
     selectedOptionNumber > 0 && selectedOptionNumber <= question.content.options.length
@@ -101,8 +112,8 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
     : '';
   const correctOption = question.content.options?.[correctAnswerIndex]?.text || '';
 
-  const isCorrect = feedback.evalLevel.type === 'binary' && 
-    feedback.evalLevel.level === BinaryEvalLevel.CORRECT;
+  const feedbackStatus = getFeedbackStatus(feedback.evalLevel);
+  const isCorrect = feedbackStatus === FeedbackStatus.SUCCESS;
 
   return (
     <div className="multiple-choice-feedback">
@@ -120,14 +131,14 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
               <div className="answer-box">
                 <div className="answer-label">התשובה שלך</div>
                 <div className="answer-content incorrect">
-                  <span className="option-number">{selectedOptionNumber}</span>
+                  <span className="option-number">{numberToHebrewLetter(selectedOptionNumber || 0)}</span>
                   <span className="option-text">{selectedOption}</span>
                 </div>
               </div>
               <div className="answer-box">
                 <div className="answer-label">התשובה הנכונה</div>
                 <div className="answer-content correct">
-                  <span className="option-number">{correctOptionNumber}</span>
+                  <span className="option-number">{numberToHebrewLetter(correctOptionNumber || 0)}</span>
                   <span className="option-text">{correctOption}</span>
                 </div>
               </div>
@@ -137,7 +148,7 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
               <div className="answer-box">
                 <div className="answer-label">התשובה שלך</div>
                 <div className="answer-content correct">
-                  <span className="option-number">{selectedOptionNumber}</span>
+                  <span className="option-number">{numberToHebrewLetter(selectedOptionNumber || 0)}</span>
                   <span className="option-text">{selectedOption}</span>
                 </div>
               </div>

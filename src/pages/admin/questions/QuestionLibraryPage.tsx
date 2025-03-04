@@ -28,7 +28,8 @@ import {
   ValidationStatus,
   QuestionType,
   PublicationStatusEnum,
-  ImportInfo
+  ImportInfo,
+  DifficultyLevel
 } from '../../../types/question';
 import { questionStorage } from '../../../services/admin/questionStorage';
 import { universalTopics } from '../../../services/universalTopics';
@@ -40,6 +41,7 @@ import { questionLibrary, QuestionFilters } from '../../../services/questionLibr
 import { getEnumTranslation, enumMappings } from '../../../utils/translations';
 import { QuestionJsonData } from '../../../components/admin/QuestionJsonData';
 import { Resizable, ResizeCallbackData } from 'react-resizable';
+import styled from 'styled-components';
 
 dayjs.extend(relativeTime);
 dayjs.locale('he');
@@ -48,6 +50,12 @@ const { Title, Text } = Typography;
 const { confirm } = Modal;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
+
+const PageContainer = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 32px;
+`;
 
 const tableStyles = `
   .react-resizable {
@@ -131,12 +139,68 @@ const ResizableTitle = (props: ResizableHeaderCellProps) => {
 
 type TableQuestion = DatabaseQuestion & { key: string };
 
+const StatsCard = styled(Card)`
+  margin-bottom: 16px;
+  
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+  }
+
+  .stat-group {
+    padding: 12px;
+    border-radius: 8px;
+    background: #fafafa;
+  }
+
+  .stat-title {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+    font-weight: 500;
+    color: #262626;
+  }
+
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+
+    &.active {
+      background: #e6f4ff;
+    }
+  }
+
+  .stat-label {
+    font-size: 14px;
+  }
+
+  .stat-number {
+    font-weight: 500;
+  }
+`;
+
 export const QuestionLibraryPage: React.FC = () => {
   const [questions, setQuestions] = useState<DatabaseQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [filters, setFilters] = useState<QuestionFilters>({});
+  const [statistics, setStatistics] = useState<any>(null);
 
   const [sortedInfo, setSortedInfo] = useState<{
     columnKey?: string;
@@ -170,6 +234,12 @@ export const QuestionLibraryPage: React.FC = () => {
     actions: 100,
     source: 150
   });
+
+  // Add new state for active filters
+  const [activeStatFilter, setActiveStatFilter] = useState<{
+    type: 'publication' | 'review' | 'validation';
+    value: string;
+  } | null>(null);
 
   // Load questions whenever filters change
   useEffect(() => {
@@ -207,6 +277,11 @@ export const QuestionLibraryPage: React.FC = () => {
     }
   }, [filters.topic]);
 
+  // Load statistics
+  useEffect(() => {
+    loadStatistics();
+  }, []);
+
   const loadQuestions = async () => {
     setLoading(true);
     try {
@@ -238,6 +313,16 @@ export const QuestionLibraryPage: React.FC = () => {
       console.error('Load error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStatistics = async () => {
+    try {
+      const stats = await questionStorage.getQuestionStatistics();
+      setStatistics(stats);
+    } catch (error) {
+      console.error('Failed to load statistics:', error);
+      message.error('Failed to load question statistics');
     }
   };
 
@@ -393,6 +478,50 @@ export const QuestionLibraryPage: React.FC = () => {
     }
   };
 
+  // Add handlers for stat clicks
+  const handleStatClick = (type: 'publication' | 'review' | 'validation', value: string) => {
+    // If clicking the same filter, clear it
+    if (activeStatFilter?.type === type && activeStatFilter?.value === value) {
+      setActiveStatFilter(null);
+      setFilters(prev => ({
+        ...prev,
+        publication_status: undefined,
+        validation_status: undefined
+      }));
+      return;
+    }
+
+    setActiveStatFilter({ type, value });
+
+    // Update filters based on the stat type
+    switch (type) {
+      case 'publication':
+        setFilters(prev => ({
+          ...prev,
+          publication_status: value as PublicationStatusEnum,
+          validation_status: undefined // Clear other filters
+        }));
+        break;
+      case 'review':
+        if (value === 'pending') {
+          setFilters(prev => ({
+            ...prev,
+            review_status: 'PENDING_REVIEW',
+            validation_status: undefined,
+            publication_status: undefined
+          }));
+        }
+        break;
+      case 'validation':
+        setFilters(prev => ({
+          ...prev,
+          validation_status: value as ValidationStatus,
+          publication_status: undefined // Clear other filters
+        }));
+        break;
+    }
+  };
+
   const columns: ColumnType<TableQuestion>[] = [
     {
       title: 'ID',
@@ -422,13 +551,13 @@ export const QuestionLibraryPage: React.FC = () => {
       key: 'type',
       width: columnWidths.type,
       filters: [
-        { text: 'רב-ברירה', value: 'multiple_choice' },
-        { text: 'מספרי', value: 'numerical' },
-        { text: 'פתוח', value: 'open' }
+        { text: 'רב-ברירה', value: QuestionType.MULTIPLE_CHOICE },
+        { text: 'מספרי', value: QuestionType.NUMERICAL },
+        { text: 'פתוח', value: QuestionType.OPEN }
       ],
       render: (type: QuestionType) => {
-        const color = type === 'multiple_choice' ? 'blue' : 
-                     type === 'numerical' ? 'green' : 'orange';
+        const color = type === QuestionType.MULTIPLE_CHOICE ? 'blue' : 
+                     type === QuestionType.NUMERICAL ? 'green' : 'orange';
         return (
           <Tag color={color}>
             {getEnumTranslation('questionType', type)}
@@ -601,150 +730,215 @@ export const QuestionLibraryPage: React.FC = () => {
   };
 
   return (
-    <div className="question-library">
-      <style>{tableStyles}</style>
-      <Card>
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Title level={2}>ספריית שאלות</Title>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => navigate('/admin/questions/new')}
-            >
-              צור שאלה
-            </Button>
-          </div>
+    <PageContainer>
+      <Space direction="vertical" style={{ width: '100%' }}>
+        {statistics && (
+          <StatsCard>
+            <div className="stats-grid">
+              <div className="stat-group">
+                <div className="stat-title">סטטוס פרסום</div>
+                <div 
+                  className={`stat-item ${activeStatFilter?.type === 'publication' && activeStatFilter?.value === PublicationStatusEnum.PUBLISHED ? 'active' : ''}`}
+                  onClick={() => handleStatClick('publication', PublicationStatusEnum.PUBLISHED)}
+                >
+                  <Tag color="success">פורסם</Tag>
+                  <span className="stat-number">{statistics.publication.published}</span>
+                </div>
+                <div 
+                  className={`stat-item ${activeStatFilter?.type === 'publication' && activeStatFilter?.value === PublicationStatusEnum.DRAFT ? 'active' : ''}`}
+                  onClick={() => handleStatClick('publication', PublicationStatusEnum.DRAFT)}
+                >
+                  <Tag>טיוטה</Tag>
+                  <span className="stat-number">{statistics.publication.draft}</span>
+                </div>
+              </div>
 
-          {/* Filters */}
-          <Row gutter={16}>
-            <Col span={6}>
-              <Input
-                placeholder="חיפוש..."
-                prefix={<SearchOutlined />}
-                value={searchText}
-                onChange={e => handleSearchChange(e.target.value)}
-                style={{ width: '100%' }}
-              />
-            </Col>
-            <Col span={4}>
-              <Select
-                placeholder="נושא"
-                value={filters.subject}
-                onChange={handleSubjectChange}
-                style={{ width: '100%' }}
-                allowClear
-              >
-                {subjects.map(subject => (
-                  <Option key={subject.id} value={subject.id}>{subject.name}</Option>
-                ))}
-              </Select>
-            </Col>
-            <Col span={4}>
-              <Select
-                placeholder="תחום"
-                value={filters.domain}
-                onChange={handleDomainChange}
-                style={{ width: '100%' }}
-                allowClear
-                disabled={!filters.subject}
-              >
-                {domains.map(domain => (
-                  <Option key={domain.id} value={domain.id}>{domain.name}</Option>
-                ))}
-              </Select>
-            </Col>
-            <Col span={4}>
-              <Select
-                placeholder="נושא"
-                value={filters.topic}
-                onChange={handleTopicChange}
-                style={{ width: '100%' }}
-                allowClear
-                disabled={!filters.domain}
-              >
-                {topics.map(topic => (
-                  <Option key={topic.id} value={topic.id}>{topic.name}</Option>
-                ))}
-              </Select>
-            </Col>
-            <Col span={4}>
-              <Select
-                placeholder="תת נושא"
-                value={filters.subtopic}
-                onChange={handleSubtopicChange}
-                style={{ width: '100%' }}
-                allowClear
-                disabled={!filters.topic}
-              >
-                {subtopics.map(subtopic => (
-                  <Option key={subtopic.id} value={subtopic.id}>{subtopic.name}</Option>
-                ))}
-              </Select>
-            </Col>
-          </Row>
-          <Row gutter={16} style={{ marginTop: '16px' }}>
-            <Col span={6}>
-              <Select
-                placeholder="סטטוס"
-                value={filters.publication_status}
-                onChange={handleStatusChange}
-                style={{ width: '100%' }}
-                allowClear
-              >
-                {Object.entries(enumMappings.publication_status).map(([value, label]) => (
-                  <Option key={value} value={value}>{label}</Option>
-                ))}
-              </Select>
-            </Col>
-            <Col span={6}>
-              <Select
-                placeholder="סטטוס תיקוף"
-                value={filters.validation_status}
-                onChange={handleValidation_statusChange}
-                style={{ width: '100%' }}
-                allowClear
-              >
-                {Object.entries(enumMappings.validationStatus).map(([value, label]) => (
-                  <Option key={value} value={value}>{label}</Option>
-                ))}
-              </Select>
-            </Col>
-            <Col span={6}>
-              <RangePicker
-                style={{ width: '100%' }}
-                onChange={handleDateRangeChange}
-                format="DD/MM/YYYY"
-                placeholder={['תאריך התחלה', 'תאריך סיום']}
-              />
-            </Col>
-          </Row>
+              <div className="stat-group">
+                <div className="stat-title">סטטוס בדיקה</div>
+                <div 
+                  className={`stat-item ${activeStatFilter?.type === 'review' && activeStatFilter?.value === 'pending' ? 'active' : ''}`}
+                  onClick={() => handleStatClick('review', 'pending')}
+                >
+                  <Tag color="processing">ממתין לבדיקה</Tag>
+                  <span className="stat-number">{statistics.review.pending}</span>
+                </div>
+                <div className="stat-item">
+                  <Tag>סה״כ שאלות</Tag>
+                  <span className="stat-number">{statistics.review.total}</span>
+                </div>
+              </div>
 
-          {/* Table */}
-          <Table
-            columns={columns as any}
-            dataSource={questions.map(q => ({ ...q, key: q.id } as TableQuestion))}
-            loading={loading}
-            rowSelection={{
-              type: 'checkbox',
-              selectedRowKeys,
-              onChange: setSelectedRowKeys
-            }}
-            onRow={(record) => ({
-              onClick: () => handleEditClick(record.id),
-              className: 'clickable-row'
-            })}
-            pagination={{ 
-              defaultPageSize: 10,
-              showSizeChanger: true,
-              showTotal: (total) => `סה"כ ${total} שאלות`
-            }}
-            scroll={{ x: 'max-content' }}
-            onChange={handleChange}
-          />
-        </Space>
-      </Card>
-    </div>
+              <div className="stat-group">
+                <div className="stat-title">תקינות</div>
+                <div 
+                  className={`stat-item ${activeStatFilter?.type === 'validation' && activeStatFilter?.value === ValidationStatus.ERROR ? 'active' : ''}`}
+                  onClick={() => handleStatClick('validation', ValidationStatus.ERROR)}
+                >
+                  <Tag color="error">שגיאות</Tag>
+                  <span className="stat-number">{statistics.validation.error}</span>
+                </div>
+                <div 
+                  className={`stat-item ${activeStatFilter?.type === 'validation' && activeStatFilter?.value === ValidationStatus.WARNING ? 'active' : ''}`}
+                  onClick={() => handleStatClick('validation', ValidationStatus.WARNING)}
+                >
+                  <Tag color="warning">אזהרות</Tag>
+                  <span className="stat-number">{statistics.validation.warning}</span>
+                </div>
+                <div 
+                  className={`stat-item ${activeStatFilter?.type === 'validation' && activeStatFilter?.value === ValidationStatus.VALID ? 'active' : ''}`}
+                  onClick={() => handleStatClick('validation', ValidationStatus.VALID)}
+                >
+                  <Tag color="success">תקין</Tag>
+                  <span className="stat-number">{statistics.validation.valid}</span>
+                </div>
+              </div>
+            </div>
+          </StatsCard>
+        )}
+
+        <Card>
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Title level={2}>ספריית שאלות</Title>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/admin/questions/new')}
+              >
+                צור שאלה
+              </Button>
+            </div>
+
+            {/* Filters */}
+            <Row gutter={16}>
+              <Col span={6}>
+                <Input
+                  placeholder="חיפוש..."
+                  prefix={<SearchOutlined />}
+                  value={searchText}
+                  onChange={e => handleSearchChange(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </Col>
+              <Col span={4}>
+                <Select
+                  placeholder="נושא"
+                  value={filters.subject}
+                  onChange={handleSubjectChange}
+                  style={{ width: '100%' }}
+                  allowClear
+                >
+                  {subjects.map(subject => (
+                    <Option key={subject.id} value={subject.id}>{subject.name}</Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col span={4}>
+                <Select
+                  placeholder="תחום"
+                  value={filters.domain}
+                  onChange={handleDomainChange}
+                  style={{ width: '100%' }}
+                  allowClear
+                  disabled={!filters.subject}
+                >
+                  {domains.map(domain => (
+                    <Option key={domain.id} value={domain.id}>{domain.name}</Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col span={4}>
+                <Select
+                  placeholder="נושא"
+                  value={filters.topic}
+                  onChange={handleTopicChange}
+                  style={{ width: '100%' }}
+                  allowClear
+                  disabled={!filters.domain}
+                >
+                  {topics.map(topic => (
+                    <Option key={topic.id} value={topic.id}>{topic.name}</Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col span={4}>
+                <Select
+                  placeholder="תת נושא"
+                  value={filters.subtopic}
+                  onChange={handleSubtopicChange}
+                  style={{ width: '100%' }}
+                  allowClear
+                  disabled={!filters.topic}
+                >
+                  {subtopics.map(subtopic => (
+                    <Option key={subtopic.id} value={subtopic.id}>{subtopic.name}</Option>
+                  ))}
+                </Select>
+              </Col>
+            </Row>
+            <Row gutter={16} style={{ marginTop: '16px' }}>
+              <Col span={6}>
+                <Select
+                  placeholder="סטטוס"
+                  value={filters.publication_status}
+                  onChange={handleStatusChange}
+                  style={{ width: '100%' }}
+                  allowClear
+                >
+                  {Object.entries(enumMappings.publication_status).map(([value, label]) => (
+                    <Option key={value} value={value}>{label}</Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col span={6}>
+                <Select
+                  placeholder="סטטוס תיקוף"
+                  value={filters.validation_status}
+                  onChange={handleValidation_statusChange}
+                  style={{ width: '100%' }}
+                  allowClear
+                >
+                  {Object.entries(enumMappings.validationStatus).map(([value, label]) => (
+                    <Option key={value} value={value}>{label}</Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col span={6}>
+                <RangePicker
+                  style={{ width: '100%' }}
+                  onChange={handleDateRangeChange}
+                  format="DD/MM/YYYY"
+                  placeholder={['תאריך התחלה', 'תאריך סיום']}
+                />
+              </Col>
+            </Row>
+
+            {/* Table */}
+            <Table
+              columns={columns as any}
+              dataSource={questions.map(q => ({ ...q, key: q.id } as TableQuestion))}
+              loading={loading}
+              rowSelection={{
+                type: 'checkbox',
+                selectedRowKeys,
+                onChange: setSelectedRowKeys
+              }}
+              onRow={(record) => ({
+                onClick: () => handleEditClick(record.id),
+                className: 'clickable-row'
+              })}
+              pagination={{ 
+                defaultPageSize: 10,
+                showSizeChanger: true,
+                showTotal: (total) => `סה"כ ${total} שאלות`
+              }}
+              scroll={{ x: 'max-content' }}
+              onChange={handleChange}
+            />
+          </Space>
+        </Card>
+      </Space>
+    </PageContainer>
   );
 }; 

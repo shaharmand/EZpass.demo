@@ -21,11 +21,10 @@ interface FieldValueResult {
 }
 
 // Direct type-safe mappings for each enum
-const questionTypeTranslations: Record<QuestionType, string> = {
-  'multiple_choice': 'סגורה',
-  'open': 'פתוחה',
-  'code': 'קוד',
-  'step_by_step': 'חישובית'
+export const questionTypeTranslations = {
+  [QuestionType.MULTIPLE_CHOICE]: 'סגורה',
+  [QuestionType.NUMERICAL]: 'חישובית',
+  [QuestionType.OPEN]: 'פתוחה'
 };
 
 const difficultyTranslations: Record<DifficultyLevel, string> = {
@@ -101,12 +100,11 @@ interface EnumMappings {
 }
 
 // Enum translations
-const enumMappings: EnumMappings = {
+export const enumMappings: EnumMappings = {
   questionType: {
-    'multiple_choice': 'סגורה',
-    'open': 'פתוחה',
-    'code': 'קוד',
-    'step_by_step': 'חישובית'
+    [QuestionType.MULTIPLE_CHOICE]: 'סגורה',
+    [QuestionType.NUMERICAL]: 'חישובית',
+    [QuestionType.OPEN]: 'פתוחה'
   },
   
   difficulty: {

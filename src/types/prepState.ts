@@ -12,10 +12,16 @@
  * The types here should NOT contain UI-specific concerns - those belong in prepUI.ts
  */
 
-import type { Question, QuestionFeedback, FilterState } from './question';
+import type { 
+  Question, 
+  QuestionFeedback, 
+  QuestionType,
+  DifficultyLevel 
+} from './question';
 import type { ExamTemplate } from './examTemplate';
 import type { ActivePracticeQuestion, SkipReason } from './prepUI';
 import type { Topic } from './subject';
+import type { DetailedEvalLevel } from './feedback/levels';
 
 // Core prep states
 export type PrepStatus = 'initializing' | 'not_started' | 'active' | 'paused' | 'completed' | 'error';
@@ -69,6 +75,19 @@ export interface TopicSelection {
     subTopics: string[];  // Array of selected subtopicIds
 }
 
+export interface QuestionHistoryEntry {
+    questionId: string;
+    score: number;
+    isCorrect: boolean;
+    timestamp: number;
+    type: QuestionType;
+    subTopicId: string | null;
+    answer: string;
+    evalDetail: DetailedEvalLevel;
+    confidence?: 'low' | 'medium' | 'high';
+    helpRequested: boolean;
+}
+
 // Main prep interface
 export interface StudentPrep {
     // Core identity
@@ -78,17 +97,20 @@ export interface StudentPrep {
     exam: ExamTemplate;
     selection: TopicSelection;
     
-    // Study goals
+    // Custom exam name (optional)
+    customName?: string | null;
+    
+    // Study goals - simplified to just exam date
     goals: {
-      examDate: number;        // Target exam date (timestamp)
-      totalHours: number;      // Total study hours goal (default: 50)
-      weeklyHours: number;     // Weekly study hours goal (totalHours / 4)
-      dailyHours: number;      // Daily study hours goal (totalHours / 28)
-      questionGoal: number;    // Total questions goal based on selected topics
+        examDate: number;        // Target exam date (timestamp)
     };
 
-    // User's current focus/filter state
-    userFocus: FilterState;
+    // User's current focus state
+    focusedType: QuestionType | null;
+    focusedSubTopic: string | null;  // subtopic ID
+    
+    // Progress tracking per subtopic
+    subTopicProgress: Record<string, SubTopicProgress>;
     
     // Complete state management
     state: PrepState;
@@ -110,12 +132,7 @@ export type PrepState =
         completedQuestions: number; // Track number of completed questions
         correctAnswers: number;     // Track number of correct answers
         averageScore: number;       // Track average score
-        questionHistory: Array<{    // Track history of answered questions
-            questionId: string;
-            score: number;
-            isCorrect: boolean;
-            timestamp: number;
-        }>;
+        questionHistory: QuestionHistoryEntry[];
       }
     | { 
         status: 'paused';
@@ -124,12 +141,7 @@ export type PrepState =
         completedQuestions: number;
         correctAnswers: number;
         averageScore: number;
-        questionHistory: Array<{
-            questionId: string;
-            score: number;
-            isCorrect: boolean;
-            timestamp: number;
-        }>;
+        questionHistory: QuestionHistoryEntry[];
       }
     | { 
         status: 'completed';
@@ -138,12 +150,7 @@ export type PrepState =
         completedQuestions: number;
         correctAnswers: number;
         averageScore: number;
-        questionHistory: Array<{
-            questionId: string;
-            score: number;
-            isCorrect: boolean;
-            timestamp: number;
-        }>;
+        questionHistory: QuestionHistoryEntry[];
       }
     | {
         status: 'error';
@@ -152,12 +159,7 @@ export type PrepState =
         completedQuestions: number;
         correctAnswers: number;
         averageScore: number;
-        questionHistory: Array<{
-            questionId: string;
-            score: number;
-            isCorrect: boolean;
-            timestamp: number;
-        }>;
+        questionHistory: QuestionHistoryEntry[];
       };
 
 // Helper to safely get activeTime from any prep state
@@ -187,4 +189,14 @@ export type HelpType = 'explanation' | 'guidance' | 'stuck' | 'teach';
 export interface HelpRequest {
   timestamp: number;
   type: HelpType;
+}
+
+export interface SubTopicProgress {
+  subtopicId: string;
+  currentDifficulty: DifficultyLevel;
+  questionsAnswered: number;
+  correctAnswers: number;
+  totalQuestions: number;  // 20 questions per level as mentioned
+  estimatedTimePerQuestion: number;  // 4 minutes per question as mentioned
+  lastAttemptDate?: number;
 } 

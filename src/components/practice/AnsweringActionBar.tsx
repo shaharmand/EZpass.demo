@@ -13,7 +13,7 @@ import {
   ThunderboltOutlined,
   ForwardOutlined,
   StopOutlined,
-  StepForwardOutlined
+  StepBackwardOutlined
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import type { SkipReason } from '../../types/prepUI';
@@ -104,8 +104,8 @@ export const AnsweringActionBar: React.FC<AnsweringActionBarProps> = ({
           trigger={['click']}
         >
           <Button type="default" className="skip-button">
-            <StepForwardOutlined />
             דלג על שאלה
+            <StepBackwardOutlined />
           </Button>
         </Dropdown>
 

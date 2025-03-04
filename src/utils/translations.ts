@@ -7,10 +7,9 @@ const { Text } = Typography;
 
 // Direct type-safe mappings for each enum
 const questionTypeTranslations: Record<QuestionType, string> = {
-  'multiple_choice': 'סגורה',
-  'open': 'פתוחה',
-  'code': 'קוד',
-  'step_by_step': 'חישובית'
+  [QuestionType.MULTIPLE_CHOICE]: 'סגורה',
+  [QuestionType.NUMERICAL]: 'חישובית',
+  [QuestionType.OPEN]: 'פתוחה'
 };
 
 const difficultyTranslations: Record<DifficultyLevel, string> = {
@@ -22,22 +21,20 @@ const difficultyTranslations: Record<DifficultyLevel, string> = {
 };
 
 const sourceTypeTranslations: Record<SourceType, string> = {
-  'exam': 'מבחן',
-  'book': 'ספר',
-  'author': 'מחבר',
-  'ezpass': 'איזיפס'
+  [SourceType.EXAM]: 'מבחן',
+  [SourceType.EZPASS]: 'איזיפס'
 };
 
-const statusTranslations: Record<QuestionStatus, string> = {
-  'draft': 'טיוטה',
-  'approved': 'מאושר'
+const validationStatusTranslations: Record<ValidationStatus, string> = {
+  [ValidationStatus.VALID]: 'תקין',
+  [ValidationStatus.WARNING]: 'אזהרה',
+  [ValidationStatus.ERROR]: 'לא תקין'
 };
 
-// Add new publication status translations
 const publicationStatusTranslations: Record<PublicationStatusEnum, string> = {
-  'draft': 'טיוטה',
-  'published': 'מפורסם',
-  'archived': 'בארכיון'
+  [PublicationStatusEnum.DRAFT]: 'טיוטה',
+  [PublicationStatusEnum.PUBLISHED]: 'מפורסם',
+  [PublicationStatusEnum.ARCHIVED]: 'בארכיון'
 };
 
 // Simple translation functions
@@ -53,11 +50,10 @@ function translateSourceType(type: SourceType): string {
   return sourceTypeTranslations[type] || type;
 }
 
-function translateStatus(status: QuestionStatus): string {
-  return statusTranslations[status] || status;
+function translateValidationStatus(status: ValidationStatus): string {
+  return validationStatusTranslations[status] || status;
 }
 
-// Update translation function
 function translatePublicationStatus(status: PublicationStatusEnum): string {
   return publicationStatusTranslations[status] || status;
 }
@@ -75,8 +71,12 @@ function getValidDifficultyLevels(): string[] {
   return Object.values(difficultyTranslations);
 }
 
-function getValidStatuses(): string[] {
-  return Object.values(statusTranslations);
+function getValidValidationStatuses(): string[] {
+  return Object.values(validationStatusTranslations);
+}
+
+function getValidPublicationStatuses(): string[] {
+  return Object.values(publicationStatusTranslations);
 }
 
 // Export everything
@@ -84,12 +84,13 @@ export {
   translateQuestionType,
   translateDifficulty,
   translateSourceType,
-  translateStatus,
+  translateValidationStatus,
   translatePublicationStatus,
   getValidQuestionTypes,
   getValidSourceTypes,
   getValidDifficultyLevels,
-  getValidStatuses
+  getValidValidationStatuses,
+  getValidPublicationStatuses
 };
 
 // Types
@@ -110,10 +111,9 @@ interface EnumMappings {
 // Enum translations
 const enumMappings: EnumMappings = {
   questionType: {
-    'multiple_choice': 'סגורה',
-    'open': 'פתוחה',
-    'code': 'קוד',
-    'step_by_step': 'חישובית'
+    [QuestionType.MULTIPLE_CHOICE]: 'סגורה',
+    [QuestionType.NUMERICAL]: 'חישובית',
+    [QuestionType.OPEN]: 'פתוחה'
   },
   
   difficulty: {
@@ -125,10 +125,8 @@ const enumMappings: EnumMappings = {
   },
 
   sourceType: {
-    'exam': 'מבחן',
-    'book': 'ספר',
-    'author': 'מחבר',
-    'ezpass': 'איזיפס'
+    [SourceType.EXAM]: 'מבחן',
+    [SourceType.EZPASS]: 'איזיפס'
   },
 
   publication_status: {
@@ -465,17 +463,16 @@ export const getQuestionSourceDisplay = (source: {
   season?: string;
   moed?: string;
   order?: string | number;
-  bookName?: string;
-  bookLocation?: string;
-  authorName?: string;
-  institution?: string;
 }): string => {
   const sourceTypeText = getEnumTranslation('sourceType', source.sourceType);
 
   switch (source.sourceType) {
-    case 'exam':
+    case SourceType.EXAM:
       if (!source.examTemplateId) return sourceTypeText;
-      const examName = enumMappings.examTemplate[source.examTemplateId] || source.examTemplateId;
+      
+      // Use static exam template translations
+      const examName = examTemplateTranslations[source.examTemplateId] || source.examTemplateId;
+      
       const season = source.season ? getEnumTranslation('season', source.season) : '';
       const year = source.year?.toString() || '';
       const moed = source.moed ? getEnumTranslation('moed', source.moed) : '';
@@ -485,21 +482,7 @@ export const getQuestionSourceDisplay = (source: {
         .filter(Boolean)
         .join(' • ');
 
-    case 'book':
-      if (!source.bookName) return sourceTypeText;
-      const bookInfo = [source.bookName];
-      if (source.bookLocation) bookInfo.push(`(${source.bookLocation})`);
-      if (source.year) bookInfo.push(source.year.toString());
-      return bookInfo.join(' ');
-
-    case 'author':
-      if (!source.authorName) return sourceTypeText;
-      const authorInfo = [source.authorName];
-      if (source.institution) authorInfo.push(`- ${source.institution}`);
-      if (source.year) authorInfo.push(source.year.toString());
-      return authorInfo.join(' ');
-
-    case 'ezpass':
+    case SourceType.EZPASS:
       return 'שאלת תרגול מקורית - איזיפס';
 
     default:

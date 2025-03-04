@@ -1,43 +1,39 @@
 import React, { useState } from 'react';
 import { Space, Typography, Popover } from 'antd';
 import { StarFilled, StarOutlined, AimOutlined } from '@ant-design/icons';
-import { Question, FilterState, QuestionType } from '../../types/question';
+import { Question, DifficultyLevel } from '../../types/question';
 import { SkipReason } from '../../types/prepUI';
 import { getQuestionTopicName, getQuestionTypeLabel } from '../../utils/questionUtils';
+import { getEnumTranslation } from '../../utils/translations';
 import { DifficultyFeedbackContent } from './DifficultyFeedback';
 import { TypeFilterContent } from './TypeFilter';
 import { SubtopicPopoverContent } from './SubtopicPopover';
+import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import './QuestionHeader.css';
 
 const { Text } = Typography;
 
 interface QuestionHeaderProps {
   question: Question;
-  filters: FilterState;
-  onFiltersChange: (filters: FilterState) => void;
-  onSkip: (reason: SkipReason, filters?: FilterState) => Promise<void>;
+  onSkip: (reason: SkipReason) => Promise<void>;
 }
 
 export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
   question,
-  filters,
-  onFiltersChange,
-  onSkip,
+  onSkip
 }) => {
+  const [isSubtopicPopoverOpen, setIsSubtopicPopoverOpen] = useState(false);
   const [isDifficultyPopoverOpen, setIsDifficultyPopoverOpen] = useState(false);
   const [isTypePopoverOpen, setIsTypePopoverOpen] = useState(false);
-  const [isSubtopicPopoverOpen, setIsSubtopicPopoverOpen] = useState(false);
-
-  const hasTypeFocus = () => !!filters.questionTypes?.length;
-  const hasSubtopicFocus = () => !!filters.subTopics?.length;
-
-  const isTypeFocused = (type: QuestionType) => 
-    filters.questionTypes?.length === 1 && filters.questionTypes[0] === type;
+  const { prep } = useStudentPrep();
 
   const isSubtopicFocused = (subtopicId: string) => 
-    filters.subTopics?.length === 1 && filters.subTopics[0] === subtopicId;
+    prep?.focusedSubTopic === subtopicId;
 
-  const renderDifficultyOption = (difficulty: number) => {
+  const isTypeFocused = (type: string) => 
+    prep?.focusedType === type;
+
+  const renderDifficultyOption = (difficulty: DifficultyLevel) => {
     return (
       <Space>
         {[...Array(5)].map((_, i) => (
@@ -57,8 +53,6 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
             content={
               <SubtopicPopoverContent 
                 question={question}
-                filters={filters}
-                onFiltersChange={onFiltersChange}
                 onClose={() => setIsSubtopicPopoverOpen(false)}
               />
             }
@@ -109,8 +103,6 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
             content={
               <TypeFilterContent 
                 question={question}
-                filters={filters}
-                onFiltersChange={onFiltersChange}
                 onSkip={onSkip}
                 onClose={() => setIsTypePopoverOpen(false)}
               />
@@ -124,22 +116,9 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
               minWidth: '280px'
             }}
           >
-            <div className={`type-selector ${hasTypeFocus() ? 'focused' : ''}`}>
-              <span className="type-label">{getQuestionTypeLabel(question.metadata.type)}</span>
-              <span className="focus-status" style={{
-                fontSize: '12px',
-                color: hasTypeFocus() && isTypeFocused(question.metadata.type) ? '#2563eb' : '#94a3b8',
-                fontWeight: hasTypeFocus() && isTypeFocused(question.metadata.type) ? '500' : 'normal',
-                backgroundColor: hasTypeFocus() && isTypeFocused(question.metadata.type) ? '#e0f2fe' : 'transparent',
-                padding: '2px 8px',
-                borderRadius: '10px'
-              }}>
-                {hasTypeFocus() && isTypeFocused(question.metadata.type) ? 'במיקוד' : 'ללא מיקוד'}
-              </span>
-              <AimOutlined className="focus-icon" style={{ 
-                color: hasTypeFocus() && isTypeFocused(question.metadata.type) ? '#2563eb' : '#64748b',
-                fontSize: '14px'
-              }} />
+            <div className={`type-selector ${isTypeFocused(question.metadata.type) ? 'focused' : ''}`}>
+              {getQuestionTypeLabel(question.metadata.type)}
+              <AimOutlined className="focus-icon" />
             </div>
           </Popover>
         </div>

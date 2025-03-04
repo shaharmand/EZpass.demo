@@ -1,12 +1,13 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Modal, Typography, Button, Tooltip } from 'antd';
 import { 
   InfoCircleOutlined,
   BookOutlined
 } from '@ant-design/icons';
 import type { ExamTemplate } from '../../types/examTemplate';
-import type { FilterState, Question } from '../../types/question';
+import type { Question } from '../../types/question';
 import type { SkipReason } from '../../types/prepUI';
+import { useStudentPrep } from '../../contexts/StudentPrepContext';
 
 const { Text } = Typography;
 
@@ -14,24 +15,22 @@ interface TopicSelectionDialogProps {
   exam: ExamTemplate;
   open: boolean;
   onClose: () => void;
-  currentFilters: FilterState;
-  onFilterChange: (filters: FilterState) => void;
   currentQuestion?: Question;
-  onSkip?: (reason: SkipReason, filters: FilterState) => void;
+  onSkip?: (reason: SkipReason) => void;
 }
 
 export const TopicSelectionDialog: React.FC<TopicSelectionDialogProps> = ({
   exam,
   open,
   onClose,
-  currentFilters,
-  onFilterChange,
   currentQuestion,
   onSkip
 }) => {
+  const { prep, setFocusedSubTopic } = useStudentPrep();
+
   // Helper function to check if a subtopic is focused
   const isSubtopicFocused = (subtopicId: string) => 
-    currentFilters.subTopics?.length === 1 && currentFilters.subTopics[0] === subtopicId;
+    prep?.focusedSubTopic === subtopicId;
 
   // Handle focusing on a subtopic
   const handleFocusSubtopic = async (subtopicId: string) => {
@@ -39,27 +38,22 @@ export const TopicSelectionDialog: React.FC<TopicSelectionDialogProps> = ({
       console.log('FORCE LOG - TopicSelectionDialog handleFocusSubtopic:', {
         subtopicId,
         currentQuestionSubtopic: currentQuestion?.metadata.subtopicId,
-        currentFilters,
         timestamp: new Date().toISOString()
       });
 
-      // Create new filters with the selected subtopic
-      const updatedFilters = { ...currentFilters, subTopics: [subtopicId] };
-
-      // Update filters first
-      onFilterChange(updatedFilters);
+      // Update focus first
+      setFocusedSubTopic(subtopicId);
 
       // If this is a different subtopic than the current question's subtopic
       if (currentQuestion && currentQuestion.metadata.subtopicId !== subtopicId) {
         console.log('FORCE LOG - TopicSelectionDialog initiating skip:', {
           reason: 'filter_change',
-          updatedFilters,
           timestamp: new Date().toISOString()
         });
 
-        // Skip with updated filters and wait for it to complete
+        // Skip and wait for it to complete
         if (onSkip) {
-          await onSkip('filter_change', updatedFilters);
+          await onSkip('filter_change');
           console.log('FORCE LOG - TopicSelectionDialog skip completed');
         } else {
           console.warn('FORCE LOG - TopicSelectionDialog onSkip not provided');
@@ -75,23 +69,12 @@ export const TopicSelectionDialog: React.FC<TopicSelectionDialogProps> = ({
 
   // Handle selecting all topics
   const handleSelectAllTopics = () => {
-    // Remove subTopics filter to show all topics
-    const { subTopics, ...updatedFilters } = currentFilters;
-    
-    // Update filters first
-    onFilterChange(updatedFilters);
+    // Remove focus
+    setFocusedSubTopic(null);
     
     // Close dialog last
     onClose();
   };
-
-  // When dialog opens, if no subtopic is focused, select "all topics"
-  useEffect(() => {
-    if (open && currentFilters.subTopics?.length !== 1) {
-      const { subTopics, ...updatedFilters } = currentFilters;
-      onFilterChange(updatedFilters);
-    }
-  }, [open]);
 
   return (
     <Modal
@@ -125,14 +108,14 @@ export const TopicSelectionDialog: React.FC<TopicSelectionDialogProps> = ({
           padding: '12px',
           textAlign: 'center',
           borderRadius: '8px',
-          background: !currentFilters.subTopics?.length ? '#3b82f6' : '#ffffff',
-          borderColor: !currentFilters.subTopics?.length ? '#3b82f6' : '#d1d5db',
+          background: !prep?.focusedSubTopic ? '#3b82f6' : '#ffffff',
+          borderColor: !prep?.focusedSubTopic ? '#3b82f6' : '#d1d5db',
           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
         }}
       >
         <Text strong style={{ 
           fontSize: '15px',
-          color: !currentFilters.subTopics?.length ? '#ffffff' : '#4b5563'
+          color: !prep?.focusedSubTopic ? '#ffffff' : '#4b5563'
         }}>
           ללא מיקוד - תרגל בכל הנושאים
         </Text>

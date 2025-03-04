@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Typography } from 'antd';
-import type { Question, QuestionFeedback } from '../types/question';
-import { isSuccessfulAnswer } from '../types/question';
+import type { Question } from '../types/question';
+import type { QuestionFeedback } from '../types/feedback/types';
+import { isSuccessfulAnswer } from '../types/feedback/status';
 import './QuestionMultipleChoiceInput.css';
 
 const { Text } = Typography;
+
+// Convert number to Hebrew letter (1 -> א, 2 -> ב, etc.)
+const numberToHebrewLetter = (num: number): string => {
+  const letters = ['א', 'ב', 'ג', 'ד'];
+  return letters[num - 1] || '';
+};
 
 interface QuestionMultipleChoiceInputProps {
   question: Question;
@@ -17,8 +24,8 @@ interface QuestionMultipleChoiceInputProps {
 type OptionStatus = 'correct' | 'incorrect' | 'default';
 
 const getCorrectOption = (question: Question): number | null => {
-  if (question.answer.finalAnswer.type === 'multiple_choice') {
-    return question.answer.finalAnswer.value;
+  if (question.schoolAnswer.finalAnswer?.type === 'multiple_choice') {
+    return question.schoolAnswer.finalAnswer.value;
   }
   return null;
 };
@@ -27,17 +34,19 @@ const getOptionStatus = (
   isSelected: boolean,
   optionNumber: number,
   correctOption: number | null,
-  feedback?: QuestionFeedback
+  feedback?: QuestionFeedback,
+  selectedValue?: number | null
 ): OptionStatus => {
   if (!feedback) return 'default';
   
-  if (isSelected) {
-    return isSuccessfulAnswer(feedback.evalLevel) ? 'correct' : 'incorrect';
-  }
-  
-  // Show correct answer after feedback
-  if (correctOption === optionNumber) {
-    return 'correct';
+  // If there's feedback, show correct/incorrect status
+  if (feedback) {
+    if (correctOption === optionNumber) {
+      return 'correct';
+    }
+    if (isSelected && optionNumber === selectedValue) {
+      return isSuccessfulAnswer(feedback.evalLevel) ? 'correct' : 'incorrect';
+    }
   }
   
   return 'default';
@@ -47,15 +56,44 @@ export const QuestionMultipleChoiceInput: React.FC<QuestionMultipleChoiceInputPr
   question,
   onChange,
   value,
-  disabled,
+  disabled = false,
   feedback
 }) => {
+  // Add local state to maintain selection
+  const [localSelection, setLocalSelection] = useState<number | null>(value);
+
+  // Update local selection when value prop changes
+  useEffect(() => {
+    setLocalSelection(value);
+  }, [value]);
+
+  // Log state changes
+  useEffect(() => {
+    console.log('QuestionMultipleChoiceInput state:', {
+      disabled,
+      hasFeedback: !!feedback,
+      value,
+      localSelection
+    });
+  }, [disabled, feedback, value, localSelection]);
+
   if (!question.content.options) return null;
 
   const handleOptionSelect = (optionNumber: number) => {
-    if (!disabled) {
-      onChange(optionNumber);
+    console.log('Option selected:', {
+      optionNumber,
+      disabled,
+      currentSelection: localSelection
+    });
+    
+    // Double check disabled state
+    if (disabled || feedback) {
+      console.log('Selection prevented - input is disabled or has feedback');
+      return;
     }
+    
+    setLocalSelection(optionNumber);
+    onChange(optionNumber);
   };
 
   const correctOption = getCorrectOption(question);
@@ -64,15 +102,13 @@ export const QuestionMultipleChoiceInput: React.FC<QuestionMultipleChoiceInputPr
     <div className="options-list">
       {question.content.options.map((option, index) => {
         const optionNumber = index + 1;
-        const isSelected = value === optionNumber;
+        const isSelected = localSelection === optionNumber;
+        const status = getOptionStatus(isSelected, optionNumber, correctOption, feedback, value);
         
-        const status = getOptionStatus(isSelected, optionNumber, correctOption, feedback);
-        
-        // Build class names using the status
         const optionClasses = [
-          'option',
+          'option-card',
           isSelected ? 'selected' : '',
-          disabled ? 'disabled' : '',
+          (disabled || feedback) ? 'disabled' : '', // Also disable if there's feedback
           status !== 'default' ? status : ''
         ].filter(Boolean).join(' ');
 
@@ -87,20 +123,24 @@ export const QuestionMultipleChoiceInput: React.FC<QuestionMultipleChoiceInputPr
           isSelected ? 'selected' : '',
           status !== 'default' ? status : ''
         ].filter(Boolean).join(' ');
-        
+
         return (
           <div
-            key={index}
+            key={optionNumber}
             className={optionClasses}
-            onClick={() => handleOptionSelect(optionNumber)}
+            onClick={(disabled || feedback) ? undefined : () => handleOptionSelect(optionNumber)}
+            role="button"
+            tabIndex={(disabled || feedback) ? -1 : 0}
+            style={{ 
+              pointerEvents: (disabled || feedback) ? 'none' : 'auto',
+              cursor: (disabled || feedback) ? 'default' : 'pointer'
+            }}
           >
             <div className="option-content">
-              <div className={numberClasses}>
-                {optionNumber}
+              <div className={numberClasses}>{numberToHebrewLetter(optionNumber)}</div>
+              <div className={textClasses}>
+                <Text>{option.text}</Text>
               </div>
-              <Text className={textClasses}>
-                {option.text}
-              </Text>
             </div>
           </div>
         );

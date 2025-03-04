@@ -13,11 +13,31 @@ class UniversalTopics {
   private domainsMap: Map<string, { domain: Domain; subjectId: string }> = new Map();
   private topicsMap: Map<string, { topic: Topic; subjectId: string; domainId: string }> = new Map();
   private subtopicsMap: Map<string, { subtopic: SubTopic; topicId: string }> = new Map();
+  private isInitialized: boolean = false;
+  private initPromise: Promise<void>;
 
   constructor() {
-    this.init();
-    this.verifyStructure();
-    this.logSubjectsAndDomains();
+    this.initPromise = this.initialize();
+  }
+
+  private async initialize() {
+    try {
+      await this.init();
+      this.verifyStructure();
+      this.logSubjectsAndDomains();
+      this.isInitialized = true;
+    } catch (error) {
+      logger.error('Failed to initialize UniversalTopics:', error);
+      throw error;
+    }
+  }
+
+  public async waitForInitialization() {
+    await this.initPromise;
+  }
+
+  public isReady() {
+    return this.isInitialized;
   }
 
   private init() {
@@ -244,7 +264,8 @@ class UniversalTopics {
               name: st.name,
               description: st.description || '',
               questionTemplate: st.questionTemplate || '',
-              order: st.order || 0
+              order: st.order || 0,
+              percentageOfTotal: st.percentageOfTotal || 0
             };
             this.subtopicsMap.set(st.id, { subtopic, topicId: topic.id });
             return subtopic;
@@ -662,9 +683,14 @@ class UniversalTopics {
   }
 
   getTopicSafe(subjectId: string, domainId: string, topicId: string): Topic | null {
-    const domain = universalTopicsV2.getDomainSafe(subjectId, domainId);
+    const domain = this.getDomainSafe(subjectId, domainId);
     const topic = domain?.topics.find(t => t.id === topicId);
     return topic || null;
+  }
+
+  getDomainSafe(subjectId: string, domainId: string): Domain | null {
+    const subject = this.getAllSubjects().find(s => s.id === subjectId);
+    return subject?.domains.find(d => d.id === domainId) || null;
   }
 }
 

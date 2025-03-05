@@ -80,47 +80,22 @@ export const AnsweringActionBar: React.FC<AnsweringActionBarProps> = ({
 }) => {
   return (
     <div className="answering-action-bar">
-      <div className="action-bar-content">
-        {/* Help Resources */}
-        <Dropdown 
-          menu={{ 
-            items: helpItems,
-            onClick: ({ key }) => onHelp(key as any)
-          }} 
-          trigger={['click']}
+      <div className="answering-action-buttons-container">
+        <button
+          className="help-button"
+          onClick={() => onHelp('explain_question')}
         >
-          <button type="button" className="help-button">
-            <QuestionCircleOutlined />
-            עזרה ומשאבים
-          </button>
-        </Dropdown>
-
-        {/* Skip Question */}
-        <Dropdown 
-          menu={{ 
-            items: skipItems,
-            onClick: ({ key }) => onSkip(key as SkipReason)
-          }}
-          trigger={['click']}
+          <QuestionCircleOutlined />
+          עזרה
+        </button>
+        <button
+          className="answering-action-button answering-submit-button"
+          onClick={onSubmit}
+          disabled={disabled}
         >
-          <button type="button" className="skip-button">
-            דלג על שאלה
-            <StepBackwardOutlined />
-          </button>
-        </Dropdown>
-
-        {/* Submit Answer - New Implementation */}
-        <div className="submit-wrapper">
-          <button 
-            className={`submit-button ${disabled ? 'disabled' : ''}`}
-            onClick={onSubmit}
-            disabled={disabled}
-            type="button"
-          >
-            <span className="submit-text">הגש תשובה</span>
-            <SendOutlined className="submit-icon" />
-          </button>
-        </div>
+          הגש תשובה
+          <ArrowLeftOutlined className="answering-button-icon" />
+        </button>
       </div>
     </div>
   );

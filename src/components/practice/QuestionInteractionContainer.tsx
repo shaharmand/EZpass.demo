@@ -309,13 +309,15 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
 
   const renderActionBar = () => {
     return (
-      <div className="action-bar-wrapper">
-        <AnsweringActionBar
-          onSubmit={handleSubmit}
-          onSkip={handleSkip}
-          onHelp={handleHelp}
-          disabled={!isSubmitEnabled}
-        />
+      <div className="daily-practice-action-bar">
+        <div className="action-bar-wrapper">
+          <AnsweringActionBar
+            onSubmit={handleSubmit}
+            onSkip={handleSkip}
+            onHelp={handleHelp}
+            disabled={!isSubmitEnabled}
+          />
+        </div>
       </div>
     );
   };

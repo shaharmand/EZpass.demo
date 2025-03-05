@@ -3,8 +3,9 @@ import type { Topic, SubTopic } from '../types/subject';
 import { QuestionType } from '../types/question';
 import { DetailedEvalLevel } from '../types/feedback/levels';
 import { DifficultyLevel } from '../types/question';
-import { PrepProgressTracker, SubTopicProgressInfo } from './PrepProgressTracker';
-import { SetProgressTracker, SetProgress, SetQuestionStatus } from './SetProgressTracker';
+import { PrepProgressTracker, SubTopicProgressInfo, ProgressHeaderMetrics } from './PrepProgressTracker';
+import { SetProgressTracker, SetProgress } from './SetProgressTracker';
+import { FeedbackStatus } from '../types/feedback/status';
 import type { ExamTemplate } from '../types/examTemplate';
 import type { FullAnswer } from '../types/question';
 import type { QuestionSubmission } from '../types/submissionTypes';
@@ -76,7 +77,7 @@ export class PrepStateManager {
     private topics: Topic[];
 
     // Internal state tracking
-    private static questionResults: Map<string, Map<string, SetQuestionStatus>> = new Map(); // prepId -> (questionId -> result)
+    private static questionResults: Map<string, Map<string, FeedbackStatus>> = new Map(); // prepId -> (questionId -> result)
     private static currentSets: Map<string, {
         questions: string[];
         currentIndex: number;
@@ -108,22 +109,22 @@ export class PrepStateManager {
             }))
         );
         
-        const tracker = new PrepProgressTracker(subTopicWeights);
+        const tracker = new PrepProgressTracker(subTopicWeights, prep.goals.examDate);
 
         // Add existing question history
         if ('questionHistory' in prep.state && prep.state.questionHistory) {
-            prep.state.questionHistory.forEach(question => {
+            prep.state.questionHistory.forEach(historyEntry => {
                 const subTopic = prep.exam.topics
                     .flatMap(t => t.subTopics)
-                    .find(st => st.id === question.questionId);
+                    .find(st => st.id === historyEntry.question.metadata.subtopicId);
 
                 tracker.addResult(
                     subTopic?.id || null,
-                    question.type,
-                    question.score,
-                    question.timestamp,
-                    question.questionId,
-                    question.isCorrect
+                    historyEntry.question.metadata.type,
+                    historyEntry.submission.feedback?.data.score || 0,
+                    historyEntry.submission.feedback?.receivedAt || Date.now(),
+                    historyEntry.question.id,
+                    historyEntry.submission.feedback?.data.isCorrect || false
                 );
             });
         }
@@ -230,7 +231,6 @@ export class PrepStateManager {
                 lastTick: Date.now(),
                 completedQuestions: 0,
                 correctAnswers: 0,
-                averageScore: 0,
                 questionHistory: []
             }
         };
@@ -259,7 +259,6 @@ export class PrepStateManager {
                 lastTick: now,
                 completedQuestions: prep.state.completedQuestions,
                 correctAnswers: prep.state.correctAnswers,
-                averageScore: prep.state.averageScore,
                 questionHistory: prep.state.questionHistory
             }
         };
@@ -290,7 +289,6 @@ export class PrepStateManager {
                 pausedAt: now,
                 completedQuestions: prep.state.completedQuestions,
                 correctAnswers: prep.state.correctAnswers,
-                averageScore: prep.state.averageScore,
                 questionHistory: prep.state.questionHistory
             }
         };
@@ -320,7 +318,6 @@ export class PrepStateManager {
                 completedAt: now,
                 completedQuestions: prep.state.completedQuestions,
                 correctAnswers: prep.state.correctAnswers,
-                averageScore: prep.state.averageScore,
                 questionHistory: prep.state.questionHistory
             }
         };
@@ -349,7 +346,6 @@ export class PrepStateManager {
                 activeTime,
                 completedQuestions: prep.state.status === 'active' ? prep.state.completedQuestions : 0,
                 correctAnswers: prep.state.status === 'active' ? prep.state.correctAnswers : 0,
-                averageScore: prep.state.status === 'active' ? prep.state.averageScore : 0,
                 questionHistory: prep.state.status === 'active' ? prep.state.questionHistory : []
             }
         };
@@ -377,7 +373,6 @@ export class PrepStateManager {
                 lastTick: now,
                 completedQuestions: prep.state.completedQuestions,
                 correctAnswers: prep.state.correctAnswers,
-                averageScore: prep.state.averageScore
             }
         };
 
@@ -396,18 +391,7 @@ export class PrepStateManager {
         this.savePreps(preps);
     }
 
-    // Get daily progress metrics
-    static getDailyProgress(prep: StudentPrep) {
-        let tracker = this.progressTrackers.get(prep.id);
-        if (!tracker) {
-            tracker = this.initializeProgressTracker(prep);
-            this.progressTrackers.set(prep.id, tracker);
-        }
-        return {
-            questionsAnswered: tracker.getCompletedQuestions(),
-            averageScore: tracker.getAverageScore()
-        };
-    }
+   
 
     // Validate state transition
     static validateTransition(from: PrepStateStatus['status'], to: PrepStateStatus['status']): boolean {
@@ -424,99 +408,15 @@ export class PrepStateManager {
                 return false; // Handle any other cases
         }
     }
-
     // Get progress info - delegate to trackers
-    static getProgress(prep: StudentPrep) {
+    static getHeaderMetrics(prep: StudentPrep): ProgressHeaderMetrics {
         let tracker = this.progressTrackers.get(prep.id);
         if (!tracker) {
             tracker = this.initializeProgressTracker(prep);
             this.progressTrackers.set(prep.id, tracker);
         }
 
-        const now = Date.now();
-        const activeTime = prep.state.status === 'active' 
-            ? (prep.state as { activeTime: number; lastTick: number }).activeTime + (now - (prep.state as { lastTick: number }).lastTick)
-            : (prep.state as { activeTime: number }).activeTime || 0;
-
-        const subTopicProgress = tracker.getSubTopicProgressTable();
-        const totalQuestions = 20 * subTopicProgress.length * 5; // 20 questions per level, 5 levels per subtopic
-        
-        return {
-            metrics: {
-                status: prep.state.status,
-                activeTime
-            },
-            progress: {
-                overall: tracker.getOverallProgress(),
-                byType: {
-                    multipleChoice: subTopicProgress.reduce((acc, st) => acc + st.multipleChoiceProgress, 0) / subTopicProgress.length,
-                    open: subTopicProgress.reduce((acc, st) => acc + st.openProgress, 0) / subTopicProgress.length,
-                    numerical: tracker.getNumericProgress()
-                },
-                bySubTopic: subTopicProgress
-            },
-            successRate: {
-                overall: tracker.getCorrectAnswers() / Math.max(1, tracker.getCompletedQuestions()),
-                byType: {
-                    multipleChoice: tracker.getCorrectAnswers() / Math.max(1, tracker.getCompletedQuestions()),
-                    open: tracker.getCorrectAnswers() / Math.max(1, tracker.getCompletedQuestions()),
-                    numerical: tracker.getCorrectAnswers() / Math.max(1, tracker.getCompletedQuestions())
-                }
-            },
-            completion: {
-                questions: {
-                    completed: tracker.getCompletedQuestions(),
-                    correct: tracker.getCorrectAnswers(),
-                    total: totalQuestions
-                },
-                time: {
-                    completed: activeTime,
-                    remaining: prep.goals.examDate - now
-                }
-            },
-            overall: {
-                time: {
-                    completed: activeTime,
-                    target: prep.goals.examDate - now
-                }
-            },
-            weekly: {
-                time: {
-                    completed: activeTime,
-                    target: Math.ceil((prep.goals.examDate - now) / Math.max(1, moment(prep.goals.examDate).diff(moment(), 'weeks')))
-                }
-            },
-            daily: {
-                time: {
-                    completed: activeTime,
-                    target: Math.ceil((prep.goals.examDate - now) / Math.max(1, moment(prep.goals.examDate).diff(moment(), 'days')))
-                }
-            }
-        };
-    }
-
-    // Get detailed progress info - delegate to trackers
-    static getDetailedProgress(prep: StudentPrep): DetailedProgress {
-        let tracker = this.progressTrackers.get(prep.id);
-        if (!tracker) {
-            tracker = this.initializeProgressTracker(prep);
-            this.progressTrackers.set(prep.id, tracker);
-        }
-        return {
-            successRates: {
-                multipleChoice: tracker.getSubTopicProgressTable().reduce((acc, st) => acc + st.multipleChoiceProgress, 0) / tracker.getSubTopicProgressTable().length,
-                open: tracker.getSubTopicProgressTable().reduce((acc, st) => acc + st.openProgress, 0) / tracker.getSubTopicProgressTable().length,
-                numerical: tracker.getNumericProgress(),
-                overall: tracker.getOverallProgress()
-            },
-            progressByType: {
-                multipleChoice: tracker.getSubTopicProgressTable().reduce((acc, st) => acc + st.multipleChoiceProgress, 0) / tracker.getSubTopicProgressTable().length,
-                open: tracker.getSubTopicProgressTable().reduce((acc, st) => acc + st.openProgress, 0) / tracker.getSubTopicProgressTable().length,
-                numerical: tracker.getNumericProgress(),
-                total: tracker.getOverallProgress()
-            },
-            subTopicProgress: tracker.getSubTopicProgressTable()
-        };
+        return tracker.getLatestMetrics();
     }
 
     // Get set progress
@@ -527,27 +427,10 @@ export class PrepStateManager {
         return progress;
     }
 
-    // Get header progress - overall metrics
-    static getHeaderProgress(prep: StudentPrep) {
-        let tracker = this.progressTrackers.get(prep.id);
-        if (!tracker) {
-            tracker = this.initializeProgressTracker(prep);
-            this.progressTrackers.set(prep.id, tracker);
-        }
-
-        return {
-            overall: tracker.getOverallProgress(),
-            completed: tracker.getCompletedQuestions(),
-            correct: tracker.getCorrectAnswers(),
-            successRate: tracker.getCorrectAnswers() / Math.max(1, tracker.getCompletedQuestions()),
-            remainingTime: prep.goals.examDate - Date.now()
-        };
-    }
-
     // Get question result at position
-    static getQuestionResult(prepId: string, position: number): SetQuestionStatus {
-        const progress = this.setTracker.getSetProgress(prepId);
-        return progress?.results[position] || SetQuestionStatus.PENDING;
+    static getQuestionResult(prepId: string, position: number): FeedbackStatus | undefined {
+        const progress = this.getSetProgress(prepId);
+        return progress?.results[position];
     }
 
     // Clear current set
@@ -557,9 +440,9 @@ export class PrepStateManager {
 
     // Check if current set is complete
     static isSetComplete(prepId: string): boolean {
-        const progress = this.setTracker.getSetProgress(prepId);
-        if (!progress) return false;
-        return progress.results.every(result => result !== SetQuestionStatus.PENDING);
+        const setProgress = this.getSetProgress(prepId);
+        if (!setProgress) return false;
+        return setProgress.results.every(result => result !== undefined);
     }
 
     // Get current focus state
@@ -636,52 +519,37 @@ export class PrepStateManager {
     }
 
     // Submit answer
-    static submitAnswer(
+    static feedbackArrived(
         prep: StudentPrep,
-        submission: {
-            questionId: string;
-            answer: { text: string };
-            subTopicId: string | null;
-            type: QuestionType;
-            evalDetail: DetailedEvalLevel;
-            score: number;
-            isCorrect: boolean;
-            helpRequested: boolean;
-            confidence?: 'low' | 'medium' | 'high';
-        }
+        question: Question,
+        submission: QuestionSubmission
     ): StudentPrep {
         if (prep.state.status !== 'active') {
             throw new Error('Can only submit answers in active state');
         }
 
         // Update set progress with result
-        this.getSetTracker().handleFeedback(prep.id, submission.score);
-
+        if (submission.feedback?.data) {
+            this.getSetTracker().handleFeedback(prep.id, submission.feedback.data);
+        }
         // Create history entry
         const historyEntry: QuestionHistoryEntry = {
-            questionId: submission.questionId,
-            score: submission.score,
-            isCorrect: submission.isCorrect,
-            timestamp: Date.now(),
-            type: submission.type,
-            subTopicId: submission.subTopicId,
-            answer: submission.answer.text,
-            evalDetail: submission.evalDetail,
-            confidence: submission.confidence,
-            helpRequested: submission.helpRequested
+            question: question,
+            submission: submission
         };
-
         // Update prep state
+        // Ensure feedback exists and has been received
+        if (!submission.feedback?.data) {
+          throw new Error('Cannot update prep state without feedback data');
+        }
+
+        
         const updatedPrep: StudentPrep = {
             ...prep,
             state: {
                 ...prep.state,
                 completedQuestions: prep.state.completedQuestions + 1,
-                correctAnswers: prep.state.correctAnswers + (submission.isCorrect ? 1 : 0),
-                averageScore: (
-                    (prep.state.averageScore * prep.state.completedQuestions + submission.score) / 
-                    (prep.state.completedQuestions + 1)
-                ),
+                correctAnswers: prep.state.correctAnswers + (submission.feedback.data.isCorrect ? 1 : 0),
                 questionHistory: [...prep.state.questionHistory, historyEntry]
             } as PrepState
         };
@@ -693,15 +561,20 @@ export class PrepStateManager {
             this.progressTrackers.set(prep.id, tracker);
         }
         tracker.addResult(
-            submission.subTopicId,
-            submission.type,
-            submission.score,
+            question.metadata.subtopicId || null,
+            question.metadata.type,
+            submission.feedback?.data.score || 0,
             Date.now(),
-            submission.questionId,
-            submission.isCorrect
+            question.id,
+            submission.feedback?.data.isCorrect || false
         );
 
-        return this.updatePrep(updatedPrep);
+        // Save to storage
+        const preps = this.loadPreps();
+        preps[updatedPrep.id] = updatedPrep;
+        this.savePreps(preps);
+
+        return updatedPrep;
     }
 
     // Add the missing updatePrep method

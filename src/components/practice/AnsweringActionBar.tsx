@@ -89,10 +89,10 @@ export const AnsweringActionBar: React.FC<AnsweringActionBarProps> = ({
           }} 
           trigger={['click']}
         >
-          <Button type="text" className="help-button">
+          <button type="button" className="help-button">
             <QuestionCircleOutlined />
             עזרה ומשאבים
-          </Button>
+          </button>
         </Dropdown>
 
         {/* Skip Question */}
@@ -103,10 +103,10 @@ export const AnsweringActionBar: React.FC<AnsweringActionBarProps> = ({
           }}
           trigger={['click']}
         >
-          <Button type="default" className="skip-button">
+          <button type="button" className="skip-button">
             דלג על שאלה
             <StepBackwardOutlined />
-          </Button>
+          </button>
         </Dropdown>
 
         {/* Submit Answer - New Implementation */}

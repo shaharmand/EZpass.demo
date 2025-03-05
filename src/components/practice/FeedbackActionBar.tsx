@@ -40,19 +40,19 @@ export const FeedbackActionBar: React.FC<FeedbackActionBarProps> = ({
   return (
     <div className="feedback-action-bar">
       <div className="feedback-action-bar-content">
-        <div className="action-buttons-container">
+        <div className="feedback-action-buttons-container">
           {showRetry && (
-            <button className="action-button retry-button" onClick={handleRetry}>
-              <RedoOutlined className="button-icon" />
+            <button className="feedback-action-button feedback-retry-button" onClick={handleRetry}>
+              <RedoOutlined className="feedback-button-icon" />
               נסה שוב
             </button>
           )}
           <button 
-            className={`action-button next-button ${isSuccess ? 'success' : 'error'}`} 
+            className={`feedback-action-button feedback-next-button ${isSuccess ? 'success' : 'error'}`} 
             onClick={handleNext}
           >
             {isSuccess ? 'המשך' : 'הבא'}
-            <ArrowLeftOutlined className="button-icon" />
+            <ArrowLeftOutlined className="feedback-button-icon" />
           </button>
         </div>
       </div>

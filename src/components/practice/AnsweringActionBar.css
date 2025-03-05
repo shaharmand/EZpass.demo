@@ -9,6 +9,7 @@
   position: sticky;
   bottom: 24px;
   z-index: 10;
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   background-color: rgba(255, 255, 255, 0.9);
 }
@@ -31,54 +32,96 @@
 
 /* Help Button */
 .help-button {
-  height: 44px;
+  all: unset;
+  cursor: pointer;
+  height: 40px;
   padding: 0 20px;
-  border-radius: 22px;
-  font-size: 15px;
-  display: flex;
+  border-radius: 20px;
+  font-size: 14px;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #4b5563;
-  border: 2px solid #e5e7eb;
-  transition: all 0.2s ease;
+  color: #374151;
+  background: #ffffff;
+  border: 1.5px solid #d1d5db;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 500;
+  position: relative;
+  overflow: hidden;
 }
 
 .help-button:hover {
   color: #2563eb;
-  border-color: #2563eb;
   background: #f0f9ff;
+  border-color: #60a5fa;
   transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+}
+
+.help-button:active {
+  transform: translateY(0);
+  background: #e0f2fe;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px -2px rgba(37, 99, 235, 0.05);
 }
 
 .help-button .anticon {
-  font-size: 18px;
+  font-size: 16px;
+  transition: transform 0.3s ease;
+  color: #6b7280;
+}
+
+.help-button:hover .anticon {
+  transform: scale(1.1);
+  color: #2563eb;
 }
 
 /* Skip Button */
 .skip-button {
-  height: 44px;
+  all: unset;
+  cursor: pointer;
+  height: 40px;
   padding: 0 20px;
-  border-radius: 22px;
-  font-size: 15px;
-  display: flex;
+  border-radius: 20px;
+  font-size: 14px;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #4b5563;
-  border: 2px solid #e5e7eb;
-  transition: all 0.2s ease;
+  color: #374151;
+  background: #ffffff;
+  border: 1.5px solid #d1d5db;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 500;
+  position: relative;
+  overflow: hidden;
 }
 
 .skip-button:hover {
   color: #2563eb;
-  border-color: #2563eb;
   background: #f0f9ff;
+  border-color: #60a5fa;
   transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+}
+
+.skip-button:active {
+  transform: translateY(0);
+  background: #e0f2fe;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px -2px rgba(37, 99, 235, 0.05);
 }
 
 .skip-button .anticon {
-  font-size: 18px;
+  font-size: 16px;
+  transition: transform 0.3s ease;
+  color: #6b7280;
+}
+
+.skip-button:hover .anticon {
+  transform: translateX(-2px);
+  color: #2563eb;
 }
 
 /* Submit Button - New Implementation */
@@ -100,14 +143,21 @@
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1), 0 2px 4px -2px rgba(37, 99, 235, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
 .submit-button:hover:not(.disabled) {
   background: #1d4ed8;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 12px -1px rgba(37, 99, 235, 0.2), 0 4px 6px -2px rgba(37, 99, 235, 0.1);
+}
+
+.submit-button:active:not(.disabled) {
+  transform: translateY(0);
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
 }
 
 .submit-button.disabled {
@@ -119,16 +169,21 @@
 
 .submit-text {
   order: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .submit-icon {
   order: 2;
   font-size: 18px;
   transform: rotate(180deg);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 1;
 }
 
 .submit-button:hover:not(.disabled) .submit-icon {
-  transform: rotate(180deg) translateX(2px);
+  transform: rotate(180deg) translateX(4px);
 }
 
 /* Dropdown Menus */

@@ -22,6 +22,7 @@ import type { ExamTemplate } from './examTemplate';
 import type { ActivePracticeQuestion, SkipReason } from './prepUI';
 import type { Topic } from './subject';
 import type { DetailedEvalLevel } from './feedback/levels';
+import type { QuestionSubmission } from './submissionTypes';
 
 // Core prep states
 export type PrepStatus = 'initializing' | 'not_started' | 'active' | 'paused' | 'completed' | 'error';
@@ -76,16 +77,8 @@ export interface TopicSelection {
 }
 
 export interface QuestionHistoryEntry {
-    questionId: string;
-    score: number;
-    isCorrect: boolean;
-    timestamp: number;
-    type: QuestionType;
-    subTopicId: string | null;
-    answer: string;
-    evalDetail: DetailedEvalLevel;
-    confidence?: 'low' | 'medium' | 'high';
-    helpRequested: boolean;
+    question: Question;
+    submission: QuestionSubmission;
 }
 
 // Main prep interface
@@ -131,7 +124,6 @@ export type PrepState =
         lastTick: number;       // Last time we updated activeTime
         completedQuestions: number; // Track number of completed questions
         correctAnswers: number;     // Track number of correct answers
-        averageScore: number;       // Track average score
         questionHistory: QuestionHistoryEntry[];
       }
     | { 
@@ -140,7 +132,6 @@ export type PrepState =
         pausedAt: number;       // When we paused
         completedQuestions: number;
         correctAnswers: number;
-        averageScore: number;
         questionHistory: QuestionHistoryEntry[];
       }
     | { 
@@ -149,7 +140,6 @@ export type PrepState =
         completedAt: number;    // When completed
         completedQuestions: number;
         correctAnswers: number;
-        averageScore: number;
         questionHistory: QuestionHistoryEntry[];
       }
     | {
@@ -158,7 +148,6 @@ export type PrepState =
         activeTime: number;     // Keep track of time even in error
         completedQuestions: number;
         correctAnswers: number;
-        averageScore: number;
         questionHistory: QuestionHistoryEntry[];
       };
 

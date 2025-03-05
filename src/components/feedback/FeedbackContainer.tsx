@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef } from 'react';
 import { Question, QuestionType } from '../../types/question';
 import { 
   QuestionFeedback, 
@@ -30,14 +30,15 @@ import { AuthModal } from '../../components/Auth/AuthModal';
 import { JoinEZPassPlusMessage } from './JoinEZPassPlusMessage';
 import { getFeedbackColor, getFeedbackTitle } from '../../utils/feedbackStyles';
 import { LimitedFeedbackContainer } from './LimitedFeedbackContainer';
+import { useAuth } from '../../contexts/AuthContext';
+import './Feedback.css';
 
 const { Text, Title } = Typography;
 
 interface FeedbackContainerProps {
   question: Question;
-  feedback: QuestionFeedback;
-  selectedAnswer?: string;
-  showDetailedFeedback?: boolean;
+  submission: QuestionSubmission;
+  isLimitedFeedback?: boolean;
 }
 
 // This component shows the restricted version of feedback for free-tier users
@@ -66,7 +67,7 @@ const LimitedFeedback: React.FC<{
           {/* Show the feedback message which already contains the properly formatted answer */}
           <Text className="feedback-message">
             {feedback.message}
-            </Text>
+          </Text>
         </div>
       </div>
 
@@ -102,96 +103,6 @@ const LimitedFeedback: React.FC<{
           </div>
         </div>
       </div>
-
-      <style>
-        {`
-          .limited-feedback {
-            position: relative;
-          }
-
-          .feedback-preview-section {
-            position: relative;
-            margin-top: 16px;
-          }
-
-          .preview-content {
-            padding: 20px;
-          }
-
-          .preview-paragraph {
-            height: 16px;
-            background: #e5e7eb;
-            border-radius: 4px;
-            margin-bottom: 12px;
-            width: 100%;
-            opacity: 0.7;
-          }
-
-          .preview-paragraph.short {
-            width: 70%;
-          }
-
-          .preview-list-item {
-            height: 12px;
-            background: #e5e7eb;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            width: 90%;
-            opacity: 0.5;
-          }
-
-          .feedback-content.preview {
-            position: relative;
-            overflow: hidden;
-            filter: blur(3px);
-            user-select: none;
-            pointer-events: none;
-          }
-
-          .upgrade-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.95) 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            text-align: center;
-            backdrop-filter: blur(8px);
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            transition: all 0.3s ease;
-          }
-
-          .upgrade-overlay:hover {
-            background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.98) 100%);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            transform: translateY(-1px);
-          }
-
-          .lock-icon {
-            font-size: 32px;
-            color: #2563eb;
-            margin-bottom: 16px;
-          }
-
-          .upgrade-text {
-            font-size: 18px;
-            color: #1f2937;
-            margin-bottom: 8px;
-          }
-
-          .upgrade-subtext {
-            color: #6b7280;
-            font-size: 14px;
-          }
-        `}
-      </style>
     </div>
   );
 };
@@ -261,97 +172,58 @@ const DetailedFeedback: React.FC<{
 
 export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   question,
-  feedback,
-  selectedAnswer,
-  showDetailedFeedback = true
+  submission,
+  isLimitedFeedback = false
 }) => {
-  const { getFeedbackMode } = usePracticeAttempts();
-  const feedbackMode = getFeedbackMode();
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const isGuest = !user;
 
-  // Create a submission object from the props
-  const submission: QuestionSubmission = {
-    questionId: question.id,
-    answer: {
-      finalAnswer: question.metadata.type === QuestionType.MULTIPLE_CHOICE ? {
-        type: 'multiple_choice',
-        value: parseInt(selectedAnswer || '1') as 1 | 2 | 3 | 4
-      } : undefined,
-      solution: {
-        text: selectedAnswer || '',
-        format: 'markdown'
-      }
-    },
-    feedback: {
-      data: feedback,
-      receivedAt: Date.now()
-    },
-    metadata: {
-      submittedAt: Date.now(),
-      timeSpentMs: 0,
-      helpRequested: false
-    }
-  };
-
-  // For guests who haven't signed up
-  if (feedbackMode === 'none') {
-    return (
-      <>
-        <LimitedFeedbackContainer 
-          feedback={feedback as LimitedQuestionFeedback}
-          question={question}
-          selectedAnswer={selectedAnswer}
-          onShowUpgradeModal={() => {}}
-          mode="guest"
-        />
-        <AuthModal
-          open={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-        />
-      </>
-    );
+  // Safety check - if no feedback data, don't render anything
+  if (!submission.feedback?.data) {
+    return null;
   }
 
-  // For users who exceeded their free feedback limit
-  if (feedbackMode === 'limited') {
+  // If limited feedback is requested, show limited feedback
+  if (isLimitedFeedback) {
     return (
-      <LimitedFeedbackContainer 
-        feedback={feedback as LimitedQuestionFeedback}
+      <LimitedFeedbackContainer
         question={question}
-        selectedAnswer={selectedAnswer}
-        onShowUpgradeModal={() => {}}
-        mode="limited"
+        feedback={submission.feedback.data as LimitedQuestionFeedback}
+        selectedAnswer={submission.answer.finalAnswer?.type === 'multiple_choice' ? 
+          String(submission.answer.finalAnswer.value) : 
+          submission.answer.solution.text}
+        onShowUpgradeModal={() => window.open('https://ezpass.co.il/plus', '_blank')}
+        isGuest={isGuest}
       />
     );
   }
 
-  // For users with remaining feedback attempts or paid users
-  // First check if it's a multiple choice question and basic feedback
-  if (question.metadata.type === QuestionType.MULTIPLE_CHOICE && isBasicFeedback(feedback)) {
+  // For multiple choice questions with basic feedback
+  if (question.metadata.type === QuestionType.MULTIPLE_CHOICE && isBasicFeedback(submission.feedback.data)) {
     return (
       <MultipleChoiceFeedback
         question={question}
         submission={submission}
-        showDetailedFeedback={showDetailedFeedback}
       />
     );
   }
 
-  // For other question types, show detailed feedback if available
-  if (isDetailedFeedback(feedback)) {
-    return <DetailedFeedback feedback={feedback} question={question} />;
+  // For other question types with detailed feedback
+  if (isDetailedFeedback(submission.feedback.data)) {
+    return <DetailedFeedback feedback={submission.feedback.data} question={question} />;
   }
 
-  // For basic feedback, show the limited feedback view
+  // Fallback to limited feedback for basic feedback
   return (
     <LimitedFeedbackContainer
       question={question}
-      feedback={feedback as LimitedQuestionFeedback}
-      selectedAnswer={selectedAnswer}
+      feedback={submission.feedback.data as LimitedQuestionFeedback}
+      selectedAnswer={submission.answer.finalAnswer?.type === 'multiple_choice' ? 
+        String(submission.answer.finalAnswer.value) : 
+        submission.answer.solution.text}
       onShowUpgradeModal={() => window.open('https://ezpass.co.il/plus', '_blank')}
-      mode="limited"
+      isGuest={isGuest}
     />
   );
 };

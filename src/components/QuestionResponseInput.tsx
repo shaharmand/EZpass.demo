@@ -8,7 +8,6 @@ import { MonacoEditor } from './MonacoEditor';
 import { QuestionMultipleChoiceInput } from './QuestionMultipleChoiceInput';
 import { RedoOutlined } from '@ant-design/icons';
 import './QuestionResponseInput.css';
-import { usePracticeAttempts } from '../contexts/PracticeAttemptsContext';
 import { isSuccessfulAnswer } from '../types/feedback/status';
 
 const { TextArea } = Input;
@@ -82,7 +81,6 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
   selectedAnswer = null,
   onCanSubmitChange
 }) => {
-  const { isGuestLimitExceeded } = usePracticeAttempts();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check if answer is valid based on question type

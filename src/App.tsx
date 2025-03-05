@@ -20,37 +20,52 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <StudentPrepProvider>
-        <PracticeAttemptsProvider>
-          <ExamProvider>
-            <Routes>
-              <Route path="/" element={<ExamDashboard />} />
-              <Route path="/auth" element={<AuthForms />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/practice/:prepId" element={<PracticePage />} />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <UserProfile />
-                </ProtectedRoute>
+        <ExamProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route index element={<ExamDashboard />} />
+            <Route path="auth">
+              <Route index element={<AuthForms />} />
+              <Route path="callback" element={<AuthCallback />} />
+            </Route>
+
+            {/* Practice routes */}
+            <Route path="practice">
+              <Route path=":prepId" element={
+                <PracticeAttemptsProvider>
+                  <PracticePage />
+                </PracticeAttemptsProvider>
               } />
-              <Route path="/admin" element={
-                <ProtectedRoute>
-                  <AdminLayout children={<Outlet />} />
-                </ProtectedRoute>
-              }>
-                <Route index element={<AdminDashboard />} />
-                <Route path="questions">
-                  <Route index element={<QuestionLibraryPage />} />
-                  <Route path="new" element={<QuestionEditor />} />
-                  <Route path=":id" element={<QuestionEditor />} />
-                  <Route path="import" element={<QuestionImport />} />
-                </Route>
+            </Route>
+
+            {/* Protected routes */}
+            <Route path="profile" element={
+              <ProtectedRoute>
+                <UserProfile />
+              </ProtectedRoute>
+            } />
+
+            {/* Admin routes */}
+            <Route path="admin" element={
+              <ProtectedRoute>
+                <AdminLayout>
+                  <Outlet />
+                </AdminLayout>
+              </ProtectedRoute>
+            }>
+              <Route index element={<AdminDashboard />} />
+              <Route path="questions">
+                <Route index element={<QuestionLibraryPage />} />
+                <Route path="new" element={<QuestionEditor />} />
+                <Route path=":id" element={<QuestionEditor />} />
+                <Route path="import" element={<QuestionImport />} />
               </Route>
-            </Routes>
-          </ExamProvider>
-        </PracticeAttemptsProvider>
+            </Route>
+          </Routes>
+        </ExamProvider>
       </StudentPrepProvider>
     </AuthProvider>
   );
-};
+}
 
 export default App;

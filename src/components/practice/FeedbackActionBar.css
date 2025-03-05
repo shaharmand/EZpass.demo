@@ -4,23 +4,41 @@
   padding: 20px;
   border-radius: 16px;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.1), 0 4px 8px -4px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
-  position: relative;
-  z-index: 1;
+  position: sticky;
+  bottom: 24px;
+  z-index: 10;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.95);
+  transform: translateY(0);
+}
+
+.feedback-action-bar:hover {
+  border-color: #2563eb;
+  box-shadow: 0 12px 20px -4px rgba(37, 99, 235, 0.15), 0 8px 12px -4px rgba(37, 99, 235, 0.1);
+  transform: translateY(-2px);
 }
 
 .feedback-action-bar-content {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 16px;
+  gap: 24px;
   width: 100%;
-  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.feedback-action-buttons-container {
+  display: flex;
+  align-items: center;
+  gap: 24px;
 }
 
 /* Common Button Styles */
-.action-button {
+.feedback-action-button {
   all: unset;
   cursor: pointer;
   height: 48px;
@@ -31,92 +49,93 @@
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  z-index: 2;
+  overflow: hidden;
 }
 
-/* Retry Button */
-.retry-button {
+/* Retry Button - Primary Style */
+.feedback-retry-button {
   background: #2563eb;
   color: white;
-  border: none;
-  min-width: 200px;
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 16px;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1), 0 2px 4px -2px rgba(37, 99, 235, 0.1);
 }
 
-.retry-button:hover {
+.feedback-retry-button:hover {
   background: #1d4ed8;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 12px -1px rgba(37, 99, 235, 0.2), 0 4px 6px -2px rgba(37, 99, 235, 0.1);
+}
+
+.feedback-retry-button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+}
+
+/* Next Button - Secondary Style (Error State) */
+.feedback-next-button {
+  color: #374151;
+  background: #ffffff;
+  border: 1.5px solid #d1d5db;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.feedback-next-button:hover {
+  color: #2563eb;
+  background: #f0f9ff;
+  border-color: #60a5fa;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
 }
 
-/* Next Button */
-.next-button {
-  background: transparent;
-  color: #64748b;
-  border: 2px solid #94a3b8;
-  min-width: 200px;
-  box-shadow: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 3;
+.feedback-next-button:active {
+  transform: translateY(0);
+  background: #e0f2fe;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px -2px rgba(37, 99, 235, 0.05);
 }
 
-.next-button:hover {
-  background: rgba(148, 163, 184, 0.1);
-  border-color: #64748b;
-  transform: translateY(-1px);
-  box-shadow: none;
-}
-
-/* Success State */
-.next-button.success {
-  background: #10b981;  /* Primary green */
+/* Next Button - Success State */
+.feedback-next-button.success {
+  background: #10b981;
   color: white;
   border: none;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.1), 0 2px 4px -2px rgba(16, 185, 129, 0.1);
 }
 
-.next-button.success:hover {
-  background: #059669;  /* Slightly darker shade of the same green */
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);  /* Keep same shadow as non-hover */
-  transform: translateY(-1px);
+.feedback-next-button.success:hover {
+  background: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 12px -1px rgba(16, 185, 129, 0.2), 0 4px 6px -2px rgba(16, 185, 129, 0.1);
 }
 
-/* Error State */
-.next-button.error {
-  background: transparent;
-  color: #64748b;
-  border: 2px solid #94a3b8;
-  box-shadow: none;
-}
-
-.next-button.error:hover {
-  background: rgba(148, 163, 184, 0.1);
-  border-color: #64748b;
-  box-shadow: none;
+.feedback-next-button.success:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.1);
 }
 
 /* Button Icons */
-.button-icon {
+.feedback-button-icon {
   font-size: 18px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 1;
 }
 
-.retry-button .button-icon {
+.feedback-retry-button .feedback-button-icon {
   transform: rotate(45deg);
 }
 
-.next-button .button-icon {
+.feedback-retry-button:hover .feedback-button-icon {
+  transform: rotate(225deg);
+}
+
+.feedback-next-button .feedback-button-icon {
   order: 2;
-  margin-right: 0;
-  margin-left: 8px;
+}
+
+.feedback-next-button:hover .feedback-button-icon {
+  transform: translateX(-4px);
 }
 
 /* Feedback states */
@@ -140,13 +159,13 @@
     padding: 16px;
   }
 
-  .action-button {
+  .feedback-action-bar-content {
+    gap: 16px;
+  }
+
+  .feedback-action-button {
     height: 44px;
     padding: 0 24px;
     font-size: 15px;
-  }
-
-  .next-button {
-    min-width: 160px;
   }
 } 

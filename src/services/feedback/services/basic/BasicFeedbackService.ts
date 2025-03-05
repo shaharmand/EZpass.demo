@@ -1,6 +1,8 @@
 import { Question, QuestionType } from '../../../../types/question';
 import { createBasicFeedback } from '../../../../types/feedback/types';
 import { logger } from '../../../../utils/logger';
+import { MultipleChoiceAnswer } from '../../../../types/question';
+import { QuestionFeedback } from '../../../../types/feedback/types';
 
 /**
  * Service for generating basic feedback for multiple choice questions
@@ -9,7 +11,10 @@ export class BasicFeedbackService {
   /**
    * Generate feedback for a multiple choice question
    */
-  async generate(question: Question, userAnswer: string) {
+  async generate(
+    question: Question, 
+    finalAnswer: { type: 'multiple_choice'; value: 1 | 2 | 3 | 4 }  // Use the existing type
+  ): Promise<QuestionFeedback> {
     logger.info('Generating basic feedback for multiple choice question', {
       questionId: question.id,
       type: question.metadata.type
@@ -19,7 +24,7 @@ export class BasicFeedbackService {
       throw new Error('Basic feedback service only supports multiple choice questions');
     }
 
-    const userChoice = parseInt(userAnswer);
+    const userChoice = finalAnswer.value;
     const correctAnswer = question.schoolAnswer.finalAnswer?.type === 'multiple_choice' 
       ? question.schoolAnswer.finalAnswer.value 
       : undefined;
@@ -39,7 +44,8 @@ export class BasicFeedbackService {
 
     return createBasicFeedback(
       isCorrect ? 100 : 0,
-      question.schoolAnswer.solution.text || 'No explanation provided'
+      question.schoolAnswer.solution.text || 'No explanation provided',
+      isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה'
     );
   }
 } 

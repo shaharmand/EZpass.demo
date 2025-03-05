@@ -22,22 +22,13 @@ interface TimeTracking {
   startedAt: number;      // When this active session started
 }
 
-interface HeaderMetrics {
-  successRate: number;
-  totalQuestions: number;
+export interface ProgressHeaderMetrics {
+  overallProgress: number;
+  successRate: number;  // 0-100 percentage
+  remainingHours: number;
+  remainingQuestions: number;
+  hoursPracticed: number;
   questionsAnswered: number;
-  overallProgress: {
-    current: number;
-    target: number;
-  };
-  weeklyProgress: {
-    current: number;
-    target: number;
-  };
-  dailyProgress: {
-    current: number;
-    target: number;
-  };
 }
 
 export interface SubTopicProgressInfo {
@@ -62,9 +53,18 @@ export class PrepProgressTracker {
   private timeTracking: TimeTracking;
   private completedQuestions: number = 0;
   private correctAnswers: number = 0;
-  private averageScore: number = 0;
+  private examDate: number;
+  private successRate: number = 0;
+  private headerMetrics: ProgressHeaderMetrics = {
+    overallProgress: 0,
+    successRate: 0,
+    remainingHours: 0,
+    remainingQuestions: 0,
+    hoursPracticed: 0,
+    questionsAnswered: 0
+  };
   
-  constructor(subTopicWeights: Array<{ id: string; percentageOfTotal: number }>) {
+  constructor(subTopicWeights: Array<{ id: string; percentageOfTotal: number }>, examDate: number) {
     console.log('🎯 Creating new PrepProgressTracker instance:', {
       timestamp: new Date().toISOString(),
       weightCount: subTopicWeights.length,
@@ -78,6 +78,8 @@ export class PrepProgressTracker {
       startedAt: Date.now()
     };
     
+    this.examDate = examDate;
+    
     subTopicWeights.forEach(({ id, percentageOfTotal }) => {
       this.subTopicWeights.set(id, percentageOfTotal);
     });
@@ -86,12 +88,16 @@ export class PrepProgressTracker {
       timestamp: new Date().toISOString(),
       weights: Array.from(this.subTopicWeights.entries())
     });
+
+    // Initialize header metrics
+    this.updateHeaderMetrics();
   }
 
   public updateTime(): void {
     const now = Date.now();
     this.timeTracking.activeTime += now - this.timeTracking.lastTick;
     this.timeTracking.lastTick = now;
+    this.updateHeaderMetrics();
   }
 
   public getActiveTime(): number {
@@ -99,23 +105,30 @@ export class PrepProgressTracker {
   }
 
   private logProgressUpdate(): void {
-    const metrics = this.getHeaderMetrics();
+    this.updateHeaderMetrics();
     console.log('Progress Update:', {
       timestamp: new Date().toISOString(),
-      metrics,
+      metrics: this.headerMetrics,
       totalTrackedQuestions: this.questionHistory.length,
       completedQuestions: this.completedQuestions,
       correctAnswers: this.correctAnswers,
-      averageScore: this.averageScore,
       activeTime: this.getActiveTime(),
-      successRate: this.getSuccessRate(),
+      successRate: this.calcSuccessRate(),
       overallProgress: this.getOverallProgress()
     });
   }
 
   private calculateAverage(results: Array<{ score: number }>): number {
     if (results.length === 0) return 0;
-    return results.reduce((sum, r) => sum + r.score, 0) / results.length;
+    const average = results.reduce((sum, r) => sum + r.score, 0) / results.length;
+    
+    console.log('PrepProgressTracker: Calculating average', {
+      resultsCount: results.length,
+      scores: results.map(r => r.score),
+      average
+    });
+    
+    return average;
   }
 
   private getProgressLevel(average: number): number {
@@ -136,6 +149,15 @@ export class PrepProgressTracker {
     const isFirstSubmission = !this.questionHistory.some(q => q.questionId === questionId);
     
     // Add to question history
+    console.log('PrepProgressTracker: Adding result', {
+      questionId,
+      score,
+      isCorrect,
+      timestamp: new Date(timestamp).toISOString(),
+      type: questionType,
+      isFirstSubmission
+    });
+    
     this.questionHistory.push({
       questionId,
       score,
@@ -150,7 +172,7 @@ export class PrepProgressTracker {
       if (isCorrect) {
         this.correctAnswers++;
       }
-      this.averageScore = Math.round(((this.averageScore * (this.completedQuestions - 1)) + score) / this.completedQuestions);
+      this.successRate = this.calcSuccessRate();
     }
 
     if (questionType === QuestionType.NUMERICAL) {
@@ -159,6 +181,7 @@ export class PrepProgressTracker {
       this.updateSubTopicProgress(subTopicId, questionType, score, timestamp);
     }
 
+    this.updateHeaderMetrics();
     this.logProgressUpdate();
   }
 
@@ -194,14 +217,14 @@ export class PrepProgressTracker {
       results.lastResults = results.lastResults.slice(-keepCount);
     }
 
-    const average = this.calculateAverage(results.lastResults);
-    results.progress = this.getProgressLevel(average);
+
+    results.progress = this.getProgressLevel(this.calcSuccessRate());
 
     console.log('✅ Updated subtopic progress:', {
       subTopicId,
       questionType,
       resultsCount: results.lastResults.length,
-      average,
+      successRate: this.calcSuccessRate(),
       newProgress: results.progress
     });
   }
@@ -229,40 +252,25 @@ export class PrepProgressTracker {
     });
   }
 
-  public getHeaderMetrics(): HeaderMetrics {
+  private updateHeaderMetrics(): void {
     const now = Date.now();
-    const last24Hours = now - (24 * 60 * 60 * 1000);
-    const lastWeek = now - (7 * 24 * 60 * 60 * 1000);
-    
-    const allResults = this.getAllResultsSorted();
     const questionsAnswered = this.completedQuestions;
     const totalQuestions = this.calculateTotalRequiredQuestions();
+    const remainingHours = Math.max(0, (this.examDate - now) / (1000 * 60 * 60));
     
-    // Calculate daily and weekly targets
-    const dailyTarget = Math.ceil(totalQuestions / 30); // Assuming 30 days study period
-    const weeklyTarget = dailyTarget * 7;
-    
-    // Calculate actual progress
-    const dailyAnswered = allResults.filter(r => r.timestamp >= last24Hours).length;
-    const weeklyAnswered = allResults.filter(r => r.timestamp >= lastWeek).length;
-    
-    return {
-      successRate: this.getSuccessRate(),
-      totalQuestions,
+    this.headerMetrics = {
+      successRate: this.calcSuccessRate(),
+      overallProgress: this.getOverallProgress(),
       questionsAnswered,
-      overallProgress: {
-        current: questionsAnswered,
-        target: totalQuestions
-      },
-      weeklyProgress: {
-        current: weeklyAnswered,
-        target: weeklyTarget
-      },
-      dailyProgress: {
-        current: dailyAnswered,
-        target: dailyTarget
-      }
+      remainingHours,
+      remainingQuestions: totalQuestions - questionsAnswered,
+      hoursPracticed: this.getActiveTime() / (1000 * 60 * 60)
     };
+  }
+
+  public getLatestMetrics(): ProgressHeaderMetrics {
+    this.updateHeaderMetrics();
+    return this.headerMetrics;
   }
 
   private calculateTotalRequiredQuestions(): number {
@@ -278,8 +286,25 @@ export class PrepProgressTracker {
     const openCount = allResults.filter(r => r.type === QuestionType.OPEN).length;
     const numericalCount = allResults.filter(r => r.type === QuestionType.NUMERICAL).length;
 
+    console.log('PrepProgressTracker: Calculating overall progress', {
+      questionCounts: {
+        multipleChoice: multipleChoiceCount,
+        open: openCount,
+        numerical: numericalCount
+      },
+      totalResults: allResults.length
+    });
+
     // If any type has less than 20 questions, return 0 progress
     if (multipleChoiceCount < 20 || openCount < 20 || numericalCount < 20) {
+        console.log('PrepProgressTracker: Not enough questions for progress calculation', {
+            required: 20,
+            current: {
+                multipleChoice: multipleChoiceCount,
+                open: openCount,
+                numerical: numericalCount
+            }
+        });
         return 0;
     }
 
@@ -312,27 +337,27 @@ export class PrepProgressTracker {
         (this.numericProgress.progress * 0.08)
     );
 
-    // Only log on significant changes
-    if (totalProgress > 0) {
-        console.log('Progress calculation:', {
-            questionCounts: {
-                multipleChoice: multipleChoiceCount,
-                open: openCount,
-                numerical: numericalCount
-            },
-            progress: {
-                multipleChoice: multipleChoiceProgress,
-                open: openProgress,
-                numerical: this.numericProgress.progress,
-                total: totalProgress
-            }
-        });
-    }
+    console.log('PrepProgressTracker: Overall progress calculation', {
+        weights: {
+            multipleChoice: 0.55,
+            open: 0.37,
+            numerical: 0.08
+        },
+        progress: {
+            multipleChoice: multipleChoiceProgress,
+            open: openProgress,
+            numerical: this.numericProgress.progress,
+            total: totalProgress
+        },
+        totalWeights: {
+            multiple: totalMultipleWeight,
+            open: totalOpenWeight
+        }
+    });
 
     return totalProgress;
   }
-
-  public getSuccessRate(): number {
+  public calcSuccessRate(): number {
     const allResults = this.getAllResultsSorted();
     // Use all available results if less than 60, otherwise take last 60
     const resultsToUse = allResults.length <= 60 ? allResults : allResults.slice(-60);
@@ -345,6 +370,16 @@ export class PrepProgressTracker {
       const weight = result.type === QuestionType.MULTIPLE_CHOICE ? 1 : 8;  // Both OPEN and NUMERICAL are weighted 8x
       weightedSum += result.score * weight;
       totalWeight += weight;
+    });
+
+    const successRate = weightedSum / totalWeight;
+
+    console.log('PrepProgressTracker: Success rate calculation', {
+      timestamp: new Date().toISOString(),
+      resultsCount: resultsToUse.length,
+      weightedSum,
+      totalWeight,
+      successRate
     });
 
     return weightedSum / totalWeight;  // Already returns 0-100 since scores are 1-100
@@ -421,7 +456,4 @@ export class PrepProgressTracker {
     return this.correctAnswers;
   }
 
-  public getAverageScore(): number {
-    return this.averageScore;
-  }
 } 

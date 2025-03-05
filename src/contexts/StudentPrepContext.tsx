@@ -3,19 +3,17 @@ import type { ExamTemplate } from '../types/examTemplate';
 import type { StudentPrep } from '../types/prepState';
 import type { QuestionPracticeState, SkipReason } from '../types/prepUI';
 import type { Question, QuestionType } from '../types/question';
-import { DetailedEvalLevel } from '../types/feedback';
+import { DetailedEvalLevel, getEvalLevelFromScore } from '../types/feedback/levels';
 import { PrepStateManager } from '../services/PrepStateManager';
 import { questionStorage } from '../services/admin/questionStorage';
 import { logger } from '../utils/logger';
 import { QuestionSequencer } from '../services/QuestionSequencer';
 import { FeedbackService } from '../services/feedback/FeedbackService';
-import { BasicFeedbackService } from '../services/feedback/services/basic/BasicFeedbackService';
-import { DetailedFeedbackService } from '../services/feedback/DetailedFeedbackService';
-import { AIFeedbackService } from '../services/feedback/AIFeedbackService';
 import { OpenAIService } from '../services/llm/openAIService';
-import { LimitedFeedbackService } from '../services/feedback/LimitedFeedbackService';
 import type { QuestionFeedback } from '../types/feedback/types';
 import type { ExamContext } from '../services/feedback/types';
+import type { QuestionSubmission } from '../types/submissionTypes';
+import type { FullAnswer } from '../types/question';
 
 interface StudentPrepContextType {
   prep: StudentPrep | null;
@@ -23,7 +21,7 @@ interface StudentPrepContextType {
   questionState: QuestionPracticeState;
   setQuestionState: React.Dispatch<React.SetStateAction<QuestionPracticeState>>;
   isQuestionLoading: boolean;
-  submitAnswer: (answer: string) => Promise<void>;
+  submitAnswer: (answer: FullAnswer) => Promise<void>;
   skipQuestion: (reason: SkipReason) => Promise<void>;
   startPrep: (exam: ExamTemplate) => Promise<string>;
   getNext: () => Promise<void>;
@@ -146,7 +144,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [prep?.id, handleGetNext]);
 
-  const handleSubmitAnswer = useCallback(async (answer: string) => {
+  const handleSubmitAnswer = useCallback(async (answer: FullAnswer) => {
     if (!currentQuestion || !prep || !prepStateManager.current) {
       console.error('Cannot submit answer - missing required data', {
         hasCurrentQuestion: !!currentQuestion,
@@ -160,182 +158,77 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     try {
       const startTime = questionState.practiceStartedAt;
-      console.log('=== Starting handleSubmitAnswer ===', {
-        questionId: currentQuestion.id,
-        prepId: prep.id,
-        answerLength: answer.length,
-        questionState: questionState.status
-      });
-
-      // Update UI state to submitted
+      const submissionTime = Date.now();
+      
+      // Update UI state to submitted with the FullAnswer directly
       setQuestionState(prev => ({
         ...prev,
         status: 'submitted',
-        currentAnswer: { solution: { text: answer, format: 'markdown' } }
+        currentAnswer: answer
       }));
 
-      // Let PrepStateManager record the answer
-      console.log('Recording answer in PrepStateManager', {
-        questionId: currentQuestion.id,
-        prepId: prep.id,
-        subTopicId: currentQuestion.metadata.subtopicId,
-        type: currentQuestion.metadata.type
-      });
-      await PrepStateManager.submitAnswer(prep, {
-        questionId: currentQuestion.id,
-        answer: { text: answer },
-        subTopicId: currentQuestion.metadata.subtopicId || null,
-        type: currentQuestion.metadata.type,
-        evalDetail: DetailedEvalLevel.PERFECT,
-        score: 100,
-        isCorrect: true,
-        helpRequested: questionState.helpRequests.length > 0
-      });
-
-      // Update prep state
-      console.log('Updating prep state', {
-        prepId: prep.id,
-        currentQuestionId: currentQuestion.id
-      });
-      const updatedPrep = await PrepStateManager.updatePrep(prep);
-      setPrep(updatedPrep);
-
-      // Get immediate basic feedback
-      console.log('Getting basic feedback', {
-        questionId: currentQuestion.id,
-        answerLength: answer.length
-      });
-      const basicFeedbackService = new BasicFeedbackService();
-      const basicFeedback = await basicFeedbackService.generate(
-        currentQuestion,
-        answer
-      );
-      console.log('Received basic feedback', {
-        questionId: currentQuestion.id,
-        hasFeedback: !!basicFeedback,
-        score: basicFeedback.score
-      });
-
-      const submissionTime = Date.now();
-      console.log('Updating state with basic feedback', {
-        questionId: currentQuestion.id,
-        submissionTime,
-        timeSpentMs: submissionTime - startTime
-      });
-
-      // Update state with basic feedback immediately
-      setQuestionState(prev => ({
-        ...prev,
-        status: 'receivedFeedback',
-        lastSubmittedAt: submissionTime,
-        submissions: [...prev.submissions, {
-          questionId: currentQuestion.id,
-          answer: { solution: { text: answer, format: 'markdown' } },
-          feedback: {
-            data: basicFeedback,
-            receivedAt: Date.now(),
-            isBasic: true
-          },
-          metadata: {
-            submittedAt: submissionTime,
-            timeSpentMs: submissionTime - startTime,
-            helpRequested: questionState.helpRequests.length > 0
-          }
-        }]
-      }));
-
-      console.log('Basic feedback completed, fetching detailed feedback');
-
-      // Create services
-      const openAIService = new OpenAIService(process.env.REACT_APP_OPENAI_API_KEY || '');
-      const aiService = new AIFeedbackService(openAIService);
-      const detailedService = new DetailedFeedbackService(aiService);
-      const basicService = new BasicFeedbackService();
-      const limitedService = new LimitedFeedbackService(basicService, aiService);
+      // Create feedback service
+      const feedbackService = new FeedbackService(new OpenAIService(process.env.REACT_APP_OPENAI_API_KEY || ''));
       
-      // Create feedback service with all dependencies
-      const feedbackService = new FeedbackService(
-        detailedService,
-        basicService,
-        limitedService
-      );
-      
-      // Get exam context
       const examContext: ExamContext = {
         examType: prep.exam.examType,
         examName: prep.exam.names.full,
-        subject: prep.exam.subjectId
+        subject: prep.exam.subjectId,
+        prepId: prep.id
       };
 
       try {
-        console.log('Getting detailed feedback', {
-          questionId: currentQuestion.id,
-          answerLength: answer.length,
-          examContext: {
-            examType: prep.exam.examType,
-            examName: prep.exam.names.full,
-            subject: prep.exam.subjectId
-          }
-        });
-        const detailedFeedback = await feedbackService.generateFeedback(
+        const feedback = await feedbackService.generateFeedback(
           currentQuestion, 
-          answer,
+          answer, // Extract text for feedback service
           false,
           examContext
         );
-        console.log('Received detailed feedback', {
+
+        // Create submission object using the provided FullAnswer
+        const submission = {
           questionId: currentQuestion.id,
-          hasFeedback: !!detailedFeedback,
-          score: detailedFeedback.score
-        });
-        // Update state with detailed feedback
+          answer: answer, // Use the FullAnswer directly
+          metadata: {
+            ...currentQuestion.metadata,
+            submittedAt: submissionTime,
+            timeSpentMs: submissionTime - startTime,
+            helpRequested: questionState.helpRequests.length > 0
+          },
+          feedback: {
+            data: feedback,
+            receivedAt: Date.now()
+          }
+        } satisfies QuestionSubmission;
+
+        // Update PrepStateManager
+        PrepStateManager.feedbackArrived(prep, currentQuestion, submission);
+
+        // Update question state
         setQuestionState(prev => ({
           ...prev,
-          submissions: prev.submissions.map((submission, index) => {
-            if (index === prev.submissions.length - 1) {
-              return {
-                ...submission,
-                feedback: {
-                  data: detailedFeedback,
-                  receivedAt: Date.now(),
-                  isBasic: false
-                }
-              };
-            }
-            return submission;
-          })
+          status: 'receivedFeedback',
+          lastSubmittedAt: submissionTime,
+          submissions: [...prev.submissions, submission]
         }));
-        PrepStateManager.getSetTracker().handleFeedback(prep.id, detailedFeedback.score);
 
-       
         await new Promise(resolve => setTimeout(resolve, 3000));
       } catch (error) {
-        console.error('Error getting detailed feedback:', {
+        console.error('Error getting feedback:', {
           error,
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           questionId: currentQuestion.id,
           prepId: prep.id
         });
-        // Keep basic feedback
-        await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Notify SetTracker of feedback with basic score
-        const score = basicFeedback.score || 0;
-        console.log('About to call handleFeedback with basic feedback', {
-          prepId: prep.id,
-          score,
-          hasBasicFeedback: !!basicFeedback,
-          feedbackScore: basicFeedback.score
-        });
-
-        // Update state to show feedback is ready
+        // Update state to show error
         setQuestionState(prev => ({
           ...prev,
-          status: 'receivedFeedback'
+          status: 'receivedFeedback',
+          error: error instanceof Error ? error.message : 'Unknown error in submission'
         }));
 
-        // Wait a bit more to show the feedback, then get next question
-        console.log('Waiting before getting next question (basic feedback)');
+        // Wait before getting next question
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
 

@@ -13,9 +13,10 @@ interface AuthFormData {
 
 interface AuthFormsProps {
   returnUrl?: string;
+  googleOnly?: boolean;
 }
 
-export function AuthForms({ returnUrl }: AuthFormsProps) {
+export function AuthForms({ returnUrl, googleOnly }: AuthFormsProps) {
   const [activeTab, setActiveTab] = useState('signin');
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const [form] = Form.useForm();
@@ -63,6 +64,48 @@ export function AuthForms({ returnUrl }: AuthFormsProps) {
       message.error('ההתחברות עם Google נכשלה');
     }
   };
+
+  // If googleOnly is true, render only the Google sign-in button
+  if (googleOnly) {
+    return (
+      <Button 
+        icon={<GoogleOutlined style={{ fontSize: '20px', marginRight: '8px' }} />} 
+        onClick={handleGoogleSignIn} 
+        size="large"
+        style={{ 
+          backgroundColor: '#4285f4',
+          borderColor: '#4285f4',
+          color: '#ffffff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          height: '48px',
+          fontSize: '16px',
+          padding: '0 32px',
+          borderRadius: '24px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+          transition: 'all 0.3s ease',
+          fontWeight: 500
+        }}
+        className="google-sign-in-button"
+        onMouseEnter={e => {
+          const target = e.currentTarget;
+          target.style.backgroundColor = '#3367d6';
+          target.style.borderColor = '#3367d6';
+          target.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+        }}
+        onMouseLeave={e => {
+          const target = e.currentTarget;
+          target.style.backgroundColor = '#4285f4';
+          target.style.borderColor = '#4285f4';
+          target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.15)';
+        }}
+      >
+        התחבר עם Google
+      </Button>
+    );
+  }
 
   const items: TabsProps['items'] = [
     {

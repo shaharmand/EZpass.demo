@@ -171,15 +171,13 @@ IMPORTANT:
         }
 
         // Create the detailed feedback with proper evaluation level from AI
-        return {
-          type: 'detailed',
-          score: feedback.score,
-          evalLevel: feedback.evalLevel as DetailedEvalLevel,
-          message: feedback.message,
-          coreFeedback: feedback.coreFeedback,
-          detailedFeedback: feedback.detailedFeedback,
-          criteriaFeedback: feedback.criteriaFeedback
-        };
+        return createDetailedFeedback(
+          feedback.score,
+          feedback.coreFeedback,
+          feedback.detailedFeedback,
+          feedback.criteriaFeedback,
+          feedback.message
+        );
 
       } catch (error) {
         logger.error('Failed to parse AI response:', error);

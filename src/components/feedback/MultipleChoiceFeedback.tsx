@@ -13,6 +13,9 @@ import { MarkdownRenderer } from '../MarkdownRenderer';
 import { logger } from '../../utils/logger';
 import { motion, AnimatePresence } from 'framer-motion';
 import { JoinEZPassPlusMessage } from './JoinEZPassPlusMessage';
+import { MultipleChoiceFeedbackHeader } from './MultipleChoiceFeedbackHeader';
+import { MultipleChoiceFeedbackExplanation } from './MultipleChoiceFeedbackExplanation';
+import styles from './MultipleChoiceFeedback.module.css';
 
 const { Text, Title } = Typography;
 
@@ -26,14 +29,14 @@ interface MultipleChoiceFeedbackProps {
   question: Question;
   submission: QuestionSubmission;
   showDetailedFeedback?: boolean;
-  onRetry?: () => void;
+  onUpgradeClick?: () => void;
 }
 
 export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
   question,
   submission,
   showDetailedFeedback = true,
-  onRetry
+  onUpgradeClick
 }) => {
   const correctAnswerIndex = question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' ? 
     question.schoolAnswer.finalAnswer.value - 1 : -1;
@@ -116,261 +119,17 @@ export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
   const isCorrect = feedbackStatus === FeedbackStatus.SUCCESS;
 
   return (
-    <div className="multiple-choice-feedback">
-      {/* Integrated Title and Answer Section */}
-      <div className="feedback-section">
-        <div className="title-display">
-          <Title level={4} className={isCorrect ? 'success' : 'error'}>
-            {isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה'}
-          </Title>
-        </div>
-
-        <div className="answer-comparison">
-          {!isCorrect ? (
-            <div className="answer-item">
-              <div className="answer-box">
-                <div className="answer-label">התשובה שלך</div>
-                <div className="answer-content incorrect">
-                  <span className="option-number">{numberToHebrewLetter(selectedOptionNumber || 0)}</span>
-                  <span className="option-text">{selectedOption}</span>
-                </div>
-              </div>
-              <div className="answer-box">
-                <div className="answer-label">התשובה הנכונה</div>
-                <div className="answer-content correct">
-                  <span className="option-number">{numberToHebrewLetter(correctOptionNumber || 0)}</span>
-                  <span className="option-text">{correctOption}</span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="answer-item single-answer">
-              <div className="answer-box">
-                <div className="answer-label">התשובה שלך</div>
-                <div className="answer-content correct">
-                  <span className="option-number">{numberToHebrewLetter(selectedOptionNumber || 0)}</span>
-                  <span className="option-text">{selectedOption}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Explanation */}
-      <div className="feedback-details">
-        <Title level={5} className="explanation-title">הסבר</Title>
-        <div className="detailed-feedback">
-          {showDetailedFeedback ? (
-            <MarkdownRenderer content={feedback.basicExplanation} />
-          ) : (
-            <div className="limited-feedback">
-              <div className="limited-feedback-content">
-                <StarOutlined className="star-icon" />
-                <Text>הצטרף לאיזיפס פלוס וקבל הסברים מפורטים לתשובה, עזרה והנחיה אישיים ותכני לימוד מותאמים לצרכיך</Text>
-                <Button type="primary" className="join-button">
-                  הצטרף עכשיו
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <style>
-        {`
-          .multiple-choice-feedback {
-            padding: 16px;
-            background: #ffffff;
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-          }
-
-          .feedback-section {
-            background: #f8fafc;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-            overflow: hidden;
-          }
-
-          .title-display {
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid #e5e7eb;
-          }
-
-          .title-display h4 {
-            margin: 0;
-            font-size: 26px;
-            font-weight: 600;
-            line-height: 1.2;
-          }
-
-          .title-display h4.success {
-            color: #10b981;
-            background: linear-gradient(45deg, #10b981, #34d399);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-          }
-
-          .title-display h4.error {
-            color: #ef4444;
-            background: linear-gradient(45deg, #ef4444, #f87171);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-          }
-
-          .answer-comparison {
-            padding: 16px;
-          }
-
-          .answer-item {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 12px;
-          }
-
-          .answer-item.single-answer {
-            grid-template-columns: minmax(0, 1fr);
-          }
-
-          .answer-box {
-            background: #f8fafc;
-            border-radius: 8px;
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-          }
-
-          .answer-label {
-            color: #4b5563;
-            font-size: 14px;
-            font-weight: 500;
-          }
-
-          .answer-content {
-            padding: 12px;
-            font-size: 15px;
-            line-height: 1.5;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-radius: 6px;
-          }
-
-          .answer-content.correct {
-            background: #f0fdf4;
-            border: 1px solid #86efac;
-          }
-
-          .answer-content.incorrect {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-          }
-
-          .option-number {
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            font-weight: 500;
-          }
-
-          .correct .option-number {
-            color: #10b981;
-            background: #dcfce7;
-            border: 1px solid #86efac;
-          }
-
-          .incorrect .option-number {
-            color: #ef4444;
-            background: #fee2e2;
-            border: 1px solid #fecaca;
-          }
-
-          .option-text {
-            flex: 1;
-          }
-
-          .correct .option-text {
-            color: #10b981;
-          }
-
-          .incorrect .option-text {
-            color: #ef4444;
-          }
-
-          .feedback-details {
-            background: #f8fafc;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
-
-          .explanation-title {
-            margin: 0 !important;
-            color: #4b5563 !important;
-            font-size: 18px !important;
-            font-weight: 600 !important;
-          }
-
-          .detailed-feedback {
-            color: #1f2937;
-            font-size: 15px;
-            line-height: 1.6;
-            padding-top: 4px;
-          }
-
-          .detailed-feedback p {
-            margin: 0;
-          }
-
-          .limited-feedback {
-            background: #f0f9ff;
-            border-radius: 8px;
-            padding: 20px;
-          }
-
-          .limited-feedback-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 16px;
-            text-align: center;
-          }
-
-          .star-icon {
-            font-size: 24px;
-            color: #3b82f6;
-          }
-
-          .join-button {
-            height: 40px;
-            padding: 0 32px;
-            border-radius: 20px;
-            font-size: 15px;
-            font-weight: 500;
-            background: #3b82f6;
-            border: none;
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
-            transition: all 0.3s ease;
-          }
-
-          .join-button:hover {
-            background: #2563eb;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-          }
-        `}
-      </style>
+    <div className={styles['multiple-choice-feedback']}>
+      <MultipleChoiceFeedbackHeader
+        question={question}
+        submission={submission}
+        feedback={feedback}
+      />
+      <MultipleChoiceFeedbackExplanation
+        feedback={feedback}
+        showDetailedFeedback={showDetailedFeedback}
+        onUpgradeClick={onUpgradeClick}
+      />
     </div>
   );
 }; 

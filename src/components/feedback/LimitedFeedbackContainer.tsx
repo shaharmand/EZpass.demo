@@ -1,6 +1,6 @@
-import React from 'react';
-import { Typography, Progress, Button, Modal } from 'antd';
-import { LockOutlined, StarOutlined, TrophyOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
+import { Typography, Progress, Button } from 'antd';
+import { LockOutlined, GoogleOutlined, BookOutlined } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import { 
   Question, 
@@ -9,24 +9,24 @@ import {
 import { 
   QuestionFeedback,
   isBasicFeedback,
-  isDetailedFeedback
+  LimitedQuestionFeedback
 } from '../../types/feedback/types';
-import { 
-  BinaryEvalLevel,
-  DetailedEvalLevel
-} from '../../types/feedback/levels';
+import { BinaryEvalLevel } from '../../types/feedback/levels';
 import { getFeedbackColor, getFeedbackTitle } from '../../utils/feedbackStyles';
-import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
 import { getFeedbackStatus } from '../../types/feedback/status';
+import { AuthForms } from '../Auth/AuthForms';
+import { MultipleChoiceFeedbackHeader } from './MultipleChoiceFeedbackHeader';
+import { QuestionSubmission } from '../../types/submissionTypes';
+import { JoinEZpassPlusDialog } from '../dialogs/JoinEZpassPlusDialog';
 
 const { Text, Title } = Typography;
 
 interface LimitedFeedbackContainerProps {
   question: Question;
-  feedback: QuestionFeedback;
+  feedback: LimitedQuestionFeedback;
   selectedAnswer?: string;
   onShowUpgradeModal: () => void;
-  mode?: 'guest' | 'limited';
+  isGuest: boolean;
 }
 
 export const LimitedFeedbackContainer: React.FC<LimitedFeedbackContainerProps> = ({
@@ -34,231 +34,251 @@ export const LimitedFeedbackContainer: React.FC<LimitedFeedbackContainerProps> =
   feedback,
   selectedAnswer,
   onShowUpgradeModal,
-  mode = 'limited'
+  isGuest
 }) => {
-  const { 
-    attemptsCount, 
-    MAX_DETAILED_FEEDBACK_ATTEMPTS: totalAllowed,
-    userAttemptsCount
-  } = usePracticeAttempts();
-
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
   const isMultipleChoice = question.metadata.type === QuestionType.MULTIPLE_CHOICE;
-  const correctAnswerIndex = isMultipleChoice && question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' ? 
-    question.schoolAnswer.finalAnswer.value - 1 : -1;
-  const correctAnswerText = correctAnswerIndex >= 0 ? 
-    question.content.options?.[correctAnswerIndex]?.text : '';
 
-  return (
-    <div className="limited-feedback">
-      {/* Progress Bar - Only show for limited users */}
-      {mode === 'limited' && (
-        <div className="feedback-progress">
-          <div className="progress-text">
-            <Text>נותרו לך {totalAllowed - userAttemptsCount} משובים מפורטים</Text>
-            <Text type="secondary">מתוך {totalAllowed} המשובים החינמיים</Text>
-          </div>
-          <Progress 
-            percent={(userAttemptsCount / totalAllowed) * 100} 
-            showInfo={false}
-            strokeColor="#2563eb"
-            trailColor="#e2e8f0"
-            strokeWidth={8}
-          />
-        </div>
-      )}
+  const handleJoinClick = () => {
+    setShowJoinDialog(true);
+  };
 
-      {/* Score and Basic Feedback - Only show for limited users */}
-      {mode === 'limited' && (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="feedback-header"
-        >
-          <Progress
-            type="circle"
-            percent={feedback.score}
-            format={(percent) => `${percent}%`}
-            width={60}
-            strokeColor={getFeedbackColor(getFeedbackStatus(feedback.score))}
-          />
-          <div className="feedback-title-section">
-            <Title level={4} className="feedback-title">
-              {getFeedbackTitle(feedback.score, feedback.evalLevel)}
-            </Title>
-            {/* For multiple choice, show correct answer */}
-            {isMultipleChoice && isBasicFeedback(feedback) && (
-              <Text className="feedback-basic-result">
-                {feedback.evalLevel === BinaryEvalLevel.CORRECT ? 
-                  'תשובה נכונה!' : 
-                  `התשובה הנכונה היא: ${correctAnswerText}`
-                }
-              </Text>
-            )}
-            {/* For other questions, show just the message */}
-            {!isMultipleChoice && (
-              <Text className="feedback-message">
-                {feedback.message}
-              </Text>
-            )}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Blurred Preview Section - Show for both guest and limited */}
+  if (isGuest) {
+    return (
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="feedback-preview-section"
+        className="guest-feedback-container"
       >
-        <div className="feedback-content preview">
-          {/* Fake content structure that's blurred */}
+        <div className="guest-feedback-content">
+          <Text className="guest-feedback-message">
+            התחבר כדי לקבל משוב מפורט על התשובות שלך
+          </Text>
+          <div className="guest-feedback-auth">
+            <AuthForms returnUrl={window.location.pathname} googleOnly />
+          </div>
+        </div>
+
+        <style>
+          {`
+            .guest-feedback-container {
+              background: white;
+              border-radius: 12px;
+              border: 1px solid #e5e7eb;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+              padding: 32px;
+              text-align: center;
+              margin: 20px 0;
+            }
+
+            .guest-feedback-content {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 24px;
+            }
+
+            .guest-feedback-message {
+              font-size: 18px;
+              color: #374151;
+              font-weight: 500;
+            }
+
+            .guest-feedback-auth {
+              margin-top: 8px;
+            }
+          `}
+        </style>
+      </motion.div>
+    );
+  }
+
+  // Create a mock submission for the header
+  const mockSubmission: QuestionSubmission = {
+    questionId: question.id,
+    answer: {
+      finalAnswer: selectedAnswer ? {
+        type: 'multiple_choice',
+        value: parseInt(selectedAnswer) as 1 | 2 | 3 | 4
+      } : undefined,
+      solution: { 
+        text: selectedAnswer || '',
+        format: 'markdown'
+      }
+    },
+    metadata: {
+      submittedAt: Date.now(),
+      timeSpentMs: 0,
+      helpRequested: false
+    },
+    feedback: {
+      data: feedback,
+      receivedAt: Date.now()
+    }
+  };
+
+  // For logged-in users, show the header and blurred explanation
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="premium-feedback-container"
+    >
+      {isMultipleChoice && (
+        <MultipleChoiceFeedbackHeader
+          question={question}
+          submission={mockSubmission}
+          feedback={feedback}
+        />
+      )}
+
+      <div className="feedback-preview-section">
+        <div className="feedback-content">
+          <div className="explanation-header">
+            <Title level={5} className="explanation-title">
+              <BookOutlined /> הסבר
+            </Title>
+          </div>
+          {/* Blurred explanation area */}
           <div className="preview-content">
-            <div className="preview-paragraph" />
-            <div className="preview-paragraph short" />
-            <div className="preview-paragraph" />
-            {isMultipleChoice && (
-              <>
-                <div className="preview-list-item" />
-                <div className="preview-list-item" />
-                <div className="preview-list-item" />
-              </>
-            )}
+            <div className="preview-text">
+              <p className="preview-paragraph-text">ההסבר המפורט מראה כיצד לגשת לפתרון השאלה בצורה מובנית ושיטתית.</p>
+              <p className="preview-paragraph-text">נתחיל בניתוח הנתונים העיקריים:</p>
+              <ul className="preview-list">
+                <li className="preview-list-text">• ראשית, נבחן את המשמעות של כל מושג בשאלה</li>
+                <li className="preview-list-text">• לאחר מכן, נראה את הקשר בין המרכיבים השונים</li>
+                <li className="preview-list-text">• לבסוף, נסביר מדוע התשובה שנבחרה היא הנכונה</li>
+              </ul>
+            </div>
           </div>
           
-          {/* Upgrade overlay with different messages for guest vs limited */}
-          <motion.div 
-            className="upgrade-overlay"
-            whileHover={{ 
-              scale: 1.02,
-              transition: { duration: 0.2 }
-            }}
-            onClick={onShowUpgradeModal}
-          >
-            <LockOutlined className="lock-icon" />
+          {/* Clear upgrade message */}
+          <div className="upgrade-message">
             <Text strong className="upgrade-text">
-              {mode === 'guest' ? (
-                'צור חשבון חינמי כדי לראות את התוצאה שלך'
-              ) : (
-                isMultipleChoice ? 
-                  'הסברים מפורטים על התשובה הנכונה' :
-                  'ניתוח מפורט וטיפים לשיפור'
-              )}
+              הצטרף לאיזיפס+ וקבל הסברים מפורטים לתשובות
             </Text>
-            <Text className="upgrade-subtext">
-              {mode === 'guest' ? 
-                'קבל גישה ל-5 משובים מפורטים חינם' :
-                'הצטרף ל-EZPass+ כדי לקבל גישה מלאה'
-              }
-            </Text>
-            <Button type="primary" className="preview-upgrade-button">
-              {mode === 'guest' ? 'צור חשבון חינמי' : 'שדרג עכשיו'}
+            <Button 
+              type="primary" 
+              className="preview-upgrade-button"
+              onClick={handleJoinClick}
+            >
+              הצטרף עכשיו
             </Button>
-          </motion.div>
+          </div>
         </div>
-      </motion.div>
+      </div>
+
+      <JoinEZpassPlusDialog 
+        open={showJoinDialog}
+        onClose={() => setShowJoinDialog(false)}
+      />
 
       <style>
         {`
-          .limited-feedback {
+          .premium-feedback-container {
             position: relative;
-          }
-
-          .feedback-progress {
-            margin-bottom: 20px;
-            background: #f8fafc;
-            padding: 16px;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-          }
-
-          .progress-text {
+            margin: 20px 0;
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
+            flex-direction: column;
+            gap: 16px;
           }
 
-          .feedback-header {
-            width: 100%;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
+          .feedback-preview-section {
+            position: relative;
+            background: white;
             border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+          }
+
+          .feedback-content {
+            position: relative;
             padding: 20px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 24px;
+          }
+
+          .explanation-header {
+            margin-bottom: 12px;
+            padding: 0 4px;
+          }
+
+          .explanation-title {
+            margin: 0 !important;
+            color: #111827 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+          }
+
+          .explanation-title svg {
+            font-size: 18px;
+            color: #6b7280;
           }
 
           .preview-content {
-            padding: 20px;
+            filter: blur(2px);
+            user-select: none;
             opacity: 0.7;
+            margin-bottom: 16px;
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+          }
+
+          .preview-text {
+            color: #4b5563;
+            font-size: 16px;
+            line-height: 1.5;
+          }
+
+          .preview-paragraph-text {
+            margin-bottom: 12px;
+            color: #4b5563;
+          }
+
+          .preview-list {
+            list-style: none;
+            padding-right: 16px;
+            margin: 12px 0;
+          }
+
+          .preview-list-text {
+            margin-bottom: 8px;
+            color: #4b5563;
           }
 
           .preview-paragraph {
-            height: 16px;
-            background: #e5e7eb;
-            border-radius: 4px;
-            margin-bottom: 12px;
-            width: 100%;
-          }
-
-          .preview-paragraph.short {
-            width: 70%;
+            display: none;
           }
 
           .preview-list-item {
-            height: 12px;
-            background: #e5e7eb;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            width: 90%;
+            display: none;
           }
 
-          .feedback-content.preview {
-            position: relative;
-            overflow: hidden;
-            filter: blur(3px);
-            user-select: none;
-          }
-
-          .upgrade-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.98) 100%);
+          .upgrade-message {
+            text-align: center;
+            padding: 16px 24px;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 24px;
-            text-align: center;
-            backdrop-filter: blur(8px);
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-            transition: all 0.3s ease;
-          }
-
-          .lock-icon {
-            font-size: 32px;
-            color: #2563eb;
-            margin-bottom: 16px;
+            gap: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            position: relative;
+            z-index: 2;
+            margin: 0 auto;
+            max-width: 100%;
           }
 
           .upgrade-text {
-            font-size: 18px;
-            color: #1f2937;
-            margin-bottom: 8px;
-          }
-
-          .upgrade-subtext {
-            color: #6b7280;
-            font-size: 14px;
-            margin-bottom: 16px;
+            font-size: 16px;
+            color: #1e293b;
+            font-weight: 500;
           }
 
           .preview-upgrade-button {
@@ -266,12 +286,21 @@ export const LimitedFeedbackContainer: React.FC<LimitedFeedbackContainerProps> =
             border: none;
             height: 40px;
             padding: 0 24px;
-            font-size: 16px;
+            font-size: 14px;
+            font-weight: 500;
             border-radius: 20px;
-            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
+            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+            transition: all 0.2s ease;
+            color: white;
+          }
+
+          .preview-upgrade-button:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
           }
         `}
       </style>
-    </div>
+    </motion.div>
   );
 }; 

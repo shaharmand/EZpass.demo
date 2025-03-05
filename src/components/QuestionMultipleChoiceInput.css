@@ -7,56 +7,94 @@
   margin: 0 auto;
 }
 
-.option-card {
+.multiple-choice-option {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  padding: 16px 20px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 8px;
   background: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  direction: rtl;
+  position: relative;
+  opacity: 0;
+  transform: translateX(20px);
+  transition: all 0.2s ease-out;
+  will-change: opacity, transform;
 }
 
-.option-card:hover:not(.disabled) {
-  border-color: #2563eb;  /* Primary blue */
-  background: rgba(37, 99, 235, 0.05);
-  transform: translateY(-1px);
+.multiple-choice-option.animate-in {
+  animation: optionSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.option-card.selected {
-  border-color: #2563eb;  /* Primary blue */
-  background: rgba(37, 99, 235, 0.1);
+@keyframes optionSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-.option-card.disabled {
+.multiple-choice-option:hover:not(.disabled) {
+  border-color: #3b82f6;
+  background: #f8fafc;
+  transform: translateX(-2px);
+}
+
+.multiple-choice-option.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.multiple-choice-option.selected::before {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  bottom: -2px;
+  width: 4px;
+  background: #3b82f6;
+  border-radius: 0 12px 12px 0;
+}
+
+.multiple-choice-option.disabled {
   cursor: not-allowed;
   opacity: 0.85;
 }
 
-.option-content {
-  display: flex;
-  align-items: center;
-  gap: 48px;
-}
-
-.option-number {
-  min-width: 32px;
+.option-indicator {
+  width: 32px;
   height: 32px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  border: 2px solid #e5e7eb;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: #f3f4f6;
-  color: #6b7280;
-  font-weight: 500;
+  font-weight: 600;
+  color: #4b5563;
   transition: all 0.2s ease;
-  font-size: 16px;
+  flex-shrink: 0;
 }
 
-.option-number.selected {
-  background: #2563eb;  /* Primary blue */
-  color: white;
+.multiple-choice-option:hover:not(.disabled) .option-indicator {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.multiple-choice-option.selected .option-indicator {
+  border-color: #3b82f6;
+  background: #3b82f6;
+  color: #ffffff;
 }
 
 .option-text {
@@ -66,44 +104,33 @@
   line-height: 1.4;
 }
 
-.option-text.selected {
-  color: #2563eb;  /* Primary blue */
-  font-weight: 500;
-}
-
-/* Ensure disabled text remains readable */
-.option-card.disabled .option-text {
-  color: #374151;
-  opacity: 0.85;
-}
-
 /* Feedback states */
-.option-card.correct {
-  border-color: #10b981;  /* Primary green */
-  background: rgba(16, 185, 129, 0.1);  /* Light green background */
+.multiple-choice-option.correct {
+  border-color: #10b981;
+  background: #ecfdf5;
 }
 
-.option-card.incorrect {
-  border-color: #dc2626;  /* Red */
-  background: rgba(220, 38, 38, 0.1);
+.multiple-choice-option.correct::before {
+  background: #10b981;
 }
 
-.option-number.correct {
-  background: #10b981;  /* Primary green */
-  color: white;
+.multiple-choice-option.correct .option-indicator {
+  border-color: #10b981;
+  background: #10b981;
+  color: #ffffff;
 }
 
-.option-number.incorrect {
-  background: #dc2626;  /* Red */
-  color: white;
+.multiple-choice-option.incorrect {
+  border-color: #ef4444;
+  background: #fef2f2;
 }
 
-.option-text.correct {
-  color: #10b981;  /* Primary green */
-  font-weight: 500;
+.multiple-choice-option.incorrect::before {
+  background: #ef4444;
 }
 
-.option-text.incorrect {
-  color: #dc2626;  /* Red */
-  font-weight: 500;
+.multiple-choice-option.incorrect .option-indicator {
+  border-color: #ef4444;
+  background: #ef4444;
+  color: #ffffff;
 } 

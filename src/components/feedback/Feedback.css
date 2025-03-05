@@ -1,0 +1,100 @@
+.limited-feedback {
+  position: relative;
+  margin-top: 48px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.limited-feedback:hover {
+  border-color: #2563eb;
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.1), 0 4px 6px -2px rgba(37, 99, 235, 0.05);
+  transform: translateY(-1px);
+}
+
+.feedback-preview-section {
+  position: relative;
+  margin-top: 16px;
+}
+
+.preview-content {
+  padding: 32px;
+  background: #ffffff;
+}
+
+.preview-paragraph {
+  height: 16px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  width: 100%;
+  opacity: 0.7;
+}
+
+.preview-paragraph.short {
+  width: 70%;
+}
+
+.preview-list-item {
+  height: 12px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  width: 90%;
+  opacity: 0.5;
+}
+
+.feedback-content.preview {
+  position: relative;
+  overflow: hidden;
+  filter: blur(3px);
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.upgrade-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.95) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.upgrade-overlay:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.98) 100%);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.lock-icon {
+  font-size: 32px;
+  color: #2563eb;
+  margin-bottom: 16px;
+}
+
+.upgrade-text {
+  font-size: 18px;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.upgrade-subtext {
+  color: #6b7280;
+  font-size: 14px;
+} 

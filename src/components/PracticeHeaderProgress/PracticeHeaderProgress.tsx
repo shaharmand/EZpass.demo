@@ -11,21 +11,12 @@ interface PracticeHeaderProgressProps {
   prep: StudentPrep;
   onShowTopicDetails?: () => void;
   metrics: {
+    overallProgress: number;
     successRate: number;
-    totalQuestions: number;
+    remainingHours: number;
+    remainingQuestions: number;
+    hoursPracticed: number;
     questionsAnswered: number;
-    overallProgress: {
-      current: number;
-      target: number;
-    };
-    weeklyProgress: {
-      current: number;
-      target: number;
-    };
-    dailyProgress: {
-      current: number;
-      target: number;
-    };
   };
 }
 
@@ -37,10 +28,6 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
   // Helper functions
   const normalizeProgress = (value: number) => Math.round(Math.min(100, Math.max(0, value)));
   const formatHours = (hours: number) => Number(hours.toFixed(1));
-  const formatQuestions = (questions: number) => Math.round(questions);
-
-  // Get detailed progress from PrepStateManager
-  const detailedProgress = PrepStateManager.getDetailedProgress(prep);
 
   // Get success rate styles
   const getSuccessRateStyles = (rate: number, questionCount: number) => {
@@ -75,29 +62,15 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
   };
 
   // Get question count and success rate
-  const questionCount = ('completedQuestions' in prep.state) ? prep.state.completedQuestions : 0;
-  const successRate = detailedProgress.successRates.overall;
+  const questionCount = metrics.questionsAnswered;
+  const successRate = metrics.successRate;
   const successStyles = getSuccessRateStyles(successRate, questionCount);
 
-  // Calculate progress metrics
-  const progress = {
-    total: {
-      raw: detailedProgress.progressByType.total,
-      normalized: normalizeProgress(detailedProgress.progressByType.total)
-    },
-    multipleChoice: {
-      raw: detailedProgress.progressByType.multipleChoice,
-      normalized: normalizeProgress(detailedProgress.progressByType.multipleChoice)
-    },
-    open: {
-      raw: detailedProgress.progressByType.open,
-      normalized: normalizeProgress(detailedProgress.progressByType.open)
-    },
-    numerical: {
-      raw: detailedProgress.progressByType.numerical,
-      normalized: normalizeProgress(detailedProgress.progressByType.numerical)
-    }
-  };
+  console.log('PracticeHeaderProgress: Received progress data', {
+    metrics,
+    questionCount,
+    successRate
+  });
 
   return (
     <div style={{ 
@@ -121,11 +94,17 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
         <TrophyOutlined style={{ fontSize: '16px', color: colors.gray }} />
         <Text style={{ fontSize: '14px' }}>התקדמות כללית</Text>
         <Progress 
-          percent={progress.total.normalized}
+          percent={metrics.overallProgress}
           size="small"
           strokeColor={colors.success}
           style={{ margin: 0, width: '80px' }}
-          format={percent => `${percent}%`}
+          format={percent => {
+            console.log('PracticeHeaderProgress: Rendering progress bar', {
+              overallProgress: metrics.overallProgress,
+              displayPercent: percent
+            });
+            return `${percent}%`;
+          }}
         />
       </div>
 
@@ -171,32 +150,24 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
         </div>
       </div>
 
-      {/* Progress by Question Type */}
+      {/* Time and Questions */}
       <div style={{ 
         display: 'flex', 
         alignItems: 'center',
         gap: '24px'
       }}>
-        <Text style={{ fontSize: '14px', color: colors.gray }}>התקדמות לפי סוג:</Text>
-        <div style={{ 
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Text strong style={{ fontSize: '14px' }}>{Math.round(progress.multipleChoice.normalized)}%</Text>
-            <Text style={{ fontSize: '12px', color: colors.gray }}>רב-ברירה</Text>
-          </div>
-          <Text style={{ color: colors.gray }}>|</Text>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Text strong style={{ fontSize: '14px' }}>{Math.round(progress.open.normalized)}%</Text>
-            <Text style={{ fontSize: '12px', color: colors.gray }}>פתוחות</Text>
-          </div>
-          <Text style={{ color: colors.gray }}>|</Text>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Text strong style={{ fontSize: '14px' }}>{Math.round(progress.numerical.normalized)}%</Text>
-            <Text style={{ fontSize: '12px', color: colors.gray }}>מספרי</Text>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Text style={{ fontSize: '14px', color: colors.gray }}>שאלות:</Text>
+          <Text strong style={{ fontSize: '14px' }}>
+            {metrics.questionsAnswered}/{metrics.questionsAnswered + metrics.remainingQuestions}
+          </Text>
+        </div>
+        <Text style={{ color: colors.gray }}>|</Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Text style={{ fontSize: '14px', color: colors.gray }}>שעות תרגול:</Text>
+          <Text strong style={{ fontSize: '14px' }}>
+            {formatHours(metrics.hoursPracticed)}
+          </Text>
         </div>
       </div>
     </div>

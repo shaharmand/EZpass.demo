@@ -14,6 +14,8 @@ import type { StudentPrep } from '../types/prepState';
 import { logger } from '../utils/logger';
 import { usePracticeAttempts } from '../contexts/PracticeAttemptsContext';
 import { useAuth } from '../contexts/AuthContext';
+import { GuestLimitDialog } from '../components/dialogs/GuestLimitDialog';
+import { UserLimitDialog } from '../components/dialogs/UserLimitDialog';
 import './PracticePage.css';
 import { memo } from 'react';
 import moment from 'moment';
@@ -40,8 +42,9 @@ const PracticePage: React.FC = () => {
     getNext,
     startPrep
   } = useStudentPrep();
-  const { incrementAttempt, getFeedbackMode, checkAndShowGuestLimitIfNeeded } = usePracticeAttempts();
+  const { incrementAttempt, hasExceededLimit, getCurrentAttempts, getMaxAttempts } = usePracticeAttempts();
   const { user } = useAuth();
+  const [showLimitDialog, setShowLimitDialog] = useState(false);
   const [state, setState] = useState<PageState>({
     isLoading: false,
     prep: prep || undefined
@@ -102,27 +105,46 @@ const PracticePage: React.FC = () => {
   }, [skipQuestion]);
 
   const handleNext = useCallback(async () => {
+    // Show dialog when moving to next question after exceeding limit
+    console.log('=== handleNext called ===', {
+      hasExceededLimit,
+      showLimitDialog,
+      isGuest: !user,
+      attempts: getCurrentAttempts(),
+      maxAttempts: getMaxAttempts()
+    });
+
+    if (hasExceededLimit) {
+      console.log('Showing limit dialog due to exceeded limit in handleNext');
+      setShowLimitDialog(true);
+    }
+    
+    // Always proceed to next question
     await getNext();
-  }, [getNext]);
+  }, [getNext, hasExceededLimit, user, getCurrentAttempts, getMaxAttempts]);
 
   const handlePrevious = useCallback(() => {
     getPreviousQuestion();
   }, [getPreviousQuestion]);
 
-  const handleSubmit = useCallback((answer: FullAnswer) => {
-    let answerString = '';
+  const handleSubmit = useCallback(async (answer: FullAnswer) => {
+    const currentAttempts = getCurrentAttempts();
+    const maxAttempts = getMaxAttempts();
     
-    if (answer.finalAnswer?.type === 'multiple_choice') {
-      answerString = String(answer.finalAnswer?.value);
-    } else if (answer.finalAnswer?.type === 'numerical') {
-      answerString = String(answer.finalAnswer?.value);
-    } else {
-      // For open answers, use the solution text
-      answerString = answer.solution.text;
-    }
+    console.log('=== handleSubmit called ===', {
+      hasExceededLimit,
+      showLimitDialog,
+      isGuest: !user,
+      currentAttempts,
+      maxAttempts
+    });
+
+    // First increment the attempt
+    await incrementAttempt();
     
-    submitAnswer(answerString);
-  }, [submitAnswer]);
+    // Always submit the answer
+    submitAnswer(answer);
+  }, [submitAnswer, incrementAttempt, getCurrentAttempts, getMaxAttempts, user]);
 
   const handleExamDateChange = useCallback((date: moment.Moment) => {
     if (!state.prep) return;
@@ -154,6 +176,17 @@ const PracticePage: React.FC = () => {
       setState(prev => ({ ...prev, isLoading: false }));
     }
   }, [state.prep, skipQuestion]);
+
+  // Add logging for dialog visibility changes
+  useEffect(() => {
+    console.log('=== Dialog visibility state changed ===', {
+      showLimitDialog,
+      hasExceededLimit,
+      isGuest: !user,
+      attempts: getCurrentAttempts(),
+      maxAttempts: getMaxAttempts()
+    });
+  }, [showLimitDialog, hasExceededLimit, user, getCurrentAttempts, getMaxAttempts]);
 
   if (!prep) {
     return (
@@ -221,6 +254,23 @@ const PracticePage: React.FC = () => {
           </div>
         )}
       </Layout.Content>
+
+      {/* Dialogs handle their own visibility state */}
+      {!user && (
+        <GuestLimitDialog 
+          open={showLimitDialog} 
+          onClose={() => {
+            console.log('Dialog onClose called, setting showLimitDialog to false');
+            setShowLimitDialog(false);
+          }} 
+        />
+      )}
+      {user && (
+        <UserLimitDialog 
+          open={showLimitDialog} 
+          onClose={() => setShowLimitDialog(false)}
+        />
+      )}
     </Layout>
   );
 };

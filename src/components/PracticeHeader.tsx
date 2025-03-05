@@ -301,34 +301,7 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
     </Space>
   ) : (
     <PracticeHeaderProgress 
-      metrics={{
-        successRate: prep.state.status === 'initializing' || 
-          prep.state.status === 'not_started' ||
-          !('completedQuestions' in prep.state) ||
-          !('averageScore' in prep.state) ||
-          prep.state.completedQuestions === 0
-          ? -1
-          : Math.round(prep.state.averageScore),
-        totalQuestions: prep.exam.topics.reduce((acc, topic) => 
-          acc + (topic.subTopics?.length || 0), 0) * 50,
-        questionsAnswered: prep.state.status === 'initializing' || 
-          prep.state.status === 'not_started' ||
-          !('completedQuestions' in prep.state)
-          ? 0
-          : prep.state.completedQuestions,
-        overallProgress: {
-          current: PrepStateManager.getProgress(prep).overall.time.completed,
-          target: moment(prep.goals.examDate).diff(moment(), 'hours')
-        },
-        weeklyProgress: {
-          current: PrepStateManager.getProgress(prep).weekly.time.completed,
-          target: Math.ceil(moment(prep.goals.examDate).diff(moment(), 'hours') / moment(prep.goals.examDate).diff(moment(), 'weeks'))
-        },
-        dailyProgress: {
-          current: PrepStateManager.getProgress(prep).daily.time.completed,
-          target: Math.ceil(moment(prep.goals.examDate).diff(moment(), 'hours') / Math.max(1, moment(prep.goals.examDate).diff(moment(), 'days')))
-        }
-      }}
+      metrics={PrepStateManager.getHeaderMetrics(prep)}
       prep={prep}
     />
   );

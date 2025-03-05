@@ -23,11 +23,11 @@ export const DailyLimitIndicator: React.FC<DailyLimitIndicatorProps> = ({ curren
             display: inline-flex;
             align-items: center;
             padding: 6px 12px;
-            background: ${current >= max ? '#fff1f2' : '#f0f9ff'};
-            border: 1px solid ${current >= max ? '#fecdd3' : '#bfdbfe'};
+            background: #f0f9ff;
+            border: 1px solid #bfdbfe;
             border-radius: 20px;
             font-size: 14px;
-            color: ${current >= max ? '#be123c' : '#1e40af'};
+            color: #1e40af;
             transition: all 0.2s ease;
           }
 
@@ -40,7 +40,7 @@ export const DailyLimitIndicator: React.FC<DailyLimitIndicatorProps> = ({ curren
 
           .info-icon {
             font-size: 16px;
-            color: ${current >= max ? '#fb7185' : '#60a5fa'};
+            color: #60a5fa;
           }
 
           .limit-text {
@@ -49,7 +49,7 @@ export const DailyLimitIndicator: React.FC<DailyLimitIndicatorProps> = ({ curren
 
           .limit-count {
             font-weight: 600;
-            color: ${current >= max ? '#e11d48' : '#2563eb'};
+            color: #2563eb;
           }
         `}
       </style>

@@ -1,0 +1,82 @@
+.feedback-details {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 16px;
+}
+
+.explanation-title {
+  margin: 0 0 12px 0 !important;
+  color: #111827 !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.explanation-title svg {
+  font-size: 18px;
+  color: #6b7280;
+}
+
+.detailed-feedback {
+  color: #374151;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.detailed-feedback p {
+  margin: 0 0 12px 0;
+}
+
+.detailed-feedback p:last-child {
+  margin-bottom: 0;
+}
+
+.detailed-feedback strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+.detailed-explanation {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.limited-feedback {
+  background: #f0f9ff;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.limited-feedback-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.star-icon {
+  font-size: 20px;
+  color: #3b82f6;
+}
+
+.join-button {
+  height: 36px;
+  padding: 0 24px;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: 500;
+  background: #3b82f6;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.join-button:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+} 

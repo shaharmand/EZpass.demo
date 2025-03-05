@@ -1,10 +1,13 @@
-import { BinaryEvalLevel, DetailedEvalLevel, getEvalLevelFromScore } from './levels';
+import { BinaryEvalLevel, DetailedEvalLevel, getEvalLevelFromScore, getBinaryEvalLevel } from './levels';
 import { CriterionFeedback, createEmptyCriteriaFeedback } from './scoring';
+import { FeedbackStatus, getFeedbackStatus } from './status';
 
 // Base feedback interface with minimal common fields
 interface BaseFeedback {
   score: number;  // Overall score 0-100
   message: string;  // Short summary like "תשובה נכונה!" or "תשובה שגויה"
+  isCorrect: boolean;
+  status: FeedbackStatus;  // The overall status (SUCCESS/PARTIAL/FAILURE)
 }
 
 /**
@@ -62,12 +65,18 @@ export function isDetailedFeedback(feedback: QuestionFeedback): feedback is Deta
 /**
  * Create a limited feedback object
  */
-export function createLimitedFeedback(score: number): LimitedQuestionFeedback {
+export function createLimitedFeedback(
+  score: number,
+  message: string
+): LimitedQuestionFeedback {
+  const evalLevel = getBinaryEvalLevel(score);
   return {
     type: 'limited',
     score,
-    evalLevel: BinaryEvalLevel.INCORRECT, // Limited feedback is always incorrect
-    message: 'חרגת ממכסת השימוש היומית',
+    isCorrect: score >= 80,
+    evalLevel,
+    status: getFeedbackStatus(evalLevel),
+    message,
     reason: 'usage_limit_exceeded'
   };
 }
@@ -78,13 +87,17 @@ export function createLimitedFeedback(score: number): LimitedQuestionFeedback {
 export function createBasicFeedback(
   score: number,
   basicExplanation: string,
+  message: string,
   fullExplanation?: string
 ): BasicQuestionFeedback {
+  const evalLevel = getBinaryEvalLevel(score);
   return {
     type: 'basic',
     score,
-    evalLevel: score >= 80 ? BinaryEvalLevel.CORRECT : BinaryEvalLevel.INCORRECT,
-    message: score >= 80 ? 'תשובה נכונה!' : 'תשובה שגויה',
+    isCorrect: score >= 80,
+    evalLevel,
+    status: getFeedbackStatus(evalLevel),
+    message,
     basicExplanation,
     fullExplanation
   };
@@ -97,13 +110,17 @@ export function createDetailedFeedback(
   score: number,
   coreFeedback: string,
   detailedFeedback: string,
-  criteriaFeedback: CriterionFeedback[]
+  criteriaFeedback: CriterionFeedback[],
+  message: string
 ): DetailedQuestionFeedback {
+  const evalLevel = getEvalLevelFromScore(score);
   return {
     type: 'detailed',
     score,
-    evalLevel: getEvalLevelFromScore(score),
-    message: 'ראה פירוט מטה',
+    isCorrect: score >= 80,
+    evalLevel,
+    status: getFeedbackStatus(evalLevel),
+    message,
     coreFeedback,
     detailedFeedback,
     criteriaFeedback

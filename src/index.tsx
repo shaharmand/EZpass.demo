@@ -2,9 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './index.css';
-import 'antd/dist/antd.css';  // Use the CSS file from antd v4
 import App from './App';
 import { ConfigProvider } from 'antd';
+import 'antd/dist/antd.min.css';  // Using minified version
 
 // Disable findDOMNode warning in development
 const disableFindDOMNodeWarning = () => {
@@ -24,11 +24,9 @@ const root = ReactDOM.createRoot(
 );
 
 root.render(
-  <React.StrictMode>
-    <ConfigProvider direction="rtl">
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <App />
-      </BrowserRouter>
-    </ConfigProvider>
-  </React.StrictMode>
+  <ConfigProvider direction="rtl">
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <App />
+    </BrowserRouter>
+  </ConfigProvider>
 ); 

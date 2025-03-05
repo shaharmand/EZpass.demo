@@ -4,4 +4,5 @@ export interface ExamContext {
   examType: ExamType;
   examName: string;
   subject: string;
+  prepId: string;
 } 

@@ -59,39 +59,35 @@ export const QuestionMultipleChoiceInput: React.FC<QuestionMultipleChoiceInputPr
   disabled = false,
   feedback
 }) => {
-  // Add local state to maintain selection
   const [localSelection, setLocalSelection] = useState<number | null>(value);
+  const [animatedOptions, setAnimatedOptions] = useState<number[]>([]);
 
   // Update local selection when value prop changes
   useEffect(() => {
     setLocalSelection(value);
   }, [value]);
 
-  // Log state changes
+  // Handle staggered animation of options
   useEffect(() => {
-    console.log('QuestionMultipleChoiceInput state:', {
-      disabled,
-      hasFeedback: !!feedback,
-      value,
-      localSelection
+    setAnimatedOptions([]); // Reset animations when question changes
+    
+    // Stagger the animations
+    const options = question.content.options || [];
+    options.forEach((_, index) => {
+      setTimeout(() => {
+        setAnimatedOptions(prev => [...prev, index + 1]);
+      }, 100 * (index + 1));
     });
-  }, [disabled, feedback, value, localSelection]);
+
+    return () => {
+      setAnimatedOptions([]); // Cleanup animations on unmount
+    };
+  }, [question.id]); // Reset and re-run animations when question changes
 
   if (!question.content.options) return null;
 
   const handleOptionSelect = (optionNumber: number) => {
-    console.log('Option selected:', {
-      optionNumber,
-      disabled,
-      currentSelection: localSelection
-    });
-    
-    // Double check disabled state
-    if (disabled || feedback) {
-      console.log('Selection prevented - input is disabled or has feedback');
-      return;
-    }
-    
+    if (disabled || feedback) return;
     setLocalSelection(optionNumber);
     onChange(optionNumber);
   };
@@ -104,24 +100,14 @@ export const QuestionMultipleChoiceInput: React.FC<QuestionMultipleChoiceInputPr
         const optionNumber = index + 1;
         const isSelected = localSelection === optionNumber;
         const status = getOptionStatus(isSelected, optionNumber, correctOption, feedback, value);
+        const isAnimated = animatedOptions.includes(optionNumber);
         
         const optionClasses = [
-          'option-card',
+          'multiple-choice-option',
           isSelected ? 'selected' : '',
-          (disabled || feedback) ? 'disabled' : '', // Also disable if there's feedback
-          status !== 'default' ? status : ''
-        ].filter(Boolean).join(' ');
-
-        const numberClasses = [
-          'option-number',
-          isSelected ? 'selected' : '',
-          status !== 'default' ? status : ''
-        ].filter(Boolean).join(' ');
-
-        const textClasses = [
-          'option-text',
-          isSelected ? 'selected' : '',
-          status !== 'default' ? status : ''
+          (disabled || feedback) ? 'disabled' : '',
+          status !== 'default' ? status : '',
+          isAnimated ? 'animate-in' : ''
         ].filter(Boolean).join(' ');
 
         return (
@@ -136,11 +122,11 @@ export const QuestionMultipleChoiceInput: React.FC<QuestionMultipleChoiceInputPr
               cursor: (disabled || feedback) ? 'default' : 'pointer'
             }}
           >
-            <div className="option-content">
-              <div className={numberClasses}>{numberToHebrewLetter(optionNumber)}</div>
-              <div className={textClasses}>
-                <Text>{option.text}</Text>
-              </div>
+            <div className="option-indicator">
+              {numberToHebrewLetter(optionNumber)}
+            </div>
+            <div className="option-text">
+              <Text>{option.text}</Text>
             </div>
           </div>
         );

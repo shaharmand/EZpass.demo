@@ -64,12 +64,16 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   className,
   style
 }) => {
-  const { getFeedbackMode } = usePracticeAttempts();
-  const isLimitedFeedback = getFeedbackMode() === 'limited';
+  const { isAllowedFullFeedback } = usePracticeAttempts();
   const [answer, setAnswer] = useState<FullAnswer | null>(null);
   const [isSubmitEnabled, setIsSubmitEnabled] = useState(false);
   const [isTopicSelectionDialogOpen, setIsTopicSelectionDialogOpen] = useState(false);
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const [isQuestionEntering, setIsQuestionEntering] = useState(true);
+  const [questionChangeKey, setQuestionChangeKey] = useState(0);
+  const progressSectionRef = useRef<HTMLDivElement>(null);
+  const questionCounterRef = useRef<HTMLDivElement>(null);
+  const [isAnswerSectionVisible, setIsAnswerSectionVisible] = useState(false);
 
   // Add effect to scroll to feedback when it appears
   useEffect(() => {
@@ -79,6 +83,63 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
       }, 100);
     }
   }, [state.submissions]);
+
+  // Add effect to handle question transitions
+  useEffect(() => {
+    // Reset animations
+    const options = document.querySelectorAll('.multiple-choice-option');
+    options.forEach(option => {
+      option.classList.remove('animate-in');
+    });
+    
+    setIsQuestionEntering(true);
+    setQuestionChangeKey(prev => prev + 1);
+    setIsAnswerSectionVisible(false);
+    
+    // Add transition classes
+    if (progressSectionRef.current) {
+      progressSectionRef.current.classList.add('question-changed');
+      setTimeout(() => {
+        progressSectionRef.current?.classList.remove('question-changed');
+      }, 500);
+    }
+    
+    if (questionCounterRef.current) {
+      questionCounterRef.current.classList.add('number-changed');
+      setTimeout(() => {
+        questionCounterRef.current?.classList.remove('number-changed');
+      }, 500);
+    }
+
+    // Remove entering state after animation and trigger answer section animation
+    const timer = setTimeout(() => {
+      setIsQuestionEntering(false);
+      setIsAnswerSectionVisible(true);
+      
+      // Add animation class to multiple choice options with staggered timing
+      const options = document.querySelectorAll('.multiple-choice-option');
+      options.forEach((option, index) => {
+        setTimeout(() => {
+          option.classList.add('animate-in');
+        }, 100 * (index + 1)); // Stagger each option by 100ms
+      });
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      // Cleanup animation classes
+      const options = document.querySelectorAll('.multiple-choice-option');
+      options.forEach(option => {
+        option.classList.remove('animate-in');
+      });
+      if (progressSectionRef.current) {
+        progressSectionRef.current.classList.remove('question-changed');
+      }
+      if (questionCounterRef.current) {
+        questionCounterRef.current.classList.remove('number-changed');
+      }
+    };
+  }, [question.id]);
 
   const handleAnswerChange = useCallback((answer: FullAnswer) => {
     setAnswer(answer);
@@ -147,11 +208,28 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
       currentState: state.status,
       hasSubmissions: state.submissions.length > 0
     });
+    
+    // Reset answer state before moving to next question
+    setAnswer(null);
+    setIsSubmitEnabled(false);
+    
+    // Reset question state
+    setState(prev => ({
+      ...prev,
+      status: 'active',
+      currentAnswer: null,
+      error: undefined,
+      submissions: [],
+      helpRequests: [],
+      practiceStartedAt: Date.now()
+    }));
+    
     onNext();
+    
     console.log('=== Completed handleNext ===', {
       questionId: question.id
     });
-  }, [onNext, question.id, state.status, state.submissions.length]);
+  }, [onNext, question.id, state.status, state.submissions.length, setState]);
 
   const handleSkip = async (reason: SkipReason) => {
     console.log('User skipping question', { reason });
@@ -213,7 +291,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
 
   const renderAnswerSection = () => {
     return (
-      <div className="answer-section">
+      <div className={`answer-section ${isAnswerSectionVisible ? 'animate-in' : ''}`}>
         <div className="answer-header">
           <Typography.Title level={3}>תשובה</Typography.Title>
         </div>
@@ -257,15 +335,22 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     <div className="daily-practice-wrapper">
       <div className="daily-practice-container">
         <div className="daily-practice-content">
-          <div className="progress-section">
-            <QuestionSetProgress
-              questionId={question.id}
-              prepId={prep.id}
-              prep={prep}
-            />
+          <div className="progress-section" ref={progressSectionRef}>
+            <div ref={questionCounterRef} className="question-counter-wrapper">
+              <QuestionSetProgress
+                questionId={question.id}
+                prepId={prep.id}
+                prep={prep}
+              />
+            </div>
           </div>
 
-          <Card className={`question-card question-type-${question.metadata.type}`}>
+          <Card 
+            className={`question-card question-type-${question.metadata.type} ${
+              isQuestionEntering ? 'entering' : 'entered'
+            }`}
+            key={questionChangeKey}
+          >
             <QuestionHeader
               question={question}
               onSkip={onSkip}
@@ -304,9 +389,8 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
                       return (
                         <FeedbackContainer 
                           question={question}
-                          feedback={feedbackData}
-                          selectedAnswer={getAnswerDisplayValue(answer)}
-                          showDetailedFeedback={showDetailedFeedback}
+                          submission={state.submissions[state.submissions.length - 1]}
+                          isLimitedFeedback={isAllowedFullFeedback()}
                         />
                       );
                     })()}

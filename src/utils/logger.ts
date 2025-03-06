@@ -34,33 +34,20 @@ const DEFAULT_DEV_FILTERS: LogFilters = {
     'findDOMNode',
     'Warning: Updating a style property',
     'First question generated',
-    'Generated question parameters'
+    'Generated question parameters',
+    'Started new question sequence',
+    'Initializing question sequence',
+    'Advanced to next question',
+    'Fetching question from storage',
+    'Storage returned question',
+    'Setting new current question'
   ],
   showOnly: [
     'error',
-    'feedback generation',
-    'answer submission',
-    'Question type selection',
-    'domain loading',
-    'topic loading',
-    'subtopic loading',
-    'hierarchy validation',
-    'UniversalTopics',
-    'Detailed Information',
-    'Subjects',
-    'Domains',
-    'Validation Maps Status',
-    'schema validation',
-    'topic validation',
-    'validation result',
-    'Starting metadata validation',
-    'Topic hierarchy validation',
-    'validation',
-    'topic-hierarchy',
     'validation-errors',
     'validation-success'
   ],
-  minLevel: 'debug'
+  minLevel: 'warn'
 };
 
 // Default production filters
@@ -71,14 +58,10 @@ const DEFAULT_PROD_FILTERS: LogFilters = {
 };
 
 const DEFAULT_OPTIONS: LogOptions = {
-  level: 'debug',
+  level: process.env.NODE_ENV === 'development' ? 'debug' : 'warn',
   timestamp: true,
-  isDevelopment: true, // Force development mode for logging
-  filters: {
-    minLevel: 'debug',
-    ignorePatterns: [],
-    showOnly: []
-  }
+  isDevelopment: process.env.NODE_ENV === 'development',
+  filters: process.env.NODE_ENV === 'development' ? DEFAULT_DEV_FILTERS : DEFAULT_PROD_FILTERS
 };
 
 // Define critical sections for debugging

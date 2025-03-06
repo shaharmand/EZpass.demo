@@ -42,6 +42,7 @@ import { getEnumTranslation, enumMappings } from '../../../utils/translations';
 import { QuestionJsonData } from '../../../components/admin/QuestionJsonData';
 import { Resizable, ResizeCallbackData } from 'react-resizable';
 import styled from 'styled-components';
+import { debounce } from 'lodash';
 
 dayjs.extend(relativeTime);
 dayjs.locale('he');
@@ -218,7 +219,6 @@ export const QuestionLibraryPage: React.FC = () => {
   const selectedDomain = domains.find(d => d.id === filters.domain);
   const topics = selectedDomain?.topics || [];
   const selectedTopic = topics.find(t => t.id === filters.topic);
-  const subtopics = selectedTopic?.subTopics || [];
 
   const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
     content: 300,
@@ -241,38 +241,68 @@ export const QuestionLibraryPage: React.FC = () => {
     value: string;
   } | null>(null);
 
+  // Debounced search handler
+  const debouncedSearch = React.useCallback(
+    debounce((value: string) => {
+      setFilters(prev => ({
+        ...prev,
+        searchText: value || undefined
+      }));
+    }, 500),
+    []
+  );
+
   // Load questions whenever filters change
   useEffect(() => {
-    loadQuestions();
-  }, [filters, searchText]);
+    const fetchQuestions = async () => {
+      setLoading(true);
+      try {
+        const loadedQuestions = await questionStorage.getFilteredQuestions(filters);
+        const filteredQuestions = loadedQuestions.filter(question => {
+          try {
+            return question && typeof question.id === 'string' && !question.id.startsWith('test_');
+          } catch (e) {
+            console.warn('Malformed question object:', question);
+            return false;
+          }
+        });
+        setQuestions(filteredQuestions);
+      } catch (error) {
+        console.error('Failed to load questions:', error);
+        message.error('Failed to load questions. Please try refreshing the page.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Auto-select domain if there's only one option
+    fetchQuestions();
+  }, [filters]); // Only depend on filters
+
+  // Auto-select domain if there's only one option - with safeguard
   useEffect(() => {
-    if (domains.length === 1 && !filters.domain) {
-      const newFilters = {
+    if (domains.length === 1 && !filters.domain && !filters.topic && !filters.subtopic) {
+      questionLibrary.updateCurrentList({
         ...filters,
         domain: domains[0].id
-      };
-      setFilters(newFilters);
-      questionLibrary.updateCurrentList(newFilters);
+      });
     }
-  }, [filters.subject, domains]);
+  }, [filters.subject]); // Only depend on subject change
 
-  // Reset dependent filters when parent filter changes
+  // Reset dependent filters when parent filter changes - with safeguard
   useEffect(() => {
-    if (!filters.subject) {
+    if (!filters.subject && (filters.domain || filters.topic || filters.subtopic)) {
       setFilters(prev => ({ ...prev, domain: '', topic: '', subtopic: '' }));
     }
   }, [filters.subject]);
 
   useEffect(() => {
-    if (!filters.domain) {
+    if (!filters.domain && (filters.topic || filters.subtopic)) {
       setFilters(prev => ({ ...prev, topic: '', subtopic: '' }));
     }
   }, [filters.domain]);
 
   useEffect(() => {
-    if (!filters.topic) {
+    if (!filters.topic && filters.subtopic) {
       setFilters(prev => ({ ...prev, subtopic: '' }));
     }
   }, [filters.topic]);
@@ -281,40 +311,6 @@ export const QuestionLibraryPage: React.FC = () => {
   useEffect(() => {
     loadStatistics();
   }, []);
-
-  const loadQuestions = async () => {
-    setLoading(true);
-    try {
-      // Update filters in questionLibrary service
-      await questionLibrary.updateCurrentList({
-        ...filters,
-        searchText: searchText || undefined
-      });
-      
-      // Load questions from storage
-      const loadedQuestions = await questionStorage.getFilteredQuestions({
-        ...filters,
-        searchText: searchText || undefined
-      });
-
-      // Filter out test questions with proper error handling
-      const filteredQuestions = loadedQuestions.filter(question => {
-        try {
-          return question && typeof question.id === 'string' && !question.id.startsWith('test_');
-        } catch (e) {
-          console.warn('Malformed question object:', question);
-          return false;
-        }
-      });
-      
-      setQuestions(filteredQuestions);
-    } catch (error) {
-      message.error('Failed to load questions');
-      console.error('Load error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadStatistics = async () => {
     try {
@@ -362,12 +358,10 @@ export const QuestionLibraryPage: React.FC = () => {
     questionLibrary.updateCurrentList(newFilters);
   };
 
+  // Handle search changes through debounce
   const handleSearchChange = (value: string) => {
     setSearchText(value);
-    questionLibrary.updateCurrentList({
-      ...filters,
-      searchText: value || undefined
-    });
+    debouncedSearch(value);
   };
 
   const handleDateRangeChange = (dates: any) => {
@@ -377,20 +371,16 @@ export const QuestionLibraryPage: React.FC = () => {
         end: dates[1]?.toDate()
       };
       setDateRange([dateRange.start, dateRange.end]);
-      const newFilters = {
-        ...filters,
+      setFilters(prev => ({
+        ...prev,
         dateRange
-      };
-      setFilters(newFilters);
-      questionLibrary.updateCurrentList(newFilters);
+      }));
     } else {
       setDateRange([undefined, undefined]);
-      const newFilters = {
-        ...filters,
+      setFilters(prev => ({
+        ...prev,
         dateRange: undefined
-      };
-      setFilters(newFilters);
-      questionLibrary.updateCurrentList(newFilters);
+      }));
     }
   };
 
@@ -405,64 +395,52 @@ export const QuestionLibraryPage: React.FC = () => {
   };
 
   const handleSubjectChange = (value: string) => {
-    const newFilters = {
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       subject: value,
       domain: '',  // Reset dependent filters
-      topic: '',    // Reset dependent filters
-      subtopic: ''  // Reset subtopic when subject changes
-    };
-    setFilters(newFilters);
-    questionLibrary.updateCurrentList(newFilters);
+      topic: '',   // Reset dependent filters
+      subtopic: '' // Reset subtopic when subject changes
+    }));
   };
 
   const handleDomainChange = (value: string) => {
-    const newFilters = {
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       domain: value,
       topic: '',    // Reset dependent filter
       subtopic: ''  // Reset subtopic when domain changes
-    };
-    setFilters(newFilters);
-    questionLibrary.updateCurrentList(newFilters);
+    }));
   };
 
   const handleTopicChange = (value: string) => {
-    const newFilters = {
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       topic: value,
-      subtopic: ''  // Reset subtopic when topic changes
-    };
-    setFilters(newFilters);
-    questionLibrary.updateCurrentList(newFilters);
+      subtopic: undefined  // Reset subtopic when topic changes
+    }));
   };
 
   const handleSubtopicChange = (value: string) => {
-    const newFilters = {
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       subtopic: value
-    };
-    setFilters(newFilters);
-    questionLibrary.updateCurrentList(newFilters);
+    }));
   };
 
   // Add status change handler
   const handleStatusChange = (value: PublicationStatusEnum | null) => {
-    const newFilters = {
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       publication_status: value
-    };
-    setFilters(newFilters);
-    questionLibrary.updateCurrentList(newFilters);
+    }));
   };
 
   const handleValidation_statusChange = (value: ValidationStatus | null) => {
-    const newFilters = {
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       validation_status: value
-    };
-    setFilters(newFilters);
-    questionLibrary.updateCurrentList(newFilters);
+    }));
   };
 
   const getStatusColor = (status: PublicationStatusEnum) => {
@@ -870,11 +848,11 @@ export const QuestionLibraryPage: React.FC = () => {
                   style={{ width: '100%' }}
                   allowClear
                   disabled={!filters.topic}
-                >
-                  {subtopics.map(subtopic => (
-                    <Option key={subtopic.id} value={subtopic.id}>{subtopic.name}</Option>
-                  ))}
-                </Select>
+                  options={selectedTopic?.subTopics.map(subtopic => ({
+                    label: subtopic.name,
+                    value: subtopic.id
+                  })) || []}
+                />
               </Col>
             </Row>
             <Row gutter={16} style={{ marginTop: '16px' }}>

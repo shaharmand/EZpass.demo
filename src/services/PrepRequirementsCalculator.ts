@@ -1,6 +1,6 @@
 import { SubTopicProgressInfo } from './PrepProgressTracker';
 
-interface TypeRequirements {
+export interface TypeRequirements {
   totalHours: number;
   remainingHours: number;
   totalQuestions: number;
@@ -15,7 +15,7 @@ interface TypeRequirements {
   }>;
 }
 
-interface Requirements {
+export interface Requirements {
   multipleChoice: TypeRequirements;
   open: TypeRequirements;
   numerical: TypeRequirements;
@@ -33,24 +33,53 @@ export class PrepRequirementsCalculator {
   private static readonly OPEN_HOURS_PERCENTAGE = 0.395; // 25/63.33
   private static readonly NUMERICAL_HOURS_PERCENTAGE = 0.079; // 5/63.33
 
-  private static readonly TOTAL_MULTIPLE_CHOICE_QUESTIONS = 1000;
-  private static readonly TOTAL_OPEN_QUESTIONS = 100;
-  private static readonly TOTAL_NUMERICAL_QUESTIONS = 20;
+  static readonly TOTAL_MULTIPLE_CHOICE_QUESTIONS = 1000;
+  static readonly TOTAL_OPEN_QUESTIONS = 100;
+  static readonly TOTAL_NUMERICAL_QUESTIONS = 20;
 
   // Average time per question type (in minutes)
   private static readonly TIME_PER_MULTIPLE_CHOICE = 2; // 2 minutes per MC question
   private static readonly TIME_PER_OPEN = 15; // 15 minutes per open question
   private static readonly TIME_PER_NUMERICAL = 15; // 15 minutes per numerical question
-
   public static calculateRequirements(subTopicProgress: SubTopicProgressInfo[]): Requirements {
+    console.log('📊 Calculating prep requirements:', {
+      totalSubTopics: subTopicProgress.length,
+      subTopics: subTopicProgress.map(st => ({
+        id: st.subTopicId,
+        weight: st.weight,
+        mcProgress: st.multipleChoiceProgress,
+        openProgress: st.openProgress
+      }))
+    });
+
     // Calculate Multiple Choice Requirements
     const multipleChoice = this.calculateMultipleChoiceRequirements(subTopicProgress);
+    console.log('📝 Multiple Choice requirements:', {
+      totalHours: multipleChoice.totalHours,
+      remainingHours: multipleChoice.remainingHours,
+      totalQuestions: multipleChoice.totalQuestions,
+      remainingQuestions: multipleChoice.remainingQuestions,
+      subTopicBreakdown: multipleChoice.subTopicBreakdown
+    });
 
     // Calculate Open Questions Requirements
     const open = this.calculateOpenRequirements(subTopicProgress);
+    console.log('✍️ Open Questions requirements:', {
+      totalHours: open.totalHours,
+      remainingHours: open.remainingHours,
+      totalQuestions: open.totalQuestions,
+      remainingQuestions: open.remainingQuestions,
+      subTopicBreakdown: open.subTopicBreakdown
+    });
 
     // Calculate Numerical Requirements
     const numerical = this.calculateNumericalRequirements();
+    console.log('🔢 Numerical requirements:', {
+      totalHours: numerical.totalHours,
+      remainingHours: numerical.remainingHours,
+      totalQuestions: numerical.totalQuestions,
+      remainingQuestions: numerical.remainingQuestions
+    });
 
     // Calculate Totals
     const total = {
@@ -130,9 +159,9 @@ export class PrepRequirementsCalculator {
 
     return subTopicProgress.map(subTopic => {
       const normalizedWeight = subTopic.weight / totalWeight;
-      const subTopicTotalQuestions = Math.ceil(totalQuestions * normalizedWeight);
+      const subTopicTotalQuestions = Math.round(totalQuestions * normalizedWeight);
       const progress = subTopic[progressField] / 100; // Convert from percentage to decimal
-      const remainingQuestions = Math.ceil(subTopicTotalQuestions * (1 - progress));
+      const remainingQuestions = Math.round(subTopicTotalQuestions * (1 - progress));
       const remainingHours = (remainingQuestions * timePerQuestion) / 60; // Convert minutes to hours
 
       return {
@@ -140,7 +169,7 @@ export class PrepRequirementsCalculator {
         weight: subTopic.weight,
         totalQuestions: subTopicTotalQuestions,
         remainingQuestions,
-        totalHours: (subTopicTotalQuestions * timePerQuestion) / 60,
+        totalHours: (remainingQuestions * timePerQuestion) / 60,
         remainingHours
       };
     });

@@ -1,5 +1,5 @@
 import { Topic, SubTopic } from './subject'; // Importing Topic and SubTopic from Subject.ts    
-import { DifficultyLevel, QuestionType } from './question';
+import { DifficultyLevel, QuestionType } from './common';
 
 
 /**
@@ -11,7 +11,7 @@ export enum ExamType {
   MAHAT_EXAM = 'mahat_exam', 
   UNI_COURSE_EXAM = 'uni_course_exam',
   ENTRY_EXAM = 'entry_exam',
-  GOVERNMENT_EXAM = 'government_exam',
+  GOVERNMENT_EXAM = 'government_exam'
 }
 
 /**
@@ -108,6 +108,48 @@ export interface ExamTemplate {
   duration: number;
   /** Total number of questions across all sections */
   totalQuestions: number;
+}
+
+/**
+ * Context for generating questions in a specific exam style/format
+ */
+export interface ExamContext {
+  // The type of exam this question is for
+  examType: ExamType;
+  
+  // Specific exam template if following a particular format
+  examTemplateId?: string;
+
+  // Style requirements
+  style: {
+    // Whether to follow strict format requirements
+    strictFormat: boolean;
+    // Language style (formal/technical/simple)
+    languageStyle: 'formal' | 'technical' | 'simple';
+    // Whether to include references to standards/regulations
+    includeReferences: boolean;
+  };
+
+  // Scoring and evaluation context
+  scoring?: {
+    totalPoints: number;
+    allowPartialCredit: boolean;
+    gradingEmphasis: 'accuracy' | 'methodology' | 'both';
+  };
+
+  // Time management context
+  timeManagement?: {
+    recommendedTime: number;  // in minutes
+    isTimeLimited: boolean;
+  };
+
+  // Additional context
+  additionalRequirements?: {
+    requiresCalculator?: boolean;
+    requiresFormulas?: boolean;
+    requiresDiagrams?: boolean;
+    specialInstructions?: string[];
+  };
 }
 
 

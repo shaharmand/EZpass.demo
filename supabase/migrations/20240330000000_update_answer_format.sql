@@ -59,7 +59,7 @@ ADD CONSTRAINT valid_answer_format CHECK (
 
 ALTER TABLE questions
 ADD CONSTRAINT valid_multiple_choice_answer CHECK (
-  (data->'metadata'->>'type') != 'multiple_choice'
+  (data->'metadata'->>'type') <> 'multiple_choice'
   OR (
     jsonb_array_length(data->'content'->'options') = 4
     AND data->'schoolAnswer'->'finalAnswer'->>'type' = 'multiple_choice'

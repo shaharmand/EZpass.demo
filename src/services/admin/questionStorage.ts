@@ -1,31 +1,26 @@
 import { 
   Question, 
+  DatabaseQuestion, 
   PublicationStatusEnum,
   PublicationMetadata,
-  DatabaseQuestion as IDBQuestion, 
-  QuestionListItem as IQuestionListItem,
-  SaveQuestion as ISaveQuestion,
   ValidationStatus,
-  QuestionType,
-  isValidQuestionType,
-  DEFAULT_QUESTION_TYPE,
-  isValidDifficultyLevel,
-  DEFAULT_DIFFICULTY_LEVEL,
-  isValidSourceType,
-  DEFAULT_SOURCE_TYPE,
-  isValidCreatorType,
-  DEFAULT_CREATOR_TYPE,
-  DatabaseQuestion,
   ReviewStatusEnum,
   ReviewMetadata,
-  AIGeneratedFields
+  AIGeneratedFields,
+  ImportInfo,
+  QuestionType,
+  SourceType,
+  EzpassCreatorType,
+  SaveQuestion
 } from '../../types/question';
-import { DatabaseOperation, QuestionRepository } from '../../types/storage';
-import { getSupabase } from '../supabaseClient';
+import { CreateQuestion, QuestionRepository, DatabaseOperation, IQuestionListItem } from '../../types/storage';
 import { logger } from '../../utils/logger';
+import { generateQuestionId } from '../../utils/idGenerator';
+import { getSupabase } from '../../lib/supabase';
+import { universalTopicsV2 } from '../../services/universalTopics';
+import { v4 as uuidv4 } from 'uuid';
+import { isValidQuestionType, DEFAULT_QUESTION_TYPE, isValidDifficultyLevel, DEFAULT_DIFFICULTY_LEVEL, isValidSourceType, DEFAULT_SOURCE_TYPE, isValidCreatorType, DEFAULT_CREATOR_TYPE } from '../../types/question';
 import { validateQuestion } from '../../utils/questionValidator';
-import { getSubjectCode, getDomainCode } from '../../utils/idGenerator';
-import { universalTopicsV2 } from '../universalTopics';
 
 interface QuestionFilters {
   subject?: string;
@@ -75,8 +70,16 @@ interface QuestionStatistics {
 }
 
 export class QuestionStorage implements QuestionRepository {
-  private questionsCache: Map<string, IDBQuestion> = new Map();
+  private questionsCache: Map<string, DatabaseQuestion> = new Map();
   private initialized: boolean = false;
+
+  private isExamSource(source: any): source is { type: 'exam'; examTemplateId: string; year: number; season: 'spring' | 'summer'; moed: 'a' | 'b'; order?: number } {
+    return source?.type === 'exam';
+  }
+
+  private isEzpassSource(source: any): source is { type: 'ezpass'; creatorType: EzpassCreatorType } {
+    return source?.type === 'ezpass';
+  }
 
   /**
    * Validates and normalizes question data
@@ -192,6 +195,22 @@ export class QuestionStorage implements QuestionRepository {
       throw new Error('Topic ID is required');
     }
 
+    if (!questionData.metadata.subtopicId) {
+      throw new Error('Subtopic ID is required');
+    }
+
+    // Validate topic hierarchy
+    const hierarchyValidation = universalTopicsV2.validateTopicHierarchy({
+      subjectId: questionData.metadata.subjectId,
+      domainId: questionData.metadata.domainId,
+      topicId: questionData.metadata.topicId,
+      subtopicId: questionData.metadata.subtopicId
+    });
+
+    if (!hierarchyValidation.isValid) {
+      throw new Error(`Invalid topic hierarchy: ${hierarchyValidation.error}`);
+    }
+
     if (!questionData.content?.text) {
       throw new Error('Question content is required');
     }
@@ -294,7 +313,7 @@ export class QuestionStorage implements QuestionRepository {
     }
   }
 
-  async getAllQuestions(): Promise<IDBQuestion[]> {
+  async getAllQuestions(): Promise<DatabaseQuestion[]> {
     await this.ensureInitialized();
     return Array.from(this.questionsCache.values()).map(question => {
       // Ensure question type is properly cast to QuestionType enum
@@ -306,28 +325,82 @@ export class QuestionStorage implements QuestionRepository {
 
   async getQuestionsList(): Promise<IQuestionListItem[]> {
     await this.ensureInitialized();
-    return Array.from(this.questionsCache.values()).map(q => {
-      // Ensure question type is properly cast to QuestionType enum
-      const type = q.metadata.type as QuestionType;
-      return {
-        id: q.id,
-        type,
-        content: q.content.text,
-        metadata: {
-          difficulty: q.metadata.difficulty,
-          topicId: q.metadata.topicId,
-          type,
-          estimatedTime: q.metadata.estimatedTime
-        },
-        publication_status: q.publication_status,
-        publication_metadata: q.publication_metadata,
-        validation_status: q.validation_status || ValidationStatus.VALID,
-        created_at: q.created_at as string
-      };
-    });
+    return Array.from(this.questionsCache.values())
+      .filter(q => q.metadata.source && 
+                   q.metadata.subjectId && 
+                   q.metadata.domainId && 
+                   q.metadata.topicId && 
+                   q.metadata.subtopicId && 
+                   q.created_at && 
+                   q.updated_at &&
+                   q.review_status)
+      .map(q => {
+        // Log errors for missing required data - these are fundamental data integrity requirements
+        if (!q.metadata.source || 
+            !q.metadata.subjectId || 
+            !q.metadata.domainId || 
+            !q.metadata.topicId || 
+            !q.metadata.subtopicId || 
+            !q.created_at || 
+            !q.updated_at ||
+            !q.review_status) {
+          console.error('❌ Question missing required data - data integrity issue:', {
+            questionId: q.id,
+            missingFields: {
+              source: !q.metadata.source,
+              subjectId: !q.metadata.subjectId,
+              domainId: !q.metadata.domainId,
+              topicId: !q.metadata.topicId,
+              subtopicId: !q.metadata.subtopicId,
+              created_at: !q.created_at,
+              updated_at: !q.updated_at,
+              review_status: !q.review_status
+            }
+          });
+        }
+
+        // Ensure question type is properly cast to QuestionType enum
+        const type = q.metadata.type as QuestionType;
+        
+        // Handle source field according to interface requirements
+        const source = this.isExamSource(q.metadata.source)
+          ? {
+              type: SourceType.EXAM as const,
+              examTemplateId: q.metadata.source!.examTemplateId,
+              year: q.metadata.source!.year,
+              season: q.metadata.source!.season,
+              moed: q.metadata.source!.moed,
+              ...(q.metadata.source!.order ? { order: q.metadata.source!.order } : {})
+            }
+          : {
+              type: SourceType.EZPASS as const,
+              creatorType: q.metadata.source!.creatorType
+            };
+
+        return {
+          id: q.id,
+          title: q.name || q.content.text.substring(0, 50) + '...',
+          content: q.content.text,
+          metadata: {
+            subjectId: q.metadata.subjectId!,
+            domainId: q.metadata.domainId!,
+            topicId: q.metadata.topicId!,
+            subtopicId: q.metadata.subtopicId!,
+            type,
+            difficulty: q.metadata.difficulty,
+            estimatedTime: q.metadata.estimatedTime,
+            source
+          },
+          publication_status: q.publication_status,
+          validation_status: q.validation_status,
+          review_status: q.review_status,
+          created_at: q.created_at!,
+          updated_at: q.updated_at!
+        };
+      });
   }
 
-  async getQuestion(id: string, bypassCache: boolean = false): Promise<IDBQuestion | null> {
+  async getQuestion(id: string, bypassCache: boolean = false): Promise<DatabaseQuestion | null> {
     try {
       // If not bypassing cache and question exists in cache, return it
       if (!bypassCache && this.questionsCache.has(id)) {
@@ -358,7 +431,6 @@ export class QuestionStorage implements QuestionRepository {
         ...data.data,
         id: data.id,
         publication_status: data.publication_status,
-        publication_metadata: data.publication_metadata || undefined,
         validation_status: data.validation_status,
         review_status: data.review_status,
         created_at: data.created_at,
@@ -366,7 +438,7 @@ export class QuestionStorage implements QuestionRepository {
       };
 
       // Add review_metadata only if it exists with required fields
-      const question: IDBQuestion = {
+      const question: DatabaseQuestion = {
         ...baseQuestion,
         review_metadata: data.review_metadata?.reviewedAt && data.review_metadata?.reviewedBy ? {
           reviewedAt: data.review_metadata.reviewedAt,
@@ -385,103 +457,499 @@ export class QuestionStorage implements QuestionRepository {
     }
   }
 
-  async saveQuestion(question: ISaveQuestion): Promise<void> {
-    try {
-      // Prevent saving test questions
-      if (question.id.startsWith('test_')) {
-        logger.warn('Attempted to save test question - skipping', {
-          questionId: question.id
-        });
-        return;
-      }
+  /**
+   * Validates a question ID format
+   * Expected format: {subjectId}-{domainId}-{number}
+   */
+  private validateQuestionId(id: string): boolean {
+    // Basic format check: subject-domain-number
+    const pattern = /^[a-z_]+-[a-z_]+-\d{6}$/;
+    if (!pattern.test(id)) {
+      return false;
+    }
 
+    // Extract parts
+    const [subjectId, domainId] = id.split('-');
+
+    // Check if subject and domain are valid
+    const validPartPattern = /^[a-z_]+$/;
+    if (!validPartPattern.test(subjectId) || !validPartPattern.test(domainId)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Validates subject and domain ID format
+   * Expected format: lowercase letters and underscores only
+   */
+  private validateSubjectDomainId(id: string): boolean {
+    const validPartPattern = /^[a-z_]+$/;
+    return validPartPattern.test(id);
+  }
+
+  /**
+   * Validates question content and structure
+   * @throws {Error} if question data is invalid
+   * @returns {ValidationStatus} The validation status from the external validator
+   */
+  private async validateQuestionContent(data: Question): Promise<ValidationStatus> {
+    if (!data) {
+      throw new Error('Question data is required');
+    }
+
+    if (!data.id) {
+      throw new Error('Question ID is required for validation');
+    }
+
+    // Run external validation which handles all content validation
+    const validationResult = await validateQuestion(data);
+    return validationResult.status;
+  }
+
+  /**
+   * Checks if a question exists in the database
+   * @returns {Promise<boolean>} true if question exists, false otherwise
+   * @throws {Error} if there's a database error
+   */
+  private async checkQuestionExists(questionId: string): Promise<boolean> {
       const supabaseClient = getSupabase();
       if (!supabaseClient) throw new Error('Supabase client not initialized');
 
-      // Build update object with only provided fields
-      const updateData: Record<string, any> = { id: question.id };
-      
-      // Only include fields that were provided
-      if ('data' in question && question.data) updateData.data = question.data;
-      if ('publication_status' in question) updateData.publication_status = question.publication_status;
-      if ('publication_metadata' in question) updateData.publication_metadata = question.publication_metadata;
-      if ('validation_status' in question) updateData.validation_status = question.validation_status;
-      if ('review_status' in question) updateData.review_status = question.review_status;
-      if ('review_metadata' in question) updateData.review_metadata = question.review_metadata;
-      
-      // Use COALESCE to preserve existing values for fields not provided
-      const { error } = await supabaseClient.rpc('update_question_partial', {
-        p_id: question.id,
-        p_data: updateData
-      });
+    const { data: existingQuestion, error: fetchError } = await supabaseClient
+      .from('questions')
+      .select('id')
+      .eq('id', questionId)
+      .single();
 
-      if (error) {
-        logger.error('Failed to save question to database:', {
-          questionId: question.id,
-          error: error.message
-        });
-        throw error;
-      }
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "not found"
+      throw fetchError;
+    }
+
+    return !!existingQuestion;
+  }
+
+  /**
+   * Validates a question for creation
+   * @throws {Error} if validation fails
+   * @returns {ValidationStatus} The validation status
+   */
+  private async validateQuestionForCreation(questionId: string, data: Question): Promise<ValidationStatus> {
+    // Validate ID format
+    if (!this.validateQuestionId(questionId)) {
+      throw new Error(`Invalid question ID format: ${questionId}. Expected format: {subjectId}-{domainId}-{number}`);
+    }
+
+    // Check if question already exists - should not exist for creation
+    const exists = await this.checkQuestionExists(questionId);
+    if (exists) {
+      throw new Error(`Question ${questionId} already exists`);
+    }
+
+    // Validate question content
+    return await this.validateQuestionContent(data);
+  }
+
+  /**
+   * Validates a question that must exist in the database
+   * @throws {Error} if validation fails
+   * @returns {ValidationStatus} The validation status
+   */
+  private async validateQuestionForExistingQuestion(questionId: string, data?: Question): Promise<ValidationStatus | undefined> {
+    // Validate ID format
+    if (!this.validateQuestionId(questionId)) {
+      throw new Error(`Invalid question ID format: ${questionId}. Expected format: {subjectId}-{domainId}-{number}`);
+    }
+
+    // Check if question exists - must exist
+    const exists = await this.checkQuestionExists(questionId);
+    if (!exists) {
+      throw new Error(`Question ${questionId} does not exist`);
+    }
+
+    // Validate question content if provided
+    if (data) {
+      return await this.validateQuestionContent(data);
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Common handling of JSON fields for question operations
+   */
+  private prepareQuestionFields(question: Partial<DatabaseOperation>): Record<string, any> {
+    const operation: Record<string, any> = {
+      id: question.id,
+      data: question.data,
+      publication_status: question.publication_status,
+      validation_status: question.validation_status,
+      review_status: question.review_status
+    };
+
+    // Handle publication_metadata with proper structure
+    if (question.publication_metadata) {
+      operation.publication_metadata = {
+        publishedAt: question.publication_metadata.publishedAt,
+        publishedBy: question.publication_metadata.publishedBy,
+        archivedAt: question.publication_metadata.archivedAt,
+        archivedBy: question.publication_metadata.archivedBy,
+        reason: question.publication_metadata.reason
+      };
+    }
+
+    // Handle review_metadata with proper structure
+    if (question.review_metadata?.reviewedAt && question.review_metadata?.reviewedBy) {
+      operation.review_metadata = {
+        reviewedAt: question.review_metadata.reviewedAt,
+        reviewedBy: question.review_metadata.reviewedBy,
+        comments: question.review_metadata.comments
+      };
+    }
+
+    // Handle other JSON fields
+    if (question.ai_generated_fields) {
+      operation.ai_generated_fields = question.ai_generated_fields;
+    }
+
+    if (question.import_info) {
+      operation.import_info = question.import_info;
+    }
+
+    return operation;
+  }
+
+  /**
+   * Common error handling and logging for question operations
+   */
+  private async executeQuestionOperation(
+    operation: 'create' | 'save',
+    questionId: string,
+    operationFn: () => Promise<any>,
+    additionalContext: Record<string, any> = {}
+  ): Promise<void> {
+    try {
+      await operationFn();
+      logger.debug(`Successfully ${operation}d question`, {
+        questionId,
+        ...additionalContext
+      });
     } catch (error) {
-      logger.error('Failed to save question:', error);
+      logger.error(`Failed to ${operation} question:`, {
+        questionId,
+        error,
+        ...additionalContext
+      });
       throw error;
     }
   }
 
-  async saveQuestions(questions: ISaveQuestion[]): Promise<void> {
-    // Filter out test questions
-    const filteredQuestions = questions.filter(q => !q.id.startsWith('test_'));
-    
-    if (filteredQuestions.length < questions.length) {
-      logger.warn('Filtered out test questions from bulk save', {
-        originalCount: questions.length,
-        filteredCount: filteredQuestions.length,
-        skippedCount: questions.length - filteredQuestions.length
-      });
-    }
-
-    if (filteredQuestions.length === 0) {
-      return;
-    }
-
-    const operations = await Promise.all(filteredQuestions.map(async (question) => {
-      const validationResult = await validateQuestion(question);
-      
-      let validationStatus: ValidationStatus;
-      if (validationResult.errors.length > 0) {
-        validationStatus = ValidationStatus.ERROR;
-      } else if (validationResult.warnings.length > 0) {
-        validationStatus = ValidationStatus.WARNING;
-      } else {
-        validationStatus = ValidationStatus.VALID;
-      }
-
-      return {
-        id: question.id,
-        data: question,
-        publication_status: question.publication_status,
-        publication_metadata: question.publication_metadata,
-        validation_status: validationStatus,
-        updated_at: new Date().toISOString()
-      };
-    }));
-
-    // Bulk upsert
+  /**
+   * Generates a unique question ID based on subject and domain
+   */
+  private async generateUniqueQuestionId(subjectId: string, domainId: string): Promise<string> {
     const supabaseClient = getSupabase();
     if (!supabaseClient) throw new Error('Supabase client not initialized');
 
-    const { error } = await supabaseClient
-      .from('questions')
-      .upsert(operations);
-
-    if (error) {
-      logger.error('Failed to bulk save questions:', error);
-      throw error;
+    // First validate that the domain belongs to the subject
+    if (!universalTopicsV2.isValidDomainForSubject(subjectId, domainId)) {
+      throw new Error(`Domain ${domainId} does not belong to subject ${subjectId}`);
     }
 
-    logger.debug('Successfully saved questions', {
-      count: operations.length
+    // Get the 3-letter codes for subject and domain
+    const subjectCode = universalTopicsV2.getSubjectCode(subjectId);
+    const domainCode = universalTopicsV2.getDomainCode(domainId);
+
+    let questionId = '';
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!isUnique && attempts < maxAttempts) {
+      const nextNumber = await this.getNextQuestionId(subjectId, domainId);
+      questionId = `${subjectCode}-${domainCode}-${String(nextNumber).padStart(6, '0')}`;
+
+      const { data: existingQuestion, error: fetchError } = await supabaseClient
+        .from('questions')
+        .select('id')
+        .eq('id', questionId)
+        .single();
+
+      if (fetchError && fetchError.code === 'PGRST116') {
+        isUnique = true;
+      } else if (fetchError) {
+        throw fetchError;
+      }
+
+      attempts++;
+    }
+
+    if (!isUnique) {
+      throw new Error(`Failed to generate unique question ID after ${maxAttempts} attempts`);
+    }
+
+    return questionId;
+  }
+
+  /**
+   * Prepares a question for creation with default values
+   */
+  private async prepareQuestionForCreation(question: CreateQuestion): Promise<{
+    questionId: string;
+    newQuestion: Record<string, any>;
+    validationStatus: ValidationStatus;
+  }> {
+    if (!question.question) {
+      throw new Error('Question data is required for creation');
+    }
+
+    // Get subject and domain IDs from question data
+    const subjectId = question.question.metadata.subjectId;
+    const domainId = question.question.metadata.domainId;
+
+    // Generate the question ID - the ID generator will handle validation
+    const questionId = await this.generateUniqueQuestionId(subjectId, domainId);
+
+    // Create a new question data object with the generated ID
+    const questionData = {
+      ...question.question,
+      id: questionId
+    };
+
+    // Validate the question for creation
+    const validationStatus = await this.validateQuestionForCreation(questionId, questionData);
+    
+    // Prepare the question with all fields
+    const newQuestion = this.prepareQuestionFields({
+      ...question,
+      id: questionId,
+      data: questionData,
+      validation_status: validationStatus,
+      review_status: ReviewStatusEnum.PENDING_REVIEW,
+      publication_status: PublicationStatusEnum.DRAFT
     });
+
+    return { questionId, newQuestion, validationStatus };
+  }
+
+  /**
+   * Prepares a question for update with only provided fields
+   */
+  private async prepareQuestionForUpdate(
+    questionId: string,
+    updates: {
+      data?: Question;
+      publication_status?: PublicationStatusEnum;
+      validation_status?: ValidationStatus;
+      review_status?: ReviewStatusEnum;
+      ai_generated_fields?: AIGeneratedFields;
+    }
+  ): Promise<Record<string, any>> {
+    // Get the current question to validate if needed
+    const currentQuestion = await this.getQuestion(questionId);
+    if (!currentQuestion) {
+      throw new Error(`Question ${questionId} not found`);
+    }
+
+    // Only validate and update validation status if new content is provided
+    let validationStatus = updates.validation_status;
+    if (updates.data) {
+      validationStatus = await this.validateQuestionContent(updates.data);
+    }
+
+    // Prepare the update data
+    return this.prepareQuestionFields({
+      id: questionId,
+      ...updates,
+      validation_status: validationStatus
+    });
+  }
+
+  /**
+   * Prepares a question for saving with all fields
+   */
+  private async prepareQuestionForSave(question: DatabaseOperation): Promise<Record<string, any>> {
+    // Validate that the question exists and get its current state
+    const currentQuestion = await this.getQuestion(question.id);
+    if (!currentQuestion) {
+      throw new Error(`Question ${question.id} does not exist. Use createQuestion for new questions.`);
+    }
+
+    // Only validate content if new data is provided
+    let validationStatus = question.validation_status;
+    if (question.data) {
+      // Ensure data has the correct ID
+      const completeQuestion = {
+        ...question.data,
+        id: question.id
+      };
+      validationStatus = await this.validateQuestionContent(completeQuestion);
+    }
+
+    // Remove import_info from save operation to prevent modification
+    const { import_info, ...saveData } = question;
+
+    // Prepare the save data
+    return {
+      ...this.prepareQuestionFields({
+        ...saveData,
+        validation_status: validationStatus
+      }),
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  async createQuestion(question: CreateQuestion): Promise<DatabaseQuestion> {
+    // Validate required fields
+    if (!question.question) {
+      throw new Error('Question data is required for creation');
+    }
+
+    // Generate the question ID first
+    const questionId = await this.generateUniqueQuestionId(question.question.metadata.subjectId, question.question.metadata.domainId);
+
+    // Create a complete question with the generated ID
+    const questionWithId = {
+      ...question.question,
+      id: questionId
+    };
+
+    // Run validation with the complete question
+    const validationStatus = await this.validateQuestionContent(questionWithId);
+
+    // Log the incoming question data
+    console.log('📝 Creating new question with data:', JSON.stringify(question, null, 2));
+
+    // Prepare the question data for database insertion
+    const questionData: DatabaseOperation = {
+      id: questionId,
+      data: questionWithId,
+      publication_status: PublicationStatusEnum.DRAFT,
+      validation_status: validationStatus,
+      review_status: ReviewStatusEnum.PENDING_REVIEW,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      // Required ImportInfo fields for a generated question
+      import_info: question.import_info || {
+        system: 'ezpass',
+        originalId: questionId,
+        importedAt: new Date().toISOString()
+      }
+    };
+
+    // Execute the operation
+    await this.executeQuestionOperation('create', questionData.id, async () => {
+      const supabaseClient = getSupabase();
+      if (!supabaseClient) throw new Error('Supabase client not initialized');
+
+      const { error } = await supabaseClient
+        .from('questions')
+        .insert(questionData);
+      if (error) throw error;
+    }, {
+      validationStatus: questionData.validation_status,
+      hasImportInfo: !!question.import_info
+    });
+
+    // Return the full question data
+    const createdQuestion = await this.getQuestion(questionData.id);
+    if (!createdQuestion) {
+      throw new Error(`Failed to retrieve created question ${questionData.id}`);
+    }
+
+    return createdQuestion;
+  }
+
+  async updateQuestion(
+    questionId: string, 
+    updates: {
+      data?: Question;
+      publication_status?: PublicationStatusEnum;
+      validation_status?: ValidationStatus;
+      review_status?: ReviewStatusEnum;
+      ai_generated_fields?: AIGeneratedFields;
+    }
+  ): Promise<void> {
+    const supabaseClient = getSupabase();
+    if (!supabaseClient) throw new Error('Supabase client not initialized');
+
+    // Prepare the update data
+    const updateData = await this.prepareQuestionForUpdate(questionId, updates);
+
+    // Execute the operation
+    await this.executeQuestionOperation('save', questionId, async () => {
+      const { error } = await supabaseClient.rpc('update_question_partial', {
+        p_id: questionId,
+        p_data: updateData
+      });
+      if (error) throw error;
+    }, {
+      updatedFields: Object.keys(updateData)
+    });
+  }
+
+  async saveQuestion(question: SaveQuestion): Promise<void> {
+    // Prevent saving test questions
+    if (question.id.startsWith('test_')) {
+      logger.warn('Attempted to save test question - skipping', {
+        questionId: question.id
+      });
+      return;
+    }
+
+    const supabaseClient = getSupabase();
+    if (!supabaseClient) throw new Error('Supabase client not initialized');
+
+    // Validate that all required fields are present
+    if (!question.data) {
+      throw new Error('Question data is required for saving');
+    }
+    if (!question.publication_status) {
+      throw new Error('Publication status is required for saving');
+    }
+    if (!question.validation_status) {
+      throw new Error('Validation status is required for saving');
+    }
+    if (!question.review_status) {
+      throw new Error('Review status is required for saving');
+    }
+
+    // Prepare the operation data with all required fields
+    const operationData: DatabaseOperation = {
+      id: question.id,
+      data: question.data,  // This is the Question type data
+      publication_status: question.publication_status,
+      validation_status: question.validation_status,
+      review_status: question.review_status,
+      publication_metadata: question.publication_metadata,
+      review_metadata: question.review_metadata,
+      ai_generated_fields: question.ai_generated_fields,
+      import_info: question.import_info,
+      updated_at: new Date().toISOString()
+    };
+
+    // Execute the operation
+    await this.executeQuestionOperation('save', question.id, async () => {
+      const { error } = await supabaseClient
+        .from('questions')
+        .upsert(operationData);
+      if (error) throw error;
+    });
+  }
+
+  // Update the bulk update method to use the same explicit type
+  async updateQuestions(updates: Array<{ 
+    id: string; 
+    updates: {
+      data?: Question;
+      publication_status?: PublicationStatusEnum;
+      validation_status?: ValidationStatus;
+      review_status?: ReviewStatusEnum;
+      ai_generated_fields?: AIGeneratedFields;
+    }
+  }>): Promise<void> {
+    await Promise.all(updates.map(({ id, updates }) => this.updateQuestion(id, updates)));
   }
 
   async updateQuestionStatus(questionId: string, newStatus: PublicationStatusEnum, metadata?: PublicationMetadata): Promise<void> {
@@ -559,7 +1027,7 @@ export class QuestionStorage implements QuestionRepository {
     }
   }
 
-  async getFilteredQuestions(filters: QuestionFilters): Promise<IDBQuestion[]> {
+  async getFilteredQuestions(filters: QuestionFilters): Promise<DatabaseQuestion[]> {
     try {
       const supabaseClient = getSupabase();
       if (!supabaseClient) throw new Error('Supabase client not initialized');
@@ -654,8 +1122,9 @@ export class QuestionStorage implements QuestionRepository {
         publication_status: row.publication_status,
         publication_metadata: row.publication_metadata || undefined,
         validation_status: row.validation_status,
-        created_at: row.created_at,
-        updated_at: row.updated_at
+        review_status: row.review_status,
+        created_at: row.created_at!,
+        updated_at: row.updated_at!
       }));
 
     } catch (error) {
@@ -664,14 +1133,14 @@ export class QuestionStorage implements QuestionRepository {
     }
   }
 
-  async getQuestionsNeedingAttention(): Promise<IDBQuestion[]> {
+  async getQuestionsNeedingAttention(): Promise<DatabaseQuestion[]> {
     const filters: QuestionFilters = {
       validationStatus: ValidationStatus.WARNING
     };
     return this.getFilteredQuestions(filters);
   }
 
-  async getQuestions(): Promise<IDBQuestion[]> {
+  async getQuestions(): Promise<DatabaseQuestion[]> {
     return this.getAllQuestions();
   }
 
@@ -679,11 +1148,15 @@ export class QuestionStorage implements QuestionRepository {
     const supabase = getSupabase();
     if (!supabase) throw new Error('Supabase client not initialized');
 
-    // Get all questions for this subject and domain
+    // Get the 3-letter codes for subject and domain
+    const subjectCode = universalTopicsV2.getSubjectCode(subjectId);
+    const domainCode = universalTopicsV2.getDomainCode(domainId);
+
+    // Get all questions for this subject and domain using the correct format
     const { data: questions, error } = await supabase
       .from('questions')
       .select('id')
-      .like('id', `${subjectId}-${domainId}-%`);
+      .like('id', `${subjectCode}-${domainCode}-%`);
 
     if (error) {
       logger.error('Error getting next question ID:', error);
@@ -762,6 +1235,74 @@ export class QuestionStorage implements QuestionRepository {
     });
 
     return stats;
+  }
+
+  async saveQuestions(questions: DatabaseOperation[]): Promise<void> {
+    try {
+      const supabaseClient = getSupabase();
+      if (!supabaseClient) throw new Error('Supabase client not initialized');
+
+      // Filter out test questions
+      const filteredQuestions = questions.filter(q => !q.id.startsWith('test_'));
+
+      // Validate and prepare questions
+      const operations = await Promise.all(filteredQuestions.map(async (question) => {
+        // Validate the data field if it exists
+        if (question.data) {
+          // Ensure data has the correct ID
+          const completeQuestion = {
+            ...question.data,
+            id: question.id
+          };
+          const validationResult = await validateQuestion(completeQuestion);
+          
+          // Use the status directly from validation result
+          question.validation_status = validationResult.status;
+        }
+
+        // Prepare base operation with required fields
+        const operation: Record<string, any> = {
+          id: question.id,
+          data: question.data,
+          publication_status: question.publication_status,
+          validation_status: question.validation_status,
+          review_status: question.review_status
+        };
+
+        // Only include JSON fields if they exist
+        if (question.publication_metadata) {
+          operation.publication_metadata = question.publication_metadata;
+        }
+        if (question.review_metadata) {
+          operation.review_metadata = question.review_metadata;
+        }
+        if (question.ai_generated_fields) {
+          operation.ai_generated_fields = question.ai_generated_fields;
+        }
+
+        return operation;
+      }));
+
+      // Save all questions in a single transaction
+      const { error } = await supabaseClient
+        .from('questions')
+        .upsert(operations);
+
+      if (error) {
+        logger.error('Failed to save questions:', {
+          error: error.message,
+          count: operations.length
+        });
+        throw error;
+      }
+
+      logger.debug('Successfully saved questions', {
+        count: operations.length
+      });
+    } catch (error) {
+      logger.error('Failed to save questions:', error);
+      throw error;
+    }
   }
 }
 

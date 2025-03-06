@@ -11,6 +11,8 @@ import {
 import { universalTopicsV2 } from '../services/universalTopics';
 import { examService } from '../services/examService';
 import { validateContent } from './contentFormatValidator';
+import { validateQuestionId, validateQuestionIdFormat } from './idGenerator';
+import { logger } from '../utils/logger';
 
 export interface ValidationError {
   field: string;
@@ -55,8 +57,32 @@ export function validateQuestion(question: Question): ValidationResult {
 
   // Run ALL validations at once
   
-  // 1. Basic required fields
-  if (!question.id) addError('id', 'מזהה שאלה חסר');
+  // 1. Basic required fields and ID validation
+  if (!question.id) {
+    addError('id', 'מזהה שאלה חסר');
+  } else {
+    // First validate basic format (XXX-YYY-NNNNNN)
+    if (!validateQuestionIdFormat(question.id)) {
+      addError('id', `מזהה שאלה לא תקין: ${question.id} - פורמט שגוי (נדרש: XXX-YYY-NNNNNN)`);
+    } else if (!question.metadata?.subjectId || !question.metadata?.domainId) {
+      addError('id', 'לא ניתן לאמת את מזהה השאלה - חסרים נושא רחב או תחום');
+    } else if (!validateQuestionId(question.id, question.metadata.subjectId, question.metadata.domainId)) {
+      // Get the actual codes for comparison
+      const [subjectCode, domainCode] = question.id.split('-');
+      const actualSubjectCode = universalTopicsV2.getSubjectCode(question.metadata.subjectId);
+      const actualDomainCode = universalTopicsV2.getDomainCode(question.metadata.domainId);
+      
+      let errorMessage = 'מזהה שאלה לא תקין: ';
+      if (subjectCode !== actualSubjectCode) {
+        errorMessage += 'קוד נושא שגוי';
+      }
+      if (domainCode !== actualDomainCode) {
+        errorMessage += subjectCode !== actualSubjectCode ? ' ו-' : '';
+        errorMessage += 'קוד תחום שגוי';
+      }
+      addError('id', errorMessage);
+    }
+  }
   
   // Name is optional - just warn if missing
   if (!question.name) {
@@ -126,18 +152,54 @@ export function validateQuestion(question: Question): ValidationResult {
     if (!question.metadata.domainId) addError('metadata.domainId', 'תחום חסר');
     if (!question.metadata.topicId) addError('metadata.topicId', 'נושא חסר');
     
-    // Subtopic is optional
-    if (question.metadata.subtopicId) {
-      const subtopic = universalTopicsV2.getSubTopicSafe(
-        question.metadata.subjectId, 
-        question.metadata.domainId, 
-        question.metadata.topicId, 
-        question.metadata.subtopicId
-      );
-      if (!subtopic) {
-        addError('metadata.subtopicId', `תת-נושא לא קיים בנושא ${question.metadata.topicId}`);
+    // Validate hierarchy relationships
+    if (question.metadata.subjectId && question.metadata.domainId) {
+      // Check if domain belongs to subject
+      const domain = universalTopicsV2.getDomainSafe(question.metadata.subjectId, question.metadata.domainId);
+      if (!domain) {
+        addError('metadata.domainId', `תחום ${question.metadata.domainId} לא קיים בנושא הרחב ${question.metadata.subjectId}`);
+      } else if (question.metadata.topicId) {
+        // Check if topic belongs to domain
+        const topic = universalTopicsV2.getTopicSafe(question.metadata.subjectId, question.metadata.domainId, question.metadata.topicId);
+        if (!topic) {
+          addError('metadata.topicId', `נושא ${question.metadata.topicId} לא קיים בתחום ${question.metadata.domainId}`);
+        } else if (question.metadata.subtopicId) {
+          // Check if subtopic belongs to topic
+          const subtopic = universalTopicsV2.getSubTopicSafe(
+            question.metadata.subjectId,
+            question.metadata.domainId,
+            question.metadata.topicId,
+            question.metadata.subtopicId
+          );
+          if (!subtopic) {
+            addError('metadata.subtopicId', `תת-נושא ${question.metadata.subtopicId} לא קיים בנושא ${question.metadata.topicId}`);
+          }
+        }
       }
     }
+
+    // Log hierarchy validation details
+    logger.info('🔍 Validating question hierarchy:', {
+      questionId: question.id,
+      hierarchy: {
+        subjectId: question.metadata.subjectId,
+        domainId: question.metadata.domainId,
+        topicId: question.metadata.topicId,
+        subtopicId: question.metadata.subtopicId
+      },
+      validationResults: {
+        subjectExists: !!question.metadata.subjectId,
+        domainExists: !!universalTopicsV2.getDomainSafe(question.metadata.subjectId!, question.metadata.domainId!),
+        topicExists: !!universalTopicsV2.getTopicSafe(question.metadata.subjectId!, question.metadata.domainId!, question.metadata.topicId!),
+        subtopicExists: question.metadata.subtopicId ? 
+          !!universalTopicsV2.getSubTopicSafe(
+            question.metadata.subjectId!,
+            question.metadata.domainId!,
+            question.metadata.topicId!,
+            question.metadata.subtopicId
+          ) : true
+      }
+    });
 
     // Validate question type
     if (!question.metadata.type) {
@@ -208,46 +270,6 @@ export function validateQuestion(question: Question): ValidationResult {
     }
   }
 
-  // 5. Evaluation validation - required for numerical and open questions
-  if (question.metadata?.type === QuestionType.MULTIPLE_CHOICE) {
-    // Multiple choice should NOT have evaluation
-    if (question.evaluationGuidelines) {
-      addWarning('evaluationGuidelines', 'שאלת רב-ברירה לא צריכה לכלול הערכה');
-    }
-  } else {
-    // Numerical and Open MUST have evaluation
-    if (!question.evaluationGuidelines) {
-      addError('evaluationGuidelines', 'הערכה חסרה - נדרשת לשאלות מספריות ופתוחות');
-    } else {
-      // Validate required criteria
-      if (!question.evaluationGuidelines.requiredCriteria?.length) {
-        addError('evaluationGuidelines.requiredCriteria', 'קריטריוני הערכה חסרים');
-      } else {
-        // Validate criteria weights sum to 100
-        const totalWeight = question.evaluationGuidelines.requiredCriteria.reduce(
-          (sum, criterion) => sum + criterion.weight, 
-          0
-        );
-        if (Math.abs(totalWeight - 100) > 0.01) {
-          addError('evaluationGuidelines.requiredCriteria', 'משקלי הקריטריונים חייבים להסתכם ל-100');
-        }
-
-        // Validate each criterion has name and description
-        question.evaluationGuidelines.requiredCriteria.forEach((criterion, index) => {
-          if (!criterion.name?.trim()) {
-            addError(`evaluationGuidelines.requiredCriteria[${index}].name`, 'שם הקריטריון חסר');
-          }
-          if (!criterion.description?.trim()) {
-            addError(`evaluationGuidelines.requiredCriteria[${index}].description`, 'תיאור הקריטריון חסר');
-          }
-          if (criterion.weight <= 0 || criterion.weight > 100) {
-            addError(`evaluationGuidelines.requiredCriteria[${index}].weight`, 'משקל הקריטריון חייב להיות בין 1 ל-100');
-          }
-        });
-      }
-    }
-  }
-
   // Type-specific validation
   if (question.metadata?.type) {
     switch (question.metadata.type) {
@@ -264,6 +286,13 @@ export function validateQuestion(question: Question): ValidationResult {
             message: 'שאלת רב-ברירה חייבת לכלול תשובה מסוג רב-ברירה'
           });
         }
+        // Multiple choice MUST have evaluation for explanation
+        if (!question.evaluationGuidelines) {
+          errors.push({
+            field: 'evaluationGuidelines',
+            message: 'הערכה חסרה - נדרשת להסבר התשובה'
+          });
+        }
         break;
 
       case QuestionType.NUMERICAL:
@@ -278,6 +307,13 @@ export function validateQuestion(question: Question): ValidationResult {
             message: 'מומלץ לציין יחידות מידה בשאלות מספריות'
           });
         }
+        // Numerical MUST have evaluation
+        if (!question.evaluationGuidelines) {
+          errors.push({
+            field: 'evaluationGuidelines',
+            message: 'הערכה חסרה - נדרשת לשאלות מספריות'
+          });
+        }
         break;
 
       case QuestionType.OPEN:
@@ -287,7 +323,45 @@ export function validateQuestion(question: Question): ValidationResult {
             message: 'מומלץ לכלול טקסט פתרון בשאלות פתוחות'
           });
         }
+        // Open MUST have evaluation
+        if (!question.evaluationGuidelines) {
+          errors.push({
+            field: 'evaluationGuidelines',
+            message: 'הערכה חסרה - נדרשת לשאלות פתוחות'
+          });
+        }
         break;
+    }
+  }
+
+  // Validate evaluation guidelines if present
+  if (question.evaluationGuidelines !== undefined && 
+      question.evaluationGuidelines !== null) {
+    // Validate required criteria
+    if (!question.evaluationGuidelines.requiredCriteria?.length) {
+      addError('evaluationGuidelines.requiredCriteria', 'קריטריוני הערכה חסרים');
+    } else {
+      // Validate criteria weights sum to 100
+      const totalWeight = question.evaluationGuidelines.requiredCriteria.reduce(
+        (sum, criterion) => sum + criterion.weight, 
+        0
+      );
+      if (Math.abs(totalWeight - 100) > 0.01) {
+        addError('evaluationGuidelines.requiredCriteria', 'משקלי הקריטריונים חייבים להסתכם ל-100');
+      }
+
+      // Validate each criterion has name and description
+      question.evaluationGuidelines.requiredCriteria.forEach((criterion, index) => {
+        if (!criterion.name?.trim()) {
+          addError(`evaluationGuidelines.requiredCriteria[${index}].name`, 'שם הקריטריון חסר');
+        }
+        if (!criterion.description?.trim()) {
+          addError(`evaluationGuidelines.requiredCriteria[${index}].description`, 'תיאור הקריטריון חסר');
+        }
+        if (criterion.weight <= 0 || criterion.weight > 100) {
+          addError(`evaluationGuidelines.requiredCriteria[${index}].weight`, 'משקל הקריטריון חייב להיות בין 1 ל-100');
+        }
+      });
     }
   }
 

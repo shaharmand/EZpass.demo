@@ -1,19 +1,36 @@
-import React, { useState } from 'react';
-import { Card, Form, Input, Button, Select, InputNumber, Space, Typography, Divider, message } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Form, Input, Button, Select, InputNumber, Space, Typography, Divider, message, Spin, Alert, Collapse } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { LLMService } from '../../../services/llm/llmService';
+import { QuestionService } from '../../../services/llm/questionGenerationService';
 import { QuestionStorage } from '../../../services/admin/questionStorage';
-import { Question, QuestionStatus, SourceType, QuestionType, EzpassCreatorType, PublicationStatusEnum } from '../../../types/question';
+import { Question, QuestionType, SourceType, EzpassCreatorType, PublicationStatusEnum, DatabaseQuestion, EMPTY_EVALUATION_GUIDELINES, ValidationStatus, ReviewStatusEnum, DifficultyLevel } from '../../../types/question';
+import { QuestionContentSection } from '../../../components/admin/sections/QuestionContentSection';
+import { QuestionMetadataSection } from '../../../components/admin/sections/QuestionMetadataSection';
+import { SolutionAndEvaluationSection } from '../../../components/admin/sections/SolutionAndEvaluationSection';
+import { EditOutlined } from '@ant-design/icons';
+import { universalTopics } from '../../../services/universalTopics';
+import { Topic, SubTopic } from '../../../types/subject';
+import { ExamInstitutionType, ExamType } from '../../../types/examTemplate';
+import { enumMappings } from '../../../utils/translations';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
+const { Panel } = Collapse;
 
 interface GenerationResult {
   systemPrompt: string;
   userPrompt: string;
   rawResponse: string;
   questionId?: string;
-  question?: Question;
+  question?: DatabaseQuestion;
+}
+
+interface FormValues {
+  type: QuestionType;
+  difficulty: DifficultyLevel;
+  topic: string;
+  subtopic: string;
+  specificTopic?: string;
 }
 
 export const QuestionGenerator: React.FC = () => {
@@ -21,118 +38,98 @@ export const QuestionGenerator: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<GenerationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [questionType, setQuestionType] = useState<QuestionType>(QuestionType.MULTIPLE_CHOICE);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const questionStorage = new QuestionStorage();
+  const questionService = new QuestionService();
 
-  const onFinish = async (values: any) => {
+  // Get topics from civil engineering subject and construction safety domain
+  const subjects = universalTopics.getAllSubjects();
+  const civilEngineering = subjects.find(s => s.id === 'civil_engineering');
+  const constructionSafety = civilEngineering?.domains.find(d => d.id === 'construction_safety');
+  const topics = constructionSafety?.topics || [];
+
+  // Get subtopics for selected topic
+  const selectedTopicData = topics.find((t: Topic) => t.id === selectedTopic);
+  const subtopics = selectedTopicData?.subTopics || [];
+
+  const handleTopicChange = (value: string) => {
+    setSelectedTopic(value);
+    form.setFieldValue('subtopic', undefined); // Reset subtopic when topic changes
+  };
+
+  const onFinish = async (values: FormValues) => {
     setLoading(true);
+    setError(null);
     try {
-      const llmService = new LLMService();
-      
-      // Build the system and user prompts based on metadata
-      const systemPrompt = `You are an expert question creator for ${values.subject} exams. 
-Create questions that are clear, challenging, and educational.
-The question should take approximately ${values.estimatedTime} minutes to solve.
-Format the response as a JSON object with the following structure:
-{
-  "content": {
-    "text": "question text here",
-    "format": "markdown"
-  },
-  "type": "${values.type}",
-  "options": ${values.type === 'multiple_choice' ? '[{"text": "option 1", "format": "markdown"}, {"text": "option 2", "format": "markdown"}, {"text": "option 3", "format": "markdown"}, {"text": "option 4", "format": "markdown"}]' : '[]'},
-  "correctOption": ${values.type === 'multiple_choice' ? '0' : 'null'},
-  "solution": {
-    "explanation": "detailed solution explanation",
-    "steps": ["step 1", "step 2", "step 3"]
-  },
-  "metadata": {
-    "difficulty": ${values.difficulty === 'easy' ? 1 : values.difficulty === 'medium' ? 2 : 3},
-    "topicId": "${values.topic}",
-    "subtopicId": "${values.subtopic || ''}",
-    "estimatedTime": ${values.estimatedTime},
-    "source": {
-      "sourceType": "${SourceType.EZPASS}",
-      "details": {
-        "ezpass": {
-          "creatorType": "${EzpassCreatorType.AI}",
-          "createdAt": "${new Date().toISOString()}",
-          "ai": {
-            "model": "gpt-4",
-            "systemPrompt": "See above",
-            "userPrompt": "See above",
-            "parameters": {
-              "temperature": 0.7
-            }
-          }
+      // Generate question using the old question service
+      const question = await questionService.generateQuestion({
+        type: values.type,
+        difficulty: values.difficulty,
+        topic: values.topic,
+        subtopic: values.subtopic,
+        subject: 'civil_engineering', // Set correct subject
+        educationType: ExamInstitutionType.PRACTICAL_ENGINEERING, // Use enum value
+        examType: ExamType.MAHAT_EXAM, // Use the correct exam type for practical engineering
+        source: {
+          type: SourceType.EZPASS,
+          creatorType: EzpassCreatorType.AI
         }
-      }
-    }
-  }
-}`;
-
-      const userPrompt = `Create a ${values.difficulty} level ${values.type} question about ${values.specificTopic || values.subtopic || values.topic} in ${values.subject}.`;
-      
-      // Call LLM service to generate question
-      const response = await llmService.complete(userPrompt, {
-        systemMessage: systemPrompt,
-        temperature: 0.7,
       });
 
-      // Parse the response
-      const questionData = JSON.parse(response);
-      
-      // Update the source information with actual prompts
-      questionData.metadata = {
-        ...questionData.metadata,
-        source: {
-          sourceType: SourceType.EZPASS,
-          details: {
-            ezpass: {
-              creatorType: EzpassCreatorType.AI,
-              createdAt: new Date().toISOString(),
-              ai: {
-                model: 'gpt-4',
-                systemPrompt,
-                userPrompt,
-                parameters: {
-                  temperature: 0.7
-                }
-              }
-            }
-          }
-        }
-      };
-      
-      // Create the question with source information
-      const question: Question = {
-        ...questionData,
-        id: `${values.subject}_${values.topic}_${Date.now()}`, // Temporary ID, will be replaced by storage
-      };
-
-      // Save to database - validation will be handled by storage service
-      await questionStorage.saveQuestion({
-        ...question,
-        publication_status: PublicationStatusEnum.DRAFT
+      // Save to database with only the fields allowed by SaveQuestion
+      const createdQuestion = await questionStorage.createQuestion({
+        question: question
       });
 
       // Save the result
       setResult({
-        systemPrompt,
-        userPrompt,
-        rawResponse: JSON.stringify(questionData, null, 2),
-        questionId: question.id,
-        question
+        systemPrompt: 'Question Generation',
+        userPrompt: `Generate a ${values.difficulty} level ${values.type} question about ${values.specificTopic || values.subtopic || values.topic} in construction safety.`,
+        rawResponse: JSON.stringify(createdQuestion, null, 2),
+        questionId: createdQuestion.id,
+        question: createdQuestion
       });
 
-      message.success('Question generated and saved successfully! You can review it in the editor.');
+      message.success(
+        <Space direction="vertical">
+          <div>השאלה נוצרה ונשמרה בהצלחה!</div>
+          <Button 
+            type="link" 
+            onClick={() => navigate(`/admin/questions/${createdQuestion.id}`)}
+            style={{ padding: 0, height: 'auto' }}
+          >
+            לחץ כאן לעריכת השאלה
+          </Button>
+        </Space>
+      );
 
     } catch (error) {
       console.error('Error generating question:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate question. Please try again.');
       message.error('Failed to generate question. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRegenerate = () => {
+    form.submit();
+  };
+
+  const handleEdit = () => {
+    if (result?.questionId) {
+      navigate(`/admin/questions/${result.questionId}`);
+    }
+  };
+
+  const handleSave = async (data: Partial<Question>) => {
+    if (!result?.question) return;
+    await questionStorage.saveQuestion({
+      ...result.question,
+      ...data
+    });
   };
 
   return (
@@ -145,59 +142,48 @@ Format the response as a JSON object with the following structure:
           layout="vertical"
           onFinish={onFinish}
           initialValues={{
-            type: 'multiple_choice',
-            difficulty: 'medium',
+            type: QuestionType.MULTIPLE_CHOICE,
+            difficulty: 3,
             estimatedTime: 5
           }}
         >
           <Space direction="vertical" style={{ width: '100%' }} size="large">
-            {/* Subject Fields */}
-            <Form.Item name="subject" label="נושא ראשי" rules={[{ required: true }]}>
-              <Select>
-                <Select.Option value="math">מתמטיקה</Select.Option>
-                <Select.Option value="physics">פיזיקה</Select.Option>
-                <Select.Option value="chemistry">כימיה</Select.Option>
-                <Select.Option value="biology">ביולוגיה</Select.Option>
+            {/* Topic Fields */}
+            <Form.Item name="topic" label="נושא" rules={[{ required: true }]}>
+              <Select onChange={handleTopicChange}>
+                {topics.map((topic: Topic) => (
+                  <Select.Option key={topic.id} value={topic.id}>{topic.name}</Select.Option>
+                ))}
               </Select>
             </Form.Item>
 
-            <Form.Item name="topic" label="תת נושא" rules={[{ required: true }]}>
-              <Select>
-                <Select.Option value="algebra">אלגברה</Select.Option>
-                <Select.Option value="geometry">גאומטריה</Select.Option>
-                <Select.Option value="trigonometry">טריגונומטריה</Select.Option>
-                <Select.Option value="calculus">חשבון דיפרנציאלי ואינטגרלי</Select.Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item name="subtopic" label="תת תת נושא">
-              <Select>
-                <Select.Option value="equations">משוואות</Select.Option>
-                <Select.Option value="functions">פונקציות</Select.Option>
-                <Select.Option value="vectors">וקטורים</Select.Option>
-                <Select.Option value="matrices">מטריצות</Select.Option>
+            <Form.Item name="subtopic" label="תת נושא">
+              <Select disabled={!selectedTopic}>
+                {subtopics.map((subtopic: SubTopic) => (
+                  <Select.Option key={subtopic.id} value={subtopic.id}>{subtopic.name}</Select.Option>
+                ))}
               </Select>
             </Form.Item>
 
             <Form.Item name="specificTopic" label="נושא ספציפי">
-              <Input placeholder="למשל: משוואות ריבועיות עם פרמטר" />
+              <Input placeholder="למשל: בטיחות בעבודה עם ביטומן חם" />
             </Form.Item>
 
             {/* Question Type */}
             <Form.Item name="type" label="סוג שאלה" rules={[{ required: true }]}>
               <Select>
-                <Select.Option value={QuestionType.MULTIPLE_CHOICE}>רב ברירה</Select.Option>
-                <Select.Option value={QuestionType.OPEN}>פתוחה</Select.Option>
-                <Select.Option value={QuestionType.NUMERICAL}>חישובית</Select.Option>
+                {Object.entries(enumMappings.questionType).map(([type, label]) => (
+                  <Select.Option key={type} value={type}>{label}</Select.Option>
+                ))}
               </Select>
             </Form.Item>
 
             {/* Difficulty */}
             <Form.Item name="difficulty" label="רמת קושי" rules={[{ required: true }]}>
               <Select>
-                <Select.Option value="easy">קלה</Select.Option>
-                <Select.Option value="medium">בינונית</Select.Option>
-                <Select.Option value="hard">קשה</Select.Option>
+                {Object.entries(enumMappings.difficulty).map(([level, label]) => (
+                  <Select.Option key={level} value={parseInt(level)}>{label}</Select.Option>
+                ))}
               </Select>
             </Form.Item>
 
@@ -213,41 +199,74 @@ Format the response as a JSON object with the following structure:
         </Form>
       </Card>
 
-      {result && (
-        <>
-          <Divider />
-          <Card title="תוצאות">
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
-              <div>
-                <Title level={4}>System Prompt</Title>
-                <Paragraph copyable>{result.systemPrompt}</Paragraph>
-              </div>
+      {error && (
+        <Card style={{ marginTop: '24px' }}>
+          <Alert
+            message="שגיאה"
+            description={error}
+            type="error"
+            showIcon
+          />
+        </Card>
+      )}
 
-              <div>
-                <Title level={4}>User Prompt</Title>
-                <Paragraph copyable>{result.userPrompt}</Paragraph>
-              </div>
-
-              <div>
-                <Title level={4}>Raw Response</Title>
-                <TextArea
-                  value={result.rawResponse}
-                  autoSize={{ minRows: 4, maxRows: 10 }}
-                  readOnly
-                />
-              </div>
-
-              {result.questionId && (
+      {result?.question && (
+        <Card style={{ marginTop: '24px' }}>
+          <Space direction="vertical" style={{ width: '100%' }} size="large">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Title level={3}>תצוגה מקדימה של השאלה</Title>
+              <Space>
+                <Button onClick={handleRegenerate}>צור מחדש</Button>
                 <Button 
-                  type="primary"
-                  onClick={() => navigate(`/admin/questions/${result.questionId}`)}
+                  type="primary" 
+                  onClick={handleEdit}
+                  icon={<EditOutlined />}
+                  size="large"
                 >
-                  ערוך שאלה במערכת
+                  ערוך שאלה
                 </Button>
-              )}
-            </Space>
-          </Card>
-        </>
+              </Space>
+            </div>
+
+            <Collapse defaultActiveKey={['content']}>
+              <Panel header="תוכן השאלה" key="content">
+                <QuestionContentSection
+                  question={result.question}
+                  isEditing={false}
+                  onEdit={() => {}}
+                  onSave={handleSave}
+                />
+              </Panel>
+              <Panel header="מטא-דאטה" key="metadata">
+                <QuestionMetadataSection
+                  question={result.question}
+                  isEditing={false}
+                  onEdit={() => {}}
+                  onSave={handleSave}
+                />
+              </Panel>
+              <Panel header="פתרון והערכה" key="solution">
+                <SolutionAndEvaluationSection
+                  question={result.question}
+                  isEditing={false}
+                  onEdit={() => {}}
+                  onSave={handleSave}
+                />
+              </Panel>
+              <Panel header="JSON גולמי" key="raw">
+                <pre style={{ 
+                  background: '#f5f5f5', 
+                  padding: '16px', 
+                  borderRadius: '4px',
+                  overflow: 'auto',
+                  maxHeight: '400px'
+                }}>
+                  {result.rawResponse}
+                </pre>
+              </Panel>
+            </Collapse>
+          </Space>
+        </Card>
       )}
     </div>
   );

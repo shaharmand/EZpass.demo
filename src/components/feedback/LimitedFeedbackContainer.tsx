@@ -4,7 +4,8 @@ import { LockOutlined, GoogleOutlined, BookOutlined } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import { 
   Question, 
-  QuestionType
+  QuestionType,
+  DatabaseQuestion
 } from '../../types/question';
 import { 
   QuestionFeedback,

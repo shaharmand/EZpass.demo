@@ -72,8 +72,9 @@ export class PrepStateManager {
     private static setTracker: SetProgressTracker = new SetProgressTracker();
     private static prepsCache: Record<string, StudentPrep> | null = null;
     private static lastLoadTime: number = 0;
-    private static CACHE_TTL = 1000; // 1 second TTL
+    private static CACHE_TTL = 30000; // 30 second TTL for cache
     private static instance: PrepStateManager | null = null;
+    private static memoizedPreps: Record<string, StudentPrep> | null = null;
     private topics: Topic[];
 
     // Internal state tracking

@@ -25,5 +25,6 @@ export function ProtectedRoute({ children, requireAuth = true }: ProtectedRouteP
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
+  // Allow access to all authenticated routes without role checks
   return <>{children}</>;
 } 

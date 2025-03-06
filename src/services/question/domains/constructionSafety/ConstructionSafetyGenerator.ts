@@ -1,9 +1,10 @@
 import { Question, QuestionType, DifficultyLevel, SourceType, EzpassCreatorType, AnswerFormatRequirements, AnswerContentGuidelines } from '../../../../types/question';
 import { BaseQuestionGenerator } from '../../base/BaseQuestionGenerator';
 import { DomainConfig } from '../../base/BaseQuestionGenerator';
-import { OpenAIService } from '../../../llm/openAIService';
+import { OpenAIService } from '../../../../services/llm/openAIService';
 import { QuestionGenerationRequirements, GenerationResult } from '../../../../types/questionGeneration';
 import { logger } from '../../../../utils/logger';
+import { universalTopicsV2 } from '../../../../services/universalTopics';
 
 const CONSTRUCTION_SAFETY_CONFIG: DomainConfig = {
   id: 'safety',
@@ -131,6 +132,21 @@ export class ConstructionSafetyGenerator extends BaseQuestionGenerator {
 
   async generateQuestion(requirements: QuestionGenerationRequirements): Promise<GenerationResult> {
     try {
+      // Validate topic hierarchy first
+      const hierarchyValidation = universalTopicsV2.validateTopicHierarchy({
+        subjectId: requirements.hierarchy.subject.id,
+        domainId: requirements.hierarchy.domain.id,
+        topicId: requirements.hierarchy.topic.id,
+        subtopicId: requirements.hierarchy.subtopic.id
+      });
+
+      if (!hierarchyValidation.isValid) {
+        return {
+          success: false,
+          validationErrors: [hierarchyValidation.error || 'Invalid topic hierarchy']
+        };
+      }
+
       logger.info('Generating construction safety question', {
         type: requirements.type,
         topic: requirements.hierarchy.topic.name,

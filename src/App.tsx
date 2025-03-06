@@ -15,6 +15,7 @@ import { QuestionLibraryPage } from './pages/admin/questions/QuestionLibraryPage
 import { QuestionEditor } from './pages/admin/questions/QuestionEditor';
 import { QuestionImport } from './pages/admin/questions/QuestionImport';
 import AuthCallback from './pages/AuthCallback';
+import { QuestionGenerator } from './pages/admin/questions/QuestionGenerator';
 
 const App: React.FC = () => {
   return (
@@ -59,6 +60,7 @@ const App: React.FC = () => {
                 <Route path="new" element={<QuestionEditor />} />
                 <Route path=":id" element={<QuestionEditor />} />
                 <Route path="import" element={<QuestionImport />} />
+                <Route path="generate" element={<QuestionGenerator />} />
               </Route>
             </Route>
           </Routes>

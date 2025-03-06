@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 import type { ExamTemplate } from '../types/examTemplate';
 import type { StudentPrep } from '../types/prepState';
 import type { QuestionPracticeState, SkipReason } from '../types/prepUI';
-import type { Question, QuestionType } from '../types/question';
+import type { Question, QuestionType, DatabaseQuestion } from '../types/question';
 import { DetailedEvalLevel, getEvalLevelFromScore } from '../types/feedback/levels';
 import { PrepStateManager } from '../services/PrepStateManager';
 import { questionStorage } from '../services/admin/questionStorage';
@@ -17,7 +17,7 @@ import type { FullAnswer } from '../types/question';
 
 interface StudentPrepContextType {
   prep: StudentPrep | null;
-  currentQuestion: Question | null;
+  currentQuestion: DatabaseQuestion | null;
   questionState: QuestionPracticeState;
   setQuestionState: React.Dispatch<React.SetStateAction<QuestionPracticeState>>;
   isQuestionLoading: boolean;
@@ -35,7 +35,7 @@ const StudentPrepContext = createContext<StudentPrepContextType | undefined>(und
 
 export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [prep, setPrep] = useState<StudentPrep | null>(null);
-  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<DatabaseQuestion | null>(null);
   const [isQuestionLoading, setIsQuestionLoading] = useState(false);
   const prepStateManager = useRef<PrepStateManager | null>(null);
   const questionSequencer = useRef<QuestionSequencer | null>(null);

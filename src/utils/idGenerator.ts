@@ -1,63 +1,77 @@
-import { universalTopics } from '../services/universalTopics';
+import { universalTopicsV2 } from '../services/universalTopics';
 import { questionStorage } from '../services/admin/questionStorage';
-
-// Valid subject codes with their 3-letter codes and full IDs
-const SUBJECT_CODES = {
-    'civil_engineering': {
-        code: 'CIV',
-        id: 'civil_engineering'
-    }
-} as const;
-
-// Valid domain codes with their 3-letter codes and full IDs
-const DOMAIN_CODES = {
-    'construction_safety': {
-        code: 'SAF',
-        id: 'construction_safety'
-    }
-} as const;
-
-type ValidSubject = keyof typeof SUBJECT_CODES;
-type ValidDomain = keyof typeof DOMAIN_CODES;
+import { Domain } from '../types/subject';
 
 /**
- * Validates if a subject code matches its full ID
+ * Validates the basic format of a question ID
+ * Expected format: XXX-YYY-NNNNNN where:
+ * - XXX is a 3-letter subject code that exists in our system
+ * - YYY is a 3-letter domain code that exists in our system
+ * - NNNNNN is a 6-digit number
  */
-export function validateSubjectCode(code: string, fullId: string): boolean {
-    const subjectEntry = Object.entries(SUBJECT_CODES).find(([_, value]) => value.id === fullId);
-    if (!subjectEntry) return false;
-    return code === subjectEntry[1].code;
+export function validateQuestionIdFormat(id: string): boolean {
+  // Basic format check: subject-domain-number
+  const pattern = /^[A-Z]{3}-[A-Z]{3}-\d{6}$/;
+  if (!pattern.test(id)) {
+    return false;
+  }
+
+  // Split into parts
+  const [subjectCode, domainCode, number] = id.split('-');
+
+  // Validate each part
+  if (subjectCode.length !== 3 || domainCode.length !== 3) {
+    return false;
+  }
+
+  // Validate number is 6 digits
+  if (number.length !== 6 || isNaN(parseInt(number, 10))) {
+    return false;
+  }
+
+  // Check if subject code exists in our system
+  let foundSubject = false;
+  let foundDomain = false;
+
+  // Check if subject code exists by searching through all subjects
+  for (const subject of universalTopicsV2.getAllSubjects()) {
+    if (subject.code === subjectCode) {
+      foundSubject = true;
+      // Check if domain exists under this subject
+      const domain = subject.domains.find((d: Domain) => d.code === domainCode);
+      if (domain) {
+        foundDomain = true;
+      }
+      break;
+    }
+  }
+
+  return foundSubject && foundDomain;
 }
 
 /**
- * Validates if a domain code matches its full ID
+ * Validates that the codes in the question ID match the provided subject and domain IDs
+ * This ensures the ID is consistent with the actual subject/domain it belongs to
  */
-export function validateDomainCode(code: string, fullId: string): boolean {
-    const domainEntry = Object.entries(DOMAIN_CODES).find(([_, value]) => value.id === fullId);
-    if (!domainEntry) return false;
-    return code === domainEntry[1].code;
-}
+export function validateQuestionId(id: string, subjectId: string, domainId: string): boolean {
+  // First validate basic format
+  if (!validateQuestionIdFormat(id)) {
+    return false;
+  }
 
-/**
- * Gets the 3-letter code for a subject
- */
-export function getSubjectCode(fullId: string): string {
-    const subject = Object.values(SUBJECT_CODES).find(s => s.id === fullId.toLowerCase());
-    if (!subject) {
-        throw new Error(`Invalid subject ID: ${fullId}`);
-    }
-    return subject.code;
-}
+  // Split into parts
+  const [subjectCode, domainCode] = id.split('-');
 
-/**
- * Gets the 3-letter code for a domain
- */
-export function getDomainCode(fullId: string): string {
-    const domain = Object.values(DOMAIN_CODES).find(d => d.id === fullId.toLowerCase());
-    if (!domain) {
-        throw new Error(`Invalid domain ID: ${fullId}`);
-    }
-    return domain.code;
+  // Get the actual codes for the subject and domain
+  const actualSubjectCode = universalTopicsV2.getSubjectCode(subjectId);
+  const actualDomainCode = universalTopicsV2.getDomainCode(domainId);
+
+  // Compare codes
+  if (subjectCode !== actualSubjectCode || domainCode !== actualDomainCode) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -67,9 +81,14 @@ export function getDomainCode(fullId: string): string {
  * @throws Error if subject or domain ID is invalid
  */
 export async function generateQuestionId(subjectId: string, domainId: string): Promise<string> {
+    // Validate that the domain belongs to the subject
+    if (!universalTopicsV2.getDomainSafe(subjectId, domainId)) {
+        throw new Error(`Domain ${domainId} does not belong to subject ${subjectId}`);
+    }
+
     // Get and validate the 3-letter codes
-    const subjectCode = getSubjectCode(subjectId);
-    const domainCode = getDomainCode(domainId);
+    const subjectCode = universalTopicsV2.getSubjectCode(subjectId);
+    const domainCode = universalTopicsV2.getDomainCode(domainId);
     
     // Get the next available ID from the database
     const nextId = await questionStorage.getNextQuestionId(subjectId.toLowerCase(), domainId.toLowerCase());
@@ -79,23 +98,63 @@ export async function generateQuestionId(subjectId: string, domainId: string): P
 }
 
 /**
- * Validates a complete question ID format and content
+ * Validates if a subject code matches its full ID
  */
-export function validateQuestionId(id: string, subjectId: string, domainId: string): boolean {
-    try {
-        // Check basic format
-        const match = id.match(/^([A-Z]{3})-([A-Z]{3})-(\d{6})$/);
-        if (!match) return false;
+export function validateSubjectCode(code: string, fullId: string): boolean {
+    const subject = universalTopicsV2.getSubjectSafe(fullId);
+    if (!subject) return false;
+    return code === subject.code;
+}
 
-        const [_, subjectCode, domainCode] = match;
-
-        // Get expected codes
-        const expectedSubjectCode = getSubjectCode(subjectId);
-        const expectedDomainCode = getDomainCode(domainId);
-
-        // Compare actual vs expected
-        return subjectCode === expectedSubjectCode && domainCode === expectedDomainCode;
-    } catch (error) {
+/**
+ * Validates if a domain code matches its full ID
+ */
+export function validateDomainCode(code: string, fullId: string, subjectId: string): boolean {
+    // Get the subject and check if the domain belongs to it
+    const subject = universalTopicsV2.getSubjectSafe(subjectId);
+    if (!subject) {
         return false;
     }
+
+    // Find the domain in this subject
+    const domain = subject.domains.find((d: Domain) => d.id === fullId);
+    if (!domain) {
+        return false;
+    }
+
+    // Check if the code matches
+    return code === domain.code;
+}
+
+/**
+ * Validates a question ID format and content without requiring subject/domain IDs
+ * This is useful for initial validation before we have the full question data
+ */
+export function validateQuestionIdWithoutSubjectDomain(id: string): boolean {
+  // First validate basic format
+  if (!validateQuestionIdFormat(id)) {
+    return false;
+  }
+
+  // Split into parts
+  const [subjectCode, domainCode] = id.split('-');
+
+  // Check if subject code exists in our system
+  let foundSubject = false;
+  let foundDomain = false;
+
+  // Check if subject code exists by searching through all subjects
+  for (const subject of universalTopicsV2.getAllSubjects()) {
+    if (subject.code === subjectCode) {
+      foundSubject = true;
+      // Check if domain exists under this subject
+      const domain = subject.domains.find((d: Domain) => d.code === domainCode);
+      if (domain) {
+        foundDomain = true;
+      }
+      break;
+    }
+  }
+
+  return foundSubject && foundDomain;
 } 

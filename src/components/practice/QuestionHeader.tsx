@@ -33,18 +33,6 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
   const isTypeFocused = (type: string) => 
     prep?.focusedType === type;
 
-  const renderDifficultyOption = (difficulty: DifficultyLevel) => {
-    return (
-      <Space>
-        {[...Array(5)].map((_, i) => (
-          i < difficulty ? 
-            <StarFilled key={i} style={{ color: '#f59e0b', fontSize: '12px' }} /> :
-            <StarOutlined key={i} style={{ color: '#d1d5db', fontSize: '12px' }} />
-        ))}
-      </Space>
-    );
-  };
-
   return (
     <div className="question-header">
       <div className="title-row">
@@ -96,7 +84,7 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
             }}
           >
             <div className="difficulty-selector">
-              {renderDifficultyOption(question.metadata.difficulty)}
+              <DifficultyStars difficulty={question.metadata.difficulty} />
             </div>
           </Popover>
           <Popover 
@@ -127,4 +115,12 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
   );
 };
 
-export default QuestionHeader; 
+const DifficultyStars: React.FC<{ difficulty: DifficultyLevel }> = ({ difficulty }) => (
+  <Space>
+    {[...Array(5)].map((_, i) => (
+      i < difficulty ? 
+        <StarFilled key={i} style={{ color: '#f59e0b', fontSize: '12px' }} /> :
+        <StarOutlined key={i} style={{ color: '#d1d5db', fontSize: '12px' }} />
+    ))}
+  </Space>
+); 

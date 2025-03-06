@@ -1,3 +1,4 @@
+import { PrepRequirementsCalculator, Requirements } from './PrepRequirementsCalculator';
 import { QuestionType } from '../types/question';
 
 interface SubTopicProgress {
@@ -29,6 +30,17 @@ export interface ProgressHeaderMetrics {
   remainingQuestions: number;
   hoursPracticed: number;
   questionsAnswered: number;
+  weeklyNeededHours: number;
+  dailyNeededHours: number;
+  examDate: number;
+  typeSpecificMetrics: Array<{
+    type: QuestionType;
+    progress: number;
+    successRate: number;
+    remainingHours: number;
+    remainingQuestions: number;
+    questionsAnswered: number;
+  }>;
 }
 
 export interface SubTopicProgressInfo {
@@ -61,14 +73,26 @@ export class PrepProgressTracker {
     remainingHours: 0,
     remainingQuestions: 0,
     hoursPracticed: 0,
-    questionsAnswered: 0
+    questionsAnswered: 0,
+    weeklyNeededHours: 0,
+    dailyNeededHours: 0,
+    examDate: 0,
+    typeSpecificMetrics: []
   };
+  private typeSpecificMetrics: Array<{
+    type: QuestionType;
+    progress: number;
+    successRate: number;
+    remainingHours: number;
+    remainingQuestions: number;
+    questionsAnswered: number;
+  }> = [];
   
   constructor(subTopicWeights: Array<{ id: string; percentageOfTotal: number }>, examDate: number) {
     console.log('🎯 Creating new PrepProgressTracker instance:', {
       timestamp: new Date().toISOString(),
       weightCount: subTopicWeights.length,
-      stack: new Error().stack // This will show us where it's being called from
+      stack: new Error().stack
     });
     
     this.startTime = Date.now();
@@ -80,13 +104,20 @@ export class PrepProgressTracker {
     
     this.examDate = examDate;
     
+    // Initialize all subtopics with 0 progress
     subTopicWeights.forEach(({ id, percentageOfTotal }) => {
       this.subTopicWeights.set(id, percentageOfTotal);
+      // Initialize progress entry for each subtopic
+      this.subTopicProgress.set(id, {
+        multipleChoice: { lastResults: [], progress: 0 },
+        open: { lastResults: [], progress: 0 }
+      });
     });
 
-    console.log('🎲 PrepProgressTracker initialized with weights:', {
+    console.log('🎲 PrepProgressTracker initialized with weights and progress:', {
       timestamp: new Date().toISOString(),
-      weights: Array.from(this.subTopicWeights.entries())
+      weights: Array.from(this.subTopicWeights.entries()),
+      progress: Array.from(this.subTopicProgress.entries())
     });
 
     // Initialize header metrics
@@ -106,6 +137,17 @@ export class PrepProgressTracker {
 
   private logProgressUpdate(): void {
     this.updateHeaderMetrics();
+
+    // Get requirements for overall progress calculation
+    const requirements = PrepRequirementsCalculator.calculateRequirements(
+      Array.from(this.subTopicProgress.entries()).map(([id, progress]) => ({
+        subTopicId: id,
+        weight: this.subTopicWeights.get(id) || 0,
+        multipleChoiceProgress: progress.multipleChoice.progress,
+        openProgress: progress.open.progress
+      }))
+    );
+
     console.log('Progress Update:', {
       timestamp: new Date().toISOString(),
       metrics: this.headerMetrics,
@@ -131,10 +173,22 @@ export class PrepProgressTracker {
     return average;
   }
 
-  private getProgressLevel(average: number): number {
-    if (average >= 80) return 100;
-    if (average >= 55) return 50;
-    return 0;
+  private getProgressLevel(average: number, resultCount: number = 0, questionType: QuestionType = QuestionType.MULTIPLE_CHOICE): number {
+    // Only multiple choice requires minimum questions
+    if (questionType === QuestionType.MULTIPLE_CHOICE && resultCount < 3) {
+        return 0;
+    }
+    
+    // Only count progress if average is at least 60%
+    if (average < 60) return 0;
+    
+    // Use different divisors based on question type
+    const divisor = questionType === QuestionType.MULTIPLE_CHOICE ? 20 :
+                   questionType === QuestionType.NUMERICAL ? 6 : 2;
+    const progressPercentage = average * (resultCount / divisor);
+    
+    // Cap at 100% but keep decimal precision
+    return Math.min(100, progressPercentage);
   }
 
   public addResult(
@@ -217,15 +271,36 @@ export class PrepProgressTracker {
       results.lastResults = results.lastResults.slice(-keepCount);
     }
 
+    // Calculate progress based on sliding window
+    if (results.lastResults.length < 3) {
+      results.progress = 0;
+    } else {
+      const average = this.calculateAverage(results.lastResults);
+      if (average >= 60) {
+        // Progress is proportional to number of results if average >= 60%
+        const baseProgress = (results.lastResults.length / 20) * average;
+        
+        // Apply type weight (55% for MC, 37% for Open)
+        const typeWeight = questionType === QuestionType.MULTIPLE_CHOICE ? 0.55 : 0.37;
+        
+        if (average >= 80 && results.lastResults.length >= 20) {
+          results.progress = 100 * typeWeight;  // Full progress for this type
+        } else {
+          results.progress = baseProgress * typeWeight;
+        }
+      } else {
+        results.progress = 0;
+      }
+    }
 
-    results.progress = this.getProgressLevel(this.calcSuccessRate());
-
+    const currentAverage = this.calculateAverage(results.lastResults);
     console.log('✅ Updated subtopic progress:', {
       subTopicId,
       questionType,
       resultsCount: results.lastResults.length,
-      successRate: this.calcSuccessRate(),
-      newProgress: results.progress
+      average: currentAverage,
+      progress: results.progress,
+      successRate: this.calcSuccessRate()
     });
   }
 
@@ -243,7 +318,10 @@ export class PrepProgressTracker {
     }
 
     const average = this.calculateAverage(this.numericProgress.lastResults);
-    this.numericProgress.progress = this.getProgressLevel(average);
+    const baseProgress = this.getProgressLevel(average, this.numericProgress.lastResults.length, QuestionType.NUMERICAL);
+    
+    // Apply 8% weight for numerical questions
+    this.numericProgress.progress = baseProgress * 0.08;
 
     console.log('✅ Updated numeric progress:', {
       resultsCount: this.numericProgress.lastResults.length,
@@ -254,17 +332,90 @@ export class PrepProgressTracker {
 
   private updateHeaderMetrics(): void {
     const now = Date.now();
-    const questionsAnswered = this.completedQuestions;
-    const totalQuestions = this.calculateTotalRequiredQuestions();
-    const remainingHours = Math.max(0, (this.examDate - now) / (1000 * 60 * 60));
     
+    // Get total questions from history instead of just completedQuestions
+    const questionsAnswered = this.questionHistory.length;
+    
+    // Calculate type-specific progress from subtopic progress
+    let totalMultipleChoiceProgress = 0;
+    let totalOpenProgress = 0;
+    let totalWeight = 0;
+
+    this.subTopicProgress.forEach((progress, subTopicId) => {
+      const weight = this.subTopicWeights.get(subTopicId) || 0;
+      totalMultipleChoiceProgress += progress.multipleChoice.progress * weight;
+      totalOpenProgress += progress.open.progress * weight;
+      totalWeight += weight;
+    });
+
+    // Normalize by total weight
+    if (totalWeight > 0) {
+      totalMultipleChoiceProgress = totalMultipleChoiceProgress / totalWeight;
+      totalOpenProgress = totalOpenProgress / totalWeight;
+    }
+
+    // Calculate requirements using PrepRequirementsCalculator
+    const requirements = PrepRequirementsCalculator.calculateRequirements(
+      Array.from(this.subTopicProgress.entries()).map(([id, progress]) => ({
+        subTopicId: id,
+        weight: this.subTopicWeights.get(id) || 0,
+        multipleChoiceProgress: progress.multipleChoice.progress,
+        openProgress: progress.open.progress
+      }))
+    );
+
+    // Get counts for each type from all history
+    const allResults = this.questionHistory;
+    const multipleChoiceCount = allResults.filter(r => r.type === QuestionType.MULTIPLE_CHOICE).length;
+    const openCount = allResults.filter(r => r.type === QuestionType.OPEN).length;
+    const numericalCount = allResults.filter(r => r.type === QuestionType.NUMERICAL).length;
+
+    // Calculate remaining time until exam in days
+    const daysUntilExam = Math.max(1, Math.ceil((this.examDate - now) / (1000 * 60 * 60 * 24)));
+    const weeksUntilExam = Math.max(1, daysUntilExam / 7);
+
+    // Calculate needed hours per week and per day
+    const remainingHours = PrepProgressTracker.roundToNearest15Minutes(requirements.total.remainingHours);
+    const weeklyNeededHours = PrepProgressTracker.roundToNearest15Minutes(remainingHours / weeksUntilExam);
+    const dailyNeededHours = PrepProgressTracker.roundToNearest15Minutes(remainingHours / daysUntilExam);
+
+    // Update header metrics
     this.headerMetrics = {
-      successRate: this.calcSuccessRate(),
       overallProgress: this.getOverallProgress(),
-      questionsAnswered,
+      successRate: this.calcSuccessRate(),
       remainingHours,
-      remainingQuestions: totalQuestions - questionsAnswered,
-      hoursPracticed: this.getActiveTime() / (1000 * 60 * 60)
+      remainingQuestions: PrepProgressTracker.roundToNearest10(requirements.total.remainingQuestions),
+      hoursPracticed: PrepProgressTracker.roundToNearest15Minutes(this.timeTracking.activeTime / (1000 * 60 * 60)),
+      questionsAnswered: questionsAnswered,
+      weeklyNeededHours,
+      dailyNeededHours,
+      examDate: this.examDate,
+      typeSpecificMetrics: [
+        {
+          type: QuestionType.MULTIPLE_CHOICE,
+          progress: totalMultipleChoiceProgress,  // Progress is already weighted in updateSubTopicProgress
+          successRate: this.getTypeSpecificRate(QuestionType.MULTIPLE_CHOICE),
+          remainingHours: PrepProgressTracker.roundToNearest15Minutes(requirements.multipleChoice.remainingHours),
+          remainingQuestions: PrepProgressTracker.roundToNearest10(requirements.multipleChoice.remainingQuestions),
+          questionsAnswered: multipleChoiceCount
+        },
+        {
+          type: QuestionType.OPEN,
+          progress: totalOpenProgress,  // Progress is already weighted in updateSubTopicProgress
+          successRate: this.getTypeSpecificRate(QuestionType.OPEN),
+          remainingHours: PrepProgressTracker.roundToNearest15Minutes(requirements.open.remainingHours),
+          remainingQuestions: PrepProgressTracker.roundToNearest10(requirements.open.remainingQuestions),
+          questionsAnswered: openCount
+        },
+        {
+          type: QuestionType.NUMERICAL,
+          progress: this.numericProgress.progress,  // Already weighted in updateNumericProgress
+          successRate: this.getTypeSpecificRate(QuestionType.NUMERICAL),
+          remainingHours: PrepProgressTracker.roundToNearest15Minutes(requirements.numerical.remainingHours),
+          remainingQuestions: PrepProgressTracker.roundToNearest10(requirements.numerical.remainingQuestions),
+          questionsAnswered: numericalCount
+        }
+      ]
     };
   }
 
@@ -274,115 +425,137 @@ export class PrepProgressTracker {
   }
 
   private calculateTotalRequiredQuestions(): number {
-    // Each subtopic requires 20 questions per level, 5 levels
-    const questionsPerSubtopic = 20 * 5;
-    return this.subTopicWeights.size * questionsPerSubtopic;
+    // Use the actual question counts from PrepRequirementsCalculator
+    return PrepRequirementsCalculator.TOTAL_MULTIPLE_CHOICE_QUESTIONS + 
+           PrepRequirementsCalculator.TOTAL_OPEN_QUESTIONS + 
+           PrepRequirementsCalculator.TOTAL_NUMERICAL_QUESTIONS;  // 1000 + 100 + 20 = 1120
+  }
+
+  private static roundToOneDecimal(num: number): number {
+    return Number((Math.round(num * 10) / 10).toFixed(1));
+  }
+
+  private static roundToNearest10(num: number): number {
+    return Math.round(num / 10) * 10;
+  }
+
+  private static roundToNearestHalf(num: number): number {
+    return Math.round(num * 2) / 2;
+  }
+
+  private static roundToNearest15Minutes(num: number): number {
+    // Convert hours to minutes, round to nearest 15, then convert back to hours
+    return Math.round(num * 60 / 15) * 15 / 60;
   }
 
   public getOverallProgress(): number {
-    // Get all results
-    const allResults = this.getAllResultsSorted();
-    const multipleChoiceCount = allResults.filter(r => r.type === QuestionType.MULTIPLE_CHOICE).length;
-    const openCount = allResults.filter(r => r.type === QuestionType.OPEN).length;
-    const numericalCount = allResults.filter(r => r.type === QuestionType.NUMERICAL).length;
-
-    console.log('PrepProgressTracker: Calculating overall progress', {
-      questionCounts: {
-        multipleChoice: multipleChoiceCount,
-        open: openCount,
-        numerical: numericalCount
-      },
-      totalResults: allResults.length
-    });
-
-    // If any type has less than 20 questions, return 0 progress
-    if (multipleChoiceCount < 20 || openCount < 20 || numericalCount < 20) {
-        console.log('PrepProgressTracker: Not enough questions for progress calculation', {
-            required: 20,
-            current: {
-                multipleChoice: multipleChoiceCount,
-                open: openCount,
-                numerical: numericalCount
-            }
-        });
-        return 0;
-    }
-
-    // Calculate progress based on current counts
-    let multipleChoiceProgress = 0;
-    let openProgress = 0;
-    let totalMultipleWeight = 0;
-    let totalOpenWeight = 0;
-
-    this.subTopicProgress.forEach((progress, subTopicId) => {
-        const weight = this.subTopicWeights.get(subTopicId) || 0;
-        
-        multipleChoiceProgress += (progress.multipleChoice.progress * weight);
-        openProgress += (progress.open.progress * weight);
-        
-        totalMultipleWeight += weight;
-        totalOpenWeight += weight;
-    });
-
-    // Normalize to percentages
-    multipleChoiceProgress = totalMultipleWeight > 0 ? 
-        multipleChoiceProgress / totalMultipleWeight : 0;
-    openProgress = totalOpenWeight > 0 ? 
-        openProgress / totalOpenWeight : 0;
-
-    // Calculate total progress with weights
-    const totalProgress = (
-        (multipleChoiceProgress * 0.55) +
-        (openProgress * 0.37) +
-        (this.numericProgress.progress * 0.08)
-    );
-
-    console.log('PrepProgressTracker: Overall progress calculation', {
-        weights: {
-            multipleChoice: 0.55,
-            open: 0.37,
-            numerical: 0.08
-        },
-        progress: {
-            multipleChoice: multipleChoiceProgress,
-            open: openProgress,
-            numerical: this.numericProgress.progress,
-            total: totalProgress
-        },
-        totalWeights: {
-            multiple: totalMultipleWeight,
-            open: totalOpenWeight
-        }
-    });
-
-    return totalProgress;
-  }
-  public calcSuccessRate(): number {
-    const allResults = this.getAllResultsSorted();
-    // Use all available results if less than 60, otherwise take last 60
-    const resultsToUse = allResults.length <= 60 ? allResults : allResults.slice(-60);
-    if (resultsToUse.length === 0) return 0;
-
-    let weightedSum = 0;
+    // Calculate type-specific progress from subtopic progress
+    let totalMultipleChoiceProgress = 0;
+    let totalOpenProgress = 0;
     let totalWeight = 0;
 
-    resultsToUse.forEach(result => {
-      const weight = result.type === QuestionType.MULTIPLE_CHOICE ? 1 : 8;  // Both OPEN and NUMERICAL are weighted 8x
-      weightedSum += result.score * weight;
+    // Calculate MC and Open progress from subtopics
+    this.subTopicProgress.forEach((progress, subTopicId) => {
+      const weight = this.subTopicWeights.get(subTopicId) || 0;
+      totalMultipleChoiceProgress += progress.multipleChoice.progress * weight;
+      totalOpenProgress += progress.open.progress * weight;
       totalWeight += weight;
     });
 
+    // Normalize by total weight
+    if (totalWeight > 0) {
+      totalMultipleChoiceProgress = totalMultipleChoiceProgress / totalWeight;
+      totalOpenProgress = totalOpenProgress / totalWeight;
+    }
+
+    // Sum up weighted progress only for types that have results
+    let weightedSum = 0;
+    let usedWeight = 0;
+
+    // Only include MC if we have any results
+    const hasMCResults = this.questionHistory.some(r => r.type === QuestionType.MULTIPLE_CHOICE);
+    if (hasMCResults) {
+      weightedSum += totalMultipleChoiceProgress * 0.55;
+      usedWeight += 0.55;
+    }
+
+    // Only include Open if we have any results
+    const hasOpenResults = this.questionHistory.some(r => r.type === QuestionType.OPEN);
+    if (hasOpenResults) {
+      weightedSum += totalOpenProgress * 0.37;
+      usedWeight += 0.37;
+    }
+
+    // Only include Numeric if we have any results
+    const hasNumericResults = this.numericProgress.lastResults.length > 0;
+    if (hasNumericResults) {
+      weightedSum += this.numericProgress.progress * 0.08;
+      usedWeight += 0.08;
+    }
+
+    // If no results at all, return 0
+    if (usedWeight === 0) return 0;
+
+    // Calculate total progress with normalized weights
+    const totalProgress = weightedSum / usedWeight;
+
+    return PrepProgressTracker.roundToOneDecimal(totalProgress);
+  }
+
+  public getTypeSpecificRate(questionType: QuestionType): number {
+    const allResults = this.questionHistory;
+    const typeResults = allResults.filter(r => r.type === questionType);
+    
+    // Get last N results based on type
+    const count = questionType === QuestionType.MULTIPLE_CHOICE ? 55 :
+                 questionType === QuestionType.OPEN ? 5 : 3;
+    
+    const resultsToUse = typeResults.slice(-count);
+    if (resultsToUse.length === 0) return 0;
+    
+    return resultsToUse.reduce((sum, r) => sum + r.score, 0) / resultsToUse.length;
+  }
+
+  public calcSuccessRate(): number {
+    // Get type-specific rates
+    const mcRate = this.getTypeSpecificRate(QuestionType.MULTIPLE_CHOICE);
+    const openRate = this.getTypeSpecificRate(QuestionType.OPEN);
+    const numericRate = this.getTypeSpecificRate(QuestionType.NUMERICAL);
+
+    // Sum up weighted rates and weights for types that have results
+    let weightedSum = 0;
+    let totalWeight = 0;
+
+    if (mcRate > 0) {
+      weightedSum += mcRate * 0.55;
+      totalWeight += 0.55;
+    }
+    if (openRate > 0) {
+      weightedSum += openRate * 0.37;
+      totalWeight += 0.37;
+    }
+    if (numericRate > 0) {
+      weightedSum += numericRate * 0.08;
+      totalWeight += 0.08;
+    }
+
+    // If no results, return 0
+    if (totalWeight === 0) return 0;
+
+    // Calculate weighted average
     const successRate = weightedSum / totalWeight;
 
     console.log('PrepProgressTracker: Success rate calculation', {
       timestamp: new Date().toISOString(),
-      resultsCount: resultsToUse.length,
+      multipleChoiceRate: mcRate,
+      openRate: openRate,
+      numericRate: numericRate,
       weightedSum,
       totalWeight,
-      successRate
+      overallRate: successRate
     });
 
-    return weightedSum / totalWeight;  // Already returns 0-100 since scores are 1-100
+    return successRate;  // Already returns 0-100 since scores are 0-100
   }
 
   public getAllResultsSorted(): Array<{
@@ -426,13 +599,6 @@ export class PrepProgressTracker {
     return this.numericProgress.progress;
   }
 
-  public getTypeSpecificRate(questionType: QuestionType): number {
-    const allResults = this.getAllResultsSorted();
-    // Use all available results if less than 60, otherwise take last 60
-    const resultsToUse = allResults.length <= 60 ? allResults : allResults.slice(-60);
-    return this.calculateTypeSpecificRate(resultsToUse, questionType);
-  }
-
   public getSubTopicProgressTable(): SubTopicProgressInfo[] {
     return Array.from(this.subTopicProgress.entries()).map(([id, progress]) => ({
       subTopicId: id,
@@ -445,7 +611,13 @@ export class PrepProgressTracker {
   private calculateTypeSpecificRate(results: Array<{ score: number; type: QuestionType }>, type: QuestionType): number {
     const typeResults = results.filter(r => r.type === type);
     if (typeResults.length === 0) return 0;
-    return typeResults.reduce((sum, r) => sum + r.score, 0) / typeResults.length;
+    
+    // Get last N results based on type
+    const count = type === QuestionType.MULTIPLE_CHOICE ? 55 :
+                 type === QuestionType.OPEN ? 5 : 3;
+                 
+    const resultsToUse = typeResults.slice(-count);
+    return resultsToUse.reduce((sum, r) => sum + r.score, 0) / resultsToUse.length;
   }
 
   public getCompletedQuestions(): number {

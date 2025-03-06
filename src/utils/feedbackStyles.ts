@@ -9,7 +9,10 @@ export const colors = {
   error: '#ef4444',      // Red for needs improvement (<55%)
   gray: '#6b7280',       // Gray for default/unknown
   premium: '#6366f1',    // Indigo for premium features
-  premiumLight: '#e0e7ff' // Light indigo for premium backgrounds
+  premiumLight: '#e0e7ff', // Light indigo for premium backgrounds
+  successLight: '#f0fdf4',  // Light green for success backgrounds
+  warningLight: '#fefce8',  // Light yellow for warning backgrounds
+  errorLight: '#fef2f2'     // Light red for error backgrounds
 };
 
 export const transitionStyles = {

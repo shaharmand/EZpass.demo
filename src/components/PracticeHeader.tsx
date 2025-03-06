@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Button, Space, Spin, DatePicker, notification, Input, Tooltip } from 'antd';
-import { CalendarOutlined, EditOutlined } from '@ant-design/icons';
-import moment, { Moment } from 'moment';
+import { Typography, Button, Space, Spin, notification, Input, Tooltip } from 'antd';
+import { EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
+import { usePracticeAttempts } from '../contexts/PracticeAttemptsContext';
 import type { StudentPrep } from '../types/prepState';
-import { formatTimeUntilExam } from '../utils/dateUtils';
 import { PrepConfigDialog } from './practice/PrepConfigDialog';
 import { ExamContentDialog } from './practice/ExamContentDialog';
+import { ExamDatePicker } from './practice/ExamDatePicker';
 import type { Question } from '../types/question';
 import PracticeHeaderProgress from './PracticeHeaderProgress/PracticeHeaderProgress';
 import { useNavigate } from 'react-router-dom';
@@ -42,13 +42,13 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
   prep: initialPrep
 }) => {
   const { getPrep } = useStudentPrep();
+  const { getCurrentAttempts, getMaxAttempts } = usePracticeAttempts();
   const [prep, setPrep] = useState<StudentPrep | null>(initialPrep || null);
   const [isLoading, setIsLoading] = useState(false);
   const { startPrep } = useStudentPrep();
   const [configOpen, setConfigOpen] = useState(false);
   const navigate = useNavigate();
   const [examContentOpen, setExamContentOpen] = useState(false);
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const { user } = useAuth();
   const [isEditingName, setIsEditingName] = useState(false);
 
@@ -107,33 +107,8 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
     0
   ) || 0;
 
-  const handleDateChange = (date: Moment | null) => {
-    if (date && date.isValid()) {
-      setIsDatePickerOpen(false);
-
-      // Update prep state with new exam date
-      if (prep) {
-        const updatedPrep: StudentPrep = {
-          ...prep,
-          goals: {
-            ...prep.goals,
-            examDate: date.startOf('day').valueOf() // Ensure consistent time of day
-          }
-        };
-        
-        // Save to storage and update local state
-        PrepStateManager.updatePrep(updatedPrep);
-        setPrep(updatedPrep);
-
-        notification.success({
-          message: 'תאריך היעד עודכן',
-          description: formatTimeUntilExam(date.toDate()),
-          placement: 'topLeft',
-          duration: 2,
-        });
-      }
-    }
-  };
+  const currentAttempts = getCurrentAttempts();
+  const maxAttempts = getMaxAttempts();
 
   const handleNameUpdate = (newName: string) => {
     if (prep) {
@@ -156,6 +131,30 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
 
   const topRowContent = (
     <Space size={16} align="center">
+      {/* Topics Button - Rightmost */}
+      <Button
+        type="text"
+        onClick={() => setExamContentOpen(true)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '6px 12px',
+          borderRadius: '6px',
+          color: colors.text.brand,
+          backgroundColor: '#f0f7ff',
+          border: '1px solid #e5e7eb',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          height: '40px'
+        }}
+      >
+        <Text>
+          {prep.selection.subTopics.length}/{subTopicCount} נושאים
+        </Text>
+      </Button>
+
+      {/* Exam Name Section - Middle */}
       <div style={{ 
         display: 'flex', 
         flexDirection: 'column',
@@ -223,74 +222,48 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
           </Text>
         )}
       </div>
-      
-      <div style={{ position: 'relative', display: 'inline-block' }}>
-        <Button 
-          type="text"
-          onClick={() => setIsDatePickerOpen(true)}
-          style={{
+
+      {/* Usage Indicator and EZPass+ Button - Leftmost */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        gap: '16px',
+        marginLeft: 'auto'
+      }}>
+        <Tooltip title="מספר המשובים המפורטים שנותרו לך היום">
+          <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
             padding: '6px 12px',
-            borderRadius: '6px',
-            color: colors.text.brand,
-            backgroundColor: '#f0f7ff',
-            border: '1px solid #e5e7eb',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            height: '40px'
+            background: '#f0f9ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: '20px',
+            fontSize: '14px',
+            color: '#1e40af',
+            gap: '8px',
+            cursor: 'help'
+          }}>
+            <InfoCircleOutlined style={{ fontSize: '16px', color: '#60a5fa' }} />
+            <Text style={{ fontWeight: 500 }}>משובים מפורטים</Text>
+            <Text style={{ fontWeight: 600, color: '#2563eb' }}>{maxAttempts - currentAttempts}/{maxAttempts}</Text>
+          </div>
+        </Tooltip>
+        <Button
+          type="primary"
+          style={{
+            backgroundColor: '#f59e0b',
+            borderColor: '#f59e0b',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            height: '32px',
+            padding: '0 12px',
+            fontSize: '14px'
           }}
         >
-          <CalendarOutlined style={{ fontSize: '18px' }} />
-          <Text>{formatTimeUntilExam(new Date(prep.goals.examDate))}</Text>
+          איזיפס+
         </Button>
-        <DatePicker
-          open={isDatePickerOpen}
-          value={moment(prep.goals.examDate)}
-          onChange={handleDateChange}
-          onOpenChange={(open) => setIsDatePickerOpen(open)}
-          allowClear={false}
-          disabledDate={(current) => current && current.isBefore(moment().startOf('day'))}
-          style={{
-            position: 'absolute',
-            opacity: 0,
-            width: 0,
-            height: 0,
-            pointerEvents: 'none',
-            right: 0
-          }}
-          dropdownAlign={{
-            points: ['tc', 'bc'],
-            offset: [-100, 8],
-            overflow: { adjustX: true, adjustY: true }
-          }}
-          getPopupContainer={(trigger) => trigger.parentNode as HTMLElement}
-          direction="rtl"
-        />
       </div>
-
-      <Button
-        type="text"
-        onClick={() => setExamContentOpen(true)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '6px 12px',
-          borderRadius: '6px',
-          color: colors.text.brand,
-          backgroundColor: '#f0f7ff',
-          border: '1px solid #e5e7eb',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-          height: '40px'
-        }}
-      >
-        <Text>
-          {prep.selection.subTopics.length}/{subTopicCount} נושאים
-        </Text>
-      </Button>
     </Space>
   );
 
@@ -306,11 +279,13 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
     />
   );
 
+  const pageTitle = "תרגול שאלות";
+
   return (
     <>
       <BaseHeader
         variant="practice"
-        pageTitle="תרגול שאלות"
+        pageTitle={pageTitle}
         topRowContent={topRowContent}
         showMetricsRow
         metricsContent={metricsContent}

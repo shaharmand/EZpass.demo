@@ -1,7 +1,7 @@
-import { supabase } from '../lib/supabase';
 import { Question, QuestionType } from '../types/question';
 import { PrepStateManager } from '../services/PrepStateManager';
 import { logger } from '../utils/logger';
+import { questionStorage } from './admin/questionStorage';
 
 interface QueryParams {
   subject: string;
@@ -37,11 +37,6 @@ export class QuestionSequencer {
 
   public async initialize(params: QueryParams, prepId: string): Promise<string | null> {
     try {
-      if (!supabase) {
-        logger.error('Supabase client not initialized');
-        return null;
-      }
-
       this.prepId = prepId;
 
       // Get current focus from PrepStateManager
@@ -58,62 +53,50 @@ export class QuestionSequencer {
         focusedType: prep.focusedType
       });
 
-      // Build query with required filters
-      let query = supabase
-        .from('questions')
-        .select('*')
-        .eq('publication_status', 'published')
-        .eq('data->metadata->>subjectId', params.subject)
-        .eq('data->metadata->>domainId', params.domain);
+      // Build filters for questionStorage
+      const filters = {
+        subject: params.subject,
+        domain: params.domain,
+        publication_status: 'published',
+        ...(prep.focusedSubTopic ? { subtopic: prep.focusedSubTopic } : {}),
+        ...(prep.focusedType ? { type: prep.focusedType } : {})
+      };
 
-      // Add optional filters only if they have values
-      if (prep.focusedSubTopic) {
-        query = query.eq('data->metadata->>subtopicId', prep.focusedSubTopic);
-      }
-      if (prep.focusedType) {
-        query = query.eq('data->metadata->>type', prep.focusedType);
-      }
-
-      // Get filtered sequence of questions
-      const { data: questions, error } = await query.limit(10);
-
-      if (error) {
-        logger.error(`Failed to fetch questions: ${error.message}`, {
-          queryParams: {
-            subject: params.subject,
-            domain: params.domain,
-            focusedSubTopic: prep.focusedSubTopic,
-            focusedType: prep.focusedType
-          }
-        });
-        return null;
-      }
+      // Get filtered questions from storage
+      const questions = await questionStorage.getFilteredQuestions(filters);
 
       if (!questions || questions.length === 0) {
         logger.error('No questions available for given criteria', {
-          queryParams: {
-            subject: params.subject,
-            domain: params.domain,
-            focusedSubTopic: prep.focusedSubTopic,
-            focusedType: prep.focusedType
-          }
+          filters,
+          prepId
         });
         return null;
       }
 
-      this.questions = questions;
+      // Map questions to QuestionMetadata format
+      this.questions = questions.map(q => ({
+        id: q.id,
+        subject: q.metadata.subjectId,
+        domain: q.metadata.domainId,
+        subtopicId: q.metadata.subtopicId || '',
+        type: q.metadata.type,
+        metadata: {
+          subtopicId: q.metadata.subtopicId || '',
+          type: q.metadata.type
+        }
+      }));
+
       this.currentIndex = 0;
       
       logger.debug('Started new question sequence', { 
         params,
         focusedSubTopic: prep.focusedSubTopic,
         focusedType: prep.focusedType,
-        count: questions.length,
-        firstQuestionId: questions[0].id,
-        firstQuestion: questions[0]
+        count: this.questions.length,
+        firstQuestionId: this.questions[0].id
       });
 
-      return questions[0].id;
+      return this.questions[0].id;
     } catch (error) {
       logger.error('Error initializing question sequence:', error);
       return null;

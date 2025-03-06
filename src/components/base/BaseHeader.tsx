@@ -83,7 +83,6 @@ export const BaseHeader: React.FC<BaseHeaderProps> = ({
       padding: '8px 40px',
       display: 'grid',
       gridTemplateColumns: 'auto 1fr auto',
-      gap: '24px',
       alignItems: 'center',
       backgroundColor: colors.background.header,
       minHeight: '56px',
@@ -305,7 +304,7 @@ export const BaseHeader: React.FC<BaseHeaderProps> = ({
                 display: 'flex', 
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '16px'
+                width: '100%'
               }}>
                 {topRowContent}
               </div>

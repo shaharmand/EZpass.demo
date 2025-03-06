@@ -1,21 +1,4 @@
-/** 
- * Type of question that determines its structure and validation requirements.
- * 
- * Current supported types:
- * - multiple_choice: Exactly 4 options with one correct answer (1-4)
- * - numerical: Exact numeric answer with optional tolerance/units
- * - open: Free-form answer with evaluation criteria
- */
-export enum QuestionType {
-  MULTIPLE_CHOICE = 'multiple_choice',
-  OPEN = 'open',
-  NUMERICAL = 'numerical'
-}
-
-/** 
- * Difficulty level from 1 (easiest) to 5 (hardest)
- */
-export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
+ouldnt import { QuestionType, DifficultyLevel } from './common';
 
 /**
  * Common interface for answer format requirements
@@ -172,7 +155,7 @@ export interface PublishInfo {
  * Represents a complete question
  */
 export interface Question {
-  id: string;
+  id: string;  // Required for all questions
   name?: string;
   content: {
     text: string;
@@ -231,14 +214,6 @@ export interface QuestionStatus {
   updatedAt: string;
   /** User who last updated the status */
   updatedBy?: string;
-}
-
-// Question being saved to DB - only fields that client should set
-export interface SaveQuestion extends Omit<Question, 'createdAt' | 'updatedAt'> {
-  id: string;
-  publication_status: PublicationStatusEnum;
-  publication_metadata?: PublicationMetadata;
-  review_status?: ReviewStatusEnum;  // Add review_status as optional
 }
 
 /**
@@ -440,7 +415,7 @@ export interface QuestionMetadata {
   subjectId: string;
   domainId: string;
   topicId: string;
-  subtopicId?: string;
+  subtopicId: string;
   type: QuestionType;
   difficulty: DifficultyLevel;
   estimatedTime?: number;
@@ -483,4 +458,16 @@ export interface FilterState {
     season?: 'spring' | 'summer';
     moed?: 'a' | 'b';
   };
+}
+
+export interface SaveQuestion {
+  id: string;
+  data?: Question;
+  publication_status: PublicationStatusEnum;
+  publication_metadata?: PublicationMetadata;
+  review_status?: ReviewStatusEnum;
+  review_metadata?: ReviewMetadata;
+  validation_status?: ValidationStatus;
+  ai_generated_fields?: AIGeneratedFields;
+  import_info?: ImportInfo;
 } 

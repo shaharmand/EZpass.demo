@@ -1,116 +1,209 @@
-import { Question, QuestionType, DifficultyLevel } from '../../../types/question';
-import { QuestionGenerationRequirements, GenerationResult } from '../../../types/questionGeneration';
-
-export interface DomainConfig {
-  id: string;
-  name: string;
-  supportedTypes: QuestionType[];
-  defaultRubricWeights: Record<QuestionType, Record<string, number>>;
-  languageRequirements: string[];
-}
-
-export interface QuestionTypeConfig {
-  type: QuestionType;
-  requiredElements: string[];
-  rubricCriteria: Array<{
-    name: string;
-    description: string;
-    defaultWeight: number;
-  }>;
-  formatInstructions: string[];
-}
+import { Question, QuestionType, SourceType, EzpassCreatorType, DifficultyLevel } from '../../../types/question';
+import { StructuredOutputParser } from "@langchain/core/output_parsers";
+import { questionSchema } from "../../../schemas/questionSchema";
+import { logger } from '../../../utils/logger';
 
 /**
- * Abstract base class for domain-specific question generators
+ * Base generator that ensures LLM understands our complete question format.
+ * This serves as foundation for question generation, enrichment, and variants.
  */
-export abstract class BaseQuestionGenerator {
-  protected domainConfig: DomainConfig;
-  protected typeConfigs: Map<QuestionType, QuestionTypeConfig>;
+export class BaseQuestionGenerator {
+  private parser: StructuredOutputParser<typeof questionSchema>;
 
-  constructor(domainConfig: DomainConfig) {
-    this.domainConfig = domainConfig;
-    this.typeConfigs = new Map();
+  constructor() {
+    this.parser = StructuredOutputParser.fromZodSchema(questionSchema);
   }
 
   /**
-   * Generate a question based on the provided requirements
+   * Generate a complete question with all required fields
    */
-  abstract generateQuestion(requirements: QuestionGenerationRequirements): Promise<GenerationResult>;
+  protected async generateCompleteQuestion(prompt: string): Promise<Question> {
+    try {
+      // Get format instructions for the parser
+      const formatInstructions = await this.parser.getFormatInstructions();
 
-  /**
-   * Build the prompt for question generation
-   */
-  protected abstract buildPrompt(requirements: QuestionGenerationRequirements): Promise<string>;
+      // Combine with our base format requirements
+      const fullPrompt = `${this.getBaseFormatInstructions()}
 
-  /**
-   * Get domain-specific instructions that apply to all question types
-   */
-  protected abstract getDomainInstructions(): string[];
+${formatInstructions}
 
-  /**
-   * Get type-specific instructions for this domain
-   */
-  protected abstract getTypeInstructions(type: QuestionType): string[];
+${prompt}`;
 
-  /**
-   * Validate that the generated question meets domain-specific requirements
-   */
-  protected abstract validateDomainRequirements(question: Question): boolean;
+      // TODO: Call LLM with prompt
+      // const response = await this.llm.call(fullPrompt);
+      // const question = await this.parser.parse(response);
 
-  /**
-   * Common validation shared across all domains
-   */
-  protected validateCommonRequirements(question: Question): boolean {
-    // Basic structure validation
-    if (!question.content?.text || !question.schoolAnswer?.solution?.text) {
-      return false;
+      // For now, return a mock question
+      return this.createMockQuestion();
+    } catch (error) {
+      logger.error('Failed to generate question', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
-
-    // Metadata validation
-    if (!question.metadata?.difficulty || 
-        !question.metadata?.topicId ||
-        !question.metadata?.estimatedTime) {
-      return false;
-    }
-
-    // Type-specific validation
-    const typeConfig = this.typeConfigs.get(question.metadata.type);
-    if (!typeConfig) {
-      return false;
-    }
-
-    // Validate rubric weights sum to 100%
-    const criteria = question.evaluationGuidelines?.requiredCriteria || [];
-    const rubricWeights = criteria.reduce((sum, criterion) => sum + (criterion.weight || 0), 0);
-    
-    if (Math.abs(rubricWeights - 100) > 0.01) {
-      return false;
-    }
-
-    return true;
   }
 
   /**
-   * Get the combined instructions for question generation
+   * Base format instructions that every question must follow
    */
-  protected getCombinedInstructions(type: QuestionType): string[] {
-    return [
-      ...this.getCommonInstructions(),
-      ...this.getDomainInstructions(),
-      ...this.getTypeInstructions(type)
-    ];
+  protected getBaseFormatInstructions(): string {
+    return `
+Generate a complete question following these CRITICAL requirements:
+
+1. Question Structure:
+   - Must have clear, focused content
+   - Must be in Hebrew (עברית)
+   - Must include all metadata fields
+   - Must have evaluation guidelines
+
+2. Required Fields:
+   - id: Will be set by system
+   - name: Short descriptive title
+   - type: multiple_choice/numerical/open
+   - content: Question text and format
+   - metadata: All fields below
+   - schoolAnswer: Complete solution
+   - evaluationGuidelines: Scoring criteria
+
+3. Metadata Requirements:
+   - subjectId: Domain identifier
+   - domainId: Specific domain
+   - topicId: Specific topic
+   - subtopicId: Optional subtopic
+   - type: Question type
+   - difficulty: 1-5 scale
+   - estimatedTime: In minutes
+   - answerFormat: Format requirements
+   - source: Always ezpass/ai
+
+4. Evaluation Guidelines:
+   - Must have requiredCriteria
+   - Each criterion needs name, description, weight
+   - Weights must sum to 100
+   - Must match question type
+
+5. Answer Format:
+   - multiple_choice: 4 options, one correct
+   - numerical: Value, tolerance, units
+   - open: Detailed solution structure
+
+Example of correct structure:
+{
+  "name": "שאלה על ניהול בטיחות",
+  "type": "multiple_choice",
+  "content": {
+    "text": "תוכן השאלה בעברית",
+    "format": "markdown",
+    "options": [
+      { "text": "תשובה א", "format": "markdown" },
+      { "text": "תשובה ב", "format": "markdown" },
+      { "text": "תשובה ג", "format": "markdown" },
+      { "text": "תשובה ד", "format": "markdown" }
+    ]
+  },
+  "metadata": {
+    "subjectId": "civil_engineering",
+    "domainId": "construction_safety",
+    "topicId": "safety_management",
+    "type": "multiple_choice",
+    "difficulty": 3,
+    "estimatedTime": 10,
+    "answerFormat": {
+      "hasFinalAnswer": true,
+      "finalAnswerType": "multiple_choice",
+      "requiresSolution": true
+    },
+    "source": {
+      "type": "ezpass",
+      "creatorType": "ai"
+    }
+  },
+  "schoolAnswer": {
+    "finalAnswer": {
+      "type": "multiple_choice",
+      "value": 2
+    },
+    "solution": {
+      "text": "הסבר מפורט בעברית",
+      "format": "markdown"
+    }
+  },
+  "evaluationGuidelines": {
+    "requiredCriteria": [
+      {
+        "name": "understanding",
+        "description": "הבנת עקרונות הבטיחות",
+        "weight": 50
+      },
+      {
+        "name": "application",
+        "description": "יישום נכון של הנהלים",
+        "weight": 50
+      }
+    ]
+  }
+}`;
   }
 
   /**
-   * Get common instructions that apply to all domains and types
+   * Create a mock question for testing
    */
-  private getCommonInstructions(): string[] {
-    return [
-      "1. Question must be clear and unambiguous",
-      "2. Difficulty level must match the specified level",
-      "3. Include all necessary context in the question",
-      "4. Provide complete solution and explanation",
-      "5. Include proper metadata and tags"
-    ];
+  private createMockQuestion(): Question {
+    return {
+      id: '',
+      name: 'שאלת בטיחות לדוגמה',
+      type: QuestionType.MULTIPLE_CHOICE,
+      content: {
+        text: 'מהם אמצעי הבטיחות הנדרשים בעבודה בגובה?',
+        format: 'markdown',
+        options: [
+          { text: 'קסדה בלבד', format: 'markdown' },
+          { text: 'קסדה ורתמת בטיחות', format: 'markdown' },
+          { text: 'רתמת בטיחות בלבד', format: 'markdown' },
+          { text: 'כפפות עבודה בלבד', format: 'markdown' }
+        ]
+      },
+      metadata: {
+        subjectId: 'civil_engineering',
+        domainId: 'construction_safety',
+        topicId: 'safety_equipment',
+        type: QuestionType.MULTIPLE_CHOICE,
+        difficulty: 2,
+        estimatedTime: 5,
+        answerFormat: {
+          hasFinalAnswer: true,
+          finalAnswerType: 'multiple_choice',
+          requiresSolution: true
+        },
+        source: {
+          type: SourceType.EZPASS,
+          creatorType: EzpassCreatorType.AI
+        }
+      },
+      schoolAnswer: {
+        finalAnswer: {
+          type: 'multiple_choice',
+          value: 2
+        },
+        solution: {
+          text: 'התשובה הנכונה היא ב - נדרשים גם קסדה וגם רתמת בטיחות בעבודה בגובה',
+          format: 'markdown'
+        }
+      },
+      evaluationGuidelines: {
+        requiredCriteria: [
+          {
+            name: 'safety_knowledge',
+            description: 'ידע בציוד בטיחות נדרש',
+            weight: 50
+          },
+          {
+            name: 'regulation_understanding',
+            description: 'הבנת תקנות בטיחות בעבודה',
+            weight: 50
+          }
+        ]
+      }
+    };
   }
 } 

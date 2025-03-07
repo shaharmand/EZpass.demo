@@ -22,6 +22,18 @@ import { logger } from '../utils/logger';
 
 let supabaseInstance: SupabaseClient | null = null;
 
+// Helper function to get environment mode
+function getEnvironmentMode(): string {
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      return import.meta.env.MODE || 'unknown';
+    }
+    return process.env.NODE_ENV || 'unknown';
+  } catch (error) {
+    return 'unknown';
+  }
+}
+
 // Helper function to get environment variable value
 function getEnvVar(name: string): string | undefined {
   try {
@@ -29,7 +41,7 @@ function getEnvVar(name: string): string | undefined {
     if (typeof import.meta !== 'undefined' && import.meta.env) {
       const viteValue = import.meta.env[`VITE_${name}`];
       if (viteValue) {
-        console.log(`✅ Found VITE_${name}`);
+        console.log(`✅ Found VITE_${name} [${getEnvironmentMode()}]`);
         return viteValue;
       }
     }
@@ -37,11 +49,11 @@ function getEnvVar(name: string): string | undefined {
     // Try REACT_APP_ prefix through process.env
     const reactValue = process.env[`REACT_APP_${name}`];
     if (reactValue) {
-      console.log(`✅ Found REACT_APP_${name}`);
+      console.log(`✅ Found REACT_APP_${name} [${getEnvironmentMode()}]`);
       return reactValue;
     }
 
-    console.log(`❌ Neither VITE_${name} nor REACT_APP_${name} found`);
+    console.log(`❌ Neither VITE_${name} nor REACT_APP_${name} found [${getEnvironmentMode()}]`);
     return undefined;
   } catch (error) {
     console.error(`Error accessing environment variable ${name}:`, error);
@@ -60,7 +72,14 @@ export function getSupabase(isDryRun = false): SupabaseClient | null {
     return supabaseInstance;
   }
 
-  console.log('🔍 Checking environment variables...');
+  const envInfo = {
+    mode: getEnvironmentMode(),
+    isDevelopment: typeof import.meta !== 'undefined' && import.meta.env?.DEV,
+    isProduction: typeof import.meta !== 'undefined' && import.meta.env?.PROD,
+    base: typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
+  };
+
+  console.log('🔍 Checking environment variables...', envInfo);
   
   const supabaseUrl = getEnvVar('SUPABASE_URL');
   const supabaseAnonKey = getEnvVar('SUPABASE_ANON_KEY');
@@ -69,7 +88,8 @@ export function getSupabase(isDryRun = false): SupabaseClient | null {
   console.log('🔑 Environment variables status:', {
     SUPABASE_URL: supabaseUrl ? '✅' : '❌',
     SUPABASE_ANON_KEY: supabaseAnonKey ? '✅' : '❌',
-    AUTH_REDIRECT_URL: authRedirectUrl ? '✅' : '❌'
+    AUTH_REDIRECT_URL: authRedirectUrl ? '✅' : '❌',
+    environment: envInfo.mode
   });
 
   // Log auth redirect status

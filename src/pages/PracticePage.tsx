@@ -40,7 +40,8 @@ const PracticePage: React.FC = () => {
     questionState,
     setQuestionState,
     getNext,
-    startPrep
+    startPrep,
+    startPractice
   } = useStudentPrep();
   const { incrementAttempt, hasExceededLimit, getCurrentAttempts, getMaxAttempts } = usePracticeAttempts();
   const { user } = useAuth();
@@ -166,7 +167,7 @@ const PracticePage: React.FC = () => {
     
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-      await skipQuestion('filter_change');
+      await startPractice();
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -175,7 +176,7 @@ const PracticePage: React.FC = () => {
     } finally {
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, [state.prep, skipQuestion]);
+  }, [state.prep, startPractice]);
 
   // Add logging for dialog visibility changes
   useEffect(() => {

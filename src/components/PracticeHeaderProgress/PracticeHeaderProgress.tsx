@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Typography, Tooltip, Progress, Button, Modal, Popover, DatePicker } from 'antd';
-import { TrophyOutlined, CheckCircleOutlined, ClockCircleOutlined, QuestionCircleOutlined, CrownOutlined, CalendarOutlined } from '@ant-design/icons';
+import { TrophyOutlined, CheckCircleOutlined, ClockCircleOutlined, QuestionCircleOutlined, CrownOutlined, CalendarOutlined, BookOutlined } from '@ant-design/icons';
 import { StudentPrep } from '../../types/prepState';
 import { PrepStateManager } from '../../services/PrepStateManager';
 import { colors } from '../../utils/feedbackStyles';
@@ -44,6 +44,32 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isExamDatePopoverOpen, setIsExamDatePopoverOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isLocalTopicsDialogOpen, setIsLocalTopicsDialogOpen] = useState(false);
+
+  // Add logging when component receives new props
+  console.log('PracticeHeaderProgress - Received props:', {
+    hasPrep: !!prep,
+    topicsCount: prep?.selection?.subTopics?.length,
+    totalTopics: prep?.exam?.topics?.reduce((acc, topic) => acc + topic.subTopics.length, 0),
+    metrics
+  });
+
+  // Calculate topic counts
+  const subTopicCount = prep.exam.topics?.reduce(
+    (count: number, topic) => count + (topic.subTopics?.length || 0), 
+    0
+  ) || 0;
+
+  // Add detailed logging
+  console.log('PracticeHeaderProgress: Topic counts', {
+    selectedTopics: prep.selection.subTopics,
+    selectedCount: prep.selection.subTopics.length,
+    totalSubTopics: subTopicCount,
+    examTopics: prep.exam.topics?.map(topic => ({
+      topicName: topic.name,
+      subTopicsCount: topic.subTopics?.length
+    }))
+  });
 
   // Helper functions
   const normalizeProgress = (value: number) => Math.round(Math.min(100, Math.max(0, value)));
@@ -110,11 +136,17 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
   const getTimeTooltip = () => {
     return (
       <div style={{ direction: 'rtl', textAlign: 'right', color: '#fff' }}>
-        <Text style={{ color: '#e2e8f0' }}>זמן שנותר: {formatTime(metrics.remainingHours)}</Text>
-        <br />
-        <Text style={{ color: '#e2e8f0' }}>זמן שהושקע: {formatTime(metrics.hoursPracticed)}</Text>
-        <br />
-        <Text style={{ color: '#e2e8f0' }}>סה"כ זמן: {formatTime(totalHours)}</Text>
+        <Text style={{ 
+          color: '#e2e8f0',
+          fontSize: '14px',
+          fontWeight: '500',
+          display: 'block',
+          marginBottom: '4px'
+        }}>הזמן הנותר לתרגול עד למוכנות</Text>
+        <Text style={{ 
+          color: '#94a3b8',
+          fontSize: '13px'
+        }}>לחץ כאן לפרטים נוספים</Text>
       </div>
     );
   };
@@ -127,6 +159,24 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
         <Text style={{ color: '#e2e8f0' }}>שאלות שהושלמו: {metrics.questionsAnswered}</Text>
         <br />
         <Text style={{ color: '#e2e8f0' }}>סה"כ שאלות: {totalQuestions}</Text>
+      </div>
+    );
+  };
+
+  const getTopicsTooltip = () => {
+    return (
+      <div style={{ direction: 'rtl', textAlign: 'right', color: '#fff' }}>
+        <Text style={{ 
+          color: '#e2e8f0',
+          fontSize: '14px',
+          fontWeight: '500',
+          display: 'block',
+          marginBottom: '4px'
+        }}>כמות הנושאים שכלולה במבחן שלך</Text>
+        <Text style={{ 
+          color: '#94a3b8',
+          fontSize: '13px'
+        }}>לחץ על מנת לשנות את תכולת המבחן</Text>
       </div>
     );
   };
@@ -191,6 +241,12 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
     </div>
   );
 
+  // Add logging before render
+  console.log('PracticeHeaderProgress - Rendering with topics:', {
+    selectedTopics: prep?.selection?.subTopics?.length,
+    totalTopics: prep?.exam?.topics?.reduce((acc, topic) => acc + topic.subTopics.length, 0)
+  });
+
   return (
     <>
       <div style={{ 
@@ -202,9 +258,7 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
         direction: 'rtl',
         gap: '0',
         minHeight: '72px',
-        cursor: 'pointer'
-      }}
-      onClick={() => setIsDetailsDialogOpen(true)}>
+      }}>
         {/* Overall Progress - Main Metric */}
         <div style={{ 
           display: 'flex',
@@ -215,7 +269,8 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
           padding: '0 32px',
           height: '100%',
           cursor: 'pointer'
-        }}>
+        }}
+        onClick={() => setIsDetailsDialogOpen(true)}>
           <Tooltip title={getProgressTooltip()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <TrophyOutlined style={{ 
@@ -269,14 +324,16 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
         </div>
 
         {/* Success Rate */}
-        <div style={{ 
+        <div style={{
           width: '120px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           borderLeft: '1px solid #e2e8f0',
-          padding: '0 24px'
-        }}>
+          padding: '0 24px',
+          cursor: 'pointer'
+        }}
+        onClick={() => setIsDetailsDialogOpen(true)}>
           <Tooltip title={getSuccessTooltip()}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <Text style={{
@@ -309,29 +366,62 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
         </div>
 
         {/* Time and Questions Section */}
-        <div style={{ 
+        <div style={{
           display: 'flex',
           alignItems: 'center',
           gap: '24px',
           height: '100%',
           marginRight: '40px',
-          position: 'relative'
+          position: 'relative',
+          borderLeft: '1px solid #e2e8f0',
+          padding: '0 24px'
         }}>
-          <Tooltip title={
-            <div style={{ direction: 'rtl', textAlign: 'right' }}>
-              <Text style={{ 
-                color: '#e2e8f0',
-                fontSize: '14px',
+          {/* Hours Remaining */}
+          <Tooltip title={getTimeTooltip()}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
+                 onClick={() => setIsDetailsDialogOpen(true)}>
+              <Text style={{
+                fontSize: '15px',
+                color: '#64748b',
                 fontWeight: '500',
-                display: 'block',
-                marginBottom: '4px'
-              }}>כמות שעות התרגול המוערכות עד לבחינה</Text>
-              <Text style={{ 
-                color: '#94a3b8',
-                fontSize: '13px'
-              }}>לחץ לפרטים נוספים</Text>
+                marginBottom: '8px'
+              }}>נותרו לתרגל</Text>
+              <div style={{
+                background: '#fff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '4px',
+                padding: '8px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '36px',
+                minWidth: '80px'
+              }}>
+                <ClockCircleOutlined style={{ fontSize: '16px', color: '#64748b', marginLeft: '8px' }} />
+                <Text style={{
+                  fontSize: '16px',
+                  color: '#64748b',
+                  fontWeight: '600',
+                  lineHeight: '1.2'
+                }}>
+                  {formatTime(metrics.remainingHours)}
+                </Text>
+              </div>
             </div>
-          }>
+          </Tooltip>
+
+          {/* Exam Date */}
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'flex-start'  // Changed from 'center' to 'flex-start'
+          }}>
+            <Text style={{
+              fontSize: '15px',
+              color: '#64748b',
+              fontWeight: '500',
+              marginBottom: '8px'
+            }}>זמן למבחן</Text>
             <div style={{
               background: '#fff',
               border: '1px solid #e2e8f0',
@@ -339,29 +429,62 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
               padding: '8px 12px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              justifyContent: 'flex-start',  // Changed from 'center' to 'flex-start'
               height: '36px',
-              minWidth: '80px',
-              cursor: 'pointer'
+              minWidth: '120px'
             }}>
-              <ClockCircleOutlined style={{ fontSize: '16px', color: '#64748b', marginLeft: '8px' }} />
-              <Text style={{
-                fontSize: '16px',
-                color: '#64748b',
-                fontWeight: '600',
-                lineHeight: '1.2'
-              }}>
-                {formatTime(metrics.remainingHours)}
-              </Text>
+              <ExamDatePicker 
+                prep={prep}
+                onPrepUpdate={(updatedPrep) => {
+                  PrepStateManager.updatePrep(updatedPrep);
+                }}
+              />
             </div>
-          </Tooltip>
+          </div>
+        </div>
 
-          <ExamDatePicker 
-            prep={prep}
-            onPrepUpdate={(updatedPrep) => {
-              PrepStateManager.updatePrep(updatedPrep);
-            }}
-          />
+        {/* Topics Section - Simple Button */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          height: '100%',
+          borderLeft: '1px solid #e2e8f0',
+          padding: '0 24px'
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}>
+            <Text style={{
+              fontSize: '15px',
+              color: '#64748b',
+              fontWeight: '500',
+              marginBottom: '8px'
+            }}>תכולת מבחן</Text>
+            <Button
+              type="default"
+              icon={<BookOutlined />}
+              onClick={() => {
+                if (typeof onShowTopicDetails === 'function') {
+                  onShowTopicDetails();
+                }
+              }}
+              style={{
+                height: '36px',
+                minWidth: '120px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                background: '#f0f7ff',
+                border: '1px solid #e5e7eb',
+                color: '#3b82f6'
+              }}
+            >
+              {prep.selection.subTopics.length}/{subTopicCount} נושאים
+            </Button>
+          </div>
         </div>
       </div>
 

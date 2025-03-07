@@ -6,7 +6,7 @@ export const formatTimeUntilExam = (targetDate: Date): string => {
   
   // Check if exam is today
   if (examDate.getTime() === today.getTime()) {
-    return 'הבחינה שלך היום!';
+    return 'הבחינה היום!';
   }
   
   const diffTime = Math.abs(targetDate.getTime() - today.getTime());
@@ -18,12 +18,12 @@ export const formatTimeUntilExam = (targetDate: Date): string => {
   }
 
   if (diffDays <= 21) {
-    return `הבחינה שלך בעוד ${diffDays} ימים`;
+    return `בעוד ${diffDays} ימים`;
   } else if (diffDays <= 90) {
     const weeks = Math.floor(diffDays / 7);
-    return `הבחינה שלך בעוד ${weeks} שבועות`;
+    return `בעוד ${weeks} שבועות`;
   } else {
     const months = Math.floor(diffDays / 30.44); // More accurate month calculation
-    return `הבחינה שלך בעוד ${months} חודשים`;
+    return `בעוד ${months} חודשים`;
   }
 }; 

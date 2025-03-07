@@ -43,8 +43,8 @@ export const ExamDatePicker: React.FC<ExamDatePickerProps> = ({ prep, onPrepUpda
 
   const formatExamDate = (date: Date) => {
     const timeUntil = formatTimeUntilExam(date);
-    // Remove both "הבחינה" and any existing "שלך" first, then add "שלך" once
-    return timeUntil.replace(/הבחינה|שלך/g, '').trim() + ' שלך';
+    // Remove both "הבחינה" and "שלך"
+    return timeUntil.replace(/הבחינה|שלך/g, '').trim();
   };
 
   return (
@@ -95,8 +95,8 @@ export const ExamDatePicker: React.FC<ExamDatePickerProps> = ({ prep, onPrepUpda
             right: 0
           }}
           dropdownAlign={{
-            points: ['tc', 'bc'],
-            offset: [-100, 8],
+            points: ['tr', 'br'],
+            offset: [0, 4],
             overflow: { adjustX: true, adjustY: true }
           }}
           getPopupContainer={(trigger) => trigger.parentNode as HTMLElement}

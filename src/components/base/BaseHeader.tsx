@@ -80,12 +80,13 @@ export const BaseHeader: React.FC<BaseHeaderProps> = ({
       overflow: 'visible'
     },
     topRow: {
-      padding: '8px 40px',
+      padding: '12px 40px',
       display: 'grid',
-      gridTemplateColumns: 'auto 1fr auto',
+      gridTemplateColumns: 'auto minmax(auto, 1fr) auto',
       alignItems: 'center',
+      gap: '32px',
       backgroundColor: colors.background.header,
-      minHeight: '56px',
+      minHeight: '64px',
       borderBottom: `1px solid ${colors.border.separator}`,
     },
     pageContent: {
@@ -151,7 +152,10 @@ export const BaseHeader: React.FC<BaseHeaderProps> = ({
       margin: 0,
       padding: '0 24px',
       borderLeft: `1px solid ${colors.border.separator}`,
-      whiteSpace: 'nowrap' as const
+      whiteSpace: 'nowrap' as const,
+      height: '40px',
+      display: 'flex',
+      alignItems: 'center'
     }
   };
 
@@ -228,10 +232,9 @@ export const BaseHeader: React.FC<BaseHeaderProps> = ({
     <>
       <div style={headerStyle.container}>
         <div style={headerStyle.content}>
-          {/* Top Row with Logo, Page-Specific Content, and User */}
           <div style={headerStyle.topRow}>
             {/* Logo Section */}
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', height: '40px' }}>
               <div style={headerStyle.logo}>
                 <motion.div
                   style={{
@@ -290,7 +293,6 @@ export const BaseHeader: React.FC<BaseHeaderProps> = ({
                 </motion.div>
               </div>
               
-              {/* Page Title */}
               {pageTitle && (
                 <Text style={headerStyle.pageTitle}>
                   {pageTitle}
@@ -304,14 +306,23 @@ export const BaseHeader: React.FC<BaseHeaderProps> = ({
                 display: 'flex', 
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '100%'
+                width: '100%',
+                minWidth: 0,
+                height: '40px'
               }}>
                 {topRowContent}
               </div>
             )}
 
             {/* User Section */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end' }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '16px', 
+              justifyContent: 'flex-end',
+              minWidth: 'max-content',
+              height: '40px'
+            }}>
               <Dropdown 
                 menu={{ items: userMenuItems, onClick: handleMenuClick }} 
                 placement="bottomRight"
@@ -319,9 +330,55 @@ export const BaseHeader: React.FC<BaseHeaderProps> = ({
               >
                 <Button 
                   type={user ? 'primary' : 'default'}
-                  icon={<UserOutlined />}
+                  icon={
+                    <UserOutlined style={{ 
+                      fontSize: '16px',
+                      marginLeft: '4px'
+                    }} />
+                  }
+                  style={{
+                    height: '40px',
+                    padding: '0 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    borderRadius: '20px',
+                    background: user ? '#2563eb' : '#ffffff',
+                    borderColor: user ? '#2563eb' : '#e2e8f0',
+                    color: user ? '#ffffff' : '#475569',
+                    boxShadow: user 
+                      ? '0 2px 4px rgba(37, 99, 235, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)' 
+                      : '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (user) {
+                      e.currentTarget.style.backgroundColor = '#1d4ed8';
+                      e.currentTarget.style.borderColor = '#1d4ed8';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 4px 8px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
+                    } else {
+                      e.currentTarget.style.borderColor = '#94a3b8';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (user) {
+                      e.currentTarget.style.backgroundColor = '#2563eb';
+                      e.currentTarget.style.borderColor = '#2563eb';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(37, 99, 235, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
+                    } else {
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    }
+                  }}
                 >
-                  {user ? user.email : 'אורח'}
+                  {user?.email ? user.email.split('@')[0] : 'אורח'}
                 </Button>
               </Dropdown>
             </div>

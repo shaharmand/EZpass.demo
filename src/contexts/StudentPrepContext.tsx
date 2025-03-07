@@ -29,6 +29,7 @@ interface StudentPrepContextType {
   getPrep: (prepId: string) => Promise<StudentPrep | null>;
   setFocusedType: (type: QuestionType | null) => void;
   setFocusedSubTopic: (subtopicId: string | null) => void;
+  startPractice: () => Promise<void>;
 }
 
 const StudentPrepContext = createContext<StudentPrepContextType | undefined>(undefined);
@@ -39,7 +40,6 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isQuestionLoading, setIsQuestionLoading] = useState(false);
   const prepStateManager = useRef<PrepStateManager | null>(null);
   const questionSequencer = useRef<QuestionSequencer | null>(null);
-  const isInitialLoad = useRef(true);
   
   const [questionState, setQuestionState] = useState<QuestionPracticeState>({
     status: 'moved_on',
@@ -61,6 +61,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     try {
+      setIsQuestionLoading(true);
       console.log('=== Starting handleGetNext ===', {
         prepId: prep.id,
         currentQuestionId: currentQuestion?.id,
@@ -134,15 +135,6 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setIsQuestionLoading(false);
     }
   }, [prep, currentQuestion?.id, questionState.status, questionStorage]);
-
-  // Add effect to handle first question load
-  useEffect(() => {
-    if (prep?.id && isInitialLoad.current) {
-      console.log('Initial load effect triggered', { prepId: prep.id });
-      isInitialLoad.current = false;
-      handleGetNext();
-    }
-  }, [prep?.id, handleGetNext]);
 
   const handleSubmitAnswer = useCallback(async (answer: FullAnswer) => {
     if (!currentQuestion || !prep || !prepStateManager.current) {
@@ -331,6 +323,31 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     });
   }, [prep]);
 
+  const startPractice = useCallback(async () => {
+    if (!prep?.id || !prepStateManager.current || !questionSequencer.current) {
+      console.error('Cannot start practice - missing required data', {
+        hasPrep: !!prep,
+        hasPrepId: !!prep?.id,
+        hasPrepStateManager: !!prepStateManager.current,
+        hasQuestionSequencer: !!questionSequencer.current
+      });
+      return;
+    }
+
+    try {
+      setIsQuestionLoading(true);
+      await handleGetNext();
+    } catch (error) {
+      console.error('Error starting practice:', {
+        error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        prepId: prep.id
+      });
+    } finally {
+      setIsQuestionLoading(false);
+    }
+  }, [prep, handleGetNext]);
+
   const contextValue: StudentPrepContextType = {
     prep,
     currentQuestion,
@@ -344,7 +361,8 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     getPreviousQuestion: () => Promise.resolve(),
     getPrep: handleGetPrep,
     setFocusedType: handleSetFocusedType,
-    setFocusedSubTopic: handleSetFocusedSubTopic
+    setFocusedSubTopic: handleSetFocusedSubTopic,
+    startPractice
   };
 
   return (

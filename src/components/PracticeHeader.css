@@ -1,0 +1,7 @@
+.exam-name-edit {
+  transition: background 0.2s;
+}
+
+.exam-name-edit:hover {
+  background: #f3f4f6;
+} 

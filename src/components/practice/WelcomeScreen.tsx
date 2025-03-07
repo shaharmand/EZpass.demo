@@ -14,6 +14,7 @@ import { ExamContentDialog } from './ExamContentDialog';
 import { PrepStateManager } from '../../services/PrepStateManager';
 import moment from 'moment';
 import { useAuth } from '../../contexts/AuthContext';
+import styles from './WelcomeScreen.module.css';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -23,6 +24,30 @@ interface WelcomeScreenProps {
   prep?: StudentPrep;
 }
 
+const startButtonStyle = {
+  height: '64px', 
+  padding: '0 48px',
+  fontSize: '24px',
+  borderRadius: '32px',
+  background: 'linear-gradient(90deg, #4287f5 0%, #5b9aff 100%)',
+  border: 'none',
+  boxShadow: '0 8px 20px rgba(66, 135, 245, 0.25)',
+  color: '#ffffff',
+  cursor: 'pointer',
+  opacity: 1,
+  transition: 'all 0.3s',
+  fontWeight: 600
+};
+
+const disabledButtonStyle = {
+  ...startButtonStyle,
+  background: '#E5E7EB',
+  boxShadow: 'none',
+  color: '#9CA3AF',
+  cursor: 'not-allowed',
+  opacity: 0.8
+};
+
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onStart,
   onExamDateChange,
@@ -30,15 +55,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 }) => {
   const { user } = useAuth();
   const [isExamContentDialogOpen, setIsExamContentDialogOpen] = useState(false);
-  const [examDate, setExamDate] = useState<Moment | null>(null);
-
-  // Set default exam date for guests (1 month from now)
-  useEffect(() => {
-    if (!user && !examDate) {
-      const defaultDate = moment().add(1, 'month');
-      handleExamDateChange(defaultDate);
-    }
-  }, [user]);
+  const [examDate, setExamDate] = useState<Moment | null>(moment().add(1, 'month'));
 
   const handleExamDateChange = (date: Moment | null) => {
     if (date && prep) {
@@ -56,16 +73,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       
       // Save to storage using PrepStateManager
       PrepStateManager.updatePrep(updatedPrep);
-
-      // Show success notification only for logged-in users
-      if (user) {
-        notification.success({
-          message: 'תאריך הבחינה עודכן',
-          description: `תאריך הבחינה נקבע ל-${date.format('DD/MM/YYYY')}`,
-          placement: 'topLeft',
-          duration: 3,
-        });
-      }
     }
   };
 
@@ -78,70 +85,51 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       style={{
         maxWidth: '800px',
         margin: '32px auto',
-        borderRadius: '12px',
-        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+        borderRadius: '16px',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+        padding: '32px 24px'
       }}
     >
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {/* Welcome Header */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <Title level={2} style={{ 
-            marginBottom: '16px',
-            background: 'linear-gradient(90deg, #3B82F6 0%, #60A5FA 100%)',
+        {/* Main Welcome Message */}
+        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+          <Title level={1} style={{ 
+            marginBottom: '20px',
+            background: 'linear-gradient(90deg, #4287f5 0%, #5b9aff 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            fontWeight: 700
+            fontWeight: 700,
+            fontSize: '36px',
+            lineHeight: 1.3
           }}>
-            ברוכים הבאים לאיזיפס
+            איזיפס תכין אותך להצלחה במבחן
           </Title>
           <Paragraph style={{ 
-            fontSize: '16px', 
-            color: '#4B5563',
+            fontSize: '18px', 
+            color: '#64748b',
             maxWidth: '600px',
-            margin: '0 auto'
+            margin: '0 auto 32px',
+            lineHeight: 1.6
           }}>
-            המערכת תתאים את התרגול באופן אישי להתקדמות שלך לקראת הצלחה בבחינה
+            מערכת שמתאימה את התרגול בדיוק בשבילך, עם ליווי אישי בכל שלב
           </Paragraph>
+          
+          {/* Start Button - Moved here */}
+          <Button
+            type="primary"
+            size="large"
+            onClick={onStart}
+            disabled={!examDate}
+            style={examDate ? startButtonStyle : disabledButtonStyle}
+            className={examDate ? styles['start-button'] : ''}
+          >
+            התחל לתרגל עכשיו
+          </Button>
         </div>
 
         {/* Setup Steps */}
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          {/* Exam Date Selection - Only show for logged-in users */}
-          {user && (
-            <Card
-              size="small"
-              style={{ 
-                borderRadius: '8px', 
-                backgroundColor: '#F9FAFB',
-                border: '1px solid #E5E7EB',
-                transition: 'all 0.2s'
-              }}
-              hoverable
-            >
-              <Space align="start">
-                <CalendarOutlined style={{ fontSize: '24px', color: '#3B82F6' }} />
-                <div>
-                  <Text strong style={{ display: 'block', marginBottom: '8px' }}>
-                    תאריך הבחינה
-                  </Text>
-                  <Text type="secondary" style={{ display: 'block', marginBottom: '12px' }}>
-                    בחר את תאריך הבחינה כדי שנוכל לתכנן את קצב הלמידה המתאים
-                  </Text>
-                  <DatePicker
-                    onChange={handleExamDateChange}
-                    style={{ width: '200px' }}
-                    placeholder="בחר תאריך"
-                    disabledDate={(current) => {
-                      // Can't select days before today
-                      return current && current.isBefore(moment().startOf('day'));
-                    }}
-                  />
-                </div>
-              </Space>
-            </Card>
-          )}
-
-          {/* Exam Content */}
+          {/* Exam Content - Temporarily hidden
           <Card
             size="small"
             style={{ 
@@ -173,6 +161,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               </div>
             </Space>
           </Card>
+          */}
         </Space>
 
         {/* Features Preview */}
@@ -191,65 +180,32 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             <Col span={8}>
               <Space direction="vertical" align="center" style={{ width: '100%', textAlign: 'center' }}>
                 <MessageOutlined style={{ color: '#0EA5E9', fontSize: '28px' }} />
-                <Text strong style={{ fontSize: '16px', marginTop: '8px' }}>פידבק אישי</Text>
+                <Text strong style={{ fontSize: '16px', marginTop: '8px' }}>התאמה אישית</Text>
                 <Text type="secondary" style={{ fontSize: '14px' }}>
-                  משוב מפורט על כל שאלה עם הנחיות לשיפור
+                  בחירת שאלות מותאמות אישית ומעקב אחר ההתקדמות שלך
                 </Text>
               </Space>
             </Col>
             <Col span={8}>
               <Space direction="vertical" align="center" style={{ width: '100%', textAlign: 'center' }}>
                 <ReadOutlined style={{ color: '#0EA5E9', fontSize: '28px' }} />
-                <Text strong style={{ fontSize: '16px', marginTop: '8px' }}>חומר לימוד רלוונטי</Text>
+                <Text strong style={{ fontSize: '16px', marginTop: '8px' }}>משוב מיידי</Text>
                 <Text type="secondary" style={{ fontSize: '14px' }}>
-                  חומר לימוד מותאם לשאלות התרגול ולקשיים שלך
+                  פידבק מפורט וחומרי לימוד רלוונטיים לכל שאלה
                 </Text>
               </Space>
             </Col>
             <Col span={8}>
               <Space direction="vertical" align="center" style={{ width: '100%', textAlign: 'center' }}>
                 <QuestionCircleOutlined style={{ color: '#0EA5E9', fontSize: '28px' }} />
-                <Text strong style={{ fontSize: '16px', marginTop: '8px' }}>עזרה אישית</Text>
+                <Text strong style={{ fontSize: '16px', marginTop: '8px' }}>עזרה זמינה</Text>
                 <Text type="secondary" style={{ fontSize: '14px' }}>
-                  סיוע מותאם להתמודדות עם כל שאלה
+                  תמיכה מיידית והכוונה בכל שלב בדרך
                 </Text>
               </Space>
             </Col>
           </Row>
         </Card>
-
-        {/* Start Button */}
-        <div style={{ textAlign: 'center', marginTop: '24px' }}>
-          <Button
-            type="primary"
-            size="large"
-            onClick={onStart}
-            disabled={!examDate}
-            style={{ 
-              height: '48px', 
-              padding: '0 32px',
-              fontSize: '16px',
-              borderRadius: '8px',
-              background: examDate ? 'linear-gradient(90deg, #3B82F6 0%, #60A5FA 100%)' : '#E5E7EB',
-              border: 'none',
-              boxShadow: examDate ? '0 4px 6px -1px rgba(59, 130, 246, 0.5)' : 'none',
-              color: examDate ? '#ffffff' : '#9CA3AF',
-              cursor: examDate ? 'pointer' : 'not-allowed',
-              opacity: examDate ? 1 : 0.8,
-              transition: 'all 0.2s'
-            }}
-          >
-            התחל לתרגל
-          </Button>
-          {!examDate && user && (
-            <Alert
-              message="יש לבחור תאריך בחינה לפני תחילת התרגול"
-              type="info"
-              showIcon
-              style={{ marginTop: '16px' }}
-            />
-          )}
-        </div>
       </Space>
 
       {/* Exam Content Dialog */}

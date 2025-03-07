@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, Select, InputNumber, Space, Typography, Divider, message, Spin, Alert, Collapse } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { QuestionService } from '../../../services/llm/questionGenerationService';
 import { QuestionStorage } from '../../../services/admin/questionStorage';
 import { Question, QuestionType, SourceType, EzpassCreatorType, PublicationStatusEnum, DatabaseQuestion, EMPTY_EVALUATION_GUIDELINES, ValidationStatus, ReviewStatusEnum, DifficultyLevel } from '../../../types/question';
 import { QuestionContentSection } from '../../../components/admin/sections/QuestionContentSection';
@@ -12,6 +11,7 @@ import { universalTopics } from '../../../services/universalTopics';
 import { Topic, SubTopic } from '../../../types/subject';
 import { ExamInstitutionType, ExamType } from '../../../types/examTemplate';
 import { enumMappings } from '../../../utils/translations';
+import { questionGenerationService } from '../../../services/llm/QuestionGenerationV2';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -42,7 +42,6 @@ export const QuestionGenerator: React.FC = () => {
   const [questionType, setQuestionType] = useState<QuestionType>(QuestionType.MULTIPLE_CHOICE);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const questionStorage = new QuestionStorage();
-  const questionService = new QuestionService();
 
   // Get topics from civil engineering subject and construction safety domain
   const subjects = universalTopics.getAllSubjects();
@@ -63,33 +62,52 @@ export const QuestionGenerator: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // Generate question using the old question service
-      const question = await questionService.generateQuestion({
+      // Generate question using the new question generation service
+      const generatedQuestion = await questionGenerationService.generateQuestion({
         type: values.type,
+        prompt: `Generate a ${values.difficulty} level ${values.type} question about ${values.specificTopic || values.subtopic || values.topic} in construction safety.`,
+        subjectId: 'civil_engineering',
+        domainId: 'construction_safety',
+        topicId: values.topic,
+        subtopicId: values.subtopic,
         difficulty: values.difficulty,
-        topic: values.topic,
-        subtopic: values.subtopic,
-        subject: 'civil_engineering', // Set correct subject
-        educationType: ExamInstitutionType.PRACTICAL_ENGINEERING, // Use enum value
-        examType: ExamType.MAHAT_EXAM, // Use the correct exam type for practical engineering
+        estimatedTime: form.getFieldValue('estimatedTime'),
+        answerFormat: {
+          hasFinalAnswer: values.type !== QuestionType.OPEN,
+          finalAnswerType: values.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' :
+                          values.type === QuestionType.NUMERICAL ? 'numerical' : 'none',
+          requiresSolution: true
+        },
         source: {
-          type: SourceType.EZPASS,
-          creatorType: EzpassCreatorType.AI
+          type: 'ezpass',
+          creatorType: 'ai'
         }
       });
 
-      // Save to database with only the fields allowed by SaveQuestion
-      const createdQuestion = await questionStorage.createQuestion({
-        question: question
-      });
+      // Convert to DatabaseQuestion type
+      const question: DatabaseQuestion = {
+        ...generatedQuestion,
+        publication_status: PublicationStatusEnum.DRAFT,
+        validation_status: ValidationStatus.WARNING,
+        review_status: ReviewStatusEnum.PENDING_REVIEW,
+        ai_generated_fields: {
+          fields: ['content', 'solution', 'evaluation'],
+          confidence: {
+            content: 0.8,
+            solution: 0.8,
+            evaluation: 0.8
+          },
+          generatedAt: new Date().toISOString()
+        }
+      };
 
       // Save the result
       setResult({
         systemPrompt: 'Question Generation',
         userPrompt: `Generate a ${values.difficulty} level ${values.type} question about ${values.specificTopic || values.subtopic || values.topic} in construction safety.`,
-        rawResponse: JSON.stringify(createdQuestion, null, 2),
-        questionId: createdQuestion.id,
-        question: createdQuestion
+        rawResponse: JSON.stringify(question, null, 2),
+        questionId: question.id,
+        question: question
       });
 
       message.success(
@@ -97,7 +115,7 @@ export const QuestionGenerator: React.FC = () => {
           <div>השאלה נוצרה ונשמרה בהצלחה!</div>
           <Button 
             type="link" 
-            onClick={() => navigate(`/admin/questions/${createdQuestion.id}`)}
+            onClick={() => navigate(`/admin/questions/${question.id}`)}
             style={{ padding: 0, height: 'auto' }}
           >
             לחץ כאן לעריכת השאלה

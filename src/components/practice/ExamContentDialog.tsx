@@ -33,6 +33,13 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
   useEffect(() => {
     if (open) {
       const freshPrep = PrepStateManager.getPrep(prepId);
+      console.log('ExamContentDialog - Loading initial state:', {
+        prepId,
+        freshPrepFound: !!freshPrep,
+        currentSelection: freshPrep?.selection.subTopics,
+        selectionCount: freshPrep?.selection.subTopics.length
+      });
+      
       if (freshPrep) {
         setCurrentPrep(freshPrep);
         setSelection(freshPrep.selection);
@@ -52,46 +59,63 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
       ? selection.subTopics.filter(id => id !== subtopicId)
       : [...selection.subTopics, subtopicId];
     
+    console.log('ExamContentDialog - Toggling subtopic:', {
+      subtopicId,
+      wasSelected: isSubtopicSelected(subtopicId),
+      newSelectionCount: newSelection.length,
+      currentSelectionCount: selection.subTopics.length
+    });
+    
     // Only update local state, don't update PrepStateManager yet
     setSelection({ subTopics: newSelection });
-  };
-
-  // Handle closing the dialog
-  const handleClose = () => {
-    if (!currentPrep) return;
-    
-    // Get fresh prep state before closing
-    const freshPrep = PrepStateManager.getPrep(prepId);
-    if (freshPrep) {
-      setCurrentPrep(freshPrep);
-      setSelection(freshPrep.selection);
-
-      // Calculate total subtopics
-      const totalSubtopics = exam.topics.reduce((acc, topic) => 
-        acc + topic.subTopics.length, 0
-      );
-
-      // Show notification with selection summary
-      notification.success({
-        message: 'תכולת המבחן עודכנה',
-        description: `תכולת המבחן שלך שונתה לכלול ${freshPrep.selection.subTopics.length} תת-נושאים מתוך ${totalSubtopics}`,
-        placement: 'topLeft',
-        duration: 3,
-      });
-    }
-    
-    onClose();
   };
 
   // Handle confirming changes
   const handleConfirm = () => {
     if (!currentPrep) return;
 
+    console.log('ExamContentDialog - Starting confirmation flow:', {
+      currentPrepId: currentPrep.id,
+      oldSelection: currentPrep.selection.subTopics,
+      newSelection: selection.subTopics,
+      changed: JSON.stringify(currentPrep.selection.subTopics) !== JSON.stringify(selection.subTopics)
+    });
+
     // Update prep state with new selection
-    const updatedPrep = PrepStateManager.updateSelection(currentPrep, selection);
-    setCurrentPrep(updatedPrep);
+    const updatedPrep = {
+      ...currentPrep,
+      selection: selection
+    };
+
+    // Force a refresh of the prep state in storage
+    console.log('ExamContentDialog - Updating prep state in storage');
+    PrepStateManager.updatePrep(updatedPrep);
+
+    // Double check the update was successful
+    const verifyPrep = PrepStateManager.getPrep(prepId);
+    console.log('ExamContentDialog - Storage update verification:', {
+      success: !!verifyPrep,
+      savedSelection: verifyPrep?.selection.subTopics,
+      matchesExpected: JSON.stringify(verifyPrep?.selection.subTopics) === JSON.stringify(selection.subTopics),
+      storageState: localStorage.getItem('active_preps')
+    });
     
-    handleClose();
+    onClose();
+  };
+
+  // Handle closing the dialog
+  const handleClose = () => {
+    // Get fresh prep state before closing
+    const freshPrep = PrepStateManager.getPrep(prepId);
+    console.log('ExamContentDialog - Closing dialog:', {
+      hasFreshPrep: !!freshPrep,
+      freshPrepSelection: freshPrep?.selection.subTopics,
+      currentSelection: selection.subTopics,
+      changed: freshPrep && JSON.stringify(freshPrep.selection.subTopics) !== JSON.stringify(selection.subTopics),
+      storageState: localStorage.getItem('active_preps')
+    });
+    
+    onClose();
   };
 
   // Calculate total stats

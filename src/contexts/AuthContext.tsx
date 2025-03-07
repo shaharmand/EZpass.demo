@@ -99,10 +99,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     },
     signInWithGoogle: async () => {
+      // Always use current domain for redirect URL
+      const currentDomain = window.location.origin;
+      const redirectUrl = `${currentDomain}/auth/callback`;
+      
       return supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: process.env.REACT_APP_AUTH_REDIRECT_URL || `${window.location.origin}/auth/callback`,
+          redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

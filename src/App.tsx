@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Outlet } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { StudentPrepProvider } from './contexts/StudentPrepContext';
@@ -16,8 +16,14 @@ import { QuestionEditor } from './pages/admin/questions/QuestionEditor';
 import { QuestionImport } from './pages/admin/questions/QuestionImport';
 import AuthCallback from './pages/AuthCallback';
 import { QuestionGenerator } from './pages/admin/questions/QuestionGenerator';
+import { checkEnvironmentVariables } from './utils/envCheck';
 
 const App: React.FC = () => {
+  useEffect(() => {
+    // Check environment variables on app startup
+    checkEnvironmentVariables();
+  }, []);
+
   return (
     <AuthProvider>
       <StudentPrepProvider>

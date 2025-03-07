@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Avatar, Typography, Button, message, Spin, Descriptions, Tag } from 'antd';
 import { UserOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../services/supabaseClient';
+import { supabase } from '../lib/supabase';
 import { UserProfile as UserProfileType } from '../types/userTypes';
 
 const { Title, Text } = Typography;

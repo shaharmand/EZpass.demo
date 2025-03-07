@@ -5,17 +5,18 @@ import {
   SourceType,
   EzpassCreatorType,
   ValidationStatus,
-  PublicationStatusEnum
+  PublicationStatusEnum,
+  SaveQuestion,
+  DatabaseQuestion
 } from '../../../types/question';
 import { questionStorage } from '../questionStorage';
 import { logger } from '../../../utils/logger';
-import { BaseImporter, ImportResult } from './BaseImporter';
+import { BaseImporter, ImportResult, BatchImportResult } from './BaseImporter';
 import { universalTopics } from '../../universalTopics';
 import { Topic, SubTopic } from '../../../types/subject';
 import { validateQuestion } from '../../../utils/questionValidator';
 import { examService } from '../../../services/examService';
 import { generateQuestionId, validateQuestionId } from '../../../utils/idGenerator';
-import { getSupabase } from '../../supabaseClient';
 const TurndownService = require('turndown');
 
 interface WordPressEzPassQuestion {
@@ -344,44 +345,22 @@ export class WordPressEzPassImporter extends BaseImporter {
 
         // STEP 5: ONLY FOR NON-DRY RUN - Save to database
         console.log('LIVE RUN: Proceeding with database save');
-        const supabaseClient = getSupabase();
-        if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-        const { error } = await supabaseClient
-            .from('questions')
-            .upsert({
-                id: question.id,
-                data: question,
-                publication_status: PublicationStatusEnum.DRAFT,
-                validation_status: validationResult.errors.length > 0 
-                    ? 'error' 
-                    : validationResult.warnings.length > 0 
-                        ? 'warning' 
-                        : 'valid',
-                import_info: {
-                    system: 'wordpress',
-                    originalId: wpQuestion._id,
-                    originalDbId: wpQuestion._dbId,
-                    originalTitle: wpQuestion._title,
-                    originalCategory: wpQuestion._category,
-                    importedAt: new Date().toISOString(),
-                    importedBy: 'wordpress-importer',
-                    originalFormat: 'wordpress-ezpass',
-                    transformations: [
-                        'html-to-markdown',
-                        'exam-info-extraction',
-                        'category-mapping'
-                    ]
+        const processedQuestion = await questionStorage.getQuestion(question.id);
+        if (processedQuestion) {
+            await questionStorage.saveQuestion({
+                id: processedQuestion.id,
+                data: {
+                    id: processedQuestion.id,
+                    content: processedQuestion.content,
+                    schoolAnswer: processedQuestion.schoolAnswer,
+                    metadata: processedQuestion.metadata,
+                    evaluationGuidelines: processedQuestion.evaluationGuidelines
                 },
-                updated_at: new Date().toISOString()
+                publication_status: processedQuestion.publication_status,
+                validation_status: processedQuestion.validation_status,
+                review_status: processedQuestion.review_status,
+                ai_generated_fields: processedQuestion.ai_generated_fields
             });
-
-        if (error) {
-            logger.error('Failed to save question to database', {
-                questionId: question.id,
-                error: error.message
-            });
-            throw error;
         }
 
         return {
@@ -608,5 +587,95 @@ export class WordPressEzPassImporter extends BaseImporter {
         }]
       }
     };
+  }
+
+  async importQuestions(questions: WordPressEzPassQuestion[]): Promise<BatchImportResult> {
+    const results: BatchImportResult = {
+      total: questions.length,
+      successful: 0,
+      failed: 0,
+      results: {},
+      importerName: this.importerName
+    };
+
+    try {
+      logger.info('Starting WordPress EzPass import', {
+        questionCount: questions.length
+      });
+
+      // Process each question
+      for (const question of questions) {
+        try {
+          const result = await this.importQuestion(question);
+          const questionId = this.getQuestionIdentifier(question);
+          results.results[questionId] = result;
+          
+          if (result.success && result.questionId) {
+            results.successful++;
+            const processedQuestion = await questionStorage.getQuestion(result.questionId);
+            if (processedQuestion) {
+              // Extract the base Question fields
+              const { 
+                publication_status,
+                publication_metadata,
+                validation_status,
+                review_status,
+                ai_generated_fields,
+                review_metadata,
+                import_info,
+                created_at,
+                updated_at,
+                ...baseQuestion
+              } = processedQuestion;
+
+              const saveQuestion: SaveQuestion = {
+                id: processedQuestion.id,
+                data: {
+                  id: processedQuestion.id,
+                  content: processedQuestion.content,
+                  schoolAnswer: processedQuestion.schoolAnswer,
+                  metadata: processedQuestion.metadata,
+                  evaluationGuidelines: processedQuestion.evaluationGuidelines
+                },
+                publication_status,
+                validation_status,
+                review_status,
+                ai_generated_fields,
+                import_info: {
+                  system: 'ezpass',
+                  originalId: question._id,
+                  importedAt: new Date().toISOString(),
+                  additionalData: {
+                    originalDbId: question._dbId,
+                    originalTitle: question._title,
+                    originalCategory: question._category
+                  }
+                }
+              };
+              await questionStorage.saveQuestion(saveQuestion);
+            }
+          } else {
+            results.failed++;
+          }
+        } catch (error) {
+          logger.error('Error importing question', {
+            questionId: question._id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          results.failed++;
+          results.results[this.getQuestionIdentifier(question)] = {
+            success: false,
+            errors: [error instanceof Error ? error.message : 'Unknown error']
+          };
+        }
+      }
+
+      return results;
+    } catch (error) {
+      logger.error('Error in batch import', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 }

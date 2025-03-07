@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { supabase } from '../lib/supabase';
 import { Spin, message } from 'antd';
 
 const AuthCallback: React.FC = () => {

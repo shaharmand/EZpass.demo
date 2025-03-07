@@ -1,10 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import { UserProfile, createUserProfile } from '../types/userTypes';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 /**
  * Get complete user profile data by combining auth and profile data
@@ -113,4 +108,14 @@ export async function signInWithGoogle() {
   }
 
   return data;
+}
+
+export async function getCurrentUser() {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  // ... existing code ...
+}
+
+export async function checkUserSession() {
+  const { data: { user } } = await supabase.auth.getUser();
+  // ... existing code ...
 } 

@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, AuthError } from '@supabase/supabase-js';
-import { supabase } from '../services/supabaseClient';
+import { User, AuthError, Session } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types/userTypes';
+import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +20,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const navigate = useNavigate();
 
   // Fetch profile data whenever user changes
   useEffect(() => {
@@ -58,53 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // Listen for changes on auth state (sign in, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      const user = session?.user;
-      setUser(user ?? null);
-
-      // Handle Google Sign In data
-      if (event === 'SIGNED_IN' && user?.app_metadata?.provider === 'google') {
-        const identity = user.identities?.[0]?.identity_data;
-        if (identity) {
-          const firstName = identity.given_name || '';
-          const lastName = identity.family_name || '';
-          const avatarUrl = identity.avatar_url || identity.picture;
-          
-          // Update user metadata
-          await supabase.auth.updateUser({
-            data: {
-              first_name: firstName,
-              last_name: lastName,
-              avatar_url: avatarUrl
-            }
-          });
-
-          // Ensure profile exists
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: user.id,
-              first_name: firstName,
-              last_name: lastName,
-              avatar_url: avatarUrl,
-              updated_at: new Date().toISOString(),
-              // Include default values for required fields if not set
-              role: 'student',  // Will use default if exists
-              subscription_tier: 'free' // Will use default if exists
-            }, {
-              onConflict: 'id'
-            });
-
-          if (profileError) {
-            console.error('Error ensuring profile exists:', profileError);
-          }
-        }
-      }
+    // Listen for changes on auth state (signed in, signed out, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -148,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     signOut: async () => {
       await supabase.auth.signOut();
-      setProfile(null);
+      navigate('/');
     },
   };
 

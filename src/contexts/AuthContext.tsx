@@ -103,6 +103,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const currentDomain = window.location.origin;
       const redirectUrl = `${currentDomain}/auth/callback`;
       
+      // Get stored return URL from localStorage
+      const returnUrl = localStorage.getItem('returnUrl');
+      
       return supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -110,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
+            return_to: returnUrl || '/' // Pass return URL to auth callback
           },
           scopes: 'profile email',
           skipBrowserRedirect: false

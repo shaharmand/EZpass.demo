@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Spin, message } from 'antd';
 
 const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     // Handle the initial auth state
@@ -44,8 +45,13 @@ const AuthCallback: React.FC = () => {
             }
           }
 
-          // Get the return URL from localStorage or default to home
-          const returnUrl = localStorage.getItem('returnUrl') || '/';
+          // Check URL parameters first, then localStorage, then default to home
+          const returnUrl = searchParams.get('return_to') || localStorage.getItem('returnUrl') || '/';
+          
+          // Clear the return URL from localStorage
+          localStorage.removeItem('returnUrl');
+          
+          // Navigate to the return URL
           navigate(returnUrl, { replace: true });
         }
       } catch (error) {
@@ -56,7 +62,7 @@ const AuthCallback: React.FC = () => {
     };
 
     handleAuth();
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   return (
     <div style={{ 

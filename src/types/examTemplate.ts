@@ -1,5 +1,5 @@
 import { Topic, SubTopic } from './subject'; // Importing Topic and SubTopic from Subject.ts    
-import { DifficultyLevel, QuestionType } from './common';
+import { DifficultyLevel, QuestionType } from './question';
 
 
 /**

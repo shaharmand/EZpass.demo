@@ -79,7 +79,7 @@ ${this.getExampleCriteria(question.metadata.type)}
       ...question,
       metadata: {
         ...question.metadata,
-        difficulty: 3  // Using numeric literal as DifficultyLevel
+        difficulty: 3  // Medium difficulty
       }
     };
   }
@@ -109,7 +109,7 @@ Topic: ${question.metadata.topicId}
       ...question,
       metadata: {
         ...question.metadata,
-        difficulty: DifficultyLevel.MEDIUM
+        difficulty: 3  // Medium difficulty
       }
     };
   }

@@ -1,6 +1,6 @@
-import { DifficultyLevel } from '../types/common';
 import { z } from 'zod';
-import { QuestionType } from '../types/common';
+import { DifficultyLevel } from '../types/question';
+import { QuestionType } from '../types/question';
 
 // Re-export commonly used validation schemas from their domain files
 export const difficultySchema = z.union([

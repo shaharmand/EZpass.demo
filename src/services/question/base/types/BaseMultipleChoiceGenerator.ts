@@ -83,9 +83,15 @@ ${options
    * Helper method to format multiple choice answer
    */
   protected createMultipleChoiceAnswer(correctOption: number): MultipleChoiceAnswer {
+    // Ensure the value is between 1 and 4
+    const value = (correctOption + 1) as 1 | 2 | 3 | 4;
+    if (value < 1 || value > 4) {
+      throw new Error('Multiple choice answer must be between 1 and 4');
+    }
+    
     return {
       type: 'multiple_choice',
-      value: correctOption + 1
+      value
     };
   }
 

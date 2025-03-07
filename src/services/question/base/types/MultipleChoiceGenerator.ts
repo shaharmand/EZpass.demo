@@ -1,15 +1,32 @@
-import { Question, QuestionMetadata, QuestionType } from '../../../../types/question';
+import { Question, QuestionMetadata, QuestionType, EzpassCreatorType } from '../../../../types/question';
+import { QuestionGenerationParams } from '../../../../types/questionGeneration';
 import { AbstractTypeGenerator } from './AbstractTypeGenerator';
-import { questionService } from '../../../llm/questionGenerationService';
+import { questionGenerationService } from '../../../llm/QuestionGenerationV2';
+import { ExamType } from '../../../../types/examTemplate';
 
 export class MultipleChoiceGenerator extends AbstractTypeGenerator {
   async generateQuestion(metadata: QuestionMetadata): Promise<Question> {
     const prompt = this.getBasePrompt(metadata);
-    return questionService.generateQuestion({
-      ...metadata,
+    const params: QuestionGenerationParams = {
       type: QuestionType.MULTIPLE_CHOICE,
-      prompt
-    });
+      prompt,
+      subjectId: metadata.subjectId,
+      domainId: metadata.domainId,
+      topicId: metadata.topicId,
+      subtopicId: metadata.subtopicId,
+      difficulty: metadata.difficulty,
+      estimatedTime: metadata.estimatedTime,
+      answerFormat: {
+        hasFinalAnswer: true,
+        finalAnswerType: 'multiple_choice',
+        requiresSolution: true
+      },
+      source: {
+        type: 'ezpass',
+        creatorType: 'ai'
+      }
+    };
+    return questionGenerationService.generateQuestion(params);
   }
 
   getTypeSpecificPrompt(): string {

@@ -695,27 +695,47 @@ class UniversalTopics {
 }
 
 export const universalTopicsV2 = {
-  getSubjectSafe: (subjectId: string): Subject | null => {
+  getSubjectSafe(subjectId: string): Subject | null {
     return universalTopics.getAllSubjects().find(s => s.id === subjectId) || null;
   },
 
-  getDomainSafe: (subjectId: string, domainId: string): Domain | null => {
+  getDomainSafe(subjectId: string, domainId: string): Domain | null {
     const subject = universalTopicsV2.getSubjectSafe(subjectId);
     return subject?.domains.find(d => d.id === domainId) || null;
   },
 
-  getTopicSafe: (subjectId: string, domainId: string, topicId: string): Topic | null => {
+  getTopicSafe(subjectId: string, domainId: string, topicId: string): Topic | null {
     const domain = universalTopicsV2.getDomainSafe(subjectId, domainId);
     const topic = domain?.topics.find(t => t.id === topicId);
     return topic || null;
   },
 
-  getSubTopicSafe: (subjectId: string, domainId: string, topicId: string, subtopicId: string): SubTopic | null => {
+  getSubTopicSafe(subjectId: string, domainId: string, topicId: string, subtopicId: string): SubTopic | null {
     const topic = universalTopicsV2.getTopicSafe(subjectId, domainId, topicId);
     return topic?.subTopics?.find(st => st.id === subtopicId) || null;
   },
 
-  debugTopicValidation: (subjectId: string, domainId: string, topicId: string): void => {
+  getSubjectCode(subjectId: string): string {
+    const subject = universalTopicsV2.getSubjectSafe(subjectId);
+    return subject?.code || '';
+  },
+
+  getDomainCode(domainId: string): string {
+    // Find the domain in any subject since we don't need the subject context for this
+    for (const subject of universalTopics.getAllSubjects()) {
+      const domain = subject.domains.find(d => d.id === domainId);
+      if (domain) {
+        return domain.code;
+      }
+    }
+    return '';
+  },
+
+  isValidDomainForSubject(subjectId: string, domainId: string): boolean {
+    return universalTopics.isValidDomainForSubject(subjectId, domainId);
+  },
+
+  debugTopicValidation(subjectId: string, domainId: string, topicId: string): void {
     logger.info('🔍 DEBUG TOPIC VALIDATION', { 
       subjectId, 
       domainId, 
@@ -761,12 +781,12 @@ export const universalTopicsV2 = {
     }, 'validation');
   },
 
-  getFullName: (path: {
+  getFullName(path: {
     subjectId?: string;
     domainId?: string;
     topicId?: string;
     subtopicId?: string;
-  }): string => {
+  }): string {
     const { subjectId, domainId, topicId, subtopicId } = path;
     const parts: string[] = [];
 
@@ -793,12 +813,12 @@ export const universalTopicsV2 = {
     return parts.join(' › ') || 'לא נמצא';
   },
 
-  validatePath: (path: {
+  validatePath(path: {
     subjectId?: string;
     domainId?: string;
     topicId?: string;
     subtopicId?: string;
-  }): { isValid: boolean; error?: string } => {
+  }): { isValid: boolean; error?: string } {
     const { subjectId, domainId, topicId, subtopicId } = path;
 
     if (subjectId && !universalTopicsV2.getSubjectSafe(subjectId)) {
@@ -818,6 +838,15 @@ export const universalTopicsV2 = {
     }
 
     return { isValid: true };
+  },
+
+  validateTopicHierarchy(data: {
+    subjectId: string;
+    domainId: string;
+    topicId: string;
+    subtopicId?: string;
+  }): { isValid: boolean; error?: string } {
+    return universalTopics.validateTopicHierarchy(data);
   }
 };
 

@@ -152,57 +152,48 @@ Example of correct structure:
     return {
       id: '',
       name: 'שאלת בטיחות לדוגמה',
-      type: QuestionType.MULTIPLE_CHOICE,
       content: {
         text: 'מהם אמצעי הבטיחות הנדרשים בעבודה בגובה?',
         format: 'markdown',
         options: [
-          { text: 'קסדה בלבד', format: 'markdown' },
-          { text: 'קסדה ורתמת בטיחות', format: 'markdown' },
           { text: 'רתמת בטיחות בלבד', format: 'markdown' },
-          { text: 'כפפות עבודה בלבד', format: 'markdown' }
+          { text: 'קסדה ונעלי בטיחות', format: 'markdown' },
+          { text: 'רתמה, קסדה ונעלי בטיחות', format: 'markdown' },
+          { text: 'אין צורך באמצעי בטיחות', format: 'markdown' }
         ]
       },
       metadata: {
-        subjectId: 'civil_engineering',
-        domainId: 'construction_safety',
-        topicId: 'safety_equipment',
         type: QuestionType.MULTIPLE_CHOICE,
-        difficulty: 2,
-        estimatedTime: 5,
+        subjectId: '',
+        domainId: '',
+        topicId: '',
+        difficulty: 3,
         answerFormat: {
           hasFinalAnswer: true,
           finalAnswerType: 'multiple_choice',
           requiresSolution: true
         },
         source: {
-          type: SourceType.EZPASS,
+          type: 'ezpass',
           creatorType: EzpassCreatorType.AI
         }
       },
       schoolAnswer: {
         finalAnswer: {
           type: 'multiple_choice',
-          value: 2
+          value: 3
         },
         solution: {
-          text: 'התשובה הנכונה היא ב - נדרשים גם קסדה וגם רתמת בטיחות בעבודה בגובה',
+          text: 'בעבודה בגובה נדרש שימוש בכל אמצעי הבטיחות: רתמת בטיחות, קסדה ונעלי בטיחות',
           format: 'markdown'
         }
       },
       evaluationGuidelines: {
-        requiredCriteria: [
-          {
-            name: 'safety_knowledge',
-            description: 'ידע בציוד בטיחות נדרש',
-            weight: 50
-          },
-          {
-            name: 'regulation_understanding',
-            description: 'הבנת תקנות בטיחות בעבודה',
-            weight: 50
-          }
-        ]
+        requiredCriteria: [{
+          name: 'basic_correctness',
+          description: 'תשובה נכונה ומלאה',
+          weight: 100
+        }]
       }
     };
   }

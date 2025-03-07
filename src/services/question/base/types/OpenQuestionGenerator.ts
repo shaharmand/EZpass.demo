@@ -1,6 +1,7 @@
 import { Question, QuestionMetadata, QuestionType } from '../../../../types/question';
+import { QuestionGenerationParams } from '../../../../types/questionGeneration';
 import { AbstractTypeGenerator } from './AbstractTypeGenerator';
-import { questionService } from '../../../llm/questionGenerationService';
+import { questionGenerationService } from '../../../llm/QuestionGenerationV2';
 import { logger } from '../../../../utils/logger';
 
 export class OpenQuestionGenerator extends AbstractTypeGenerator {
@@ -23,12 +24,28 @@ export class OpenQuestionGenerator extends AbstractTypeGenerator {
         timestamp: new Date().toISOString()
       });
 
-      // Generate the question
-      const question = await questionService.generateQuestion({
-        ...metadata,
+      const params: QuestionGenerationParams = {
         type: QuestionType.OPEN,
-        prompt
-      });
+        prompt,
+        subjectId: metadata.subjectId,
+        domainId: metadata.domainId,
+        topicId: metadata.topicId,
+        subtopicId: metadata.subtopicId,
+        difficulty: metadata.difficulty,
+        estimatedTime: metadata.estimatedTime,
+        answerFormat: {
+          hasFinalAnswer: false,
+          finalAnswerType: 'none',
+          requiresSolution: true
+        },
+        source: {
+          type: 'ezpass',
+          creatorType: 'ai'
+        }
+      };
+
+      // Generate the question
+      const question = await questionGenerationService.generateQuestion(params);
 
       // Log the raw AI response
       logger.info('OpenQuestionGenerator: Received AI response', {

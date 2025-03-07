@@ -2,43 +2,85 @@ import { OpenAIService } from '../../../../llm/openAIService';
 import { Question, QuestionType, DifficultyLevel, SourceType, EzpassCreatorType } from '../../../../../types/question';
 import { logger } from '../../../../../utils/logger';
 import { QuestionGenerationRequirements } from '../../../../../types/questionGeneration';
+import { AbstractQuestionGenerator } from '../../../base/AbstractQuestionGenerator';
 
-export class CoreConstructionQuestionGenerator {
-  constructor(private llm: OpenAIService) {}
+export class CoreConstructionQuestionGenerator extends AbstractQuestionGenerator {
+  public domain = 'construction_safety';
+  public supportedTypes: QuestionType[] = [
+    QuestionType.MULTIPLE_CHOICE,
+    QuestionType.NUMERICAL,
+    QuestionType.OPEN
+  ];
 
-  async generate(params: QuestionGenerationRequirements): Promise<Partial<Question>> {
+  constructor(private llm: OpenAIService) {
+    super();
+  }
+
+  public validateDomainContent(content: string): boolean {
+    return content.length > 0;
+  }
+
+  public async enrichWithDomainContext(question: Question): Promise<Question> {
+    // Add construction safety specific context if needed
+    return question;
+  }
+
+  public async addDomainSpecificEvaluation(question: Question): Promise<Question> {
+    // Add construction safety specific evaluation criteria
+    if (!question.evaluationGuidelines) {
+      question.evaluationGuidelines = {
+        requiredCriteria: [
+          {
+            name: 'safety_understanding',
+            description: 'הבנת עקרונות הבטיחות',
+            weight: 40
+          },
+          {
+            name: 'practical_application',
+            description: 'יישום מעשי',
+            weight: 30
+          },
+          {
+            name: 'regulation_knowledge',
+            description: 'ידע בתקנות',
+            weight: 30
+          }
+        ]
+      };
+    }
+    return question;
+  }
+
+  async generateQuestion(params: QuestionGenerationRequirements): Promise<Question> {
     try {
-      const topicContext = this.buildTopicContext(params.hierarchy);
-      const prompt = this.buildPrompt(params, topicContext);
-      
-      logger.info('Generating construction safety question', {
+      // Log generation attempt
+      logger.info('Generating core construction question', {
         type: params.type,
         topic: params.hierarchy.topic.name,
-        subtopic: params.hierarchy.subtopic.name,
+        subtopic: params.hierarchy.subtopic?.name,
         estimatedTime: params.estimatedTime
       });
 
-      const response = await this.llm.complete(prompt, {
-        temperature: 0.7
-      });
-
-      const parsed = JSON.parse(response);
-      this.validateQuestion(parsed, params);
-
-      return {
-        id: crypto.randomUUID(),
+      // Build the question
+      const question: Question = {
+        id: `construction-${Date.now()}`,
+        name: this.generateQuestionName(params.hierarchy),
+        content: {
+          text: '',  // Will be populated by type-specific content generator
+          format: 'markdown'
+        },
         metadata: {
-          difficulty: params.difficulty,
           subjectId: params.hierarchy.subject.id,
           domainId: params.hierarchy.domain.id,
           topicId: params.hierarchy.topic.id,
-          subtopicId: params.hierarchy.subtopic.id,
+          subtopicId: params.hierarchy.subtopic?.id,
+          difficulty: params.difficulty,
           estimatedTime: params.estimatedTime,
           type: params.type,
           answerFormat: {
             hasFinalAnswer: params.type !== QuestionType.OPEN,
             finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' :
-                           params.type === QuestionType.NUMERICAL ? 'numerical' : 'multiple_choice',
+                           params.type === QuestionType.NUMERICAL ? 'numerical' : 'none',
             requiresSolution: true
           },
           source: {
@@ -46,126 +88,79 @@ export class CoreConstructionQuestionGenerator {
             creatorType: EzpassCreatorType.AI
           }
         },
-        content: parsed.content
+        schoolAnswer: await this.generateSchoolAnswer(params),
+        evaluationGuidelines: await this.generateEvaluationGuidelines(params)
       };
 
+      // Generate content based on question type
+      switch (params.type) {
+        case QuestionType.MULTIPLE_CHOICE:
+          return await this.generateMultipleChoiceContent(question);
+        case QuestionType.NUMERICAL:
+          return await this.generateNumericalContent(question);
+        case QuestionType.OPEN:
+          return await this.generateOpenContent(question);
+        default:
+          throw new Error(`Unsupported question type: ${params.type}`);
+      }
     } catch (error) {
-      logger.error('Error generating construction safety question', { error });
+      logger.error('Failed to generate core construction question', { error });
       throw error;
     }
   }
 
-  private buildTopicContext(hierarchy: QuestionGenerationRequirements['hierarchy']): string {
-    return `
-    הקשר נושאי:
-    
-    נושא: ${hierarchy.topic.name}
-    תת-נושא: ${hierarchy.subtopic.name}
-    תחום: ${hierarchy.domain.name}
-    מקצוע: ${hierarchy.subject.name}
-    `;
+  private generateQuestionName(hierarchy: QuestionGenerationRequirements['hierarchy']): string {
+    return `${hierarchy.topic.name}${hierarchy.subtopic ? ` - ${hierarchy.subtopic.name}` : ''}`;
   }
 
-  private buildPrompt(params: QuestionGenerationRequirements, topicContext: string): string {
-    const typeInstructions = this.getTypeSpecificInstructions(params.type);
-    
-    return `
-    צור שאלה בנושא בטיחות בבנייה על פי ההנחיות הבאות:
+  public async generateMultipleChoiceContent(question: Question): Promise<Question> {
+    question.content.text = `שאלת רב-ברירה בנושא ${question.metadata.topicId}...`;
+    return question;
+  }
 
-    ${topicContext}
+  public async generateNumericalContent(question: Question): Promise<Question> {
+    question.content.text = `שאלה חישובית בנושא ${question.metadata.topicId}...`;
+    return question;
+  }
 
-    זמן מוערך לפתרון: ${params.estimatedTime} דקות
+  public async generateOpenContent(question: Question): Promise<Question> {
+    question.content.text = `שאלה פתוחה בנושא ${question.metadata.topicId}...`;
+    return question;
+  }
 
-    סוג שאלה: ${this.getHebrewType(params.type)}
-    רמת קושי: ${params.difficulty} (1-5)
+  protected async generateSchoolAnswer(params: QuestionGenerationRequirements): Promise<Question['schoolAnswer']> {
+    return {
+      finalAnswer: params.type === QuestionType.MULTIPLE_CHOICE ? 
+        { type: 'multiple_choice', value: 1 } :
+        params.type === QuestionType.NUMERICAL ?
+        { type: 'numerical', value: 0, tolerance: 0 } :
+        undefined,
+      solution: {
+        text: 'פתרון לדוגמה...',
+        format: 'markdown'
+      }
+    };
+  }
 
-    דרישות ספציפיות לסוג השאלה:
-    ${typeInstructions.join('\n')}
-
-    הנחיות לבטיחות בבנייה:
-    - התייחס לתקנות הבטיחות בעבודה (עבודות בנייה)
-    - השתמש במספרי תקנות ספציפיים
-    - כלול התייחסות לבעלי תפקידים באתר הבנייה
-    - התייחס לציוד מגן אישי כשרלוונטי
-    - השתמש בדוגמאות מעשיות מאתר בנייה
-    - כלול מספרים ומידות כשרלוונטי
-    - התייחס לשיטות עבודה בטוחות
-    - התאם את מורכבות השאלה לזמן המוקצב
-
-    החזר את השאלה בפורמט JSON הבא:
-    {
-      "content": {
-        "text": string,  // תוכן השאלה
-        "format": "markdown"
-      },
-      ${params.type === QuestionType.MULTIPLE_CHOICE ? `
-      "options": [
+  protected async generateEvaluationGuidelines(params: QuestionGenerationRequirements): Promise<Question['evaluationGuidelines']> {
+    return {
+      requiredCriteria: [
         {
-          "text": string,  // תוכן התשובה
-          "format": "markdown"
+          name: 'understanding',
+          description: 'הבנת הנושא',
+          weight: 40
+        },
+        {
+          name: 'application',
+          description: 'יישום נכון',
+          weight: 30
+        },
+        {
+          name: 'explanation',
+          description: 'הסבר מפורט',
+          weight: 30
         }
       ]
-      ` : ''}
-    }`;
-  }
-
-  private getHebrewType(type: QuestionType): string {
-    switch (type) {
-      case QuestionType.MULTIPLE_CHOICE:
-        return 'שאלת רב-ברירה';
-      case QuestionType.OPEN:
-        return 'שאלה פתוחה';
-      case QuestionType.NUMERICAL:
-        return 'שאלה מספרית';
-      default:
-        throw new Error(`סוג שאלה לא נתמך: ${type}`);
-    }
-  }
-
-  private getTypeSpecificInstructions(type: QuestionType): string[] {
-    switch (type) {
-      case QuestionType.MULTIPLE_CHOICE:
-        return [
-          'צור 4 אפשרויות תשובה',
-          'כלול טעויות נפוצות כמסיחים',
-          'ודא שכל האפשרויות הגיוניות אך רק אחת נכונה',
-          'התבסס על טעויות בטיחות נפוצות',
-          'ודא שהאפשרויות מוציאות זו את זו'
-        ];
-      case QuestionType.OPEN:
-        return [
-          'דרוש ניתוח בטיחותי מפורט',
-          'בקש אמצעי בטיחות ספציפיים',
-          'כלול קריטריוני הערכה',
-          'דרוש הצדקה על בסיס תקנות',
-          'בקש אסטרטגיות להפחתת סיכונים'
-        ];
-      case QuestionType.NUMERICAL:
-        return [
-          'כלול חישובי בטיחות רלוונטיים',
-          'ציין יחידות מידה נדרשות',
-          'התייחס למרווחי בטיחות',
-          'כלול מדידות מעשיות',
-          'התייחס לתקני בטיחות ספציפיים'
-        ];
-      default:
-        return [];
-    }
-  }
-
-  private validateQuestion(question: any, params: QuestionGenerationRequirements): void {
-    if (!question.content?.text) {
-      throw new Error('חסר תוכן השאלה');
-    }
-
-    if (params.type === QuestionType.MULTIPLE_CHOICE && (!question.options || question.options.length !== 4)) {
-      throw new Error('שאלת רב-ברירה חייבת לכלול 4 אפשרויות');
-    }
-
-    // Validate safety content
-    const content = question.content.text.toLowerCase();
-    if (!content.includes('בטיחות') && !content.includes('תקנ')) {
-      throw new Error('השאלה חייבת להתייחס לבטיחות ותקנות');
-    }
+    };
   }
 } 

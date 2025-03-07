@@ -9,6 +9,7 @@ import {
   EzpassCreatorType,
   AnswerContentGuidelines
 } from "../../types/question";
+import { QuestionGenerationParams } from "../../types/questionGeneration";
 import { logger } from '../../utils/logger';
 import { questionStorage } from '../admin/questionStorage';
 
@@ -25,10 +26,24 @@ export class QuestionGenerationServiceV2 {
     this.parser = StructuredOutputParser.fromZodSchema(questionSchema);
   }
 
-  async generateQuestion(params: QuestionPromptParams): Promise<Question> {
+  private convertToPromptParams(params: QuestionGenerationParams): QuestionPromptParams {
+    return {
+      type: params.type,
+      topic: params.prompt,
+      difficulty: params.difficulty,
+      examType: 'standard', // Default value since it's required by QuestionPromptParams
+      subject: params.subjectId,
+      educationType: 'university' // Default value since it's required by QuestionPromptParams
+    };
+  }
+
+  async generateQuestion(params: QuestionGenerationParams): Promise<Question> {
     try {
+      // Convert params to QuestionPromptParams
+      const promptParams = this.convertToPromptParams(params);
+
       // Build the complete prompt using our component system
-      const promptBuilder = new QuestionPromptBuilder(params);
+      const promptBuilder = new QuestionPromptBuilder(promptParams);
       const prompt = promptBuilder.build();
       
       // Get format instructions for the parser
@@ -52,27 +67,27 @@ export class QuestionGenerationServiceV2 {
       // Parse the response into our Question type
       const parsedQuestion = await this.parser.parse(content);
 
+      // Convert source to use string literals and enum values
+      const source = params.source ? {
+        type: params.source.type,
+        creatorType: params.source.creatorType === 'ai' ? EzpassCreatorType.AI : EzpassCreatorType.HUMAN
+      } : {
+        type: 'ezpass' as const,
+        creatorType: EzpassCreatorType.AI
+      };
+
       // Ensure the metadata has the required answerFormat and source
       const questionWithFormat = {
         ...parsedQuestion,
         metadata: {
           ...parsedQuestion.metadata,
-          answerFormat: {
-            hasFinalAnswer: params.type !== QuestionType.OPEN,
-            finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? ('multiple_choice' as const) : 
-                           params.type === QuestionType.NUMERICAL ? ('numerical' as const) : ('none' as const),
-            requiresSolution: true
-          },
-          source: {
-            type: 'ezpass' as const,
-            creatorType: 'ai' as EzpassCreatorType
-          }
+          answerFormat: params.answerFormat,
+          source
         },
         evaluationGuidelines: {
           requiredCriteria: [],
-          optionalCriteria: [],
           scoringMethod: 'sum',
-          maxScore: params.totalPoints || 100
+          maxScore: 100
         } as AnswerContentGuidelines
       };
 

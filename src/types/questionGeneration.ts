@@ -1,5 +1,6 @@
 import { DifficultyLevel, QuestionType, Question, SourceType, FullAnswer } from './question';
 import { Subject, Domain, Topic, SubTopic } from './subject';
+import { AnswerFormat } from './question';
 
 /**
  * Base parameters for generating any type of question
@@ -49,33 +50,42 @@ export interface TopicHierarchy {
   subtopic: SubTopic;
 }
 
+export interface QuestionGenerationParams {
+  type: QuestionType;
+  prompt: string;
+  subjectId: string;
+  domainId: string;
+  topicId: string;
+  subtopicId?: string;
+  difficulty: DifficultyLevel;
+  estimatedTime?: number;
+  answerFormat: AnswerFormat;
+  source?: {
+    type: 'ezpass';
+    creatorType: 'ai' | 'human';
+  };
+  correctAnswer?: number;
+  numericalAnswer?: {
+    value: number;
+    tolerance: number;
+    unit?: string;
+  };
+}
+
 export interface QuestionGenerationRequirements {
   type: QuestionType;
-  difficulty: DifficultyLevel;
-  hierarchy: {
-    subject: {
-      id: string;
-      name: string;
-    };
-    domain: {
-      id: string;
-      name: string;
-    };
-    topic: {
-      id: string;
-      name: string;
-    };
-    subtopic: {
-      id: string;
-      name: string;
-    };
-  };
-  estimatedTime: number;
   subject: string;
-  educationType?: string;
+  hierarchy: {
+    subject: { id: string; name: string };
+    domain: { id: string; name: string };
+    topic: { id: string; name: string };
+    subtopic?: { id: string; name: string };
+  };
+  difficulty: DifficultyLevel;
+  estimatedTime?: number;
   source?: {
-    type: SourceType;
-    creatorType?: string;
+    type: 'ezpass';
+    creatorType: 'ai' | 'human';
   };
 }
 

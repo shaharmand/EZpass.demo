@@ -1,4 +1,4 @@
-import { universalTopicsV2 } from '../services/universalTopics';
+import { universalTopics, universalTopicsV2 } from '../services/universalTopics';
 import { questionStorage } from '../services/admin/questionStorage';
 import { Domain } from '../types/subject';
 
@@ -34,11 +34,11 @@ export function validateQuestionIdFormat(id: string): boolean {
   let foundDomain = false;
 
   // Check if subject code exists by searching through all subjects
-  for (const subject of universalTopicsV2.getAllSubjects()) {
+  for (const subject of universalTopics.getAllSubjects()) {
     if (subject.code === subjectCode) {
       foundSubject = true;
       // Check if domain exists under this subject
-      const domain = subject.domains.find((d: Domain) => d.code === domainCode);
+      const domain = subject.domains.find(d => d.code === domainCode);
       if (domain) {
         foundDomain = true;
       }
@@ -144,11 +144,11 @@ export function validateQuestionIdWithoutSubjectDomain(id: string): boolean {
   let foundDomain = false;
 
   // Check if subject code exists by searching through all subjects
-  for (const subject of universalTopicsV2.getAllSubjects()) {
+  for (const subject of universalTopics.getAllSubjects()) {
     if (subject.code === subjectCode) {
       foundSubject = true;
       // Check if domain exists under this subject
-      const domain = subject.domains.find((d: Domain) => d.code === domainCode);
+      const domain = subject.domains.find(d => d.code === domainCode);
       if (domain) {
         foundDomain = true;
       }

@@ -1,12 +1,11 @@
 import OpenAI from 'openai';
 import { StructuredOutputParser } from "@langchain/core/output_parsers";
 import { questionSchema } from "../../schemas/questionSchema";
-import { QuestionPromptBuilder, QuestionPromptParams } from './prompts/QuestionPromptBuilder';
 import { 
   Question, 
   QuestionType, 
-  QuestionFetchParams, 
-  DifficultyLevel, 
+  QuestionFetchParams,
+  DifficultyLevel,
   SourceType, 
   EzpassCreatorType,
   PublicationStatusEnum,
@@ -826,17 +825,10 @@ EXAMPLE OF CORRECT OPEN QUESTION:
     return `${subjectId}-${domainId}-${String(nextNumber).padStart(6, '0')}`;
   }
 
-  async generateQuestion(params: QuestionPromptParams): Promise<Question> {
+  async generateQuestion(params: QuestionFetchParams): Promise<Question> {
     try {
-      // Build the complete prompt using our component system
-      const promptBuilder = new QuestionPromptBuilder(params);
-      const prompt = promptBuilder.build();
-      
       // Get format instructions for the parser
       const formatInstructions = await this.parser.getFormatInstructions();
-
-      // Log the full prompt for debugging
-      logger.debug('Full generation prompt:', prompt);
 
       // Generate the question
       const response = await this.llm.chat.completions.create({
@@ -844,7 +836,7 @@ EXAMPLE OF CORRECT OPEN QUESTION:
         messages: [
           {
             role: 'system',
-            content: prompt
+            content: buildQuestionSystemMessage(params.subject, ExamType.GOVERNMENT_EXAM, 'EZpass Question Generator')
           },
           {
             role: 'user',
@@ -883,7 +875,7 @@ EXAMPLE OF CORRECT OPEN QUESTION:
           requiredCriteria: [],
           optionalCriteria: [],
           scoringMethod: 'sum',
-          maxScore: params.totalPoints || 100
+          maxScore: 100
         }
       };
 

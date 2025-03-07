@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Card, Space, Button, Input, Select, Tag, Typography, message, Modal, Tooltip, Row, Col, DatePicker } from 'antd';
 import { 
   PlusOutlined,
@@ -19,17 +19,18 @@ import {
   StopOutlined,
   ExclamationCircleOutlined,
   WarningOutlined,
-  CloseCircleOutlined
+  CloseCircleOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons/lib/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  Question, 
-  DatabaseQuestion,
-  ValidationStatus,
+  QuestionListItem,
   QuestionType,
+  DifficultyLevel,
   PublicationStatusEnum,
-  ImportInfo,
-  DifficultyLevel
+  ValidationStatus,
+  DatabaseQuestion,
+  Question
 } from '../../../types/question';
 import { questionStorage } from '../../../services/admin/questionStorage';
 import { universalTopics } from '../../../services/universalTopics';
@@ -138,7 +139,7 @@ const ResizableTitle = (props: ResizableHeaderCellProps) => {
   );
 };
 
-type TableQuestion = DatabaseQuestion & { key: string };
+type TableQuestion = QuestionListItem & { key: string };
 
 const StatsCard = styled(Card)`
   margin-bottom: 16px;
@@ -195,9 +196,17 @@ const StatsCard = styled(Card)`
   }
 `;
 
-export const QuestionLibraryPage: React.FC = () => {
-  const [questions, setQuestions] = useState<DatabaseQuestion[]>([]);
-  const [loading, setLoading] = useState(true);
+type ValidationStatusConfig = {
+  [key in ValidationStatus]: {
+    color: string;
+    text: string;
+    icon: React.ReactNode;
+  }
+};
+
+export function QuestionLibraryPage() {
+  const [questions, setQuestions] = useState<QuestionListItem[]>([]);
+  const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [filters, setFilters] = useState<QuestionFilters>({});
@@ -252,31 +261,40 @@ export const QuestionLibraryPage: React.FC = () => {
     []
   );
 
-  // Load questions whenever filters change
-  useEffect(() => {
-    const fetchQuestions = async () => {
+  const loadQuestions = useCallback(async () => {
+    try {
       setLoading(true);
-      try {
-        const loadedQuestions = await questionStorage.getFilteredQuestions(filters);
-        const filteredQuestions = loadedQuestions.filter(question => {
-          try {
-            return question && typeof question.id === 'string' && !question.id.startsWith('test_');
-          } catch (e) {
-            console.warn('Malformed question object:', question);
-            return false;
-          }
-        });
-        setQuestions(filteredQuestions);
-      } catch (error) {
-        console.error('Failed to load questions:', error);
-        message.error('Failed to load questions. Please try refreshing the page.');
-      } finally {
-        setLoading(false);
-      }
-    };
+      const loadedQuestions = await questionStorage.getFilteredQuestions(filters);
+      const filteredQuestions = loadedQuestions
+        .filter(question => question && typeof question.id === 'string' && !question.id.startsWith('test_'))
+        .map(question => ({
+          id: question.id,
+          name: question.name,
+          content: typeof question.content === 'string' ? question.content : 
+                  typeof question.content === 'object' && 'text' in question.content ? question.content.text :
+                  JSON.stringify(question.content),
+          metadata: {
+            difficulty: question.metadata.difficulty,
+            topicId: question.metadata.topicId,
+            type: question.metadata.type,
+            estimatedTime: question.metadata.estimatedTime
+          },
+          validation_status: question.validation_status,
+          publication_status: question.publication_status,
+          created_at: question.created_at || new Date().toISOString()
+        }));
+      setQuestions(filteredQuestions);
+    } catch (error) {
+      message.error('Failed to load questions');
+      console.error('Load error:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
 
-    fetchQuestions();
-  }, [filters]); // Only depend on filters
+  useEffect(() => {
+    loadQuestions();
+  }, [loadQuestions]);
 
   // Auto-select domain if there's only one option - with safeguard
   useEffect(() => {
@@ -323,23 +341,14 @@ export const QuestionLibraryPage: React.FC = () => {
   };
 
   const handleDelete = async (questionId: string) => {
-    confirm({
-      title: 'Are you sure you want to delete this question?',
-      content: 'This action cannot be undone.',
-      okText: 'Yes',
-      okType: 'danger',
-      cancelText: 'No',
-      onOk: async () => {
-        try {
-          await questionStorage.deleteQuestion(questionId);
-          message.success('Question deleted successfully');
-          loadQuestions();
-        } catch (error) {
-          message.error('Failed to delete question');
-          console.error('Delete error:', error);
-        }
-      },
-    });
+    try {
+      await questionStorage.deleteQuestion(questionId);
+      message.success('Question deleted successfully');
+      loadQuestions();
+    } catch (error) {
+      message.error('Failed to delete question');
+      console.error('Delete error:', error);
+    }
   };
 
   const handleChange = (pagination: any, tableFilters: any, sorter: any) => {
@@ -500,6 +509,28 @@ export const QuestionLibraryPage: React.FC = () => {
     }
   };
 
+  const validationStatusConfig: ValidationStatusConfig = {
+    [ValidationStatus.VALID]: {
+      color: 'success',
+      text: 'Valid',
+      icon: <CheckCircleOutlined />
+    },
+    [ValidationStatus.WARNING]: {
+      color: 'warning',
+      text: 'Warning',
+      icon: <WarningOutlined />
+    },
+    [ValidationStatus.ERROR]: {
+      color: 'error',
+      text: 'Error',
+      icon: <CloseCircleOutlined />
+    }
+  };
+
+  const getValidationStatusConfig = (status: ValidationStatus) => {
+    return validationStatusConfig[status] || validationStatusConfig[ValidationStatus.ERROR];
+  };
+
   const columns: ColumnType<TableQuestion>[] = [
     {
       title: 'ID',
@@ -518,7 +549,7 @@ export const QuestionLibraryPage: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <Text strong style={{ fontSize: '14px', marginBottom: '4px' }}>{record.name || 'ללא שם'}</Text>
           <Text style={{ fontSize: '13px', whiteSpace: 'normal', lineHeight: '1.5' }}>
-            {record.content?.text?.substring(0, 100)}...
+            {record.content.substring(0, 100)}...
           </Text>
         </div>
       ),
@@ -563,19 +594,13 @@ export const QuestionLibraryPage: React.FC = () => {
       dataIndex: 'validation_status',
       key: 'validation_status',
       width: columnWidths.validation_status,
-      render: (_, record: DatabaseQuestion) => {
+      render: (_, record: QuestionListItem) => {
         const status = record.validation_status;
-        const statusConfig = {
-          [ValidationStatus.VALID]: { color: 'green', text: 'תקין', icon: <CheckOutlined /> },
-          [ValidationStatus.WARNING]: { color: 'orange', text: 'אזהרות', icon: <WarningOutlined /> },
-          [ValidationStatus.ERROR]: { color: 'red', text: 'שגיאות תיקוף', icon: <CloseCircleOutlined /> }
-        };
-        
-        const config = statusConfig[status];
+        const statusConfig = getValidationStatusConfig(status);
         return (
-          <Tooltip title={`סטטוס תיקוף: ${config.text}`}>
-            <Tag color={config.color} icon={config.icon} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {config.text}
+          <Tooltip title={`סטטוס תיקוף: ${statusConfig.text}`}>
+            <Tag color={statusConfig.color} icon={statusConfig.icon} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {statusConfig.text}
             </Tag>
           </Tooltip>
         );
@@ -919,4 +944,4 @@ export const QuestionLibraryPage: React.FC = () => {
       </Space>
     </PageContainer>
   );
-}; 
+} 

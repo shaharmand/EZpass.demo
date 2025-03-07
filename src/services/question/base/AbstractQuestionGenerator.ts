@@ -55,21 +55,25 @@ export abstract class AbstractQuestionGenerator implements IDomainQuestionGenera
    * Generate base question structure common to all types
    */
   protected async generateBaseQuestion(requirements: QuestionGenerationRequirements): Promise<Question> {
+    const finalAnswer = requirements.type === QuestionType.OPEN 
+      ? undefined
+      : requirements.type === QuestionType.MULTIPLE_CHOICE
+        ? { type: 'multiple_choice' as const, value: 1 as 1 | 2 | 3 | 4 }
+        : { type: 'numerical' as const, value: 0, tolerance: 0 };
+
     return {
-      id: '', // Will be set by storage
+      id: '',
       name: '',
-      type: requirements.type,
       content: {
         text: '',
-        format: 'markdown',
-        options: []
+        format: 'markdown'
       },
       metadata: {
+        type: requirements.type,
         subjectId: requirements.hierarchy.subject.id,
         domainId: requirements.hierarchy.domain.id,
         topicId: requirements.hierarchy.topic.id,
-        subtopicId: requirements.hierarchy.subtopic?.id || '',
-        type: requirements.type,
+        subtopicId: requirements.hierarchy.subtopic?.id,
         difficulty: requirements.difficulty,
         estimatedTime: requirements.estimatedTime,
         answerFormat: {
@@ -78,22 +82,23 @@ export abstract class AbstractQuestionGenerator implements IDomainQuestionGenera
           requiresSolution: true
         },
         source: {
-          type: SourceType.EZPASS,
+          type: 'ezpass',
           creatorType: EzpassCreatorType.AI
         }
       },
       schoolAnswer: {
-        finalAnswer: null,
+        finalAnswer,
         solution: {
           text: '',
           format: 'markdown'
         }
       },
       evaluationGuidelines: {
-        requiredCriteria: [],
-        optionalCriteria: [],
-        scoringMethod: 'sum',
-        maxScore: 100
+        requiredCriteria: [{
+          name: 'basic_correctness',
+          description: 'תשובה נכונה ומלאה',
+          weight: 100
+        }]
       }
     };
   }

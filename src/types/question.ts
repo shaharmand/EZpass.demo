@@ -1,4 +1,23 @@
-ouldnt import { QuestionType, DifficultyLevel } from './common';
+import { ExamType, ExamInstitutionType } from './examTemplate';
+
+/** 
+ * Difficulty level from 1 (easiest) to 5 (hardest)
+ */
+export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
+
+/** 
+ * Type of question that determines its structure and validation requirements.
+ * 
+ * Current supported types:
+ * - multiple_choice: Exactly 4 options with one correct answer (1-4)
+ * - numerical: Exact numeric answer with optional tolerance/units
+ * - open: Free-form answer with evaluation criteria
+ */
+export enum QuestionType {
+  MULTIPLE_CHOICE = 'multiple_choice',
+  OPEN = 'open',
+  NUMERICAL = 'numerical'
+}
 
 /**
  * Common interface for answer format requirements
@@ -269,7 +288,7 @@ export interface QuestionListItem {
     type: QuestionType;
     estimatedTime?: number;
   };
-
+  validation_status: ValidationStatus;
   publication_status: PublicationStatusEnum;
   created_at: string;
 }
@@ -292,7 +311,9 @@ export interface QuestionFetchParams {
   /** Subject area */
   subject: string;
   /** Target education level */
-  educationType: string;
+  educationType: ExamInstitutionType;
+  /** Type of exam this is for */
+  examType: ExamType;
   /** Optional source information */
   source?: 
     | { type: 'exam';

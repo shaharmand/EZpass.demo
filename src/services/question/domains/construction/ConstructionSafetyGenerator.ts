@@ -1,4 +1,4 @@
-import { Question, QuestionType } from '../../../../types/question';
+import { Question, QuestionType, EzpassCreatorType } from '../../../../types/question';
 import { AbstractQuestionGenerator } from '../../base/AbstractQuestionGenerator';
 import { logger } from '../../../../utils/logger';
 
@@ -32,15 +32,20 @@ export class ConstructionSafetyGenerator extends AbstractQuestionGenerator {
     // - Common hazard scenarios
     // - PPE requirements
     // - Risk assessment frameworks
+    const domainContext = {
+      safetyStandards: ['ISO 45001', 'OSHA 1926'],
+      riskLevel: this.calculateRiskLevel(question),
+      requiredPPE: this.getRequiredPPE(question)
+    };
+
+    // Add domain context to the question content
+    const enrichedText = `${question.content.text}\n\n---\n\n**Safety Context:**\n- Standards: ${domainContext.safetyStandards.join(', ')}\n- Risk Level: ${domainContext.riskLevel}\n- Required PPE: ${domainContext.requiredPPE.join(', ')}`;
+
     return {
       ...question,
-      metadata: {
-        ...question.metadata,
-        domainContext: {
-          safetyStandards: ['ISO 45001', 'OSHA 1926'],
-          riskLevel: this.calculateRiskLevel(question),
-          requiredPPE: this.getRequiredPPE(question)
-        }
+      content: {
+        ...question.content,
+        text: enrichedText
       }
     };
   }
@@ -52,7 +57,7 @@ export class ConstructionSafetyGenerator extends AbstractQuestionGenerator {
     const baseEvaluation = question.evaluationGuidelines;
     
     // Add construction safety specific criteria based on question type
-    switch (question.type) {
+    switch (question.metadata.type) {
       case QuestionType.MULTIPLE_CHOICE:
         return this.addMultipleChoiceEvaluation(question);
       case QuestionType.NUMERICAL:
@@ -136,7 +141,7 @@ export class ConstructionSafetyGenerator extends AbstractQuestionGenerator {
     return 'בתרחיש הבא, צוות עובד על פיגום בגובה 10 מטר...';
   }
 
-  private async generateSafetyOptions(): Promise<Array<{ text: string, format: string }>> {
+  private async generateSafetyOptions(): Promise<Array<{ text: string, format: 'markdown' }>> {
     // Generate safety-focused multiple choice options
     return [
       { text: 'לבדוק את תקינות הפיגום ולהשתמש בציוד מגן אישי', format: 'markdown' },

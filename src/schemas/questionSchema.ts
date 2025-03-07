@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { RefinementCtx } from 'zod';
-import { DifficultyLevel, QuestionType } from '../types/common';
+import { DifficultyLevel } from '../types/question';
+import { QuestionType } from '../types/question';
 import { SourceType, EzpassCreatorType } from '../types/question';
 import { Topic } from '../types/subject';
 import { universalTopics, universalTopicsV2 } from '../services/universalTopics';

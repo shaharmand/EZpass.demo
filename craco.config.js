@@ -1,4 +1,8 @@
 const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment variables from .env file
+dotenv.config();
 
 module.exports = {
   webpack: {
@@ -19,6 +23,18 @@ module.exports = {
         ...webpackConfig.resolve.alias,
         data: path.resolve(__dirname, './data'),
       };
+
+      // Inject process.env into the bundle
+      webpackConfig.plugins.forEach((plugin) => {
+        if (plugin.constructor.name === 'DefinePlugin') {
+          Object.assign(plugin.definitions['process.env'], {
+            ...Object.keys(process.env).reduce((env, key) => {
+              env[key] = JSON.stringify(process.env[key]);
+              return env;
+            }, {})
+          });
+        }
+      });
 
       return webpackConfig;
     },

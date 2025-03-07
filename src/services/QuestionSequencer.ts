@@ -257,4 +257,21 @@ export class QuestionSequencer {
       total: this.questions.length
     };
   }
+
+  public getCurrentIndex(): number {
+    return this.currentIndex;
+  }
+
+  public getQuestions(): QuestionMetadata[] {
+    return [...this.questions]; // Return a copy to prevent mutation
+  }
+
+  public restoreState(state: { currentIndex: number; questions: QuestionMetadata[] }): void {
+    this.questions = state.questions;
+    this.currentIndex = state.currentIndex;
+    console.log('Restored sequencer state:', {
+      questionCount: this.questions.length,
+      currentIndex: this.currentIndex
+    });
+  }
 } 

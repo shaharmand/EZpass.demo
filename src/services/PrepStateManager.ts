@@ -12,9 +12,16 @@ import type { QuestionSubmission } from '../types/submissionTypes';
 import { DetailedQuestionFeedback } from '../types/feedback/types';
 import type { Question } from '../types/question';
 import moment from 'moment';
+import { QuestionSequencer } from '../services/QuestionSequencer';
 
 // Key for localStorage
 const PREP_STORAGE_KEY = 'active_preps';
+
+// Add after the class definition but before any other code
+const GUEST_PREP_KEY = 'guest_prep_id';
+const GUEST_SEQUENCER_KEY = 'guest_sequencer_state';
+const GUEST_SET_PROGRESS_KEY = 'guest_set_progress';
+const GUEST_QUESTION_STATE_KEY = 'guest_question_state';
 
 interface DetailedProgress {
   successRates: {
@@ -664,5 +671,132 @@ export class PrepStateManager {
     // Get set progress with questions
     static getSetProgressWithQuestions(prepId: string): SetProgress | null {
         return this.setTracker.getSetProgress(prepId);
+    }
+
+    // Store guest prep ID
+    static storeGuestPrepId(prepId: string): void {
+        localStorage.setItem(GUEST_PREP_KEY, prepId);
+    }
+
+    // Get guest prep ID
+    static getGuestPrepId(): string | null {
+        return localStorage.getItem(GUEST_PREP_KEY);
+    }
+
+    // Clear guest prep ID
+    static clearGuestPrepId(): void {
+        localStorage.removeItem(GUEST_PREP_KEY);
+    }
+
+    // Migrate guest prep to user account
+    static migrateGuestPrep(): string | null {
+        const guestPrepId = localStorage.getItem(GUEST_PREP_KEY);
+        if (!guestPrepId) {
+            return null;
+        }
+
+        // Get the guest prep
+        const guestPrep = this.getPrep(guestPrepId);
+        if (!guestPrep) {
+            localStorage.removeItem(GUEST_PREP_KEY);
+            return null;
+        }
+
+        // Store the sequencer state before migration
+        const sequencer = QuestionSequencer.getInstance();
+        const sequencerState = {
+            currentIndex: sequencer.getCurrentIndex(),
+            questions: sequencer.getQuestions()
+        };
+        localStorage.setItem(GUEST_SEQUENCER_KEY, JSON.stringify(sequencerState));
+
+        // Store set progress state
+        const setProgress = this.getSetProgress(guestPrepId);
+        if (setProgress) {
+            localStorage.setItem(GUEST_SET_PROGRESS_KEY, JSON.stringify(setProgress));
+        }
+
+        // Create a new prep ID for the user
+        const userPrepId = crypto.randomUUID();
+
+        // Copy the prep to the new ID
+        const preps = this.loadPreps();
+        preps[userPrepId] = {
+            ...guestPrep,
+            id: userPrepId
+        };
+        this.savePreps(preps);
+
+        // Update the set tracker for the new prep ID
+        if (setProgress) {
+            // First clear any existing progress for the new ID
+            this.setTracker.clearSet(userPrepId);
+            
+            // Then replay the results to rebuild the state
+            setProgress.results.forEach((result, index) => {
+                if (result) {
+                    // Move to the correct position
+                    while (this.setTracker.getSetProgress(userPrepId).currentIndex < index) {
+                        this.setTracker.handleNewQuestion(userPrepId);
+                    }
+                    // Add the result with a complete feedback object
+                    const score = result === FeedbackStatus.SUCCESS ? 100 : 
+                                result === FeedbackStatus.PARTIAL ? 75 : 0;
+                                const evalLevel = result === FeedbackStatus.SUCCESS ? DetailedEvalLevel.PERFECT :
+                                                result === FeedbackStatus.PARTIAL ? DetailedEvalLevel.GOOD :
+                                                DetailedEvalLevel.POOR;
+                                
+                                this.setTracker.handleFeedback(userPrepId, {
+                                    type: 'detailed',
+                                    evalLevel,
+                                    coreFeedback: '',
+                                    detailedFeedback: '',
+                                    criteriaFeedback: [],
+                                    score,
+                                    message: '',
+                                    isCorrect: result === FeedbackStatus.SUCCESS,
+                                    status: result
+                                });
+                }
+            });
+        }
+
+        // Clean up guest prep
+        delete preps[guestPrepId];
+        this.savePreps(preps);
+        localStorage.removeItem(GUEST_PREP_KEY);
+
+        return userPrepId;
+    }
+
+    // Restore all states after migration
+    static restoreAllStates(): void {
+        // Restore sequencer state
+        const sequencerStateJson = localStorage.getItem(GUEST_SEQUENCER_KEY);
+        if (sequencerStateJson) {
+            try {
+                const sequencerState = JSON.parse(sequencerStateJson);
+                const sequencer = QuestionSequencer.getInstance();
+                sequencer.restoreState(sequencerState);
+                localStorage.removeItem(GUEST_SEQUENCER_KEY);
+            } catch (error) {
+                console.error('Failed to restore sequencer state:', error);
+            }
+        }
+
+        // Restore set progress state
+        const setProgressJson = localStorage.getItem(GUEST_SET_PROGRESS_KEY);
+        if (setProgressJson) {
+            try {
+                const setProgress = JSON.parse(setProgressJson);
+                // The set progress will be restored when initializing with the new prep ID
+                localStorage.removeItem(GUEST_SET_PROGRESS_KEY);
+            } catch (error) {
+                console.error('Failed to restore set progress state:', error);
+            }
+        }
+
+        // Clean up any remaining guest state
+        localStorage.removeItem(GUEST_QUESTION_STATE_KEY);
     }
 } 

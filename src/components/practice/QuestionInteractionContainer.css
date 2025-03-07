@@ -22,14 +22,11 @@
 }
 
 .daily-practice-wrapper {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  min-height: 100vh;
   overflow-y: auto;
   background: #f8fafc;
-  padding-top: 200px;
+  padding-top: 32px;
 }
 
 .daily-practice-container {
@@ -51,25 +48,24 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 .progress-section {
-  margin: 24px 0;
   position: relative;
   z-index: 2;
   background: white;
-  padding: 16px 24px;
+  padding: 8px 16px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   border: 1px solid #e5e7eb;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: stretch;
   gap: 24px;
   transition: all 0.3s ease;
   direction: rtl;
-  transition: background-color 0.3s ease-in-out;
+  min-height: 64px;
 }
 
 .progress-stats {
@@ -822,7 +818,9 @@
 }
 
 .question-counter-wrapper {
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  flex: 1;
   transition: transform 0.3s ease-in-out;
 }
 

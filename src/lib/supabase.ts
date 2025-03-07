@@ -37,23 +37,14 @@ function getEnvironmentMode(): string {
 // Helper function to get environment variable value
 function getEnvVar(name: string): string | undefined {
   try {
-    // Try VITE_ prefix first through import.meta.env
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      const viteValue = import.meta.env[`VITE_${name}`];
-      if (viteValue) {
-        console.log(`✅ Found VITE_${name} [${getEnvironmentMode()}]`);
-        return viteValue;
-      }
-    }
-
     // Try REACT_APP_ prefix through process.env
-    const reactValue = process.env[`REACT_APP_${name}`];
-    if (reactValue) {
-      console.log(`✅ Found REACT_APP_${name} [${getEnvironmentMode()}]`);
-      return reactValue;
+    const value = process.env[`REACT_APP_${name}`];
+    if (value) {
+      console.log(`✅ Found REACT_APP_${name} [${process.env.NODE_ENV}]`);
+      return value;
     }
 
-    console.log(`❌ Neither VITE_${name} nor REACT_APP_${name} found [${getEnvironmentMode()}]`);
+    console.log(`❌ No REACT_APP_${name} found [${process.env.NODE_ENV}]`);
     return undefined;
   } catch (error) {
     console.error(`Error accessing environment variable ${name}:`, error);
@@ -73,10 +64,9 @@ export function getSupabase(isDryRun = false): SupabaseClient | null {
   }
 
   const envInfo = {
-    mode: getEnvironmentMode(),
-    isDevelopment: typeof import.meta !== 'undefined' && import.meta.env?.DEV,
-    isProduction: typeof import.meta !== 'undefined' && import.meta.env?.PROD,
-    base: typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
+    mode: process.env.NODE_ENV,
+    isDevelopment: process.env.NODE_ENV === 'development',
+    isProduction: process.env.NODE_ENV === 'production'
   };
 
   console.log('🔍 Checking environment variables...', envInfo);

@@ -81,10 +81,10 @@
     "vite": "^6.2.1"
   },
   "scripts": {
-    "start": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "vitest",
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test",
+    "eject": "react-scripts eject",
     "type-check": "tsc --noEmit > typescript-errors.log 2>&1",
     "import-questions": "ts-node -P tsconfig.node.json src/scripts/importWordPressQuestions.ts",
     "test-question-gen": "ts-node -P tsconfig.node.json src/services/llm/testQuestionGeneration.ts"

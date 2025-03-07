@@ -1,251 +1,254 @@
 {
-  "timestamp": "2025-03-04T05:35:22.743Z",
+  "timestamp": "2025-03-07T15:21:08.668Z",
   "mode": "live",
   "stats": {
     "total": 55,
     "successful": 55,
     "failed": 0,
     "noSolution": 0,
-    "withHtml": 3,
+    "withHtml": 0,
     "byCategory": {
       "מכונות שונות ציוד מכאני וכלי עבודה": 2,
-      "תוכניות בטיחות": 7,
-      "ניהול הבטיחות באתר בניה": 6,
-      "הקמת מבנה מתכת": 2,
+      "מכונות הרמה אחרות ואביזרי הרמה": 3,
+      "פיגומים": 3,
+      "ניהול הבטיחות באתר בניה": 4,
+      "עגורנים": 6,
+      "בטיחות בעבודה": 7,
+      "גיהות": 1,
+      "תוכניות בטיחות": 4,
+      "הדרכת עובדים": 1,
+      "חפירות ועבודות עפר": 5,
+      "חשמל": 6,
+      "ריתוך וחיתוך להבה": 1,
       "בניה טרומית": 2,
-      "סולמות": 3,
-      "עבודה בגובה": 5,
-      "טפסות": 5,
-      "משטחי עבודה, מדרכת מעבר ופתחים": 4,
-      "פיגומים": 6,
-      "חפירות ועבודות עפר": 3,
+      "הקמת מבנה מתכת": 2,
+      "עבודה בגובה": 2,
       "מקום מוקף": 2,
-      "שירות פיקוח על העבודה והמוס\"ל": 1,
-      "תפקידי בטיחות פנים מפעליים": 2,
-      "בטיחות בעבודה": 4,
-      "מכונות הרמה אחרות ואביזרי הרמה": 1
+      "גגות שבירים תלולים": 1,
+      "סולמות": 2,
+      "משטחי עבודה, מדרכת מעבר ופתחים": 1
     }
   },
   "results": {
-    "10331": {
+    "12235": {
       "success": true,
-      "questionId": "CIV-SAF-010331"
+      "questionId": "CIV-SAF-012235"
     },
-    "10332": {
+    "12236": {
       "success": true,
-      "questionId": "CIV-SAF-010332"
+      "questionId": "CIV-SAF-012236"
     },
-    "10333": {
+    "12237": {
       "success": true,
-      "questionId": "CIV-SAF-010333"
+      "questionId": "CIV-SAF-012237"
     },
-    "10334": {
+    "12238": {
       "success": true,
-      "questionId": "CIV-SAF-010334"
+      "questionId": "CIV-SAF-012238"
     },
-    "10335": {
+    "12239": {
       "success": true,
-      "questionId": "CIV-SAF-010335"
+      "questionId": "CIV-SAF-012239"
     },
-    "10336": {
+    "12240": {
       "success": true,
-      "questionId": "CIV-SAF-010336"
+      "questionId": "CIV-SAF-012240"
     },
-    "10337": {
+    "12241": {
       "success": true,
-      "questionId": "CIV-SAF-010337"
+      "questionId": "CIV-SAF-012241"
     },
-    "10338": {
+    "12242": {
       "success": true,
-      "questionId": "CIV-SAF-010338"
+      "questionId": "CIV-SAF-012242"
     },
-    "10341": {
+    "12243": {
       "success": true,
-      "questionId": "CIV-SAF-010341"
+      "questionId": "CIV-SAF-012243"
     },
-    "10343": {
+    "12244": {
       "success": true,
-      "questionId": "CIV-SAF-010343"
+      "questionId": "CIV-SAF-012244"
     },
-    "10345": {
+    "12246": {
       "success": true,
-      "questionId": "CIV-SAF-010345"
+      "questionId": "CIV-SAF-012246"
     },
-    "10347": {
+    "12247": {
       "success": true,
-      "questionId": "CIV-SAF-010347"
+      "questionId": "CIV-SAF-012247"
     },
-    "10348": {
+    "12248": {
       "success": true,
-      "questionId": "CIV-SAF-010348"
+      "questionId": "CIV-SAF-012248"
     },
-    "10349": {
+    "12249": {
       "success": true,
-      "questionId": "CIV-SAF-010349"
+      "questionId": "CIV-SAF-012249"
     },
-    "10350": {
+    "12250": {
       "success": true,
-      "questionId": "CIV-SAF-010350"
+      "questionId": "CIV-SAF-012250"
     },
-    "10351": {
+    "12251": {
       "success": true,
-      "questionId": "CIV-SAF-010351"
+      "questionId": "CIV-SAF-012251"
     },
-    "10352": {
+    "12252": {
       "success": true,
-      "questionId": "CIV-SAF-010352"
+      "questionId": "CIV-SAF-012252"
     },
-    "10353": {
+    "12253": {
       "success": true,
-      "questionId": "CIV-SAF-010353"
+      "questionId": "CIV-SAF-012253"
     },
-    "10354": {
+    "12254": {
       "success": true,
-      "questionId": "CIV-SAF-010354"
+      "questionId": "CIV-SAF-012254"
     },
-    "10355": {
+    "12255": {
       "success": true,
-      "questionId": "CIV-SAF-010355"
+      "questionId": "CIV-SAF-012255"
     },
-    "10356": {
+    "12256": {
       "success": true,
-      "questionId": "CIV-SAF-010356"
+      "questionId": "CIV-SAF-012256"
     },
-    "10357": {
+    "12257": {
       "success": true,
-      "questionId": "CIV-SAF-010357"
+      "questionId": "CIV-SAF-012257"
     },
-    "10358": {
+    "12258": {
       "success": true,
-      "questionId": "CIV-SAF-010358"
+      "questionId": "CIV-SAF-012258"
     },
-    "10359": {
+    "12259": {
       "success": true,
-      "questionId": "CIV-SAF-010359"
+      "questionId": "CIV-SAF-012259"
     },
-    "10360": {
+    "12260": {
       "success": true,
-      "questionId": "CIV-SAF-010360"
+      "questionId": "CIV-SAF-012260"
     },
-    "10361": {
+    "12261": {
       "success": true,
-      "questionId": "CIV-SAF-010361"
+      "questionId": "CIV-SAF-012261"
     },
-    "10362": {
+    "12262": {
       "success": true,
-      "questionId": "CIV-SAF-010362"
+      "questionId": "CIV-SAF-012262"
     },
-    "10363": {
+    "12264": {
       "success": true,
-      "questionId": "CIV-SAF-010363"
+      "questionId": "CIV-SAF-012264"
     },
-    "10364": {
+    "12265": {
       "success": true,
-      "questionId": "CIV-SAF-010364"
+      "questionId": "CIV-SAF-012265"
     },
-    "10365": {
+    "12266": {
       "success": true,
-      "questionId": "CIV-SAF-010365"
+      "questionId": "CIV-SAF-012266"
     },
-    "10366": {
+    "12267": {
       "success": true,
-      "questionId": "CIV-SAF-010366"
+      "questionId": "CIV-SAF-012267"
     },
-    "10367": {
+    "12268": {
       "success": true,
-      "questionId": "CIV-SAF-010367"
+      "questionId": "CIV-SAF-012268"
     },
-    "10368": {
+    "12271": {
       "success": true,
-      "questionId": "CIV-SAF-010368"
+      "questionId": "CIV-SAF-012271"
     },
-    "10370": {
+    "12272": {
       "success": true,
-      "questionId": "CIV-SAF-010370"
+      "questionId": "CIV-SAF-012272"
     },
-    "10371": {
+    "12273": {
       "success": true,
-      "questionId": "CIV-SAF-010371"
+      "questionId": "CIV-SAF-012273"
     },
-    "10372": {
+    "12274": {
       "success": true,
-      "questionId": "CIV-SAF-010372"
+      "questionId": "CIV-SAF-012274"
     },
-    "10373": {
+    "12275": {
       "success": true,
-      "questionId": "CIV-SAF-010373"
+      "questionId": "CIV-SAF-012275"
     },
-    "10374": {
+    "12276": {
       "success": true,
-      "questionId": "CIV-SAF-010374"
+      "questionId": "CIV-SAF-012276"
     },
-    "10375": {
+    "12277": {
       "success": true,
-      "questionId": "CIV-SAF-010375"
+      "questionId": "CIV-SAF-012277"
     },
-    "10376": {
+    "12278": {
       "success": true,
-      "questionId": "CIV-SAF-010376"
+      "questionId": "CIV-SAF-012278"
     },
-    "10377": {
+    "12279": {
       "success": true,
-      "questionId": "CIV-SAF-010377"
+      "questionId": "CIV-SAF-012279"
     },
-    "10378": {
+    "12280": {
       "success": true,
-      "questionId": "CIV-SAF-010378"
+      "questionId": "CIV-SAF-012280"
     },
-    "10379": {
+    "12281": {
       "success": true,
-      "questionId": "CIV-SAF-010379"
+      "questionId": "CIV-SAF-012281"
     },
-    "10380": {
+    "12282": {
       "success": true,
-      "questionId": "CIV-SAF-010380"
+      "questionId": "CIV-SAF-012282"
     },
-    "10381": {
+    "12283": {
       "success": true,
-      "questionId": "CIV-SAF-010381"
+      "questionId": "CIV-SAF-012283"
     },
-    "10383": {
+    "12284": {
       "success": true,
-      "questionId": "CIV-SAF-010383"
+      "questionId": "CIV-SAF-012284"
     },
-    "10384": {
+    "12285": {
       "success": true,
-      "questionId": "CIV-SAF-010384"
+      "questionId": "CIV-SAF-012285"
     },
-    "10385": {
+    "12286": {
       "success": true,
-      "questionId": "CIV-SAF-010385"
+      "questionId": "CIV-SAF-012286"
     },
-    "10386": {
+    "12287": {
       "success": true,
-      "questionId": "CIV-SAF-010386"
+      "questionId": "CIV-SAF-012287"
     },
-    "10390": {
+    "12288": {
       "success": true,
-      "questionId": "CIV-SAF-010390"
+      "questionId": "CIV-SAF-012288"
     },
-    "12222": {
+    "12289": {
       "success": true,
-      "questionId": "CIV-SAF-012222"
+      "questionId": "CIV-SAF-012289"
     },
-    "12292": {
+    "12290": {
       "success": true,
-      "questionId": "CIV-SAF-012292"
+      "questionId": "CIV-SAF-012290"
     },
-    "12293": {
+    "12291": {
       "success": true,
-      "questionId": "CIV-SAF-012293"
+      "questionId": "CIV-SAF-012291"
     },
-    "12298": {
+    "13157": {
       "success": true,
-      "questionId": "CIV-SAF-012298"
+      "questionId": "CIV-SAF-013157"
     },
-    "13110": {
+    "13159": {
       "success": true,
-      "questionId": "CIV-SAF-013110"
+      "questionId": "CIV-SAF-013159"
     }
   }
 }

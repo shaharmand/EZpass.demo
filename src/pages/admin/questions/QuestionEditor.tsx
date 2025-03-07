@@ -315,11 +315,27 @@ export const QuestionEditor: FC = () => {
     if (!question) return;
     
     try {
+      // Don't change status if it's already in the target state
+      if (question.review_status === updatedQuestion.review_status) {
+        message.info('Question is already in this review status');
+        return;
+      }
+
       const saveQuestion: SaveQuestion = {
         ...question,
+        data: {
+          ...question,
+          id: question.id
+        },
         id: question.id,
         publication_status: question.publication_status,
-        review_status: updatedQuestion.review_status
+        review_status: updatedQuestion.review_status,
+        validation_status: question.validation_status,
+        import_info: question.import_info || {
+          system: 'ezpass',
+          originalId: question.id,
+          importedAt: new Date().toISOString()
+        }
       };
       
       await questionStorage.saveQuestion(saveQuestion);

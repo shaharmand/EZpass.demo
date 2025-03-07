@@ -15,6 +15,7 @@ const { Text } = Typography;
 interface PracticeHeaderProgressProps {
   prep: StudentPrep;
   onShowTopicDetails?: () => void;
+  onPrepUpdate?: (updatedPrep: StudentPrep) => void;
   metrics: {
     overallProgress: number;
     successRate: number;
@@ -39,6 +40,7 @@ interface PracticeHeaderProgressProps {
 const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({ 
   prep,
   onShowTopicDetails,
+  onPrepUpdate,
   metrics
 }) => {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
@@ -247,6 +249,14 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
     totalTopics: prep?.exam?.topics?.reduce((acc, topic) => acc + topic.subTopics.length, 0)
   });
 
+  const handleOpenDetailsDialog = () => {
+    // Refresh metrics before opening dialog
+    if (onPrepUpdate) {
+      onPrepUpdate(prep);
+    }
+    setIsDetailsDialogOpen(true);
+  };
+
   return (
     <>
       <div style={{ 
@@ -270,7 +280,7 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
           height: '100%',
           cursor: 'pointer'
         }}
-        onClick={() => setIsDetailsDialogOpen(true)}>
+        onClick={handleOpenDetailsDialog}>
           <Tooltip title={getProgressTooltip()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <TrophyOutlined style={{ 
@@ -333,7 +343,7 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
           padding: '0 24px',
           cursor: 'pointer'
         }}
-        onClick={() => setIsDetailsDialogOpen(true)}>
+        onClick={handleOpenDetailsDialog}>
           <Tooltip title={getSuccessTooltip()}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <Text style={{
@@ -379,7 +389,7 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
           {/* Hours Remaining */}
           <Tooltip title={getTimeTooltip()}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
-                 onClick={() => setIsDetailsDialogOpen(true)}>
+                 onClick={handleOpenDetailsDialog}>
               <Text style={{
                 fontSize: '15px',
                 color: '#64748b',
@@ -435,9 +445,7 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
             }}>
               <ExamDatePicker 
                 prep={prep}
-                onPrepUpdate={(updatedPrep) => {
-                  PrepStateManager.updatePrep(updatedPrep);
-                }}
+                onPrepUpdate={onPrepUpdate}
               />
             </div>
           </div>

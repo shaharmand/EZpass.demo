@@ -26,6 +26,7 @@ interface PracticeHeaderProps {
   currentQuestion?: ActivePracticeQuestion;
   onBack?: () => void;
   prep?: StudentPrep;
+  onPrepUpdate?: (updatedPrep: StudentPrep) => void;
 }
 
 export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
@@ -33,7 +34,8 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
   question,
   currentQuestion,
   onBack,
-  prep: initialPrep
+  prep: initialPrep,
+  onPrepUpdate
 }) => {
   const { getPrep } = useStudentPrep();
   const { getCurrentAttempts, getMaxAttempts } = usePracticeAttempts();
@@ -388,6 +390,16 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
       metrics={PrepStateManager.getHeaderMetrics(prep)}
       prep={prep}
       onShowTopicDetails={() => setExamContentOpen(true)}
+      onPrepUpdate={(updatedPrep: StudentPrep) => {
+        // Force a refresh of the prep state
+        const freshPrep = PrepStateManager.getPrep(updatedPrep.id);
+        if (freshPrep) {
+          // Update the local prep state
+          if (onPrepUpdate) {
+            onPrepUpdate(freshPrep);
+          }
+        }
+      }}
     />
   );
 

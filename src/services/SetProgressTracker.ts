@@ -55,6 +55,16 @@ export class SetProgressTracker {
         this.eventEmitter.off(`question:${prepId}`, callback);
     }
 
+    // Subscribe to set completion
+    onSetComplete(prepId: string, callback: (results: FeedbackStatus[]) => void) {
+        this.eventEmitter.on(`setComplete:${prepId}`, callback);
+    }
+
+    // Unsubscribe from set completion
+    offSetComplete(prepId: string, callback: (results: FeedbackStatus[]) => void) {
+        this.eventEmitter.off(`setComplete:${prepId}`, callback);
+    }
+
     // Get display index (1-based) and array slot (0-based)
     getDisplayIndex(currentIndex: number): number {
         return currentIndex + 1;
@@ -68,6 +78,22 @@ export class SetProgressTracker {
     // Handle new question event
     handleNewQuestion(prepId: string): void {
         const progress = this.getProgress(prepId);
+        
+        // If we've completed a set of 10, do a complete reset
+        if (progress.currentIndex >= SetProgressTracker.SET_SIZE - 1) {
+            // Emit set complete event before reset
+            this.eventEmitter.emit(`setComplete:${prepId}`, [...progress.results]);
+            
+            // Reset everything to initial state
+            progress.currentIndex = -1;
+            progress.results = new Array(SetProgressTracker.SET_SIZE);
+            this.setProgress.set(prepId, progress);
+            
+            // Notify about the reset
+            this.eventEmitter.emit(`progress:${prepId}`, progress);
+        }
+        
+        // Always increment after potential reset
         progress.currentIndex++;
         this.eventEmitter.emit(`question:${prepId}`, progress.currentIndex);
     }

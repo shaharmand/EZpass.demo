@@ -1,15 +1,30 @@
 .answering-action-bar {
   width: 100%;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  padding: 0 16px;
 }
 
 .answering-action-buttons-container {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  width: 100%;
   gap: 24px;
+}
+
+.action-buttons-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  order: -1; /* This will push it to the right */
+}
+
+.action-buttons-left {
+  display: flex;
+  align-items: center;
+  margin-right: auto; /* This will push the submit button to the left */
 }
 
 /* Help Button */

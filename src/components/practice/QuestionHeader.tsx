@@ -42,6 +42,7 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
               <SubtopicPopoverContent 
                 question={question}
                 onClose={() => setIsSubtopicPopoverOpen(false)}
+                onSkip={onSkip}
               />
             }
             trigger={['hover', 'click']}

@@ -215,6 +215,9 @@ const PracticePage: React.FC = () => {
         currentQuestion={activePracticeQuestion}
         question={currentQuestion || undefined}
         prep={state.prep}
+        onPrepUpdate={(updatedPrep) => {
+          setState(prev => ({ ...prev, prep: updatedPrep }));
+        }}
       />
       <Layout.Content className="practice-content">
         {state.error && (

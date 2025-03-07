@@ -69,6 +69,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   const [isSubmitEnabled, setIsSubmitEnabled] = useState(false);
   const [isTopicSelectionDialogOpen, setIsTopicSelectionDialogOpen] = useState(false);
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isQuestionEntering, setIsQuestionEntering] = useState(true);
   const [questionChangeKey, setQuestionChangeKey] = useState(0);
   const progressSectionRef = useRef<HTMLDivElement>(null);
@@ -95,6 +96,20 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     setIsQuestionEntering(true);
     setQuestionChangeKey(prev => prev + 1);
     setIsAnswerSectionVisible(false);
+    
+    // Scroll to top with offset for fixed header and progress bar
+    const scrollToTopWithOffset = () => {
+      if (containerRef.current) {
+        containerRef.current.scrollIntoView({ behavior: 'smooth' });
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }
+    };
+
+    // Ensure the scroll happens after a small delay to allow for any layout updates
+    setTimeout(scrollToTopWithOffset, 100);
     
     // Add transition classes
     if (progressSectionRef.current) {
@@ -334,7 +349,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   }
 
   return (
-    <div className="daily-practice-wrapper">
+    <div className="daily-practice-wrapper" ref={containerRef}>
       <div className="daily-practice-container">
         <div className="daily-practice-content">
           <div className="progress-section" ref={progressSectionRef}>

@@ -42,15 +42,17 @@ export class QuestionSequencer {
       // Get current focus from PrepStateManager
       const prep = PrepStateManager.getPrep(prepId);
       if (!prep) {
-        logger.error('Prep not found', { prepId });
+        console.error('❌ Prep not found', { prepId });
         return null;
       }
 
-      logger.debug('Initializing question sequence with params:', { 
-        subject: params.subject,
-        domain: params.domain,
-        focusedSubTopic: prep.focusedSubTopic,
-        focusedType: prep.focusedType
+      console.log('🔍 SEQUENCER: Initializing with details:', { 
+        params,
+        prepState: {
+          focusedSubTopic: prep.focusedSubTopic,
+          focusedType: prep.focusedType
+        },
+        timestamp: new Date().toISOString()
       });
 
       // Build filters for questionStorage
@@ -62,15 +64,49 @@ export class QuestionSequencer {
         ...(prep.focusedType ? { type: prep.focusedType } : {})
       };
 
+      console.log('🔍 SEQUENCER: Fetching with filters:', {
+        filters,
+        prepId,
+        timestamp: new Date().toISOString()
+      });
+
       // Get filtered questions from storage
       const questions = await questionStorage.getFilteredQuestions(filters);
 
+      console.log('📊 SEQUENCER: Questions fetched:', {
+        totalQuestions: questions?.length || 0,
+        uniqueSubtopics: questions ? Array.from(new Set(questions.map(q => q.metadata.subtopicId))).length : 0,
+        focusedSubtopic: prep.focusedSubTopic,
+        subtopicsInResults: questions ? Array.from(new Set(questions.map(q => q.metadata.subtopicId))) : [],
+        hasExpectedFocus: questions?.every(q => !prep.focusedSubTopic || q.metadata.subtopicId === prep.focusedSubTopic),
+        timestamp: new Date().toISOString()
+      });
+
       if (!questions || questions.length === 0) {
-        logger.error('No questions available for given criteria', {
+        console.error('❌ SEQUENCER: No questions available:', {
           filters,
-          prepId
+          prepId,
+          focusState: {
+            hasFocusedSubtopic: !!prep.focusedSubTopic,
+            focusedSubtopic: prep.focusedSubTopic
+          }
         });
         return null;
+      }
+
+      // Verify questions match focus criteria
+      const unfocusedQuestions = questions.filter(q => 
+        prep.focusedSubTopic && q.metadata.subtopicId !== prep.focusedSubTopic
+      );
+      
+      if (unfocusedQuestions.length > 0) {
+        console.warn('⚠️ SEQUENCER: Found questions not matching focus:', {
+          focusedSubtopic: prep.focusedSubTopic,
+          totalQuestions: questions.length,
+          unfocusedCount: unfocusedQuestions.length,
+          unfocusedSubtopics: Array.from(new Set(unfocusedQuestions.map(q => q.metadata.subtopicId))),
+          timestamp: new Date().toISOString()
+        });
       }
 
       // Map questions to QuestionMetadata format
@@ -88,7 +124,7 @@ export class QuestionSequencer {
 
       this.currentIndex = 0;
       
-      logger.debug('Started new question sequence', { 
+      console.log('✅ SEQUENCER: Started new sequence:', { 
         params,
         focusedSubTopic: prep.focusedSubTopic,
         focusedType: prep.focusedType,
@@ -98,30 +134,56 @@ export class QuestionSequencer {
 
       return this.questions[0].id;
     } catch (error) {
-      logger.error('Error initializing question sequence:', error);
+      console.error('❌ SEQUENCER: Error initializing:', error);
       return null;
     }
   }
 
   private async refreshQuestionsIfFocusChanged(): Promise<void> {
-    if (!this.prepId) return;
+    if (!this.prepId) {
+      console.log('⚠️ SEQUENCER: No prepId for refresh check');
+      return;
+    }
 
     const prep = PrepStateManager.getPrep(this.prepId);
-    if (!prep) return;
+    if (!prep) {
+      console.log('⚠️ SEQUENCER: No prep state found for refresh check');
+      return;
+    }
 
     // Check if current questions match the focus
     const currentQuestion = this.questions[this.currentIndex];
-    if (!currentQuestion) return;
+    if (!currentQuestion) {
+      console.log('⚠️ SEQUENCER: No current question for refresh check');
+      return;
+    }
+
+    console.log('🔄 SEQUENCER: Checking focus change:', {
+      currentSubtopic: currentQuestion.metadata.subtopicId,
+      focusedSubtopic: prep.focusedSubTopic,
+      currentType: currentQuestion.metadata.type,
+      focusedType: prep.focusedType,
+      timestamp: new Date().toISOString()
+    });
 
     const focusChanged = (prep.focusedSubTopic && currentQuestion.metadata.subtopicId !== prep.focusedSubTopic) ||
                         (prep.focusedType && currentQuestion.metadata.type !== prep.focusedType);
 
     if (focusChanged) {
+      console.log('🔄 SEQUENCER: Focus changed, reinitializing:', {
+        subject: currentQuestion.subject,
+        domain: currentQuestion.domain,
+        prepId: this.prepId,
+        timestamp: new Date().toISOString()
+      });
+
       // Re-initialize with same base params but new focus
       await this.initialize({ 
         subject: currentQuestion.subject, 
         domain: currentQuestion.domain 
       }, this.prepId);
+    } else {
+      console.log('✅ SEQUENCER: Focus unchanged');
     }
   }
 
@@ -135,9 +197,11 @@ export class QuestionSequencer {
   }
 
   public async next(): Promise<string | null> {
+    console.log('➡️ SEQUENCER: Next called, checking focus...');
     await this.refreshQuestionsIfFocusChanged();
 
     if (this.questions.length === 0) {
+      console.log('⚠️ SEQUENCER: No questions available for next');
       return null;
     }
 
@@ -145,12 +209,13 @@ export class QuestionSequencer {
     this.currentIndex = (this.currentIndex + 1) % this.questions.length;
     const nextId = this.questions[this.currentIndex].id;
     
-    logger.debug('Advanced to next question', { 
+    console.log('➡️ SEQUENCER: Moving to next question:', { 
       oldIndex,
       newIndex: this.currentIndex,
       position: this.currentIndex + 1,
       total: this.questions.length,
       questionId: nextId,
+      subtopicId: this.questions[this.currentIndex].metadata.subtopicId,
       questionIds: this.questions.map(q => q.id)
     });
 

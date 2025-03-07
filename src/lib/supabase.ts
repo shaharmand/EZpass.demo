@@ -37,14 +37,28 @@ function getEnvironmentMode(): string {
 // Helper function to get environment variable value
 function getEnvVar(name: string): string | undefined {
   try {
-    // Try REACT_APP_ prefix through process.env
-    const value = process.env[`REACT_APP_${name}`];
-    if (value) {
+    // Try REACT_APP_ prefix
+    const reactAppValue = process.env[`REACT_APP_${name}`];
+    if (reactAppValue) {
       console.log(`✅ Found REACT_APP_${name} [${process.env.NODE_ENV}]`);
-      return value;
+      return reactAppValue;
     }
 
-    console.log(`❌ No REACT_APP_${name} found [${process.env.NODE_ENV}]`);
+    // Try NEXT_PUBLIC_ prefix (for Vercel)
+    const nextPublicValue = process.env[`NEXT_PUBLIC_${name}`];
+    if (nextPublicValue) {
+      console.log(`✅ Found NEXT_PUBLIC_${name} [${process.env.NODE_ENV}]`);
+      return nextPublicValue;
+    }
+
+    // Try without prefix (for Vercel)
+    const plainValue = process.env[name];
+    if (plainValue) {
+      console.log(`✅ Found ${name} [${process.env.NODE_ENV}]`);
+      return plainValue;
+    }
+
+    console.log(`❌ No ${name} found with any prefix [${process.env.NODE_ENV}]`);
     return undefined;
   } catch (error) {
     console.error(`Error accessing environment variable ${name}:`, error);

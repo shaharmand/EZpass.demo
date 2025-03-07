@@ -316,10 +316,13 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     setPrep(prev => {
       if (!prev) return null;
-      return {
+      const updatedPrep = {
         ...prev,
         focusedSubTopic: subtopicId
       };
+      // Persist to storage
+      PrepStateManager.updatePrep(updatedPrep);
+      return updatedPrep;
     });
   }, [prep]);
 

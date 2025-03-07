@@ -14,6 +14,12 @@ interface TypeFilterContentProps {
   onClose: () => void;
 }
 
+interface QuestionTypeOption {
+  type: QuestionType;
+  label: string;
+  enabled: boolean;
+}
+
 export const TypeFilterContent: React.FC<TypeFilterContentProps> = ({
   question,
   onSkip,
@@ -21,25 +27,27 @@ export const TypeFilterContent: React.FC<TypeFilterContentProps> = ({
 }) => {
   const { prep, setFocusedType } = useStudentPrep();
   
-  const questionTypes = [
-    { type: QuestionType.MULTIPLE_CHOICE, label: 'שאלות סגורות' },
-    { type: QuestionType.OPEN, label: 'שאלות פתוחות' },
-    { type: QuestionType.NUMERICAL, label: 'שאלות חישוביות' }
+  const questionTypes: QuestionTypeOption[] = [
+    { type: QuestionType.MULTIPLE_CHOICE, label: 'שאלות סגורות', enabled: true },
+    { type: QuestionType.OPEN, label: 'שאלות פתוחות', enabled: false },
+    { type: QuestionType.NUMERICAL, label: 'שאלות חישוביות', enabled: false }
   ];
 
   const hasTypeFocus = () => !!prep?.focusedType;
   const isTypeFocused = (type: QuestionType) => prep?.focusedType === type;
 
-  const handleTypeSelect = (selectedType: QuestionType | null) => {
+  const handleTypeSelect = (selectedType: QuestionTypeOption | null) => {
+    if (selectedType && !selectedType.enabled) return; // Don't handle disabled types
+    
     if (selectedType === null) {
       // Just remove focus
       setFocusedType(null);
-    } else if (selectedType === question.metadata.type) {
+    } else if (selectedType.type === question.metadata.type) {
       // Current type - just update focus
-      setFocusedType(selectedType);
+      setFocusedType(selectedType.type);
     } else {
       // Different type - skip with focus change
-      setFocusedType(selectedType);
+      setFocusedType(selectedType.type);
       onSkip('filter_change');
     }
     onClose();
@@ -64,14 +72,16 @@ export const TypeFilterContent: React.FC<TypeFilterContentProps> = ({
         >
           ללא מיקוד
         </Button>
-        {questionTypes.map(({ type, label }) => (
+        {questionTypes.map(({ type, label, enabled }) => (
           <Button
             key={type}
-            onClick={() => handleTypeSelect(type)}
+            onClick={() => handleTypeSelect({ type, label, enabled })}
             icon={<AimOutlined className={isTypeFocused(type) ? 'focused' : ''} />}
-            className={`type-filter-option ${isTypeFocused(type) ? 'selected' : ''}`}
+            className={`type-filter-option ${isTypeFocused(type) ? 'selected' : ''} ${!enabled ? 'disabled' : ''}`}
+            disabled={!enabled}
           >
             {`מיקוד ב${label}`}
+            {!enabled && <span className="disabled-note"> (בקרוב)</span>}
           </Button>
         ))}
       </Space>

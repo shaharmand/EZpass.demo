@@ -125,4 +125,28 @@
   color: #2563eb;
   font-weight: 500;
   background-color: #e0f2fe;
+}
+
+.type-filter-option.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.type-filter-option.disabled:hover {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #64748b;
+  transform: none;
+}
+
+.disabled-note {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-right: 4px;
+}
+
+.type-filter-option.disabled .anticon {
+  opacity: 0.4;
 } 

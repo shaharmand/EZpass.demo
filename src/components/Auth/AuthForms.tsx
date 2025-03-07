@@ -58,6 +58,8 @@ export function AuthForms({ returnUrl, googleOnly }: AuthFormsProps) {
 
   const handleGoogleSignIn = async () => {
     try {
+      // Store return URL in localStorage before redirecting
+      localStorage.setItem('returnUrl', finalReturnUrl);
       const { error } = await signInWithGoogle();
       if (error) throw error;
     } catch (error: any) {

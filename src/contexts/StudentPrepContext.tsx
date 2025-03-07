@@ -14,6 +14,7 @@ import type { QuestionFeedback } from '../types/feedback/types';
 import type { ExamContext } from '../services/feedback/types';
 import type { QuestionSubmission } from '../types/submissionTypes';
 import type { FullAnswer } from '../types/question';
+import { useLocation } from 'react-router-dom';
 
 interface StudentPrepContextType {
   prep: StudentPrep | null;
@@ -41,6 +42,43 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const prepStateManager = useRef<PrepStateManager | null>(null);
   const questionSequencer = useRef<QuestionSequencer | null>(null);
   
+  // Add useLocation to get URL parameters
+  const location = useLocation();
+  const params = new URLSearchParams(location.pathname);
+  const prepIdFromUrl = params.get('prepId');
+
+  // Initialize prep from URL or localStorage
+  useEffect(() => {
+    const initializePrep = async () => {
+      // If we already have a prep, don't reinitialize
+      if (prep) return;
+
+      // Try to get prep ID from URL path
+      const pathParts = location.pathname.split('/');
+      const prepIdIndex = pathParts.indexOf('practice') + 1;
+      const prepId = pathParts[prepIdIndex];
+
+      if (prepId && !prepId.startsWith('new/')) {
+        console.log('Initializing prep from URL', { prepId });
+        const storedPrep = PrepStateManager.getPrep(prepId);
+        if (storedPrep) {
+          console.log('Found stored prep', { prepId });
+          setPrep(storedPrep);
+          
+          // Initialize managers
+          prepStateManager.current = PrepStateManager.getInstance({ topics: storedPrep.exam.topics });
+          questionSequencer.current = QuestionSequencer.getInstance();
+          await questionSequencer.current.initialize(
+            { subject: storedPrep.exam.subjectId, domain: storedPrep.exam.domainId },
+            storedPrep.id
+          );
+        }
+      }
+    };
+
+    initializePrep();
+  }, [location.pathname, prep]);
+
   const [questionState, setQuestionState] = useState<QuestionPracticeState>({
     status: 'moved_on',
     currentAnswer: null,
@@ -293,11 +331,28 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const handleGetPrep = useCallback(async (prepId: string): Promise<StudentPrep | null> => {
-    if (!prep || prep.id !== prepId) {
-      return null;
+    // Try to get prep from storage first
+    const storedPrep = PrepStateManager.getPrep(prepId);
+    if (storedPrep) {
+      // Initialize managers if needed
+      if (!prepStateManager.current) {
+        prepStateManager.current = PrepStateManager.getInstance({ topics: storedPrep.exam.topics });
+      }
+      if (!questionSequencer.current) {
+        questionSequencer.current = QuestionSequencer.getInstance();
+        await questionSequencer.current.initialize(
+          { subject: storedPrep.exam.subjectId, domain: storedPrep.exam.domainId },
+          storedPrep.id
+        );
+      }
+      
+      // Update current prep state
+      setPrep(storedPrep);
+      return storedPrep;
     }
-    return prep;
-  }, [prep]);
+    
+    return null;
+  }, []);
 
   const handleSetFocusedType = useCallback((type: QuestionType | null) => {
     if (!prep) return;

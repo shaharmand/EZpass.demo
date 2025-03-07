@@ -3,6 +3,7 @@ import { User, AuthError, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types/userTypes';
 import { useNavigate } from 'react-router-dom';
+import { PrepStateManager } from '../services/PrepStateManager';
 
 interface AuthContextType {
   user: User | null;
@@ -70,11 +71,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      // If user just logged in, migrate their guest prep session
+      if (session?.user) {
+        const migratedPrepId = PrepStateManager.migrateGuestPrep();
+        if (migratedPrepId) {
+          // Navigate to the migrated prep session
+          navigate(`/practice/${migratedPrepId}`, { replace: true });
+        }
+      }
+      
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const value = {
     user,

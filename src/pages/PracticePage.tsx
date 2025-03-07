@@ -20,6 +20,7 @@ import './PracticePage.css';
 import { memo } from 'react';
 import moment from 'moment';
 import { examService } from '../services/examService';
+import { PrepStateManager } from '../services/PrepStateManager';
 
 interface PageState {
   error?: string;
@@ -67,6 +68,12 @@ const PracticePage: React.FC = () => {
             throw new Error('Failed to load exam template');
           }
           const newPrepId = await startPrep(exam);
+          
+          // If user is guest, store the prep ID
+          if (!user) {
+            PrepStateManager.storeGuestPrepId(newPrepId);
+          }
+          
           navigate(`/practice/${newPrepId}`, { replace: true });
         } catch (error) {
           setState(prev => ({
@@ -80,7 +87,7 @@ const PracticePage: React.FC = () => {
     };
 
     initializePrep();
-  }, [prepId, startPrep, navigate]);
+  }, [prepId, startPrep, navigate, user]);
 
   // Update state.prep when prep changes
   useEffect(() => {

@@ -39,26 +39,31 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
 }) => {
   const { getPrep } = useStudentPrep();
   const { getCurrentAttempts, getMaxAttempts } = usePracticeAttempts();
+  const { startPrep } = useStudentPrep();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  // State declarations - keep these in the same order
   const [prep, setPrep] = useState<StudentPrep | null>(initialPrep || null);
   const [isLoading, setIsLoading] = useState(false);
-  const { startPrep } = useStudentPrep();
   const [configOpen, setConfigOpen] = useState(false);
-  const navigate = useNavigate();
   const [examContentOpen, setExamContentOpen] = useState(false);
-  const { user, signOut } = useAuth();
   const [isEditingName, setIsEditingName] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [joinEZpassPlusOpen, setJoinEZpassPlusOpen] = useState(false);
   const [editingName, setEditingName] = useState('');
 
+  // Single useEffect for prep initialization and updates
   useEffect(() => {
-    // If we have initialPrep, use it
-    if (initialPrep) {
-      setPrep(initialPrep);
-      return;
-    }
+    let refreshInterval: NodeJS.Timeout | null = null;
 
     const loadPrep = async () => {
+      // If we have initialPrep, just use it
+      if (initialPrep) {
+        setPrep(initialPrep);
+        return;
+      }
+
       console.log('Loading prep state for ID:', prepId);
       // Get fresh prep state from storage
       const freshPrep = PrepStateManager.getPrep(prepId);
@@ -94,14 +99,20 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
       }
     };
 
-    // Load initially
+    // Initial load
     loadPrep();
 
-    // Refresh every 5 seconds if we don't have initialPrep
-    const refreshInterval = setInterval(loadPrep, 5000);
+    // Only set up refresh interval if we don't have initialPrep
+    if (!initialPrep) {
+      refreshInterval = setInterval(loadPrep, 5000);
+    }
 
-    // Cleanup interval on unmount
-    return () => clearInterval(refreshInterval);
+    // Cleanup
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
   }, [prepId, prep, getPrep, initialPrep]);
 
   if (!prep) return null;
@@ -160,13 +171,6 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
       duration: 2,
     });
   };
-
-  // Remove the sync effect as it's causing issues with state updates
-  useEffect(() => {
-    if (initialPrep) {
-      setPrep(initialPrep);
-    }
-  }, [initialPrep]);
 
   // Force refresh prep state when exam content dialog closes
   const handleExamContentClose = () => {

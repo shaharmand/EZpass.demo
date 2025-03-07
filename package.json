@@ -74,16 +74,17 @@
     "@types/react-resizable": "^3.0.8",
     "@types/react-router-dom": "^5.3.3",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@vitejs/plugin-react": "^4.3.4",
     "css-loader": "^6.7.3",
     "react-refresh": "^0.16.0",
     "style-loader": "^3.3.2",
     "vite": "^6.2.1"
   },
   "scripts": {
-    "start": "craco start",
-    "build": "craco build",
-    "test": "craco test",
-    "eject": "react-scripts eject",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
     "type-check": "tsc --noEmit > typescript-errors.log 2>&1",
     "import-questions": "ts-node -P tsconfig.node.json src/scripts/importWordPressQuestions.ts",
     "test-question-gen": "ts-node -P tsconfig.node.json src/services/llm/testQuestionGeneration.ts"

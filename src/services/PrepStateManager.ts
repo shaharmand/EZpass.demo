@@ -582,6 +582,16 @@ export class PrepStateManager {
     static updatePrep(prep: StudentPrep): StudentPrep {
         // Save to storage
         const preps = this.loadPreps();
+        const oldPrep = preps[prep.id];
+        
+        // Check if exam date has changed
+        if (oldPrep && oldPrep.goals.examDate !== prep.goals.examDate) {
+            // Reinitialize progress tracker with new exam date
+            const tracker = this.initializeProgressTracker(prep);
+            this.progressTrackers.set(prep.id, tracker);
+        }
+        
+        // Save to storage
         preps[prep.id] = prep;
         this.savePreps(preps);
         return prep;

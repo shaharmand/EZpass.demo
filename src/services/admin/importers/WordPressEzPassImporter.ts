@@ -358,8 +358,7 @@ export class WordPressEzPassImporter extends BaseImporter {
                 },
                 publication_status: processedQuestion.publication_status,
                 validation_status: processedQuestion.validation_status,
-                review_status: processedQuestion.review_status,
-                ai_generated_fields: processedQuestion.ai_generated_fields
+                review_status: processedQuestion.review_status
             });
         }
 
@@ -631,26 +630,15 @@ export class WordPressEzPassImporter extends BaseImporter {
               const saveQuestion: SaveQuestion = {
                 id: processedQuestion.id,
                 data: {
-                  id: processedQuestion.id,
-                  content: processedQuestion.content,
-                  schoolAnswer: processedQuestion.schoolAnswer,
-                  metadata: processedQuestion.metadata,
-                  evaluationGuidelines: processedQuestion.evaluationGuidelines
+                    id: processedQuestion.id,
+                    content: processedQuestion.content,
+                    schoolAnswer: processedQuestion.schoolAnswer,
+                    metadata: processedQuestion.metadata,
+                    evaluationGuidelines: processedQuestion.evaluationGuidelines
                 },
                 publication_status,
                 validation_status,
-                review_status,
-                ai_generated_fields,
-                import_info: {
-                  system: 'ezpass',
-                  originalId: question._id,
-                  importedAt: new Date().toISOString(),
-                  additionalData: {
-                    originalDbId: question._dbId,
-                    originalTitle: question._title,
-                    originalCategory: question._category
-                  }
-                }
+                review_status
               };
               await questionStorage.saveQuestion(saveQuestion);
             }

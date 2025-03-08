@@ -315,27 +315,13 @@ export const QuestionEditor: FC = () => {
     if (!question) return;
     
     try {
-      // Don't change status if it's already in the target state
-      if (question.review_status === updatedQuestion.review_status) {
-        message.info('Question is already in this review status');
-        return;
-      }
-
+      // Include data and all required fields for the save operation
       const saveQuestion: SaveQuestion = {
-        ...question,
-        data: {
-          ...question,
-          id: question.id
-        },
         id: question.id,
+        data: question,
         publication_status: question.publication_status,
-        review_status: updatedQuestion.review_status,
         validation_status: question.validation_status,
-        import_info: question.import_info || {
-          system: 'ezpass',
-          originalId: question.id,
-          importedAt: new Date().toISOString()
-        }
+        review_status: updatedQuestion.review_status
       };
       
       await questionStorage.saveQuestion(saveQuestion);
@@ -344,7 +330,7 @@ export const QuestionEditor: FC = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Force reload the question to get updated metadata from DB
-      const updatedQuestionData = await questionStorage.getQuestion(question.id, true);
+      const updatedQuestionData = await questionStorage.getQuestion(question.id);
       if (updatedQuestionData) {
         setQuestion(updatedQuestionData);
         message.success('Review status updated successfully');
@@ -363,17 +349,13 @@ export const QuestionEditor: FC = () => {
     if (!question) return;
     
     try {
+      // Include data and all required fields for the save operation
       const saveQuestion: SaveQuestion = {
-        ...question,
         id: question.id,
+        data: question,
         publication_status: updatedQuestion.publication_status,
-        publication_metadata: {
-          ...question.publication_metadata,
-          publishedAt: updatedQuestion.publication_status === PublicationStatusEnum.PUBLISHED ? new Date().toISOString() : question.publication_metadata?.publishedAt,
-          publishedBy: updatedQuestion.publication_status === PublicationStatusEnum.PUBLISHED ? 'current_user' : question.publication_metadata?.publishedBy,
-          archivedAt: updatedQuestion.publication_status === PublicationStatusEnum.ARCHIVED ? new Date().toISOString() : question.publication_metadata?.archivedAt,
-          archivedBy: updatedQuestion.publication_status === PublicationStatusEnum.ARCHIVED ? 'current_user' : question.publication_metadata?.archivedBy
-        }
+        validation_status: question.validation_status,
+        review_status: question.review_status
       };
       
       await questionStorage.saveQuestion(saveQuestion);
@@ -382,7 +364,7 @@ export const QuestionEditor: FC = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Force reload the question to get updated metadata from DB
-      const updatedQuestionData = await questionStorage.getQuestion(question.id, true);
+      const updatedQuestionData = await questionStorage.getQuestion(question.id);
       if (updatedQuestionData) {
         setQuestion(updatedQuestionData);
         message.success('Publication status updated successfully');
@@ -435,7 +417,7 @@ export const QuestionEditor: FC = () => {
 
         {currentValidation && (
           <ValidationSection>
-            <div className="section-header">בדיקת תקינות</div>
+            <div className="section-header">סטטוס אימות</div>
             {currentValidation.errors.length > 0 && (
               <div className="validation-errors">
                 <div className="validation-header">

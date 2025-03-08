@@ -263,34 +263,103 @@ export interface AIGeneratedFields {
   generatedAt: string;      // When these fields were generated
 }
 
+/**
+ * Default empty publication metadata
+ */
+export const DEFAULT_PUBLICATION_METADATA: PublicationMetadata = {
+  publishedAt: undefined,
+  publishedBy: undefined,
+  archivedAt: undefined,
+  archivedBy: undefined,
+  reason: undefined
+};
+
+/**
+ * Default empty review metadata
+ */
+export const DEFAULT_REVIEW_METADATA: ReviewMetadata = {
+  reviewedAt: new Date().toISOString(),
+  reviewedBy: 'system',
+  comments: undefined
+};
+
+/**
+ * Default empty AI generated fields
+ */
+export const DEFAULT_AI_GENERATED_FIELDS: AIGeneratedFields = {
+  fields: [],
+  confidence: {},
+  generatedAt: new Date().toISOString()
+};
+
 // Question as stored in DB - includes server-managed fields
 export interface DatabaseQuestion extends Question {
   id: string;
+  // Status fields
   publication_status: PublicationStatusEnum;
-  publication_metadata?: PublicationMetadata;
+  publication_metadata: PublicationMetadata;
   validation_status: ValidationStatus;
   review_status: ReviewStatusEnum;
+  review_metadata: ReviewMetadata;
+  
+  // Metadata fields
   ai_generated_fields: AIGeneratedFields;
-  review_metadata?: ReviewMetadata;
   import_info?: ImportInfo;
-  created_at?: string;
-  updated_at?: string;
+  
+  // Audit fields
+  created_at: string;
+  updated_at: string;
 }
 
-// Minimal data for list view
+// Helper function to create a new DatabaseQuestion with default values
+export function createDatabaseQuestion(question: Question): DatabaseQuestion {
+  return {
+    ...question,
+    publication_status: PublicationStatusEnum.DRAFT,
+    publication_metadata: DEFAULT_PUBLICATION_METADATA,
+    validation_status: ValidationStatus.WARNING,
+    review_status: ReviewStatusEnum.PENDING_REVIEW,
+    review_metadata: DEFAULT_REVIEW_METADATA,
+    ai_generated_fields: DEFAULT_AI_GENERATED_FIELDS,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+}
+
+// Minimal data for list view - includes essential fields for display and filtering
 export interface QuestionListItem {
   id: string;
-  name?: string;
-  content: string;
+  name: string;  // Make required
+  content: {     // Match Question interface structure
+    text: string;
+    format: 'markdown';
+  };
   metadata: {
-    difficulty: DifficultyLevel;
+    subjectId: string;
+    domainId: string;
     topicId: string;
+    subtopicId: string;
     type: QuestionType;
-    estimatedTime?: number;
+    difficulty: DifficultyLevel;
+    estimatedTime: number;
+    answerFormat: AnswerFormatRequirements;
+    source?: {
+      type: SourceType;
+      examTemplateId?: string;
+      year?: number;
+      season?: 'spring' | 'summer';
+      moed?: 'a' | 'b';
+      creatorType?: EzpassCreatorType;
+    };
   };
   validation_status: ValidationStatus;
   publication_status: PublicationStatusEnum;
+  review_status: ReviewStatusEnum;
+  review_metadata?: ReviewMetadata;
+  ai_generated_fields?: AIGeneratedFields;
+  import_info?: ImportInfo;
   created_at: string;
+  updated_at: string;
 }
 
 /** 
@@ -428,8 +497,8 @@ export function isValidReviewStatus(status: string): status is ReviewStatusEnum 
  * Maps review status to descriptive text
  */
 export const REVIEW_STATUS_DESCRIPTIONS: Record<ReviewStatusEnum, string> = {
-  [ReviewStatusEnum.PENDING_REVIEW]: 'ממתין לבדיקה',
-  [ReviewStatusEnum.APPROVED]: 'אושר'
+  [ReviewStatusEnum.PENDING_REVIEW]: 'ממתין לאישור',
+  [ReviewStatusEnum.APPROVED]: 'מאושר'
 };
 
 export interface QuestionMetadata {
@@ -481,14 +550,35 @@ export interface FilterState {
   };
 }
 
+/**
+ * Interface for saving question changes from the UI layer.
+ * Only includes fields that should be modifiable by users.
+ */
 export interface SaveQuestion {
   id: string;
   data?: Question;
   publication_status: PublicationStatusEnum;
-  publication_metadata?: PublicationMetadata;
   review_status?: ReviewStatusEnum;
-  review_metadata?: ReviewMetadata;
   validation_status?: ValidationStatus;
+  // Metadata fields are handled by DB triggers
+  // import_info is immutable
+  // ai_generated_fields are managed by the system
+}
+
+/**
+ * Internal interface for database operations, includes all fields
+ * This should only be used within the storage layer
+ */
+export interface DatabaseSaveQuestion extends SaveQuestion {
+  publication_metadata?: PublicationMetadata;
+  review_metadata?: ReviewMetadata;
   ai_generated_fields?: AIGeneratedFields;
   import_info?: ImportInfo;
-} 
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const ReviewStatusTranslations: Record<ReviewStatusEnum, string> = {
+  [ReviewStatusEnum.PENDING_REVIEW]: 'ממתין לאישור',
+  [ReviewStatusEnum.APPROVED]: 'מאושר'
+}; 

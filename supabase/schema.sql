@@ -12,11 +12,11 @@ CREATE TABLE questions (
   data JSONB NOT NULL,
   import_info JSONB NOT NULL DEFAULT '{}'::jsonb,
   publication_status publication_status_enum NOT NULL DEFAULT 'draft',
-  publication_metadata JSONB,
+  publication_metadata JSONB NOT NULL DEFAULT '{"publishedAt": null, "publishedBy": null, "archivedAt": null, "archivedBy": null, "reason": null}'::jsonb,
   validation_status validation_status_enum NOT NULL DEFAULT 'valid',
   review_status review_status_enum NOT NULL DEFAULT 'pending_review',
-  review_metadata JSONB DEFAULT '{}'::jsonb,
-  ai_generated_fields JSONB DEFAULT '{"fields": [], "confidence": {}, "generatedAt": null}'::jsonb,
+  review_metadata JSONB NOT NULL DEFAULT '{"reviewedAt": null, "reviewedBy": "system", "comments": null}'::jsonb,
+  ai_generated_fields JSONB NOT NULL DEFAULT '{"fields": [], "confidence": {}, "generatedAt": null}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
 
@@ -126,13 +126,30 @@ COMMENT ON COLUMN questions.ai_generated_fields IS 'Tracks which fields were AI-
 -- Create a function to handle review status changes
 CREATE OR REPLACE FUNCTION handle_review_status_change()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_user_id uuid;
+  v_user_name text;
 BEGIN
+  -- Get the current user's ID
+  v_user_id := auth.uid();
+  
+  -- Get the user's first and last name from profiles
+  SELECT 
+    CASE 
+      WHEN first_name IS NOT NULL AND last_name IS NOT NULL THEN first_name || ' ' || last_name
+      WHEN first_name IS NOT NULL THEN first_name
+      WHEN last_name IS NOT NULL THEN last_name
+      ELSE v_user_id::text
+    END INTO v_user_name
+  FROM profiles
+  WHERE id = v_user_id;
+
   -- When approving a question
   IF NEW.review_status = 'approved' AND OLD.review_status = 'pending_review' THEN
-    -- Set review metadata with current time and user
+    -- Set review metadata with current time and user's name
     NEW.review_metadata = jsonb_build_object(
       'reviewedAt', timezone('utc'::text, now())::text,
-      'reviewedBy', current_user
+      'reviewedBy', v_user_name
     );
     
     -- Clear AI-generated fields as they're now approved
@@ -144,14 +161,75 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ language 'plpgsql' SECURITY DEFINER;
 
 -- Create a trigger to handle review status changes
+DROP TRIGGER IF EXISTS handle_review_status_change_trigger ON questions;
 CREATE TRIGGER handle_review_status_change_trigger
   BEFORE UPDATE ON questions
   FOR EACH ROW
   WHEN (OLD.review_status IS DISTINCT FROM NEW.review_status)
   EXECUTE FUNCTION handle_review_status_change();
+
+-- Create a function to handle publication status changes
+CREATE OR REPLACE FUNCTION handle_publication_status_change()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_user_id uuid;
+  v_user_name text;
+BEGIN
+  -- Get the current user's ID
+  v_user_id := auth.uid();
+  
+  -- Get the user's first and last name from profiles
+  SELECT 
+    CASE 
+      WHEN first_name IS NOT NULL AND last_name IS NOT NULL THEN first_name || ' ' || last_name
+      WHEN first_name IS NOT NULL THEN first_name
+      WHEN last_name IS NOT NULL THEN last_name
+      ELSE v_user_id::text
+    END INTO v_user_name
+  FROM profiles
+  WHERE id = v_user_id;
+
+  -- When publishing a question
+  IF NEW.publication_status = 'published' AND OLD.publication_status = 'draft' THEN
+    -- Set publication metadata with current time and user's name
+    NEW.publication_metadata = jsonb_build_object(
+      'publishedAt', timezone('utc'::text, now())::text,
+      'publishedBy', v_user_name,
+      'archivedAt', null,
+      'archivedBy', null,
+      'reason', null
+    );
+  -- When archiving a question
+  ELSIF NEW.publication_status = 'archived' AND OLD.publication_status IN ('draft', 'published') THEN
+    -- Keep existing publication info if it exists
+    NEW.publication_metadata = COALESCE(OLD.publication_metadata, '{}'::jsonb) || jsonb_build_object(
+      'archivedAt', timezone('utc'::text, now())::text,
+      'archivedBy', v_user_name
+    );
+  -- When moving back to draft - keep existing metadata
+  ELSIF NEW.publication_status = 'draft' THEN
+    -- Keep the existing metadata to track history
+    NEW.publication_metadata = OLD.publication_metadata;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ language 'plpgsql' SECURITY DEFINER;
+
+-- Create a trigger to handle publication status changes
+DROP TRIGGER IF EXISTS handle_publication_status_change_trigger ON questions;
+CREATE TRIGGER handle_publication_status_change_trigger
+  BEFORE UPDATE ON questions
+  FOR EACH ROW
+  WHEN (OLD.publication_status IS DISTINCT FROM NEW.publication_status)
+  EXECUTE FUNCTION handle_publication_status_change();
+
+-- Add comments explaining the functions
+COMMENT ON FUNCTION handle_review_status_change() IS 'Automatically updates review metadata when question review status changes';
+COMMENT ON FUNCTION handle_publication_status_change() IS 'Automatically updates publication metadata when question status changes';
 
 -- Create a function to update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

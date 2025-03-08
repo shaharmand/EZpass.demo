@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, Select, InputNumber, Space, Typography, Divider, message, Spin, Alert, Collapse } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { QuestionStorage } from '../../../services/admin/questionStorage';
-import { Question, QuestionType, SourceType, EzpassCreatorType, PublicationStatusEnum, DatabaseQuestion, EMPTY_EVALUATION_GUIDELINES, ValidationStatus, ReviewStatusEnum, DifficultyLevel } from '../../../types/question';
+import { Question, QuestionType, SourceType, EzpassCreatorType, PublicationStatusEnum, DatabaseQuestion, EMPTY_EVALUATION_GUIDELINES, ValidationStatus, ReviewStatusEnum, DifficultyLevel, createDatabaseQuestion } from '../../../types/question';
 import { QuestionContentSection } from '../../../components/admin/sections/QuestionContentSection';
 import { QuestionMetadataSection } from '../../../components/admin/sections/QuestionMetadataSection';
 import { SolutionAndEvaluationSection } from '../../../components/admin/sections/SolutionAndEvaluationSection';
@@ -12,6 +12,7 @@ import { Topic, SubTopic } from '../../../types/subject';
 import { ExamInstitutionType, ExamType } from '../../../types/examTemplate';
 import { enumMappings } from '../../../utils/translations';
 import { questionGenerationService } from '../../../services/llm/QuestionGenerationV2';
+import { getSupabase } from '../../../lib/supabase';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -41,7 +42,7 @@ export const QuestionGenerator: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [questionType, setQuestionType] = useState<QuestionType>(QuestionType.MULTIPLE_CHOICE);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
-  const questionStorage = new QuestionStorage();
+  const questionStorage = new QuestionStorage(getSupabase());
 
   // Get topics from civil engineering subject and construction safety domain
   const subjects = universalTopics.getAllSubjects();
@@ -85,21 +86,17 @@ export const QuestionGenerator: React.FC = () => {
       });
 
       // Convert to DatabaseQuestion type
-      const question: DatabaseQuestion = {
-        ...generatedQuestion,
-        publication_status: PublicationStatusEnum.DRAFT,
-        validation_status: ValidationStatus.WARNING,
-        review_status: ReviewStatusEnum.PENDING_REVIEW,
-        ai_generated_fields: {
-          fields: ['content', 'solution', 'evaluation'],
-          confidence: {
-            content: 0.8,
-            solution: 0.8,
-            evaluation: 0.8
-          },
-          generatedAt: new Date().toISOString()
-        }
-      };
+      const question = createDatabaseQuestion(generatedQuestion);
+
+      // Save the question
+      await questionStorage.saveQuestion({
+        id: question.id,
+        data: question,
+        publication_status: question.publication_status,
+        validation_status: question.validation_status,
+        review_status: question.review_status
+        // Removed metadata fields - these are handled by DB triggers
+      });
 
       // Save the result
       setResult({

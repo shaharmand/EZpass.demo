@@ -11,7 +11,10 @@ import {
   QuestionType,
   SourceType,
   EzpassCreatorType,
-  SaveQuestion
+  SaveQuestion,
+  DEFAULT_PUBLICATION_METADATA,
+  DEFAULT_REVIEW_METADATA,
+  DEFAULT_AI_GENERATED_FIELDS
 } from '../../types/question';
 import { CreateQuestion, QuestionRepository, DatabaseOperation, IQuestionListItem } from '../../types/storage';
 import { logger } from '../../utils/logger';
@@ -21,6 +24,7 @@ import { universalTopicsV2 } from '../../services/universalTopics';
 import { v4 as uuidv4 } from 'uuid';
 import { isValidQuestionType, DEFAULT_QUESTION_TYPE, isValidDifficultyLevel, DEFAULT_DIFFICULTY_LEVEL, isValidSourceType, DEFAULT_SOURCE_TYPE, isValidCreatorType, DEFAULT_CREATOR_TYPE } from '../../types/question';
 import { validateQuestion } from '../../utils/questionValidator';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 interface QuestionFilters {
   subject?: string;
@@ -40,15 +44,16 @@ interface QuestionFilters {
   publicationStatus?: PublicationStatusEnum | null;
 }
 
-interface DatabaseRow {
+interface QuestionRow {
   id: string;
   data: Question;
   publication_status: PublicationStatusEnum;
-  publication_metadata: PublicationMetadata | null;
+  publication_metadata: PublicationMetadata;
   validation_status: ValidationStatus;
   review_status: ReviewStatusEnum;
-  review_metadata: ReviewMetadata | null;
-  ai_generated_fields: AIGeneratedFields | null;
+  review_metadata: ReviewMetadata;
+  ai_generated_fields: AIGeneratedFields;
+  import_info?: ImportInfo;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +77,12 @@ interface QuestionStatistics {
 export class QuestionStorage implements QuestionRepository {
   private questionsCache: Map<string, DatabaseQuestion> = new Map();
   private initialized: boolean = false;
+  private supabase: SupabaseClient;
+
+  constructor(supabaseClient: SupabaseClient | null) {
+    if (!supabaseClient) throw new Error('Supabase client not initialized');
+    this.supabase = supabaseClient;
+  }
 
   private isExamSource(source: any): source is { type: 'exam'; examTemplateId: string; year: number; season: 'spring' | 'summer'; moed: 'a' | 'b'; order?: number } {
     return source?.type === 'exam';
@@ -251,12 +262,9 @@ export class QuestionStorage implements QuestionRepository {
     if (this.initialized) return;
 
     try {
-      const supabaseClient = getSupabase();
-      if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-      const { data: questions, error } = await supabaseClient
+      const { data: questions, error } = await this.supabase
         .from('questions')
-        .select('*') as { data: DatabaseRow[] | null, error: any };
+        .select('*') as { data: QuestionRow[] | null, error: any };
 
       if (error) {
         console.error('Failed to load questions from database:', error);
@@ -280,19 +288,12 @@ export class QuestionStorage implements QuestionRepository {
           ...row.data,
           id: row.id,
           publication_status: row.publication_status,
-          publication_metadata: row.publication_metadata || undefined,
+          publication_metadata: row.publication_metadata,
           validation_status: row.validation_status,
           review_status: row.review_status,
-          review_metadata: row.review_metadata ? {
-            reviewedAt: row.review_metadata.reviewedAt,
-            reviewedBy: row.review_metadata.reviewedBy,
-            comments: row.review_metadata.comments
-          } : undefined,
-          ai_generated_fields: row.ai_generated_fields || {
-            fields: [],
-            confidence: {},
-            generatedAt: new Date().toISOString()
-          },
+          review_metadata: row.review_metadata,
+          ai_generated_fields: row.ai_generated_fields,
+          import_info: row.import_info || undefined,
           created_at: row.created_at,
           updated_at: row.updated_at
         };
@@ -400,59 +401,49 @@ export class QuestionStorage implements QuestionRepository {
       });
   }
 
-  async getQuestion(id: string, bypassCache: boolean = false): Promise<DatabaseQuestion | null> {
+  private mapDatabaseRowToQuestion(row: QuestionRow): DatabaseQuestion {
+    return {
+      ...row.data,
+      id: row.id,
+      publication_status: row.publication_status,
+      publication_metadata: row.publication_metadata || DEFAULT_PUBLICATION_METADATA,
+      validation_status: row.validation_status,
+      review_status: row.review_status,
+      review_metadata: row.review_metadata || DEFAULT_REVIEW_METADATA,
+      ai_generated_fields: row.ai_generated_fields || DEFAULT_AI_GENERATED_FIELDS,
+      import_info: row.import_info,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  }
+
+  async getQuestion(id: string): Promise<DatabaseQuestion | null> {
     try {
-      // If not bypassing cache and question exists in cache, return it
-      if (!bypassCache && this.questionsCache.has(id)) {
-        return this.questionsCache.get(id) || null;
-      }
-
-      const supabase = getSupabase();
-      if (!supabase) throw new Error('Supabase client not initialized');
-
-      const { data, error } = await supabase
+      // Log the query being made
+      console.log(`Getting question ${id} with all fields including import_info`);
+      
+      const { data: row, error } = await this.supabase
         .from('questions')
-        .select('*')
+        .select('*, import_info')  // Explicitly include import_info in the selection
         .eq('id', id)
         .single();
 
       if (error) {
-        logger.error('Error fetching question:', { id, error });
-        return null;
+        console.error('Error fetching question:', error);
+        throw error;
       }
+      if (!row) return null;
 
-      if (!data) return null;
+      // Log what we got from the database
+      console.log('Question data from DB:', {
+        id: row.id,
+        hasImportInfo: !!row.import_info,
+        importInfo: row.import_info
+      });
 
-      // Validate and normalize the data
-      this.validateQuestionData(data.data);
-
-      // Create base question without review_metadata
-      const baseQuestion = {
-        ...data.data,
-        id: data.id,
-        publication_status: data.publication_status,
-        validation_status: data.validation_status,
-        review_status: data.review_status,
-        created_at: data.created_at,
-        updated_at: data.updated_at
-      };
-
-      // Add review_metadata only if it exists with required fields
-      const question: DatabaseQuestion = {
-        ...baseQuestion,
-        review_metadata: data.review_metadata?.reviewedAt && data.review_metadata?.reviewedBy ? {
-          reviewedAt: data.review_metadata.reviewedAt,
-          reviewedBy: data.review_metadata.reviewedBy,
-          comments: data.review_metadata.comments
-        } : undefined
-      };
-
-      // Update cache with fresh data
-      this.questionsCache.set(id, question);
-
-      return question;
+      return this.mapDatabaseRowToQuestion(row as QuestionRow);
     } catch (error) {
-      logger.error('Error fetching question:', { id, error });
+      console.error('Error getting question:', error);
       throw error;
     }
   }
@@ -514,14 +505,11 @@ export class QuestionStorage implements QuestionRepository {
    * @throws {Error} if there's a database error
    */
   private async checkQuestionExists(questionId: string): Promise<boolean> {
-      const supabaseClient = getSupabase();
-      if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-    const { data: existingQuestion, error: fetchError } = await supabaseClient
-      .from('questions')
-      .select('id')
-      .eq('id', questionId)
-      .single();
+      const { data: existingQuestion, error: fetchError } = await this.supabase
+        .from('questions')
+        .select('id')
+        .eq('id', questionId)
+        .single();
 
     if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "not found"
       throw fetchError;
@@ -649,14 +637,6 @@ export class QuestionStorage implements QuestionRepository {
    * Generates a unique question ID based on subject and domain
    */
   private async generateUniqueQuestionId(subjectId: string, domainId: string): Promise<string> {
-    const supabaseClient = getSupabase();
-    if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-    // First validate that the domain belongs to the subject
-    if (!universalTopicsV2.isValidDomainForSubject(subjectId, domainId)) {
-      throw new Error(`Domain ${domainId} does not belong to subject ${subjectId}`);
-    }
-
     // Get the 3-letter codes for subject and domain
     const subjectCode = universalTopicsV2.getSubjectCode(subjectId);
     const domainCode = universalTopicsV2.getDomainCode(domainId);
@@ -670,7 +650,7 @@ export class QuestionStorage implements QuestionRepository {
       const nextNumber = await this.getNextQuestionId(subjectId, domainId);
       questionId = `${subjectCode}-${domainCode}-${String(nextNumber).padStart(6, '0')}`;
 
-      const { data: existingQuestion, error: fetchError } = await supabaseClient
+      const { data: existingQuestion, error: fetchError } = await this.supabase
         .from('questions')
         .select('id')
         .eq('id', questionId)
@@ -840,10 +820,7 @@ export class QuestionStorage implements QuestionRepository {
 
     // Execute the operation
     await this.executeQuestionOperation('create', questionData.id, async () => {
-      const supabaseClient = getSupabase();
-      if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-      const { error } = await supabaseClient
+      const { error } = await this.supabase
         .from('questions')
         .insert(questionData);
       if (error) throw error;
@@ -871,15 +848,12 @@ export class QuestionStorage implements QuestionRepository {
       ai_generated_fields?: AIGeneratedFields;
     }
   ): Promise<void> {
-    const supabaseClient = getSupabase();
-    if (!supabaseClient) throw new Error('Supabase client not initialized');
-
     // Prepare the update data
     const updateData = await this.prepareQuestionForUpdate(questionId, updates);
 
     // Execute the operation
     await this.executeQuestionOperation('save', questionId, async () => {
-      const { error } = await supabaseClient.rpc('update_question_partial', {
+      const { error } = await this.supabase.rpc('update_question_partial', {
         p_id: questionId,
         p_data: updateData
       });
@@ -898,9 +872,6 @@ export class QuestionStorage implements QuestionRepository {
       return;
     }
 
-    const supabaseClient = getSupabase();
-    if (!supabaseClient) throw new Error('Supabase client not initialized');
-
     // Validate that all required fields are present
     if (!question.data) {
       throw new Error('Question data is required for saving');
@@ -915,23 +886,31 @@ export class QuestionStorage implements QuestionRepository {
       throw new Error('Review status is required for saving');
     }
 
-    // Prepare the operation data with all required fields
+    // Get the current question to preserve import_info
+    const currentQuestion = await this.getQuestion(question.id);
+    if (!currentQuestion) {
+      throw new Error(`Question ${question.id} does not exist. Use createQuestion for new questions.`);
+    }
+
+    // Prepare the operation data with ONLY the fields that should trigger DB updates
     const operationData: DatabaseOperation = {
       id: question.id,
-      data: question.data,  // This is the Question type data
+      data: question.data,
       publication_status: question.publication_status,
       validation_status: question.validation_status,
       review_status: question.review_status,
-      publication_metadata: question.publication_metadata,
-      review_metadata: question.review_metadata,
-      ai_generated_fields: question.ai_generated_fields,
-      import_info: question.import_info,
+      // Always include import_info from the current question
+      import_info: currentQuestion.import_info,
+      // Explicitly exclude metadata fields to ensure DB triggers handle them:
+      // - publication_metadata (handled by DB trigger)
+      // - review_metadata (handled by DB trigger)
+      // - ai_generated_fields (handled by DB trigger)
       updated_at: new Date().toISOString()
     };
 
     // Execute the operation
     await this.executeQuestionOperation('save', question.id, async () => {
-      const { error } = await supabaseClient
+      const { error } = await this.supabase
         .from('questions')
         .upsert(operationData);
       if (error) throw error;
@@ -956,33 +935,34 @@ export class QuestionStorage implements QuestionRepository {
     await this.ensureInitialized();
 
     try {
-      const supabaseClient = getSupabase();
-      if (!supabaseClient) throw new Error('Supabase client not initialized');
-
       const updateData: {
         publication_status: PublicationStatusEnum;
-        publication_metadata?: PublicationMetadata | null;
+        publication_metadata: PublicationMetadata;
       } = {
-        publication_status: newStatus
+        publication_status: newStatus,
+        publication_metadata: DEFAULT_PUBLICATION_METADATA
       };
 
       // Add metadata for published/archived status
       if (newStatus === PublicationStatusEnum.PUBLISHED) {
         updateData.publication_metadata = {
           publishedAt: new Date().toISOString(),
-          publishedBy: metadata?.publishedBy || 'admin' // TODO: Get actual user
+          publishedBy: metadata?.publishedBy || 'admin', // TODO: Get actual user
+          archivedAt: undefined,
+          archivedBy: undefined,
+          reason: undefined
         };
       } else if (newStatus === PublicationStatusEnum.ARCHIVED) {
         updateData.publication_metadata = {
+          publishedAt: undefined,
+          publishedBy: undefined,
           archivedAt: new Date().toISOString(),
           archivedBy: metadata?.archivedBy || 'admin', // TODO: Get actual user
           reason: metadata?.reason
         };
-      } else {
-        updateData.publication_metadata = null; // Clear metadata for draft
       }
 
-      const { error } = await supabaseClient
+      const { error } = await this.supabase
         .from('questions')
         .update(updateData)
         .eq('id', questionId);
@@ -993,7 +973,7 @@ export class QuestionStorage implements QuestionRepository {
       const question = this.questionsCache.get(questionId);
       if (question) {
         question.publication_status = newStatus;
-        question.publication_metadata = updateData.publication_metadata || undefined;
+        question.publication_metadata = updateData.publication_metadata;
         this.questionsCache.set(questionId, question);
       }
 
@@ -1008,10 +988,7 @@ export class QuestionStorage implements QuestionRepository {
     await this.ensureInitialized();
 
     try {
-      const supabaseClient = getSupabase();
-      if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-      const { error } = await supabaseClient
+      const { error } = await this.supabase
         .from('questions')
         .delete()
         .eq('id', questionId);
@@ -1029,10 +1006,7 @@ export class QuestionStorage implements QuestionRepository {
 
   async getFilteredQuestions(filters: QuestionFilters): Promise<DatabaseQuestion[]> {
     try {
-      const supabaseClient = getSupabase();
-      if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-      let query = supabaseClient
+      let query = this.supabase
         .from('questions')
         .select('*');
 
@@ -1141,22 +1115,26 @@ export class QuestionStorage implements QuestionRepository {
   }
 
   async getQuestions(): Promise<DatabaseQuestion[]> {
-    return this.getAllQuestions();
+    try {
+      const { data: rows, error } = await this.supabase
+        .from('questions')
+        .select('*');
+
+      if (error) throw error;
+      if (!rows) return [];
+
+      return (rows as QuestionRow[]).map(row => this.mapDatabaseRowToQuestion(row));
+    } catch (error) {
+      console.error('Error getting questions:', error);
+      throw error;
+    }
   }
 
   async getNextQuestionId(subjectId: string, domainId: string): Promise<number> {
-    const supabase = getSupabase();
-    if (!supabase) throw new Error('Supabase client not initialized');
-
-    // Get the 3-letter codes for subject and domain
-    const subjectCode = universalTopicsV2.getSubjectCode(subjectId);
-    const domainCode = universalTopicsV2.getDomainCode(domainId);
-
-    // Get all questions for this subject and domain using the correct format
-    const { data: questions, error } = await supabase
+    const { data: questions, error } = await this.supabase
       .from('questions')
       .select('id')
-      .like('id', `${subjectCode}-${domainCode}-%`);
+      .like('id', `${universalTopicsV2.getSubjectCode(subjectId)}-${universalTopicsV2.getDomainCode(domainId)}-%`);
 
     if (error) {
       logger.error('Error getting next question ID:', error);
@@ -1178,10 +1156,7 @@ export class QuestionStorage implements QuestionRepository {
   }
 
   async getQuestionStatistics(): Promise<QuestionStatistics> {
-    const supabaseClient = getSupabase();
-    if (!supabaseClient) throw new Error('Supabase client not initialized');
-
-    const { data: questions, error } = await supabaseClient
+    const { data: questions, error } = await this.supabase
       .from('questions')
       .select('publication_status, review_status, validation_status');
 
@@ -1239,9 +1214,6 @@ export class QuestionStorage implements QuestionRepository {
 
   async saveQuestions(questions: DatabaseOperation[]): Promise<void> {
     try {
-      const supabaseClient = getSupabase();
-      if (!supabaseClient) throw new Error('Supabase client not initialized');
-
       // Filter out test questions
       const filteredQuestions = questions.filter(q => !q.id.startsWith('test_'));
 
@@ -1284,7 +1256,7 @@ export class QuestionStorage implements QuestionRepository {
       }));
 
       // Save all questions in a single transaction
-      const { error } = await supabaseClient
+      const { error } = await this.supabase
         .from('questions')
         .upsert(operations);
 
@@ -1306,4 +1278,4 @@ export class QuestionStorage implements QuestionRepository {
   }
 }
 
-export const questionStorage = new QuestionStorage(); 
+export const questionStorage = new QuestionStorage(getSupabase()); 

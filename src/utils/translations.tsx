@@ -146,7 +146,8 @@ const fieldNameMapping: Record<string, string> = {
   'subtopicId': 'תת-נושא',
   'sourceType': 'סוג מקור',
   'authorName': 'שם המחבר',
-  'validationStatus': 'סטטוס תיקוף',
+  'validationStatus': 'סטטוס אימות',
+  'pendingReview': 'ממתין לאישור',
 
   // Validation Status
   'validation.status.warning': 'אזהרה',

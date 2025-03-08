@@ -30,8 +30,18 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
       <style>
         {`
           .question-content-text {
-            font-size: 16px;
-            line-height: 1.6;
+            font-size: 18px;
+            line-height: 1.8;
+            font-weight: 500;
+            color: #262626;
+          }
+          
+          .question-content-text p {
+            margin: 1em 0;
+          }
+          
+          .question-content-text strong {
+            font-weight: 600;
           }
         `}
       </style>

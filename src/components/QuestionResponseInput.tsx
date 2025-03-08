@@ -8,7 +8,7 @@ import { MonacoEditor } from './MonacoEditor';
 import { QuestionMultipleChoiceInput } from './QuestionMultipleChoiceInput';
 import { RedoOutlined } from '@ant-design/icons';
 import './QuestionResponseInput.css';
-import { isSuccessfulAnswer } from '../types/feedback/status';
+import { getFeedbackStatus, FeedbackStatus } from '../types/feedback/status';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -71,6 +71,22 @@ const CodeInput: React.FC<{
       disabled={disabled}
     />
   );
+};
+
+const getResponseClass = (feedback?: QuestionFeedback): string => {
+  if (!feedback?.evalLevel) return '';
+  
+  const status = getFeedbackStatus(feedback.evalLevel);
+  switch (status) {
+    case FeedbackStatus.SUCCESS:
+      return 'correct';
+    case FeedbackStatus.PARTIAL:
+      return 'partial';
+    case FeedbackStatus.FAILURE:
+      return 'incorrect';
+    default:
+      return '';
+  }
 };
 
 const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
@@ -217,7 +233,7 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
               placeholder="הקלד את תשובתך כאן..."
               autoSize={{ minRows: 4, maxRows: 8 }}
               disabled={disabled}
-              className={`response-textarea ${feedback ? (isSuccessfulAnswer(feedback.evalLevel) ? 'correct' : 'incorrect') : ''}`}
+              className={`response-textarea ${getResponseClass(feedback)}`}
             />
           </div>
         )}
@@ -263,9 +279,20 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
             background: #f0fdf4;
           }
 
+          .response-textarea.partial {
+            border-color: #f59e0b;
+            background: #fefce8;
+          }
+
           .response-textarea.incorrect {
             border-color: #ef4444;
             background: #fef2f2;
+          }
+
+          .response-textarea:disabled {
+            opacity: 0.85;
+            color: #374151;
+            background-color: #f9fafb;
           }
 
           .step-by-step-container {
@@ -273,12 +300,6 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
             background: #ffffff;
             border-radius: 8px;
             overflow: hidden;
-          }
-
-          .response-textarea:disabled {
-            opacity: 0.85;
-            color: #374151;
-            background-color: #f9fafb;
           }
         `}
       </style>

@@ -1,0 +1,5 @@
+[33mcommit 26db378d937be7d773c6db6413d1221a5bcc563e[m[33m ([m[1;36mHEAD -> [m[1;32mfeature/enhanced-styling[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/demo/open-close-questions[m[33m, [m[1;31morigin/demo/complete-version[m[33m, [m[1;32mmaster[m[33m, [m[1;32mdemo/open-close-questions[m[33m, [m[1;32mdemo/complete-version[m[33m)[m
+Author: shahar mandelboim <shahar.mandelboim@gmail.com>
+Date:   Sat Mar 8 13:53:16 2025 +0200
+
+    refactor: extract exam info parser and update importer interfaces

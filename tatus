@@ -1,0 +1,17 @@
+[33mcommit 26db378d937be7d773c6db6413d1221a5bcc563e[m[33m ([m[1;36mHEAD -> [m[1;32mdemo/complete-version[m[33m, [m[1;31morigin/demo/open-close-questions[m[33m, [m[1;31morigin/demo/complete-version[m[33m, [m[1;32mfeature/enhanced-styling[m[33m, [m[1;32mdemo/open-close-questions[m[33m)[m
+Author: shahar mandelboim <shahar.mandelboim@gmail.com>
+Date:   Sat Mar 8 13:53:16 2025 +0200
+
+    refactor: extract exam info parser and update importer interfaces
+
+[33mcommit 23195616aa69c06918c221fa26523372c9ff138f[m
+Author: shahar mandelboim <shahar.mandelboim@gmail.com>
+Date:   Sat Mar 8 13:52:13 2025 +0200
+
+    feat: disable open questions in type filter and add randomization to question sequencer
+
+[33mcommit 743e976c2a6b9bcaa9e5b68e62b037757925488b[m[33m ([m[1;31morigin/production/with-feedback[m[33m, [m[1;32mproduction/with-feedback[m[33m)[m
+Author: shahar mandelboim <shahar.mandelboim@gmail.com>
+Date:   Sat Mar 8 13:26:33 2025 +0200
+
+    Save feedback fixes and current importer state

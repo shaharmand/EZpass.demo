@@ -10,17 +10,9 @@ import {
   isLimitedFeedback
 } from '../../types/feedback/types';
 import { QuestionSubmission } from '../../types/submissionTypes';
-import { 
-  DetailedEvalLevel,
-  BinaryEvalLevel
-} from '../../types/feedback/levels';
-import {
-  FeedbackStatus,
-  getFeedbackStatus
-} from '../../types/feedback/status';
 import { MultipleChoiceFeedback } from './MultipleChoiceFeedback';
-import { RubricFeedback } from './RubricFeedback';
-import { Card, Space, Button, Tabs, Typography, Progress, Tooltip } from 'antd';
+import { DetailedFeedback } from './DetailedFeedback';
+import { Card, Space, Button, Typography, Progress, Tooltip } from 'antd';
 import { InfoCircleOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { logger } from '../../utils/logger';
 import { MarkdownRenderer } from '../MarkdownRenderer';
@@ -102,69 +94,6 @@ const LimitedFeedback: React.FC<{
             </Text>
           </div>
         </div>
-      </div>
-    </div>
-  );
-};
-
-const DetailedFeedback: React.FC<{ 
-  feedback: DetailedQuestionFeedback;
-  question: Question;
-}> = ({ feedback, question }) => {
-  return (
-    <div className="detailed-feedback">
-      <div className="feedback-header">
-        <Progress
-          type="circle"
-          percent={feedback.score}
-          format={(percent) => `${percent}%`}
-          width={60}
-          strokeColor={getFeedbackColor(feedback.evalLevel)}
-        />
-        <div className="feedback-title-section">
-          <Title level={4} className="feedback-title">
-            {getFeedbackTitle(feedback.score, feedback.evalLevel)}
-          </Title>
-          <Text className="feedback-message">
-            {feedback.message}
-          </Text>
-        </div>
-      </div>
-      <div className="feedback-content">
-        <Tabs 
-          defaultActiveKey="core"
-          type="card"
-          className="feedback-tabs"
-          items={[
-            {
-              key: 'core',
-              label: (
-                <span className="tab-label">
-                  <CheckCircleOutlined /> המשוב שלך
-                </span>
-              ),
-              children: (
-                <div className="feedback-section">
-                  <MarkdownRenderer content={feedback.coreFeedback} />
-                  {feedback.criteriaFeedback && question.evaluationGuidelines?.requiredCriteria && (
-                    <RubricFeedback 
-                      rubricScores={feedback.criteriaFeedback.reduce((acc, curr) => ({
-                        ...acc,
-                        [curr.criterionName]: {
-                          score: curr.score,
-                          feedback: curr.feedback
-                        }
-                      }), {})}
-                      rubricAssessment={{
-                        criteria: question.evaluationGuidelines.requiredCriteria
-                      }}
-                    />
-                  )}
-                </div>
-              )
-            }
-          ]}
-        />
       </div>
     </div>
   );

@@ -73,7 +73,7 @@ export class AIFeedbackService {
         });
       }
 
-      const prompt = `Please evaluate this ${question.metadata.subjectId} question and provide detailed feedback.
+      const prompt = `Please evaluate this ${question.metadata.subjectId} question and provide detailed feedback with specific guidance for improvement.
 
 QUESTION CONTEXT:
 ${JSON.stringify(questionContext, null, 2)}
@@ -93,14 +93,28 @@ REQUIRED RESPONSE FORMAT:
   "type": "detailed",
   "score": number,                // Overall score (0-100) - MUST be calculated as weighted average of criteria scores
   "evalLevel": string,           // MUST be one of: PERFECT, EXCELLENT, VERY_GOOD, GOOD, FAIR, POOR, IRRELEVANT
-  "message": string,             // Short summary in Hebrew
-  "coreFeedback": string,        // Main points with ✅❌⚠️ symbols in Hebrew
-  "detailedFeedback": string,    // Detailed analysis in Hebrew
+  "message": string,             // Short summary in Hebrew focusing on key strengths and main areas for improvement
+  "coreFeedback": string,        // Main points with ✅❌⚠️ symbols in Hebrew, highlighting both achievements and areas needing attention
+  "detailedFeedback": string,    // Comprehensive analysis in Hebrew structured as follows:
+                                // 1. חוזקות (Strengths): Key strong points in the answer
+                                // 2. נקודות לשיפור (Areas for Improvement): Specific aspects that need work
+                                // 3. המלצות ללמידה (Learning Recommendations): 
+                                //    - Specific topics to review
+                                //    - Recommended practice exercises
+                                //    - Study strategies
+                                // 4. דוגמאות והסברים (Examples and Explanations):
+                                //    - Correct approaches to similar problems
+                                //    - Common pitfalls to avoid
+                                //    - Step-by-step guidance for improvement
   "criteriaFeedback": [          // Must match the order of evaluation criteria above
     {
       "criterionName": string,   // Must match criterion name
       "score": number,           // Score for this criterion (0-100)
-      "feedback": string,        // Specific feedback for this criterion in Hebrew
+      "feedback": string,        // Detailed criterion-specific feedback in Hebrew including:
+                                // - What was done well
+                                // - What needs improvement
+                                // - Specific suggestions for better performance
+                                // - Examples of better approaches where relevant
       "weight": number          // Must match criterion weight
     }
   ],
@@ -121,21 +135,35 @@ REQUIRED RESPONSE FORMAT:
 }
 
 SCORING GUIDELINES:
-- PERFECT: 100% - Perfect solution with no errors
-- EXCELLENT: 90-99% - Near perfect solution with minor issues
-- VERY_GOOD: 80-89% - Strong solution with minor issues
-- GOOD: 70-79% - Good solution with some gaps
-- FAIR: 55-69% - Basic understanding, significant gaps
-- POOR: 1-54% - Major gaps or incorrect solution
-- IRRELEVANT: 0% - Off-topic or unrelated
+- PERFECT (100%): Flawless solution demonstrating complete mastery
+- EXCELLENT (90-99%): Outstanding solution with minimal improvements needed
+- VERY_GOOD (80-89%): Strong solution with specific minor enhancements possible
+- GOOD (70-79%): Solid solution with clear areas for improvement
+- FAIR (55-69%): Basic understanding shown but significant improvement needed
+- POOR (1-54%): Fundamental issues requiring comprehensive review
+- IRRELEVANT (0%): Response does not address the question
+
+FEEDBACK GUIDELINES:
+1. Be specific and actionable in all feedback
+2. Include concrete examples and explanations
+3. Focus on both strengths and areas for improvement
+4. Provide clear learning paths and next steps
+5. Reference specific concepts and topics for review
+6. Suggest practical exercises for improvement
+7. Explain the reasoning behind each score
+8. Use encouraging and constructive language
+9. Include step-by-step guidance where appropriate
+10. Link feedback to curriculum topics when possible
 
 IMPORTANT:
 1. You MUST calculate the final score as the weighted average of criteria scores
 2. You MUST explicitly show the calculation in the scoreCalculation field
 3. You MUST determine the evaluation level based on the final score using the exact enum values above
-4. You MUST explain why you chose that specific level
+4. You MUST explain why you chose that specific level and what's needed for improvement
 5. The final score in the root must match the calculated score in scoreCalculation
-6. The evalLevel and determinedLevel MUST use the exact enum values (PERFECT, EXCELLENT, etc.)`;
+6. The evalLevel and determinedLevel MUST use the exact enum values (PERFECT, EXCELLENT, etc.)
+7. All feedback MUST be in Hebrew and be specific to the student's work
+8. Include practical next steps and learning resources where appropriate`;
 
       const response = await this.openAIService.complete(prompt, {
         model: isQuick ? 'gpt-3.5-turbo' : 'gpt-4-turbo-preview',

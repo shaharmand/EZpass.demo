@@ -168,20 +168,32 @@
   padding: 16px;
   font-size: 16px;
   transition: all 0.2s ease;
+  background: #ffffff;
+  line-height: 1.6;
+  color: #374151;
+  resize: vertical;
 }
 
 .response-textarea:hover {
-  border-color: #d1d5db;
+  border-color: #3b82f6;
+  background: #f8fafc;
 }
 
 .response-textarea:focus {
-  border-color: #2196F3;
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: #ffffff;
+  outline: none;
 }
 
 .response-textarea.correct {
   border-color: #10b981;
   background: #f0fdf4;
+}
+
+.response-textarea.partial {
+  border-color: #f59e0b;
+  background: #fefce8;
 }
 
 .response-textarea.incorrect {
@@ -193,6 +205,40 @@
   opacity: 0.85;
   color: #374151;
   background-color: #f9fafb;
+  cursor: not-allowed;
+  border-color: #e5e7eb;
+}
+
+/* Add focus styles for different states */
+.response-textarea.correct:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.response-textarea.partial:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+.response-textarea.incorrect:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Add hover styles for different states */
+.response-textarea.correct:hover {
+  border-color: #10b981;
+  background: #ecfdf5;
+}
+
+.response-textarea.partial:hover {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.response-textarea.incorrect:hover {
+  border-color: #ef4444;
+  background: #fee2e2;
 }
 
 .action-buttons-container {

@@ -366,10 +366,13 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     setPrep(prev => {
       if (!prev) return null;
-      return {
+      const updatedPrep = {
         ...prev,
         focusedType: type
       };
+      // Persist to storage like we do with subtopics
+      PrepStateManager.updatePrep(updatedPrep);
+      return updatedPrep;
     });
   }, [prep]);
 

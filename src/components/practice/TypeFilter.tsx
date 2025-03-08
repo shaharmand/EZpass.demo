@@ -29,7 +29,7 @@ export const TypeFilterContent: React.FC<TypeFilterContentProps> = ({
   
   const questionTypes: QuestionTypeOption[] = [
     { type: QuestionType.MULTIPLE_CHOICE, label: 'שאלות סגורות', enabled: true },
-    { type: QuestionType.OPEN, label: 'שאלות פתוחות', enabled: false },
+    { type: QuestionType.OPEN, label: 'שאלות פתוחות', enabled: true },
     { type: QuestionType.NUMERICAL, label: 'שאלות חישוביות', enabled: false }
   ];
 
@@ -37,18 +37,34 @@ export const TypeFilterContent: React.FC<TypeFilterContentProps> = ({
   const isTypeFocused = (type: QuestionType) => prep?.focusedType === type;
 
   const handleTypeSelect = (selectedType: QuestionTypeOption | null) => {
-    if (selectedType && !selectedType.enabled) return; // Don't handle disabled types
+    console.log('🎯 TypeFilter: handleTypeSelect called with:', {
+      selectedType,
+      currentQuestionType: question.metadata.type,
+      currentFocusedType: prep?.focusedType,
+      timestamp: new Date().toISOString()
+    });
+
+    if (selectedType && !selectedType.enabled) {
+      console.log('⚠️ TypeFilter: Ignoring disabled type');
+      return;
+    }
     
     if (selectedType === null) {
-      // Just remove focus
+      console.log('🎯 TypeFilter: Removing focus');
+      // Remove focus - no need to skip as any question type is fine
       setFocusedType(null);
-    } else if (selectedType.type === question.metadata.type) {
-      // Current type - just update focus
-      setFocusedType(selectedType.type);
     } else {
-      // Different type - skip with focus change
+      console.log('🎯 TypeFilter: Setting new focus:', {
+        newType: selectedType.type,
+        currentType: question.metadata.type,
+        willSkip: selectedType.type !== question.metadata.type
+      });
+      // Always set the focus first
       setFocusedType(selectedType.type);
-      onSkip('filter_change');
+      // Skip to next question if type is different from current
+      if (selectedType.type !== question.metadata.type) {
+        onSkip('filter_change');
+      }
     }
     onClose();
   };

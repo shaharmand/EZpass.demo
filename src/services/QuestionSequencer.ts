@@ -1,4 +1,4 @@
-import { Question, QuestionType } from '../types/question';
+import { Question, QuestionType, PublicationStatusEnum } from '../types/question';
 import { PrepStateManager } from '../services/PrepStateManager';
 import { logger } from '../utils/logger';
 import { questionStorage } from './admin/questionStorage';
@@ -22,9 +22,8 @@ interface QuestionMetadata {
 
 export class QuestionSequencer {
   private static instance: QuestionSequencer;
-  private questions: QuestionMetadata[] = [];
-  private currentIndex: number = -1;
   private prepId: string | null = null;
+  private seenQuestions: Set<string> = new Set();
 
   private constructor() {}
 
@@ -36,249 +35,102 @@ export class QuestionSequencer {
   }
 
   public async initialize(params: QueryParams, prepId: string): Promise<string | null> {
-    try {
-      this.prepId = prepId;
-
-      // Get current focus from PrepStateManager
-      const prep = PrepStateManager.getPrep(prepId);
-      if (!prep) {
-        console.error('❌ Prep not found', { prepId });
-        return null;
-      }
-
-      console.log('🔍 SEQUENCER: Initializing with details:', { 
-        params,
-        prepState: {
-          focusedSubTopic: prep.focusedSubTopic,
-          focusedType: prep.focusedType
-        },
-        timestamp: new Date().toISOString()
-      });
-
-      // Build filters for questionStorage
-      const filters = {
-        subject: params.subject,
-        domain: params.domain,
-        publication_status: 'published',
-        ...(prep.focusedSubTopic ? { subtopic: prep.focusedSubTopic } : {}),
-        ...(prep.focusedType ? { type: prep.focusedType } : {})
-      };
-
-      console.log('🔍 SEQUENCER: Fetching with filters:', {
-        filters,
-        prepId,
-        timestamp: new Date().toISOString()
-      });
-
-      // Get filtered questions from storage
-      const questions = await questionStorage.getFilteredQuestions(filters);
-
-      console.log('📊 SEQUENCER: Questions fetched:', {
-        totalQuestions: questions?.length || 0,
-        uniqueSubtopics: questions ? Array.from(new Set(questions.map(q => q.data.metadata.subtopicId))).length : 0,
-        focusedSubtopic: prep.focusedSubTopic,
-        subtopicsInResults: questions ? Array.from(new Set(questions.map(q => q.data.metadata.subtopicId))) : [],
-        hasExpectedFocus: questions?.every(q => !prep.focusedSubTopic || q.data.metadata.subtopicId === prep.focusedSubTopic),
-        timestamp: new Date().toISOString()
-      });
-
-      if (!questions || questions.length === 0) {
-        console.error('❌ SEQUENCER: No questions available:', {
-          filters,
-          prepId,
-          focusState: {
-            hasFocusedSubtopic: !!prep.focusedSubTopic,
-            focusedSubtopic: prep.focusedSubTopic
-          }
-        });
-        return null;
-      }
-
-      // Verify questions match focus criteria
-      const unfocusedQuestions = questions.filter(q => 
-        prep.focusedSubTopic && q.data.metadata.subtopicId !== prep.focusedSubTopic
-      );
-      
-      if (unfocusedQuestions.length > 0) {
-        console.warn('⚠️ SEQUENCER: Found questions not matching focus:', {
-          focusedSubtopic: prep.focusedSubTopic,
-          totalQuestions: questions.length,
-          unfocusedCount: unfocusedQuestions.length,
-          unfocusedSubtopics: Array.from(new Set(unfocusedQuestions.map(q => q.data.metadata.subtopicId))),
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      // Map questions to QuestionMetadata format
-      this.questions = questions.map(q => ({
-        id: q.id,
-        subject: q.data.metadata.subjectId,
-        domain: q.data.metadata.domainId,
-        subtopicId: q.data.metadata.subtopicId || '',
-        type: q.data.metadata.type,
-        metadata: {
-          subtopicId: q.data.metadata.subtopicId || '',
-          type: q.data.metadata.type
-        }
-      }));
-
-      // Randomize question order using Fisher-Yates shuffle
-      for (let i = this.questions.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [this.questions[i], this.questions[j]] = [this.questions[j], this.questions[i]];
-      }
-
-      this.currentIndex = 0;
-      
-      console.log('✅ SEQUENCER: Started new sequence:', { 
-        params,
-        focusedSubTopic: prep.focusedSubTopic,
-        focusedType: prep.focusedType,
-        count: this.questions.length,
-        firstQuestionId: this.questions[0].id,
-        isRandomized: true
-      });
-
-      return this.questions[0].id;
-    } catch (error) {
-      console.error('❌ SEQUENCER: Error initializing:', error);
-      return null;
-    }
+    this.prepId = prepId;
+    return this.next();
   }
 
-  private async refreshQuestionsIfFocusChanged(): Promise<void> {
+  private async getRandomQuestion(): Promise<string | null> {
     if (!this.prepId) {
-      console.log('⚠️ SEQUENCER: No prepId for refresh check');
-      return;
+      console.error('❌ SEQUENCER: No prepId available');
+      return null;
     }
 
     const prep = PrepStateManager.getPrep(this.prepId);
     if (!prep) {
-      console.log('⚠️ SEQUENCER: No prep state found for refresh check');
-      return;
+      console.error('❌ SEQUENCER: Prep not found', { prepId: this.prepId });
+      return null;
     }
 
-    // Check if current questions match the focus
-    const currentQuestion = this.questions[this.currentIndex];
-    if (!currentQuestion) {
-      console.log('⚠️ SEQUENCER: No current question for refresh check');
-      return;
-    }
+    // Build filters for current state
+    const filters = {
+      subject: prep.exam.subjectId,
+      domain: prep.exam.domainId,
+      // NOTE: Publication status filter is temporarily disabled since test questions are not published yet
+      // publicationStatus: PublicationStatusEnum.PUBLISHED,
+      ...(prep.focusedSubTopic ? { subtopic: prep.focusedSubTopic } : {}),
+      ...(prep.focusedType ? { type: prep.focusedType } : {})
+    };
 
-    console.log('🔄 SEQUENCER: Checking focus change:', {
-      currentSubtopic: currentQuestion.metadata.subtopicId,
-      focusedSubtopic: prep.focusedSubTopic,
-      currentType: currentQuestion.metadata.type,
-      focusedType: prep.focusedType,
+    console.log('🔍 SEQUENCER: Fetching with filters:', {
+      filters,
+      seenCount: this.seenQuestions.size,
       timestamp: new Date().toISOString()
     });
 
-    const focusChanged = (prep.focusedSubTopic && currentQuestion.metadata.subtopicId !== prep.focusedSubTopic) ||
-                        (prep.focusedType && currentQuestion.metadata.type !== prep.focusedType);
-
-    if (focusChanged) {
-      console.log('🔄 SEQUENCER: Focus changed, reinitializing:', {
-        subject: currentQuestion.subject,
-        domain: currentQuestion.domain,
-        prepId: this.prepId,
-        timestamp: new Date().toISOString()
-      });
-
-      // Re-initialize with same base params but new focus
-      await this.initialize({ 
-        subject: currentQuestion.subject, 
-        domain: currentQuestion.domain 
-      }, this.prepId);
-    } else {
-      console.log('✅ SEQUENCER: Focus unchanged');
-    }
-  }
-
-  public async getCurrentId(): Promise<string | null> {
-    await this.refreshQuestionsIfFocusChanged();
+    // Get all matching questions
+    const questions = await questionStorage.getFilteredQuestions(filters);
     
-    if (this.currentIndex === -1 || this.questions.length === 0) {
+    if (!questions || questions.length === 0) {
+      console.log('❌ SEQUENCER: No questions available for current filters');
       return null;
     }
-    return this.questions[this.currentIndex].id;
+
+    // Filter out seen questions if possible
+    const unseenQuestions = questions.filter(q => !this.seenQuestions.has(q.id));
+    const availableQuestions = unseenQuestions.length > 0 ? unseenQuestions : questions;
+
+    // Pick a random question
+    const randomIndex = Math.floor(Math.random() * availableQuestions.length);
+    const selectedQuestion = availableQuestions[randomIndex];
+    
+    // Mark as seen
+    this.seenQuestions.add(selectedQuestion.id);
+
+    console.log('✅ SEQUENCER: Selected question:', {
+      questionId: selectedQuestion.id,
+      type: selectedQuestion.data.metadata.type,
+      subtopic: selectedQuestion.data.metadata.subtopicId,
+      totalAvailable: questions.length,
+      unseenAvailable: unseenQuestions.length
+    });
+
+    return selectedQuestion.id;
   }
 
   public async next(): Promise<string | null> {
-    console.log('➡️ SEQUENCER: Next called, checking focus...');
-    await this.refreshQuestionsIfFocusChanged();
-
-    if (this.questions.length === 0) {
-      console.log('⚠️ SEQUENCER: No questions available for next');
-      return null;
-    }
-
-    const oldIndex = this.currentIndex;
-    this.currentIndex = (this.currentIndex + 1) % this.questions.length;
-    const nextId = this.questions[this.currentIndex].id;
-    
-    console.log('➡️ SEQUENCER: Moving to next question:', { 
-      oldIndex,
-      newIndex: this.currentIndex,
-      position: this.currentIndex + 1,
-      total: this.questions.length,
-      questionId: nextId,
-      subtopicId: this.questions[this.currentIndex].metadata.subtopicId,
-      questionIds: this.questions.map(q => q.id)
-    });
-
-    return nextId;
-  }
-
-  public async previous(): Promise<string | null> {
-    await this.refreshQuestionsIfFocusChanged();
-
-    if (this.questions.length === 0) {
-      return null;
-    }
-
-    this.currentIndex = this.currentIndex <= 0 
-      ? this.questions.length - 1 
-      : this.currentIndex - 1;
-
-    const prevId = this.questions[this.currentIndex].id;
-    
-    logger.debug('Moved to previous question', { 
-      position: this.currentIndex + 1,
-      total: this.questions.length,
-      questionId: prevId
-    });
-
-    return prevId;
+    return this.getRandomQuestion();
   }
 
   public reset(): void {
-    this.questions = [];
-    this.currentIndex = -1;
     this.prepId = null;
-    logger.debug('Reset question sequence');
+    this.seenQuestions.clear();
+    console.log('Reset question sequence');
   }
 
   public getProgress(): { current: number; total: number } {
     return {
-      current: this.currentIndex + 1,
-      total: this.questions.length
+      current: this.seenQuestions.size,
+      total: this.seenQuestions.size // We don't know real total since it depends on current filters
     };
   }
 
+  // Minimal state management for PrepStateManager compatibility
+  // Note: These methods are kept for backwards compatibility but don't maintain meaningful state
   public getCurrentIndex(): number {
-    return this.currentIndex;
+    return 0; // Not meaningful in random selection
   }
 
   public getQuestions(): QuestionMetadata[] {
-    return [...this.questions]; // Return a copy to prevent mutation
+    return []; // Not meaningful to return cached questions
   }
 
   public restoreState(state: { currentIndex: number; questions: QuestionMetadata[] }): void {
-    this.questions = state.questions;
-    this.currentIndex = state.currentIndex;
-    console.log('Restored sequencer state:', {
-      questionCount: this.questions.length,
-      currentIndex: this.currentIndex
+    // Only restore seen questions if needed
+    if (state.questions) {
+      this.seenQuestions = new Set(state.questions.map(q => q.id));
+    }
+    console.log('Restored seen questions:', {
+      seenCount: this.seenQuestions.size
     });
   }
 } 

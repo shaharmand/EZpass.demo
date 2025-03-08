@@ -935,14 +935,6 @@ export function QuestionLibraryPage() {
             <Row gutter={16} align="middle" justify="space-between">
               <Col>
                 <Space size="middle">
-                  <Button
-                    type="primary"
-                    size="large"
-                    icon={<PlusOutlined />}
-                    onClick={() => navigate('/admin/questions/new')}
-                  >
-                    שאלה חדשה
-                  </Button>
                   <Input
                     placeholder="חיפוש שאלות..."
                     prefix={<SearchOutlined />}

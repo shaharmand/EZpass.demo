@@ -122,13 +122,15 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
             format: 'markdown'
           }
         };
+      case QuestionType.OPEN:
+        return {
+          solution: {
+            text: value,
+            format: 'markdown'
+          }
+        };
       default:
         return {
-          finalAnswer: {
-            type: 'numerical',
-            value: 0,
-            tolerance: 0
-          },
           solution: {
             text: value,
             format: 'markdown'

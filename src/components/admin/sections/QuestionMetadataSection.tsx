@@ -15,7 +15,8 @@ import {
   PublicationStatusEnum,
   DatabaseQuestion,
   EzpassCreatorType,
-  SourceType
+  SourceType,
+  SaveQuestion
 } from '../../../types/question';
 import { ValidationDisplay } from '../../validation/ValidationDisplay';
 import { getEnumTranslation, getFieldTranslation, formatValidationDetails, fieldNameMapping, getQuestionSourceDisplay } from '../../../utils/translations';
@@ -33,7 +34,7 @@ interface QuestionMetadataSectionProps {
   question: DatabaseQuestion;
   isEditing: boolean;
   onEdit: () => void;
-  onSave: (data: Partial<Question>) => Promise<void>;
+  onSave: (data: SaveQuestion) => Promise<void>;
 }
 
 interface MetadataValidationResult {
@@ -124,7 +125,7 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
   const [validationState, setValidationState] = useState<MetadataValidationResult | null>(null);
   const [sourceDisplay, setSourceDisplay] = useState<string>('');
 
-  if (!question?.metadata) {
+  if (!question?.data?.metadata) {
     return (
       <Card style={{ direction: 'rtl' }}>
         <Space direction="vertical" style={{ width: '100%', textAlign: 'center' }}>
@@ -153,39 +154,39 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
 
   useEffect(() => {
     if (question) {
-      const result = validateMetadata(question);
+      const result = validateMetadata(question.data);
       setValidationState(result);
     }
   }, [question]);
 
   useEffect(() => {
     const loadExamTemplate = async () => {
-      if (question?.metadata?.source?.type === 'exam' && question?.metadata?.source?.examTemplateId) {
-        const template = await examService.getExamById(question.metadata.source.examTemplateId);
+      if (question?.data?.metadata?.source?.type === 'exam' && question?.data?.metadata?.source?.examTemplateId) {
+        const template = await examService.getExamById(question.data.metadata.source.examTemplateId);
         setExamTemplate(template);
       }
     };
     loadExamTemplate();
-  }, [question?.metadata?.source]);
+  }, [question?.data?.metadata?.source]);
 
   useEffect(() => {
     const loadSourceDisplay = async () => {
-      if (question?.metadata?.source) {
+      if (question?.data?.metadata?.source) {
         const display = await getQuestionSourceDisplay({
-          sourceType: question.metadata.source.type as SourceType,
-          ...(question.metadata.source.type === SourceType.EXAM ? {
-            examTemplateId: question.metadata.source.examTemplateId,
-            year: question.metadata.source.year,
-            season: question.metadata.source.season,
-            moed: question.metadata.source.moed,
-            order: question.metadata.source.order
+          sourceType: question.data.metadata.source.type as SourceType,
+          ...(question.data.metadata.source.type === SourceType.EXAM ? {
+            examTemplateId: question.data.metadata.source.examTemplateId,
+            year: question.data.metadata.source.year,
+            season: question.data.metadata.source.season,
+            moed: question.data.metadata.source.moed,
+            order: question.data.metadata.source.order
           } : {})
         });
         setSourceDisplay(display);
       }
     };
     loadSourceDisplay();
-  }, [question?.metadata?.source]);
+  }, [question?.data?.metadata?.source]);
 
   const getDisplayValue = (
     value: string | number | null | undefined,
@@ -259,35 +260,32 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
     };
   };
 
-  const getHierarchyValue = (type: 'subject' | 'domain' | 'topic' | 'subtopic', id: string | undefined | null): string => {
-    if (!id) return getFieldTranslation('common.no_value');
-
+  const getHierarchyValue = (type: 'subject' | 'domain' | 'topic' | 'subtopic', id: string): string => {
     let name: string | undefined;
     switch (type) {
       case 'subject':
         name = universalTopicsV2.getSubjectSafe(id)?.name;
         break;
       case 'domain':
-        name = universalTopicsV2.getDomainSafe(question.metadata.subjectId || '', id)?.name;
+        name = universalTopicsV2.getDomainSafe(question.data.metadata.subjectId || '', id)?.name;
         break;
       case 'topic':
         name = universalTopicsV2.getTopicSafe(
-          question.metadata.subjectId || '',
-          question.metadata.domainId || '',
+          question.data.metadata.subjectId || '',
+          question.data.metadata.domainId || '',
           id
         )?.name;
         break;
       case 'subtopic':
         name = universalTopicsV2.getSubTopicSafe(
-          question.metadata.subjectId || '',
-          question.metadata.domainId || '',
-          question.metadata.topicId || '',
+          question.data.metadata.subjectId || '',
+          question.data.metadata.domainId || '',
+          question.data.metadata.topicId || '',
           id
         )?.name;
         break;
     }
-
-    return name || id;
+    return name || getFieldTranslation('common.no_value');
   };
 
   const getFieldValidation = (
@@ -299,14 +297,14 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
     
     let fieldValue: string | number | null | undefined;
     if (fieldName === 'name') {
-      fieldValue = question.name;
+      fieldValue = question.data.name;
     } else if (fieldName === 'type') {
-      fieldValue = question.metadata.type;
+      fieldValue = question.data.metadata.type;
     } else if (fieldName === 'publication_status') {
       fieldValue = question.publication_status;
-    } else if (question.metadata.source) {
+    } else if (question.data.metadata.source) {
       // Handle source fields based on type
-      const source = question.metadata.source;
+      const source = question.data.metadata.source;
       if (source.type === 'exam') {
         switch (fieldName) {
           case 'examTemplateId':
@@ -328,7 +326,7 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
         }
       }
     } else {
-      fieldValue = question.metadata[fieldName as keyof typeof question.metadata] as string | number | undefined;
+      fieldValue = question.data.metadata[fieldName as keyof typeof question.data.metadata] as string | number | undefined;
     }
 
     const displayValue = getDisplayValue(fieldValue, valueType, enumType);
@@ -382,7 +380,7 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
   );
 
   const renderSourceInfo = () => {
-    const source = question?.metadata?.source;
+    const source = question?.data?.metadata?.source;
     if (!source) return null;
 
     return (

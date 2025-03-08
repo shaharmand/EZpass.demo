@@ -351,10 +351,10 @@ export class WordPressEzPassImporter extends BaseImporter {
                 id: processedQuestion.id,
                 data: {
                     id: processedQuestion.id,
-                    content: processedQuestion.content,
-                    schoolAnswer: processedQuestion.schoolAnswer,
-                    metadata: processedQuestion.metadata,
-                    evaluationGuidelines: processedQuestion.evaluationGuidelines
+                    content: processedQuestion.data.content,
+                    schoolAnswer: processedQuestion.data.schoolAnswer,
+                    metadata: processedQuestion.data.metadata,
+                    evaluationGuidelines: processedQuestion.data.evaluationGuidelines
                 },
                 publication_status: processedQuestion.publication_status,
                 validation_status: processedQuestion.validation_status,
@@ -631,10 +631,10 @@ export class WordPressEzPassImporter extends BaseImporter {
                 id: processedQuestion.id,
                 data: {
                     id: processedQuestion.id,
-                    content: processedQuestion.content,
-                    schoolAnswer: processedQuestion.schoolAnswer,
-                    metadata: processedQuestion.metadata,
-                    evaluationGuidelines: processedQuestion.evaluationGuidelines
+                    content: processedQuestion.data.content,
+                    schoolAnswer: processedQuestion.data.schoolAnswer,
+                    metadata: processedQuestion.data.metadata,
+                    evaluationGuidelines: processedQuestion.data.evaluationGuidelines
                 },
                 publication_status,
                 validation_status,

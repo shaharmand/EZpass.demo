@@ -201,7 +201,7 @@ export const QuestionEditor: FC = () => {
   // Run validation whenever question changes
   useEffect(() => {
     if (question) {
-      const result = validateQuestion(question);
+      const result = validateQuestion(question.data);
       setCurrentValidation(result);
     }
   }, [question]);
@@ -215,7 +215,7 @@ export const QuestionEditor: FC = () => {
           if (found) {
             setQuestion(found);
             // Run validation immediately after setting the question
-            const validationResult = validateQuestion(found);
+            const validationResult = validateQuestion(found.data);
             setCurrentValidation(validationResult);
           } else {
             message.error('Question not found');
@@ -279,26 +279,24 @@ export const QuestionEditor: FC = () => {
     setIsEditing(true);
   };
 
-  const handleSave = async (updatedQuestion: Question | Partial<Question>) => {
+  const handleSave = async (updatedQuestion: SaveQuestion) => {
     if (!question) return;
     
     try {
-      // When saving a question, we update all management fields except review_metadata
-      // which is handled by DB triggers
-      const saveQuestion: SaveQuestion = {
+      // Ensure data is not undefined
+      if (!updatedQuestion.data) {
+        throw new Error('Question data is required');
+      }
+
+      // The updatedQuestion already has the correct structure, just pass it through
+      await questionStorage.saveQuestion(updatedQuestion);
+      
+      // Update local state with the changes - ensure we have a valid DatabaseQuestion
+      const updatedDatabaseQuestion: DatabaseQuestion = {
         ...question,
-        ...updatedQuestion,
-        id: question.id,
-        publication_status: question.publication_status
+        data: updatedQuestion.data as Question // Type assertion is safe here because we checked above
       };
-      
-      await questionStorage.saveQuestion(saveQuestion);
-      
-      // Update local state with the changes
-      setQuestion({
-        ...question,
-        ...updatedQuestion
-      });
+      setQuestion(updatedDatabaseQuestion);
       message.success('Question saved successfully');
       setIsEditing(false);
       setIsModified(true);
@@ -306,6 +304,20 @@ export const QuestionEditor: FC = () => {
       console.error('Failed to save question:', error);
       message.error('Failed to save question');
     }
+  };
+
+  const handleSimpleSave = () => {
+    if (!question) return;
+    
+    const saveQuestion: SaveQuestion = {
+      id: question.id,
+      data: question.data,
+      publication_status: question.publication_status,
+      validation_status: question.validation_status,
+      review_status: question.review_status
+    };
+    
+    handleSave(saveQuestion);
   };
 
   const handleReviewStatusChange = async (updatedQuestion: Question & { 
@@ -318,7 +330,7 @@ export const QuestionEditor: FC = () => {
       // Include data and all required fields for the save operation
       const saveQuestion: SaveQuestion = {
         id: question.id,
-        data: question,
+        data: question.data,
         publication_status: question.publication_status,
         validation_status: question.validation_status,
         review_status: updatedQuestion.review_status
@@ -352,7 +364,7 @@ export const QuestionEditor: FC = () => {
       // Include data and all required fields for the save operation
       const saveQuestion: SaveQuestion = {
         id: question.id,
-        data: question,
+        data: question.data,
         publication_status: updatedQuestion.publication_status,
         validation_status: question.validation_status,
         review_status: question.review_status
@@ -393,15 +405,19 @@ export const QuestionEditor: FC = () => {
       <Space direction="vertical" style={{ width: '100%' }}>
         <QuestionHeaderSection
           question={{
-            ...question,
+            ...question.data,
+            publication_status: question.publication_status,
+            publication_metadata: question.publication_metadata,
+            review_status: question.review_status,
             review_metadata: question.review_metadata || {
               reviewedAt: new Date().toISOString(),
               reviewedBy: '',
               comments: ''
-            }
+            },
+            validation_status: question.validation_status
           }}
           onBack={handleBack}
-          onSave={() => handleSave(question)}
+          onSave={handleSimpleSave}
           isModified={isModified}
           onPrevious={prevQuestionId ? () => navigate(`/admin/questions/${prevQuestionId}`) : undefined}
           onNext={nextQuestionId ? () => navigate(`/admin/questions/${nextQuestionId}`) : undefined}

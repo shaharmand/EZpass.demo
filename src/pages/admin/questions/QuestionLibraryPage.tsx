@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, Space, Button, Input, Select, Tag, Typography, message, Modal, Tooltip, Row, Col, DatePicker } from 'antd';
+import { Card, Space, Button, Input, Select, Tag, Typography, message, Modal, Tooltip, Row, Col, DatePicker, InputNumber, Popover, Form } from 'antd';
 import {
   useReactTable,
   getCoreRowModel,
@@ -35,7 +35,9 @@ import {
   CloseCircleOutlined,
   CheckCircleOutlined,
   RobotOutlined,
-  UserOutlined
+  UserOutlined,
+  SaveOutlined,
+  CloseOutlined
 } from '@ant-design/icons/lib/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -72,39 +74,53 @@ const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 const PageContainer = styled.div`
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
   padding: 0 16px 32px;
+  box-sizing: border-box;
 `;
 
 const TableStyles = styled.div`
   direction: rtl;
+  width: 100%;
+  overflow: hidden;
   
-  .resizer {
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    width: 5px;
-    background: rgba(0, 0, 0, 0.1);
-    cursor: col-resize;
-    user-select: none;
-    touch-action: none;
+  .table-container {
+    width: 100%;
+    overflow-x: auto;
+    margin: 0 -16px;
+    padding: 0 16px;
     
-    &.isResizing {
-      background: blue;
-      opacity: 1;
+    &::-webkit-scrollbar {
+      height: 8px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: #f0f0f0;
+      border-radius: 4px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 4px;
+      
+      &:hover {
+        background: #bbb;
+      }
     }
   }
   
   table {
-    width: 100%;
+    width: max-content;
+    min-width: 100%;
     border-spacing: 0;
     
     th, td {
       margin: 0;
-      padding: 0.5rem;
-      border-bottom: 1px solid #eee;
+      padding: 8px 12px;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+      white-space: nowrap;
+      position: relative;
       
       &:last-child {
         border-right: 0;
@@ -113,33 +129,78 @@ const TableStyles = styled.div`
 
     th {
       background: #fafafa;
-      font-weight: bold;
+      font-weight: 500;
       text-align: right;
       position: relative;
-      user-select: none;
       white-space: nowrap;
+      color: #666;
+      padding: 12px;
+      user-select: none;
+      
+      &.sortable {
+        cursor: pointer;
+        
+        &:hover {
+          background: #f0f0f0;
+        }
+      }
+
+      .resizer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 5px;
+        background: rgba(0, 0, 0, 0.05);
+        cursor: col-resize;
+        user-select: none;
+        touch-action: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+
+        &.isResizing {
+          background: #2196f3;
+          opacity: 1;
+        }
+        
+        &:hover {
+          opacity: 1;
+        }
+      }
+
+      &:hover .resizer {
+        opacity: 1;
+      }
     }
 
     td {
       text-align: right;
+      background: #fff;
     }
     
     tbody tr {
       &:hover {
-        background-color: #f5f5f5;
+        background-color: #fafafa;
+        
+        td {
+          background-color: #fafafa;
+        }
       }
       
       &.selected {
         background-color: #e6f7ff;
+        
+        td {
+          background-color: #e6f7ff;
+        }
       }
 
       .content-cell {
-        max-width: 600px;
-        min-width: 400px;
+        max-width: 400px;
+        min-width: 300px;
         
         .content-title {
-          font-size: 14px;
-          font-weight: bold;
+          font-weight: 500;
           margin-bottom: 4px;
           white-space: nowrap;
           overflow: hidden;
@@ -147,13 +208,14 @@ const TableStyles = styled.div`
         }
         
         .content-text {
-          font-size: 13px;
-          line-height: 1.5;
+          color: #666;
           overflow: hidden;
           text-overflow: ellipsis;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
+          white-space: normal;
+          line-height: 1.4;
         }
       }
     }
@@ -227,6 +289,45 @@ interface ValidationStatistics {
   validation: Record<ValidationStatus, number>;
 }
 
+// Modify the EditableCell styled component
+const EditableCell = styled.div`
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.3s;
+  
+  &.editable {
+    cursor: pointer;
+    
+    &:hover {
+      background: #f5f5f5;
+    }
+  }
+  
+  &.editing {
+    padding: 0;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .edit-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    justify-content: flex-end;
+  }
+`;
+
+const StyledRow = styled.tr`
+  &:hover {
+    background-color: #f5f5f5;
+    
+    td {
+      background-color: #f5f5f5;
+    }
+  }
+`;
+
 export function QuestionLibraryPage() {
   const [questions, setQuestions] = useState<QuestionListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -237,6 +338,8 @@ export function QuestionLibraryPage() {
   const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
+  const [form] = Form.useForm();
 
   const navigate = useNavigate();
 
@@ -278,51 +381,51 @@ export function QuestionLibraryPage() {
         .filter(question => question && typeof question.id === 'string' && !question.id.startsWith('test_'))
         .map(question => {
           let mappedSource: QuestionListItem['metadata']['source'] = undefined;
-          if (question.metadata.source) {
-            if (question.metadata.source.type === 'exam') {
+          if (question.data.metadata.source) {
+            if (question.data.metadata.source.type === 'exam') {
               mappedSource = {
                 type: SourceType.EXAM,
-                examTemplateId: question.metadata.source.examTemplateId,
-                year: question.metadata.source.year,
-                season: question.metadata.source.season,
-                moed: question.metadata.source.moed
+                examTemplateId: question.data.metadata.source.examTemplateId,
+                year: question.data.metadata.source.year,
+                season: question.data.metadata.source.season,
+                moed: question.data.metadata.source.moed
               };
-            } else if (question.metadata.source.type === 'ezpass') {
+            } else if (question.data.metadata.source.type === 'ezpass') {
               mappedSource = {
                 type: SourceType.EZPASS,
-                creatorType: question.metadata.source.creatorType
+                creatorType: question.data.metadata.source.creatorType
               };
             }
           }
 
           return {
             id: question.id,
-            name: question.name || 'Untitled',
+            name: question.data.name || 'Untitled',
             content: {
-              text: typeof question.content === 'string' ? question.content : 
-                    typeof question.content === 'object' && 'text' in question.content ? question.content.text :
-                    JSON.stringify(question.content),
+              text: typeof question.data.content === 'string' ? question.data.content : 
+                    typeof question.data.content === 'object' && 'text' in question.data.content ? question.data.content.text :
+                    JSON.stringify(question.data.content),
               format: 'markdown' as const
             },
             metadata: {
-              subjectId: question.metadata.subjectId,
-              domainId: question.metadata.domainId,
-              topicId: question.metadata.topicId,
-              subtopicId: question.metadata.subtopicId || '',
-              type: question.metadata.type,
-              difficulty: question.metadata.difficulty,
-              estimatedTime: question.metadata.estimatedTime || 0,
-              answerFormat: question.metadata.answerFormat,
+              subjectId: question.data.metadata.subjectId,
+              domainId: question.data.metadata.domainId,
+              topicId: question.data.metadata.topicId,
+              subtopicId: question.data.metadata.subtopicId || '',
+              type: question.data.metadata.type,
+              difficulty: question.data.metadata.difficulty,
+              estimatedTime: question.data.metadata.estimatedTime || 0,
+              answerFormat: question.data.metadata.answerFormat,
               source: mappedSource
             },
             validation_status: question.validation_status,
             publication_status: question.publication_status,
-            review_status: question.review_status || ReviewStatusEnum.PENDING_REVIEW,
+            review_status: question.review_status,
             review_metadata: question.review_metadata,
             ai_generated_fields: question.ai_generated_fields,
             import_info: question.import_info,
-            created_at: question.created_at || new Date().toISOString(),
-            updated_at: question.updated_at || question.created_at || new Date().toISOString()
+            created_at: question.created_at,
+            updated_at: question.updated_at
           };
         });
       setQuestions(filteredQuestions);
@@ -339,49 +442,257 @@ export function QuestionLibraryPage() {
     loadQuestions();
   }, [loadQuestions]);
 
+  const handleSaveEdit = async (questionId: string, field: string, value: any) => {
+    try {
+      const question = questions.find(q => q.id === questionId);
+      if (!question) return;
+
+      const updatedQuestion: QuestionListItem = {
+        ...question,
+        metadata: {
+          ...question.metadata,
+        }
+      };
+      
+      switch (field) {
+        case 'topic':
+          updatedQuestion.metadata.topicId = value.topicId;
+          updatedQuestion.metadata.subtopicId = value.subtopicId;
+          break;
+        case 'difficulty':
+          updatedQuestion.metadata.difficulty = value as DifficultyLevel;
+          break;
+        case 'estimatedTime':
+          updatedQuestion.metadata.estimatedTime = value as number;
+          break;
+        case 'type':
+          updatedQuestion.metadata.type = value as QuestionType;
+          break;
+        case 'name':
+          updatedQuestion.name = value;
+          break;
+      }
+
+      await questionStorage.updateQuestion(questionId, updatedQuestion);
+      await loadQuestions();
+      setEditingCell(null);
+      message.success('שינויים נשמרו בהצלחה');
+    } catch (error) {
+      message.error('שגיאה בשמירת השינויים');
+      console.error('Save error:', error);
+    }
+  };
+
   const columns = useMemo<ColumnDef<QuestionListItem>[]>(
     () => [
+      {
+        id: 'actions',
+        header: 'פעולות',
+        size: 100,
+        cell: ({ row }) => (
+          <Button
+            type="primary"
+            icon={<EditOutlined />}
+            onClick={() => handleEditClick(row.original.id)}
+          >
+            ערוך
+          </Button>
+        ),
+      },
       {
         id: 'id',
         header: 'ID',
         accessorKey: 'id',
-        size: 100,
+        size: 120,
+        cell: ({ getValue }) => {
+          const id = getValue() as string;
+          return id.replace(/^(\w+)-(\w+)-(\d+)$/, '$1-$2-$3');
+        },
       },
       {
         id: 'content',
         header: 'תוכן',
         accessorKey: 'content',
-        size: 600,
-        cell: ({ row }) => (
-          <div className="content-cell">
-            <div className="content-title">{row.original.name}</div>
-            <div className="content-text">
-              {row.original.content.text}
+        size: 400,
+        cell: ({ row }) => {
+          const isEditing = editingCell?.id === row.original.id && editingCell?.field === 'name';
+          
+          if (isEditing) {
+            return (
+              <Form form={form} initialValues={{ name: row.original.name }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Form.Item name="name">
+                    <Input
+                      style={{ width: '100%' }}
+                      autoFocus
+                      onBlur={() => setEditingCell(null)}
+                      onKeyDown={e => {
+                        if (e.key === 'Escape') setEditingCell(null);
+                      }}
+                    />
+                  </Form.Item>
+                  <div className="edit-actions">
+                    <Button 
+                      size="small" 
+                      type="primary"
+                      icon={<SaveOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const values = form.getFieldsValue();
+                        handleSaveEdit(row.original.id, 'name', values.name);
+                      }}
+                    />
+                  </div>
+                </Space>
+              </Form>
+            );
+          }
+
+          return (
+            <div className="content-cell">
+              <EditableCell
+                className="editable"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingCell({ id: row.original.id, field: 'name' });
+                }}
+              >
+                <div className="content-title">{row.original.name || 'Untitled'}</div>
+              </EditableCell>
+              <div className="content-text">
+                {row.original.content.text}
+              </div>
             </div>
-          </div>
-        ),
+          );
+        },
       },
       {
         id: 'topic',
         header: 'נושא',
         accessorKey: 'metadata.topicId',
-        size: 120,
-        cell: ({ getValue }) => {
-          const topicId = getValue() as string;
-          const topic = topics.find((t: { id: string }) => t.id === topicId);
-          return topic?.name || topicId;
+        size: 200,
+        cell: ({ row }) => {
+          const topicId = row.original.metadata.topicId;
+          const subtopicId = row.original.metadata.subtopicId;
+          const subject = universalTopics.getSubjectForTopic(topicId);
+          const domain = subject?.domains.find(d => d.topics.some(t => t.id === topicId));
+          const topic = domain?.topics.find(t => t.id === topicId);
+          const subtopic = universalTopics.getSubtopicInfo(topicId, subtopicId);
+
+          return (
+            <div>
+              <div>{topic?.name || topicId}</div>
+              {subtopic && <small style={{ color: '#666' }}>{subtopic.name}</small>}
+            </div>
+          );
         },
       },
       {
-        id: 'subtopic',
-        header: 'תת-נושא',
-        accessorKey: 'metadata.subtopicId',
+        id: 'difficulty',
+        header: 'רמת קושי',
+        accessorKey: 'metadata.difficulty',
+        size: 100,
+        cell: ({ row }) => {
+          const isEditing = editingCell?.id === row.original.id && editingCell?.field === 'difficulty';
+          const difficulty = row.original.metadata.difficulty;
+
+          if (isEditing) {
+            return (
+              <Form form={form} initialValues={{ difficulty }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Form.Item name="difficulty">
+                    <Select 
+                      style={{ width: '100%' }}
+                      autoFocus
+                      onBlur={() => setEditingCell(null)}
+                      onKeyDown={e => {
+                        if (e.key === 'Escape') setEditingCell(null);
+                      }}
+                    >
+                      {[1, 2, 3, 4, 5].map(level => (
+                        <Option key={level} value={level}>{level}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                  <div className="edit-actions">
+                    <Button 
+                      size="small" 
+                      type="primary"
+                      icon={<SaveOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const values = form.getFieldsValue();
+                        handleSaveEdit(row.original.id, 'difficulty', values.difficulty);
+                      }}
+                    />
+                  </div>
+                </Space>
+              </Form>
+            );
+          }
+
+          return (
+            <EditableCell
+              className="editable"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingCell({ id: row.original.id, field: 'difficulty' });
+              }}
+            >
+              <Tag color={['', 'green', 'cyan', 'blue', 'purple', 'red'][difficulty]}>
+                {difficulty}
+              </Tag>
+            </EditableCell>
+          );
+        },
+      },
+      {
+        id: 'estimatedTime',
+        header: 'זמן מוערך',
+        accessorKey: 'metadata.estimatedTime',
         size: 120,
-        cell: ({ getValue }) => {
-          const subtopicId = getValue() as string;
-          const topic = topics.find(t => t.subTopics?.some(st => st.id === subtopicId));
-          const subtopic = topic?.subTopics?.find(st => st.id === subtopicId);
-          return subtopic?.name || subtopicId;
+        cell: ({ row }) => {
+          const isEditing = editingCell?.id === row.original.id && editingCell?.field === 'estimatedTime';
+          const estimatedTime = row.original.metadata.estimatedTime || 0;
+
+          if (isEditing) {
+            return (
+              <Form form={form} initialValues={{ estimatedTime }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Form.Item name="estimatedTime">
+                    <InputNumber
+                      min={0}
+                      max={180}
+                      style={{ width: '100%' }}
+                      autoFocus
+                      onBlur={() => setEditingCell(null)}
+                      onKeyDown={e => {
+                        if (e.key === 'Escape') setEditingCell(null);
+                      }}
+                      formatter={(value?: number) => value != null ? `${value} דקות` : ''}
+                      parser={(displayValue?: string) => {
+                        if (!displayValue) return 0;
+                        const parsed = parseInt(displayValue.replace(/[^\d]/g, ''), 10);
+                        return isNaN(parsed) ? 0 : Math.min(180, Math.max(0, parsed));
+                      }}
+                    />
+                  </Form.Item>
+                </Space>
+              </Form>
+            );
+          }
+
+          return (
+            <EditableCell
+              className="editable"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingCell({ id: row.original.id, field: 'estimatedTime' });
+              }}
+            >
+              {estimatedTime > 0 ? `${estimatedTime} דקות` : '-'}
+            </EditableCell>
+          );
         },
       },
       {
@@ -389,22 +700,55 @@ export function QuestionLibraryPage() {
         header: 'סוג',
         accessorKey: 'metadata.type',
         size: 100,
-        cell: ({ getValue }) => {
-          const type = getValue() as QuestionType;
-          return enumMappings.questionType[type] || type;
-        },
-      },
-      {
-        id: 'difficulty',
-        header: 'רמת קושי',
-        accessorKey: 'metadata.difficulty',
-        size: 120,
-        cell: ({ getValue }) => {
-          const difficulty = getValue() as DifficultyLevel;
+        cell: ({ row }) => {
+          const isEditing = editingCell?.id === row.original.id && editingCell?.field === 'type';
+          const type = row.original.metadata.type;
+
+          if (isEditing) {
+            return (
+              <Form form={form} initialValues={{ type }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Form.Item name="type">
+                    <Select
+                      style={{ width: '100%' }}
+                      autoFocus
+                      onBlur={() => setEditingCell(null)}
+                      onKeyDown={e => {
+                        if (e.key === 'Escape') setEditingCell(null);
+                      }}
+                    >
+                      {Object.entries(enumMappings.questionType).map(([key, label]) => (
+                        <Option key={key} value={key}>{label}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                  <div className="edit-actions">
+                    <Button 
+                      size="small" 
+                      type="primary"
+                      icon={<SaveOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const values = form.getFieldsValue();
+                        handleSaveEdit(row.original.id, 'type', values.type);
+                      }}
+                    />
+                  </div>
+                </Space>
+              </Form>
+            );
+          }
+
           return (
-            <Tag color={['', 'green', 'cyan', 'blue', 'purple', 'red'][difficulty]}>
-              {difficulty}
-            </Tag>
+            <EditableCell
+              className="editable"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingCell({ id: row.original.id, field: 'type' });
+              }}
+            >
+              {enumMappings.questionType[type] || type}
+            </EditableCell>
           );
         },
       },
@@ -488,33 +832,20 @@ export function QuestionLibraryPage() {
         cell: ({ getValue }) => dayjs(getValue() as string).format('DD/MM/YYYY HH:mm'),
       },
       {
-        id: 'actions',
-        header: 'פעולות',
-        size: 120,
+        id: 'delete',
+        header: '',
+        size: 50,
         cell: ({ row }) => (
-          <Space>
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditClick(row.original.id);
-              }}
-            />
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(row.original.id);
-              }}
-            />
-          </Space>
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(row.original.id)}
+          />
         ),
       },
     ],
-    [topics]
+    [editingCell, form, universalTopics]
   );
 
   // Add missing validationStatusConfig
@@ -579,9 +910,15 @@ export function QuestionLibraryPage() {
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     columnResizeMode,
+    enableColumnResizing: true,
   });
 
-  // ... Keep existing useEffects and handlers ...
+  // Initialize column order if not set
+  useEffect(() => {
+    if (columnOrder.length === 0) {
+      setColumnOrder(columns.map(col => col.id as string));
+    }
+  }, [columns]);
 
   return (
     <PageContainer>
@@ -595,86 +932,147 @@ export function QuestionLibraryPage() {
 
         <Card>
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            {/* Search and Filters */}
-            <Row gutter={16}>
+            <Row gutter={16} align="middle" justify="space-between">
               <Col>
-                <Input
-                  placeholder="Search questions..."
-                  prefix={<SearchOutlined />}
-                  value={searchText}
-                  onChange={e => handleSearchChange(e.target.value)}
-                  style={{ width: 200 }}
-                />
+                <Space size="middle">
+                  <Button
+                    type="primary"
+                    size="large"
+                    icon={<PlusOutlined />}
+                    onClick={() => navigate('/admin/questions/new')}
+                  >
+                    שאלה חדשה
+                  </Button>
+                  <Input
+                    placeholder="חיפוש שאלות..."
+                    prefix={<SearchOutlined />}
+                    value={searchText}
+                    onChange={e => handleSearchChange(e.target.value)}
+                    style={{ width: 200 }}
+                  />
+                </Space>
               </Col>
-              {/* Add other filter components */}
+              <Col>
+                <Space>
+                  <Select 
+                    placeholder="סוג שאלה"
+                    style={{ width: 120 }}
+                    allowClear
+                    onChange={value => setFilters(prev => ({ ...prev, type: value }))}
+                  >
+                    {Object.entries(enumMappings.questionType).map(([key, label]) => (
+                      <Option key={key} value={key}>{label}</Option>
+                    ))}
+                  </Select>
+                  <Select
+                    placeholder="רמת קושי"
+                    style={{ width: 120 }}
+                    allowClear
+                    onChange={value => setFilters(prev => ({ ...prev, difficulty: value }))}
+                  >
+                    {[1, 2, 3, 4, 5].map(level => (
+                      <Option key={level} value={level}>{level}</Option>
+                    ))}
+                  </Select>
+                </Space>
+              </Col>
             </Row>
 
-            {/* Table */}
             <TableStyles>
-              <table>
-                <thead>
-                  {table.getHeaderGroups().map(headerGroup => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map(header => (
-                        <th 
-                          key={header.id}
-                          style={{ width: header.getSize() }}
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                          <div
-                            className={`resizer ${
-                              header.column.getIsResizing() ? 'isResizing' : ''
-                            }`}
-                            onMouseDown={header.getResizeHandler()}
-                            onTouchStart={header.getResizeHandler()}
-                          />
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody>
-                  {table.getRowModel().rows.map(row => (
-                    <tr 
-                      key={row.id}
-                      className={row.getIsSelected() ? 'selected' : ''}
-                      onClick={() => handleEditClick(row.original.id)}
-                    >
-                      {row.getVisibleCells().map(cell => (
-                        <td key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    {table.getHeaderGroups().map(headerGroup => (
+                      <tr key={headerGroup.id}>
+                        {headerGroup.headers.map(header => (
+                          <th 
+                            key={header.id}
+                            style={{ 
+                              width: header.getSize(),
+                              position: 'relative',
+                              cursor: 'grab',
+                            }}
+                            className={header.column.getCanSort() ? 'sortable' : ''}
+                            onClick={header.column.getToggleSortingHandler()}
+                            draggable
+                            onDragStart={e => {
+                              e.dataTransfer.setData('text/plain', header.id);
+                            }}
+                            onDragOver={e => {
+                              e.preventDefault();
+                            }}
+                            onDrop={e => {
+                              e.preventDefault();
+                              const fromId = e.dataTransfer.getData('text/plain');
+                              const toId = header.id;
+                              if (fromId !== toId) {
+                                const newColumnOrder = [...columnOrder];
+                                const fromIndex = newColumnOrder.indexOf(fromId);
+                                const toIndex = newColumnOrder.indexOf(toId);
+                                newColumnOrder.splice(fromIndex, 1);
+                                newColumnOrder.splice(toIndex, 0, fromId);
+                                setColumnOrder(newColumnOrder);
+                              }
+                            }}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            <div
+                              {...{
+                                onMouseDown: header.getResizeHandler(),
+                                onTouchStart: header.getResizeHandler(),
+                                className: `resizer ${header.column.getIsResizing() ? 'isResizing' : ''}`,
+                              }}
+                            />
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody>
+                    {table.getRowModel().rows.map(row => (
+                      <StyledRow 
+                        key={row.id}
+                        className={row.getIsSelected() ? 'selected' : ''}
+                      >
+                        {row.getVisibleCells().map(cell => (
+                          <td key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </td>
+                        ))}
+                      </StyledRow>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </TableStyles>
 
-            {/* Pagination */}
-            <Row justify="end" gutter={16}>
+            <Row justify="space-between" align="middle">
               <Col>
-                <Button
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                >
-                  Previous
-                </Button>
+                <Text type="secondary">
+                  {`מציג ${table.getRowModel().rows.length} מתוך ${questions.length} שאלות`}
+                </Text>
               </Col>
               <Col>
-                <Button
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                >
-                  Next
-                </Button>
+                <Space>
+                  <Button
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    הקודם
+                  </Button>
+                  <Button
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    הבא
+                  </Button>
+                </Space>
               </Col>
             </Row>
           </Space>

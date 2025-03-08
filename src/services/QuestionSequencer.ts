@@ -75,10 +75,10 @@ export class QuestionSequencer {
 
       console.log('📊 SEQUENCER: Questions fetched:', {
         totalQuestions: questions?.length || 0,
-        uniqueSubtopics: questions ? Array.from(new Set(questions.map(q => q.metadata.subtopicId))).length : 0,
+        uniqueSubtopics: questions ? Array.from(new Set(questions.map(q => q.data.metadata.subtopicId))).length : 0,
         focusedSubtopic: prep.focusedSubTopic,
-        subtopicsInResults: questions ? Array.from(new Set(questions.map(q => q.metadata.subtopicId))) : [],
-        hasExpectedFocus: questions?.every(q => !prep.focusedSubTopic || q.metadata.subtopicId === prep.focusedSubTopic),
+        subtopicsInResults: questions ? Array.from(new Set(questions.map(q => q.data.metadata.subtopicId))) : [],
+        hasExpectedFocus: questions?.every(q => !prep.focusedSubTopic || q.data.metadata.subtopicId === prep.focusedSubTopic),
         timestamp: new Date().toISOString()
       });
 
@@ -96,7 +96,7 @@ export class QuestionSequencer {
 
       // Verify questions match focus criteria
       const unfocusedQuestions = questions.filter(q => 
-        prep.focusedSubTopic && q.metadata.subtopicId !== prep.focusedSubTopic
+        prep.focusedSubTopic && q.data.metadata.subtopicId !== prep.focusedSubTopic
       );
       
       if (unfocusedQuestions.length > 0) {
@@ -104,7 +104,7 @@ export class QuestionSequencer {
           focusedSubtopic: prep.focusedSubTopic,
           totalQuestions: questions.length,
           unfocusedCount: unfocusedQuestions.length,
-          unfocusedSubtopics: Array.from(new Set(unfocusedQuestions.map(q => q.metadata.subtopicId))),
+          unfocusedSubtopics: Array.from(new Set(unfocusedQuestions.map(q => q.data.metadata.subtopicId))),
           timestamp: new Date().toISOString()
         });
       }
@@ -112,13 +112,13 @@ export class QuestionSequencer {
       // Map questions to QuestionMetadata format
       this.questions = questions.map(q => ({
         id: q.id,
-        subject: q.metadata.subjectId,
-        domain: q.metadata.domainId,
-        subtopicId: q.metadata.subtopicId || '',
-        type: q.metadata.type,
+        subject: q.data.metadata.subjectId,
+        domain: q.data.metadata.domainId,
+        subtopicId: q.data.metadata.subtopicId || '',
+        type: q.data.metadata.type,
         metadata: {
-          subtopicId: q.metadata.subtopicId || '',
-          type: q.metadata.type
+          subtopicId: q.data.metadata.subtopicId || '',
+          type: q.data.metadata.type
         }
       }));
 

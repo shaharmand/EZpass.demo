@@ -11,7 +11,7 @@ import ExamDashboard from './pages/ExamDashboard';
 import { UserProfile } from './pages/UserProfile';
 import AdminLayout from './layouts/AdminLayout';
 import AdminDashboard from './pages/admin/Dashboard';
-import { QuestionLibraryPage } from './pages/admin/questions/QuestionLibraryPage';
+import QuestionsPage from './pages/admin/questions';
 import { QuestionEditor } from './pages/admin/questions/QuestionEditor';
 import { QuestionImport } from './pages/admin/questions/QuestionImport';
 import AuthCallback from './pages/AuthCallback';
@@ -62,7 +62,7 @@ const App: React.FC = () => {
             }>
               <Route index element={<AdminDashboard />} />
               <Route path="questions">
-                <Route index element={<QuestionLibraryPage />} />
+                <Route index element={<QuestionsPage />} />
                 <Route path="new" element={<QuestionEditor />} />
                 <Route path=":id" element={<QuestionEditor />} />
                 <Route path="import" element={<QuestionImport />} />

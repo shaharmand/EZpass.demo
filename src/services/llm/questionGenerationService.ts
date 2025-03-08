@@ -889,7 +889,7 @@ EXAMPLE OF CORRECT OPEN QUESTION:
         }
       });
 
-      return createdQuestion;
+      return createdQuestion.data;
     } catch (error) {
       logger.error('Error generating question:', error);
       throw error;

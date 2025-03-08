@@ -54,7 +54,7 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
       try {
         logger.info('Fetching question from storage', { questionId });
         const fetchedQuestion = await questionStorage.getQuestion(questionId);
-        setQuestion(fetchedQuestion);
+        setQuestion(fetchedQuestion?.data || null);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load question';
         setError(errorMessage);

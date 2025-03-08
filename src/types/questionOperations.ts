@@ -1,4 +1,4 @@
-import { DifficultyLevel, QuestionType, Question } from './question';
+import { DifficultyLevel, QuestionType, Question, ValidationStatus, PublicationStatusEnum } from './question';
 import { TopicReference } from './questionGeneration';
 
 /**
@@ -18,8 +18,8 @@ export interface QuestionFetchParams {
   };
   
   // Status filters
-  status?: 'draft' | 'published' | 'archived';
-  validationStatus?: 'pending' | 'valid' | 'invalid';
+  status?: PublicationStatusEnum;
+  validationStatus?: ValidationStatus;
   
   // Pagination
   page?: number;

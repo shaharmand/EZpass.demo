@@ -293,8 +293,11 @@ export const DEFAULT_AI_GENERATED_FIELDS: AIGeneratedFields = {
 };
 
 // Question as stored in DB - includes server-managed fields
-export interface DatabaseQuestion extends Question {
+export interface DatabaseQuestion {
   id: string;
+  // Core question data
+  data: Question;
+  
   // Status fields
   publication_status: PublicationStatusEnum;
   publication_metadata: PublicationMetadata;
@@ -314,7 +317,8 @@ export interface DatabaseQuestion extends Question {
 // Helper function to create a new DatabaseQuestion with default values
 export function createDatabaseQuestion(question: Question): DatabaseQuestion {
   return {
-    ...question,
+    id: question.id,
+    data: question,
     publication_status: PublicationStatusEnum.DRAFT,
     publication_metadata: DEFAULT_PUBLICATION_METADATA,
     validation_status: ValidationStatus.WARNING,
@@ -581,4 +585,52 @@ export interface DatabaseSaveQuestion extends SaveQuestion {
 export const ReviewStatusTranslations: Record<ReviewStatusEnum, string> = {
   [ReviewStatusEnum.PENDING_REVIEW]: 'ממתין לאישור',
   [ReviewStatusEnum.APPROVED]: 'מאושר'
-}; 
+};
+
+export const createEmptyQuestion = (): DatabaseQuestion => ({
+  id: '',  // Will be assigned by the backend
+  data: {
+    id: '',  // Will be assigned by the backend
+    name: '',
+    content: {
+      text: '',
+      format: 'markdown',
+      options: [
+        { text: '', format: 'markdown' },
+        { text: '', format: 'markdown' },
+        { text: '', format: 'markdown' },
+        { text: '', format: 'markdown' }
+      ]
+    },
+    metadata: {
+      subjectId: 'civil_engineering',
+      domainId: 'construction_safety',
+      topicId: '',  // Will need to be set by user
+      subtopicId: '',  // Will need to be set by user
+      type: QuestionType.MULTIPLE_CHOICE,
+      difficulty: 3,
+      estimatedTime: 5,
+      answerFormat: {
+        hasFinalAnswer: true,
+        finalAnswerType: 'multiple_choice',
+        requiresSolution: true
+      }
+    },
+    schoolAnswer: {
+      finalAnswer: {
+        type: 'multiple_choice',
+        value: 1  // Default to first option, can be changed by user
+      },
+      solution: { text: '', format: 'markdown' }  // Empty solution text with required format
+    },
+    evaluationGuidelines: EMPTY_EVALUATION_GUIDELINES
+  },
+  publication_status: PublicationStatusEnum.DRAFT,
+  publication_metadata: DEFAULT_PUBLICATION_METADATA,
+  validation_status: ValidationStatus.WARNING,
+  review_status: ReviewStatusEnum.PENDING_REVIEW,
+  review_metadata: DEFAULT_REVIEW_METADATA,
+  ai_generated_fields: DEFAULT_AI_GENERATED_FIELDS,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+}); 

@@ -101,7 +101,7 @@ export class QuestionGenerationServiceV2 {
         }
       });
 
-      return createdQuestion;
+      return createdQuestion.data;
     } catch (error) {
       logger.error('Error generating question:', error);
       throw error;

@@ -129,8 +129,8 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       console.log('Storage returned question', { 
         questionId,
         hasQuestion: !!question,
-        questionType: question?.metadata?.type,
-        subtopicId: question?.metadata?.subtopicId
+        questionType: question?.data?.metadata?.type,
+        subtopicId: question?.data?.metadata?.subtopicId
       });
 
       if (!question) {
@@ -138,10 +138,17 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return;
       }
 
+      console.log('Setting question state', {
+        questionId,
+        hasQuestion: !!question,
+        questionType: question?.data?.metadata?.type,
+        subtopicId: question?.data?.metadata?.subtopicId
+      });
+
       console.log('Setting new current question', { 
         questionId,
-        type: question.metadata.type,
-        subtopicId: question.metadata.subtopicId,
+        type: question.data.metadata.type,
+        subtopicId: question.data.metadata.subtopicId,
         previousQuestionId: currentQuestion?.id
       });
       setCurrentQuestion(question);
@@ -209,8 +216,8 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       try {
         const feedback = await feedbackService.generateFeedback(
-          currentQuestion, 
-          answer, // Extract text for feedback service
+          currentQuestion.data, 
+          answer,
           false,
           examContext
         );
@@ -218,9 +225,9 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
         // Create submission object using the provided FullAnswer
         const submission = {
           questionId: currentQuestion.id,
-          answer: answer, // Use the FullAnswer directly
+          answer: answer,
           metadata: {
-            ...currentQuestion.metadata,
+            ...currentQuestion.data.metadata,
             submittedAt: submissionTime,
             timeSpentMs: submissionTime - startTime,
             helpRequested: questionState.helpRequests.length > 0
@@ -232,7 +239,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } satisfies QuestionSubmission;
 
         // Update PrepStateManager
-        PrepStateManager.feedbackArrived(prep, currentQuestion, submission);
+        PrepStateManager.feedbackArrived(prep, currentQuestion.data, submission);
 
         // Update question state
         setQuestionState(prev => ({
@@ -281,7 +288,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
         error: error instanceof Error ? error.message : 'Unknown error in submission'
       }));
     }
-  }, [currentQuestion, prep, questionState.helpRequests, questionState.practiceStartedAt, questionState.status]);
+  }, [currentQuestion, prep, prepStateManager, questionState]);
 
   const handleSkipQuestion = useCallback(async (reason: SkipReason) => {
     if (!prep?.id) return;

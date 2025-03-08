@@ -2,7 +2,14 @@ import React from 'react';
 import { Space, Button, Tag, Typography, Tooltip, Row, Col, Alert } from 'antd';
 import { LeftOutlined, RightOutlined, HomeOutlined, CheckCircleOutlined, ExclamationCircleOutlined, ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { Question, PublicationStatusEnum, ReviewStatusEnum, REVIEW_STATUS_DESCRIPTIONS, ReviewMetadata } from '../../../types/question';
+import { 
+  Question, 
+  PublicationStatusEnum, 
+  ReviewStatusEnum, 
+  REVIEW_STATUS_DESCRIPTIONS, 
+  ReviewMetadata,
+  ValidationStatus 
+} from '../../../types/question';
 import { useAuth } from '../../../contexts/AuthContext';
 import dayjs from 'dayjs';
 import 'dayjs/locale/he';
@@ -80,15 +87,15 @@ const CompactValidation = styled.div`
 `;
 
 interface ValidationBarProps {
-  $type: 'error' | 'warning';
+  $type: Extract<ValidationStatus, 'error' | 'warning'>;
 }
 
 const ValidationBar = styled.div<ValidationBarProps>`
   display: flex;
   align-items: center;
   padding: 12px 24px;
-  background: ${props => props.$type === 'error' ? '#fff2f0' : '#fffbe6'};
-  border-bottom: 1px solid ${props => props.$type === 'error' ? '#ffccc7' : '#ffe58f'};
+  background: ${props => props.$type === ValidationStatus.ERROR ? '#fff2f0' : '#fffbe6'};
+  border-bottom: 1px solid ${props => props.$type === ValidationStatus.ERROR ? '#ffccc7' : '#ffe58f'};
   gap: 12px;
 `;
 
@@ -148,7 +155,7 @@ interface QuestionHeaderSectionProps {
     };
     review_status: ReviewStatusEnum;
     review_metadata: ReviewMetadata;
-    validation_status?: 'valid' | 'warning' | 'error';
+    validation_status?: ValidationStatus;
     validation_remarks?: string[];
   };
   onBack: () => void;
@@ -192,8 +199,8 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
 
   const remarks = question.validation_remarks || [];
   const hasRemarks = remarks.length > 0;
-  const isValidationError = question.validation_status === 'error';
-  const isValidationWarning = question.validation_status === 'warning';
+  const isValidationError = question.validation_status === ValidationStatus.ERROR;
+  const isValidationWarning = question.validation_status === ValidationStatus.WARNING;
   const hasValidationIssues = (isValidationError || isValidationWarning) && hasRemarks;
 
   const handleReviewStatusChange = async () => {
@@ -359,7 +366,7 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
         </StatusBar>
 
         {hasValidationIssues && (
-          <ValidationBar $type={isValidationError ? 'error' : 'warning'}>
+          <ValidationBar $type={isValidationError ? ValidationStatus.ERROR : ValidationStatus.WARNING}>
             {isValidationError ? (
               <ExclamationCircleOutlined style={{ fontSize: '20px', color: '#ff4d4f' }} />
             ) : (

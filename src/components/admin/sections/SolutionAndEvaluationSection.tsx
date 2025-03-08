@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, Space, Typography, Button } from 'antd';
 import { EditOutlined, CheckOutlined, SolutionOutlined } from '@ant-design/icons';
-import { Question, DatabaseQuestion } from '../../../types/question';
+import { Question, DatabaseQuestion, SaveQuestion } from '../../../types/question';
 import { QuestionSolution } from '../../question/QuestionSolution';
 import { QuestionEvaluation } from '../../question/QuestionEvaluation';
 import { validateQuestion, ValidationError } from '../../../utils/questionValidator';
@@ -14,7 +14,7 @@ interface SolutionAndEvaluationSectionProps {
   question: DatabaseQuestion;
   isEditing: boolean;
   onEdit: () => void;
-  onSave: (data: Partial<Question>) => Promise<void>;
+  onSave: (data: SaveQuestion) => Promise<void>;
 }
 
 export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSectionProps> = ({
@@ -23,7 +23,7 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
   onEdit,
   onSave
 }) => {
-  const validationResult = validateQuestion(question);
+  const validationResult = validateQuestion(question.data);
   // Separate solution and evaluation errors
   const solutionErrors = validationResult.errors.filter((err: ValidationError) => 
     err.field.startsWith('solution')
@@ -45,7 +45,7 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
     </Space>
   );
 
-  if (!question?.schoolAnswer?.solution) {
+  if (!question?.data?.schoolAnswer?.solution) {
     return renderEmptyState();
   }
 
@@ -57,13 +57,13 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
         border: `1px solid ${solutionErrors.length > 0 ? '#ff4d4f' : '#d9d9d9'}`,
         borderRadius: '6px'
       }}>
-        {!question.schoolAnswer.solution?.text ? renderEmptyState() : (
-          <QuestionSolution solution={question.schoolAnswer.solution} showCard={false} />
+        {!question.data.schoolAnswer.solution?.text ? renderEmptyState() : (
+          <QuestionSolution solution={question.data.schoolAnswer.solution} showCard={false} />
         )}
       </div>
 
       {/* Evaluation - only show for non-multiple choice questions */}
-      {question.metadata.type !== QuestionType.MULTIPLE_CHOICE && (
+      {question.data.metadata.type !== QuestionType.MULTIPLE_CHOICE && (
         <Card size="small">
           <Space style={{ width: '100%', justifyContent: 'space-between' }}>
             <Space>
@@ -78,13 +78,14 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
               ערוך
             </Button>
           </Space>
-          <div style={{ 
+          
+          <div style={{
             marginTop: '1rem',
             padding: '12px',
             border: `1px solid ${evaluationErrors.length > 0 ? '#ff4d4f' : '#d9d9d9'}`,
             borderRadius: '6px'
           }}>
-            {!question.evaluationGuidelines || !question.evaluationGuidelines.requiredCriteria?.length ? (
+            {!question.data.evaluationGuidelines || !question.data.evaluationGuidelines.requiredCriteria?.length ? (
               <Space direction="vertical" style={{ width: '100%', textAlign: 'center', padding: '20px' }}>
                 <CheckOutlined style={{ fontSize: '24px', color: '#ff4d4f' }} />
                 <Text type="danger">הערכה חסרה</Text>
@@ -99,7 +100,7 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
                 </Button>
               </Space>
             ) : (
-              <QuestionEvaluation evaluation={question.evaluationGuidelines} />
+              <QuestionEvaluation evaluation={question.data.evaluationGuidelines} />
             )}
           </div>
         </Card>

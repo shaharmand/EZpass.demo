@@ -219,8 +219,11 @@ const PracticePage: React.FC = () => {
     <Layout style={{ minHeight: '100vh' }}>
       <PracticeHeader 
         prepId={prepId || ''} 
-        currentQuestion={activePracticeQuestion}
-        question={currentQuestion || undefined}
+        currentQuestion={activePracticeQuestion && currentQuestion ? {
+          question: currentQuestion.data,
+          practiceState: activePracticeQuestion.practiceState
+        } : undefined}
+        question={currentQuestion?.data}
         prep={state.prep}
         onPrepUpdate={(updatedPrep) => {
           setState(prev => ({ ...prev, prep: updatedPrep }));
@@ -250,17 +253,21 @@ const PracticePage: React.FC = () => {
         {currentQuestion && state.prep && (
           <div className="practice-container">
             <div className="practice-main">
-              <QuestionInteractionContainer
-                question={currentQuestion}
-                onSubmit={handleSubmit}
-                onSkip={handleSkip}
-                onNext={handleNext}
-                onPrevious={handlePrevious}
-                prep={state.prep}
-                isQuestionLoading={state.isLoading}
-                state={questionState}
-                setState={setQuestionState}
-              />
+              {currentQuestion ? (
+                <QuestionInteractionContainer
+                  question={currentQuestion.data}
+                  onSubmit={handleSubmit}
+                  onSkip={handleSkip}
+                  onNext={handleNext}
+                  onPrevious={handlePrevious}
+                  prep={state.prep}
+                  isQuestionLoading={state.isLoading}
+                  state={questionState}
+                  setState={setQuestionState}
+                />
+              ) : (
+                <div>Loading...</div>
+              )}
             </div>
           </div>
         )}

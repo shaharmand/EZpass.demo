@@ -91,11 +91,10 @@ export const QuestionGenerator: React.FC = () => {
       // Save the question
       await questionStorage.saveQuestion({
         id: question.id,
-        data: question,
+        data: question.data,
         publication_status: question.publication_status,
         validation_status: question.validation_status,
         review_status: question.review_status
-        // Removed metadata fields - these are handled by DB triggers
       });
 
       // Save the result

@@ -259,23 +259,14 @@ export class QuestionStorage implements QuestionRepository {
   }
 
   private async initializeStorage(): Promise<void> {
-    if (this.initialized) return;
-
     try {
+      // Get all questions from database
       const { data: questions, error } = await this.supabase
         .from('questions')
-        .select('*') as { data: QuestionRow[] | null, error: any };
+        .select('*');
 
       if (error) {
-        console.error('Failed to load questions from database:', error);
         throw error;
-      }
-
-      if (!questions) {
-        console.warn('No questions found in database');
-        this.questionsCache.clear();
-        this.initialized = true;
-        return;
       }
 
       // Clear existing cache and update with questions from database
@@ -284,9 +275,20 @@ export class QuestionStorage implements QuestionRepository {
         // Validate and normalize the data
         this.validateQuestionData(row.data);
 
-        const question: DatabaseQuestion = {
-          ...row.data,
+        // Remove any nested data field if it exists
+        const { data: nestedData, ...cleanData } = row.data as any;
+        const questionData: Question = {
           id: row.id,
+          name: cleanData.name,
+          content: cleanData.content,
+          metadata: cleanData.metadata,
+          schoolAnswer: cleanData.schoolAnswer,
+          evaluationGuidelines: cleanData.evaluationGuidelines
+        };
+
+        const question: DatabaseQuestion = {
+          id: row.id,
+          data: questionData,
           publication_status: row.publication_status,
           publication_metadata: row.publication_metadata,
           validation_status: row.validation_status,
@@ -319,7 +321,7 @@ export class QuestionStorage implements QuestionRepository {
     return Array.from(this.questionsCache.values()).map(question => {
       // Ensure question type is properly cast to QuestionType enum
       const questionData = { ...question };
-      questionData.metadata.type = questionData.metadata.type as QuestionType;
+      questionData.data.metadata.type = questionData.data.metadata.type as QuestionType;
       return questionData;
     });
   }
@@ -327,90 +329,54 @@ export class QuestionStorage implements QuestionRepository {
   async getQuestionsList(): Promise<IQuestionListItem[]> {
     await this.ensureInitialized();
     return Array.from(this.questionsCache.values())
-      .filter(q => q.metadata.source && 
-                   q.metadata.subjectId && 
-                   q.metadata.domainId && 
-                   q.metadata.topicId && 
-                   q.metadata.subtopicId && 
-                   q.created_at && 
-                   q.updated_at &&
-                   q.review_status)
+      .filter(q => q.data.metadata.source != null)
       .map(q => {
-        // Log errors for missing required data - these are fundamental data integrity requirements
-        if (!q.metadata.source || 
-            !q.metadata.subjectId || 
-            !q.metadata.domainId || 
-            !q.metadata.topicId || 
-            !q.metadata.subtopicId || 
-            !q.created_at || 
-            !q.updated_at ||
-            !q.review_status) {
-          console.error('❌ Question missing required data - data integrity issue:', {
-            questionId: q.id,
-            missingFields: {
-              source: !q.metadata.source,
-              subjectId: !q.metadata.subjectId,
-              domainId: !q.metadata.domainId,
-              topicId: !q.metadata.topicId,
-              subtopicId: !q.metadata.subtopicId,
-              created_at: !q.created_at,
-              updated_at: !q.updated_at,
-              review_status: !q.review_status
-            }
-          });
-        }
-
-        // Ensure question type is properly cast to QuestionType enum
-        const type = q.metadata.type as QuestionType;
-        
-        // Handle source field according to interface requirements
-        const source = this.isExamSource(q.metadata.source)
+        // At this point we know source exists due to the filter
+        const source = this.isExamSource(q.data.metadata.source!) 
           ? {
               type: SourceType.EXAM as const,
-              examTemplateId: q.metadata.source!.examTemplateId,
-              year: q.metadata.source!.year,
-              season: q.metadata.source!.season,
-              moed: q.metadata.source!.moed,
-              ...(q.metadata.source!.order ? { order: q.metadata.source!.order } : {})
+              examTemplateId: q.data.metadata.source!.examTemplateId,
+              year: q.data.metadata.source!.year,
+              season: q.data.metadata.source!.season,
+              moed: q.data.metadata.source!.moed,
+              ...(q.data.metadata.source!.order ? { order: q.data.metadata.source!.order } : {})
             }
           : {
               type: SourceType.EZPASS as const,
-              creatorType: q.metadata.source!.creatorType
+              creatorType: q.data.metadata.source!.creatorType
             };
 
         return {
           id: q.id,
-          title: q.name || q.content.text.substring(0, 50) + '...',
-          content: q.content.text,
+          title: q.data.name || '',
+          content: q.data.content.text,
           metadata: {
-            subjectId: q.metadata.subjectId!,
-            domainId: q.metadata.domainId!,
-            topicId: q.metadata.topicId!,
-            subtopicId: q.metadata.subtopicId!,
-            type,
-            difficulty: q.metadata.difficulty,
-            estimatedTime: q.metadata.estimatedTime,
+            subjectId: q.data.metadata.subjectId,
+            domainId: q.data.metadata.domainId,
+            topicId: q.data.metadata.topicId,
+            subtopicId: q.data.metadata.subtopicId || q.data.metadata.topicId,
+            type: q.data.metadata.type,
+            difficulty: q.data.metadata.difficulty,
             source
           },
           publication_status: q.publication_status,
           validation_status: q.validation_status,
-          review_status: q.review_status,
-          created_at: q.created_at!,
-          updated_at: q.updated_at!
+          created_at: q.created_at,
+          updated_at: q.updated_at
         };
       });
   }
 
   private mapDatabaseRowToQuestion(row: QuestionRow): DatabaseQuestion {
     return {
-      ...row.data,
       id: row.id,
+      data: row.data,
       publication_status: row.publication_status,
-      publication_metadata: row.publication_metadata || DEFAULT_PUBLICATION_METADATA,
+      publication_metadata: row.publication_metadata,
       validation_status: row.validation_status,
       review_status: row.review_status,
-      review_metadata: row.review_metadata || DEFAULT_REVIEW_METADATA,
-      ai_generated_fields: row.ai_generated_fields || DEFAULT_AI_GENERATED_FIELDS,
+      review_metadata: row.review_metadata,
+      ai_generated_fields: row.ai_generated_fields,
       import_info: row.import_info,
       created_at: row.created_at,
       updated_at: row.updated_at
@@ -424,7 +390,7 @@ export class QuestionStorage implements QuestionRepository {
       
       const { data: row, error } = await this.supabase
         .from('questions')
-        .select('*, import_info')  // Explicitly include import_info in the selection
+        .select('*')
         .eq('id', id)
         .single();
 
@@ -434,14 +400,29 @@ export class QuestionStorage implements QuestionRepository {
       }
       if (!row) return null;
 
-      // Log what we got from the database
-      console.log('Question data from DB:', {
-        id: row.id,
-        hasImportInfo: !!row.import_info,
-        importInfo: row.import_info
-      });
+      // Check for nested data field - this should never happen
+      if ('data' in row.data) {
+        logger.error('Detected nested data field in database', {
+          questionId: id,
+          stack: new Error().stack
+        });
+        throw new Error('Invalid question structure in database: Nested data field detected. This is a bug that needs to be fixed.');
+      }
 
-      return this.mapDatabaseRowToQuestion(row as QuestionRow);
+      // Return the database structure as is
+      return {
+        id: row.id,
+        data: row.data,
+        publication_status: row.publication_status,
+        publication_metadata: row.publication_metadata || undefined,
+        validation_status: row.validation_status,
+        review_status: row.review_status,
+        review_metadata: row.review_metadata || undefined,
+        ai_generated_fields: row.ai_generated_fields || undefined,
+        import_info: row.import_info || undefined,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      };
     } catch (error) {
       console.error('Error getting question:', error);
       throw error;
@@ -886,25 +867,29 @@ export class QuestionStorage implements QuestionRepository {
       throw new Error('Review status is required for saving');
     }
 
+    // Check for nested data field - this should never happen
+    if ('data' in question.data) {
+      logger.error('Detected nested data field in question', {
+        questionId: question.id,
+        stack: new Error().stack
+      });
+      throw new Error('Invalid question structure: Nested data field detected. This is a bug that needs to be fixed.');
+    }
+
     // Get the current question to preserve import_info
     const currentQuestion = await this.getQuestion(question.id);
     if (!currentQuestion) {
       throw new Error(`Question ${question.id} does not exist. Use createQuestion for new questions.`);
     }
 
-    // Prepare the operation data with ONLY the fields that should trigger DB updates
-    const operationData: DatabaseOperation = {
+    // Prepare the operation data with ONLY the fields that should be in the database table
+    const operationData = {
       id: question.id,
-      data: question.data,
+      data: question.data,  // Direct assignment - no cleaning needed as we validate structure above
       publication_status: question.publication_status,
       validation_status: question.validation_status,
       review_status: question.review_status,
-      // Always include import_info from the current question
-      import_info: currentQuestion.import_info,
-      // Explicitly exclude metadata fields to ensure DB triggers handle them:
-      // - publication_metadata (handled by DB trigger)
-      // - review_metadata (handled by DB trigger)
-      // - ai_generated_fields (handled by DB trigger)
+      import_info: currentQuestion.import_info,  // Preserve existing import_info
       updated_at: new Date().toISOString()
     };
 
@@ -1021,11 +1006,6 @@ export class QuestionStorage implements QuestionRepository {
 
       // Handle topic hierarchy filtering
       if (filters.subject || filters.domain || filters.topic) {
-        console.log('🔍 FILTER PARAMS:', {
-          filters,
-          timestamp: new Date().toISOString()
-        });
-        
         if (filters.subject) {
           query = query.eq('data->metadata->>subjectId', filters.subject);
         }
@@ -1035,11 +1015,6 @@ export class QuestionStorage implements QuestionRepository {
         }
         
         if (filters.topic) {
-          console.log('🔍 APPLYING TOPIC FILTER:', {
-            topic: filters.topic,
-            path: 'data->metadata->>topicId',
-            timestamp: new Date().toISOString()
-          });
           query = query.eq('data->metadata->>topicId', filters.topic);
         }
 
@@ -1049,11 +1024,6 @@ export class QuestionStorage implements QuestionRepository {
       }
 
       if (filters.type) {
-        console.log('🔍 APPLYING TYPE FILTER:', {
-          type: filters.type,
-          path: 'data->metadata->>type',
-          timestamp: new Date().toISOString()
-        });
         query = query.eq('data->metadata->>type', filters.type);
       }
 
@@ -1091,14 +1061,17 @@ export class QuestionStorage implements QuestionRepository {
 
       // Transform to DatabaseQuestion format
       return questions.map(row => ({
-        ...row.data,
         id: row.id,
+        data: row.data,
         publication_status: row.publication_status,
         publication_metadata: row.publication_metadata || undefined,
         validation_status: row.validation_status,
         review_status: row.review_status,
-        created_at: row.created_at!,
-        updated_at: row.updated_at!
+        review_metadata: row.review_metadata || undefined,
+        ai_generated_fields: row.ai_generated_fields || undefined,
+        import_info: row.import_info || undefined,
+        created_at: row.created_at,
+        updated_at: row.updated_at
       }));
 
     } catch (error) {

@@ -122,6 +122,12 @@ export class QuestionSequencer {
         }
       }));
 
+      // Randomize question order using Fisher-Yates shuffle
+      for (let i = this.questions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [this.questions[i], this.questions[j]] = [this.questions[j], this.questions[i]];
+      }
+
       this.currentIndex = 0;
       
       console.log('✅ SEQUENCER: Started new sequence:', { 
@@ -129,7 +135,8 @@ export class QuestionSequencer {
         focusedSubTopic: prep.focusedSubTopic,
         focusedType: prep.focusedType,
         count: this.questions.length,
-        firstQuestionId: this.questions[0].id
+        firstQuestionId: this.questions[0].id,
+        isRandomized: true
       });
 
       return this.questions[0].id;

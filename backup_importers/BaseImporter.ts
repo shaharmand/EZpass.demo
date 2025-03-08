@@ -8,15 +8,6 @@ export interface ImportResult {
   warnings?: string[];
 }
 
-export interface ImportStats {
-  total: number;
-  successful: number;
-  failed: number;
-  skipped: number;
-  errors: string[];
-  warnings: string[];
-}
-
 export interface BatchImportResult {
   total: number;
   successful: number;
@@ -78,7 +69,7 @@ export abstract class BaseImporter {
   /**
    * Transform source question to our format
    */
-  protected abstract transformQuestion(sourceQuestion: any, id?: string): Promise<Question>;
+  protected abstract transformQuestion(sourceQuestion: any): Question;
 
   /**
    * Get unique identifier for the question in source format

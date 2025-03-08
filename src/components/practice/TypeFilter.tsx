@@ -29,7 +29,7 @@ export const TypeFilterContent: React.FC<TypeFilterContentProps> = ({
   
   const questionTypes: QuestionTypeOption[] = [
     { type: QuestionType.MULTIPLE_CHOICE, label: 'שאלות סגורות', enabled: true },
-    { type: QuestionType.OPEN, label: 'שאלות פתוחות', enabled: true },
+    { type: QuestionType.OPEN, label: 'שאלות פתוחות', enabled: false },
     { type: QuestionType.NUMERICAL, label: 'שאלות חישוביות', enabled: false }
   ];
 

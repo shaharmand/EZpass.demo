@@ -17,7 +17,6 @@ import { Topic, SubTopic } from '../../../types/subject';
 import { validateQuestion } from '../../../utils/questionValidator';
 import { examService } from '../../../services/examService';
 import { generateQuestionId, validateQuestionId } from '../../../utils/idGenerator';
-import { ExamInfoParser } from './utils/ExamInfoParser';
 const TurndownService = require('turndown');
 
 interface WordPressEzPassQuestion {
@@ -323,7 +322,7 @@ export class WordPressEzPassImporter extends BaseImporter {
         console.log('=========================================');
 
         // STEP 2: Always validate and transform (this doesn't touch DB)
-        const question = await this.transformQuestion(wpQuestion);
+        const question = this.transformQuestion(wpQuestion);
         const validationResult = validateQuestion(question);
 
         // STEP 3: If validation fails, return errors
@@ -512,13 +511,13 @@ export class WordPressEzPassImporter extends BaseImporter {
   /**
    * Transform WordPress question to our format
    */
-  protected async transformQuestion(wpQuestion: WordPressEzPassQuestion, providedId?: string): Promise<Question> {
+  protected transformQuestion(wpQuestion: WordPressEzPassQuestion): Question {
     // Extract exam info from title and question text
-    const titleExamInfo = ExamInfoParser.parseExamInfo(wpQuestion._title);
+    const titleExamInfo = this.parseExamInfo(wpQuestion._title);
     const { cleanedText: questionText, examInfo: questionExamInfo } = this.extractExamInfoFromQuestion(wpQuestion._question);
 
-    // Generate or use provided ID
-    const questionId = providedId || await generateQuestionId('civil_engineering', 'construction_safety');
+    // Generate ID for non-dry run
+    const id = `CIV-SAF-${String(wpQuestion._id).padStart(6, '0')}`;
 
     // Validate exam info consistency if both exist
     if (questionExamInfo && (questionExamInfo.year || questionExamInfo.season || questionExamInfo.moed)) {
@@ -534,8 +533,8 @@ export class WordPressEzPassImporter extends BaseImporter {
     // Find correct answer index
     const correctIndex = wpQuestion._answerData.findIndex(answer => answer._correct);
 
-    const transformed: Question = {
-      id: questionId,
+    return {
+      id,
       content: {
         text: questionText,
         format: 'markdown',
@@ -587,8 +586,6 @@ export class WordPressEzPassImporter extends BaseImporter {
         }]
       }
     };
-
-    return transformed;
   }
 
   async importQuestions(questions: WordPressEzPassQuestion[]): Promise<BatchImportResult> {

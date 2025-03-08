@@ -13,6 +13,7 @@ import { generateQuestionId } from '../../../utils/idGenerator';
 import { CategoryMapper } from './utils/CategoryMapper';
 import { CreateQuestion } from '../../../types/storage';
 import { QuestionStorage } from '../questionStorage';
+import { ExamInfoParser } from './utils/ExamInfoParser';
 
 interface OpenQuestion {
     _id: number;          // Post ID
@@ -56,7 +57,7 @@ export class OpenQuestionJsonXlsImporter extends BaseImporter {
 
     protected async transformQuestion(question: OpenQuestion, id?: string): Promise<Question> {
         // Extract exam info from title
-        const examInfo = this.parseExamInfo(question._title);
+        const examInfo = ExamInfoParser.parseExamInfo(question._title);
 
         // Map category to topic structure
         const { topicId, subtopicId } = CategoryMapper.mapCategoryToTopic(question._category || '');

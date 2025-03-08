@@ -11,6 +11,7 @@ import { generateQuestionId } from '../../../utils/idGenerator';
 import { CategoryMapper } from './utils/CategoryMapper';
 import { CreateQuestion } from '../../../types/storage';
 import { QuestionStorage } from '../questionStorage';
+import { ExamInfoParser } from './utils/ExamInfoParser';
 const XLSX = require('xlsx');
 
 interface ExcelQuestion {
@@ -87,7 +88,7 @@ export class OpenQuestionXlsImporter extends BaseImporter {
 
     protected async transformQuestion(question: ExcelQuestion, id?: string): Promise<Question> {
         // Extract exam info from title
-        const examInfo = this.parseExamInfo(question.title);
+        const examInfo = ExamInfoParser.parseExamInfo(question.title);
 
         // Map category to topic structure
         const { topicId, subtopicId } = CategoryMapper.mapCategoryToTopic(question.category);

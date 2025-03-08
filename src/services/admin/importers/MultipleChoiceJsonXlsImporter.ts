@@ -47,6 +47,10 @@ interface TopicMapping {
   topicId: string;
 }
 
+interface ExtendedImportStats extends ImportStats {
+    byCategory: { [key: string]: number };
+}
+
 export class MultipleChoiceJsonXlsImporter extends BaseImporter {
     private questionStorage!: QuestionStorage;
     private isDryRun: boolean = false;
@@ -303,7 +307,49 @@ export class MultipleChoiceJsonXlsImporter extends BaseImporter {
         return cleaned;
     }
 
-    async importFromJson(jsonPath: string, mappingPath: string, limit?: number, isDryRun: boolean = false): Promise<ImportStats> {
+    /**
+     * Extract exam information from text
+     * Example formats:
+     * [2023 קיץ מועד א]
+     * [2022 חורף מועד ב]
+     */
+    private parseExamInfo(text: string): { year?: number; season?: 'summer' | 'spring'; moed?: 'a' | 'b'; order?: number } {
+        const examInfoMatch = text.match(/\[(.*?)\]/);
+        if (!examInfoMatch) return {};
+
+        const info = examInfoMatch[1];
+        const result: { year?: number; season?: 'summer' | 'spring'; moed?: 'a' | 'b'; order?: number } = {};
+
+        // Extract year
+        const yearMatch = info.match(/\b20\d{2}\b/);
+        if (yearMatch) {
+            result.year = parseInt(yearMatch[0]);
+        }
+
+        // Extract season - map winter to spring
+        if (info.includes('קיץ')) {
+            result.season = 'summer';
+        } else if (info.includes('חורף')) {
+            result.season = 'spring'; // Map winter to spring
+        }
+
+        // Extract moed
+        if (info.includes('מועד א')) {
+            result.moed = 'a';
+        } else if (info.includes('מועד ב')) {
+            result.moed = 'b';
+        }
+
+        // Extract order if present (numeric value after #)
+        const orderMatch = info.match(/#(\d+)/);
+        if (orderMatch) {
+            result.order = parseInt(orderMatch[1]);
+        }
+
+        return result;
+    }
+
+    async importFromJson(jsonPath: string, mappingPath: string, limit?: number, isDryRun: boolean = false): Promise<ExtendedImportStats> {
         let categoryMap = new Map<string, string>();
 
         try {
@@ -403,11 +449,14 @@ export class MultipleChoiceJsonXlsImporter extends BaseImporter {
             const questionsToProcess = limit ? questions.slice(0, limit) : questions;
             console.log(chalk.blue(`\nProcessing ${questionsToProcess.length} questions${limit ? ` (from total of ${questions.length})` : ''}`));
 
-            const stats = {
+            const stats: ExtendedImportStats = {
                 total: questionsToProcess.length,
                 successful: 0,
                 failed: 0,
-                byCategory: {} as { [key: string]: number }
+                skipped: 0,
+                errors: [],
+                warnings: [],
+                byCategory: {}
             };
 
             for (const question of questionsToProcess) {
@@ -419,6 +468,12 @@ export class MultipleChoiceJsonXlsImporter extends BaseImporter {
                     }
                 } else {
                     stats.failed++;
+                    if (result.errors) {
+                        stats.errors.push(...result.errors);
+                    }
+                    if (result.warnings) {
+                        stats.warnings.push(...result.warnings);
+                    }
                 }
             }
 

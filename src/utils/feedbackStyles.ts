@@ -230,4 +230,22 @@ export const getDetailedFeedbackStyles = (evalLevel: DetailedEvalLevel): {
   };
 
   return styles;
+};
+
+export const getHebrewEvalLevel = (level: DetailedEvalLevel | BinaryEvalLevel): string => {
+  // Binary feedback
+  if (level === BinaryEvalLevel.CORRECT) return 'נכון';
+  if (level === BinaryEvalLevel.INCORRECT) return 'לא נכון';
+  
+  // Detailed feedback - use the Hebrew values directly from the enum
+  switch (level) {
+    case DetailedEvalLevel.PERFECT: return 'מושלם';
+    case DetailedEvalLevel.EXCELLENT: return 'מצוין';
+    case DetailedEvalLevel.VERY_GOOD: return 'טוב מאוד';
+    case DetailedEvalLevel.GOOD: return 'טוב';
+    case DetailedEvalLevel.FAIR: return 'סביר';
+    case DetailedEvalLevel.POOR: return 'חלש';
+    case DetailedEvalLevel.IRRELEVANT: return 'לא רלוונטי';
+    default: return 'לא מוגדר';
+  }
 }; 

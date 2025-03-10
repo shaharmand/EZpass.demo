@@ -236,6 +236,10 @@ export abstract class BaseImporter implements BaseQuestionImporter {
                                     `Validation warnings: ${validationResult.warnings.map(w => w.message).join(', ')}` : 
                                     ''
                         },
+                        update_metadata: {
+                            lastUpdatedAt: new Date().toISOString(),
+                            lastUpdatedBy: 'system'
+                        },
                         ai_generated_fields: {
                             fields: [],
                             confidence: {},

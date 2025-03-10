@@ -32,6 +32,7 @@ import { ColumnType } from 'antd/es/table';
 import type { TableProps } from 'antd';
 import { UserManagementModal } from '../../components/UserManagementModal';
 import { translations } from '../../translations/he';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 dayjs.locale('he');
 
@@ -332,29 +333,47 @@ export const Dashboard: React.FC = () => {
 
   const loadValidationIssues = useCallback(async () => {
     try {
+      console.log('Loading validation issues...');
+      // Add timestamp to log when the fetch starts
+      console.log('Fetch started at:', new Date().toISOString());
+      
       // Get questions with warnings and errors
       const questions = await questionStorage.getFilteredQuestions({
         validation_status: ValidationStatus.WARNING
+      });
+      
+      // Log each warning question's full details
+      questions.forEach(q => {
+        console.log('Warning Question Details:', {
+          id: q.id,
+          validation_status: q.validation_status,
+          updated_at: q.updated_at,
+          full_data: q
+        });
       });
       
       const errorQuestions = await questionStorage.getFilteredQuestions({
         validation_status: ValidationStatus.ERROR
       });
 
-      const issues = [...errorQuestions, ...questions].map(q => ({
-        id: q.id,
-        name: q.data.name || 'ללא שם',
-        text: typeof q.data.content === 'string' ? q.data.content : 
-              typeof q.data.content === 'object' && 'text' in q.data.content ? q.data.content.text :
-              JSON.stringify(q.data.content),
-        status: q.validation_status,
-        type: q.data.metadata.type,
-        topic: q.data.metadata.topicId,
-        subtopic: q.data.metadata.subtopicId || '',
-        updatedAt: q.updated_at,
-        review_status: q.review_status
-      }));
+      const issues = [...errorQuestions, ...questions].map(q => {
+        console.log('Processing question:', q.id, 'Validation status:', q.validation_status, 'Last updated:', q.updated_at);
+        return {
+          id: q.id,
+          name: q.data.name || 'ללא שם',
+          text: typeof q.data.content === 'string' ? q.data.content : 
+                typeof q.data.content === 'object' && 'text' in q.data.content ? q.data.content.text :
+                JSON.stringify(q.data.content),
+          status: q.validation_status,
+          type: q.data.metadata.type,
+          topic: q.data.metadata.topicId,
+          subtopic: q.data.metadata.subtopicId || '',
+          updatedAt: q.updated_at,
+          review_status: q.review_status
+        };
+      });
 
+      console.log('Fetch completed at:', new Date().toISOString());
       setValidationIssues(issues);
 
       // Get questions pending review
@@ -381,21 +400,6 @@ export const Dashboard: React.FC = () => {
       console.error('Failed to load validation issues:', error);
     }
   }, []);
-
-  const getSubtopicName = (topicId: string, subtopicId: string): string => {
-    const allSubjects = universalTopics.getAllSubjects();
-    for (const subject of allSubjects) {
-      for (const domain of subject.domains) {
-        for (const topic of domain.topics) {
-          const subtopic = topic.subTopics?.find((st: SubTopic) => st.id === subtopicId);
-          if (subtopic) {
-            return subtopic.name;
-          }
-        }
-      }
-    }
-    return subtopicId || '-';
-  };
 
   const loadDashboardStats = useCallback(async () => {
     try {
@@ -511,6 +515,55 @@ export const Dashboard: React.FC = () => {
       setLoading(false);
     }
   }, []);
+
+  // Add Supabase real-time subscription
+  useEffect(() => {
+    console.log('Setting up Supabase real-time subscription...');
+    // Subscribe to question updates
+    const channel = supabase
+      .channel('question_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'questions'
+        },
+        (payload: any) => {
+          console.log('Real-time update received:', payload);
+          if (payload.record) {
+            console.log('Question updated - Validation status:', payload.record.validation_status);
+          }
+          // Refresh validation issues and stats when a question is updated
+          loadValidationIssues();
+          loadDashboardStats();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+      });
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('Cleaning up Supabase subscription...');
+      channel.unsubscribe();
+    };
+  }, [loadValidationIssues, loadDashboardStats]);
+
+  const getSubtopicName = (topicId: string, subtopicId: string): string => {
+    const allSubjects = universalTopics.getAllSubjects();
+    for (const subject of allSubjects) {
+      for (const domain of subject.domains) {
+        for (const topic of domain.topics) {
+          const subtopic = topic.subTopics?.find((st: SubTopic) => st.id === subtopicId);
+          if (subtopic) {
+            return subtopic.name;
+          }
+        }
+      }
+    }
+    return subtopicId || '-';
+  };
 
   useEffect(() => {
     loadDashboardStats();

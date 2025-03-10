@@ -14,7 +14,8 @@ import {
   DEFAULT_PUBLICATION_METADATA,
   DEFAULT_REVIEW_METADATA,
   DEFAULT_AI_GENERATED_FIELDS,
-  MoedType
+  MoedType,
+  UpdateMetadata
 } from '../../types/question';
 import { CreateQuestion, QuestionRepository, DatabaseOperation, IQuestionListItem } from '../../types/storage';
 import { logger } from '../../utils/logger';
@@ -59,6 +60,7 @@ interface QuestionRow {
   validation_status: ValidationStatus;
   review_status: ReviewStatusEnum;
   review_metadata: ReviewMetadata;
+  update_metadata?: UpdateMetadata;
   ai_generated_fields: AIGeneratedFields;
   import_info?: ImportInfo;
   created_at: string;
@@ -314,6 +316,7 @@ export class QuestionStorage implements QuestionRepository {
           validation_status: row.validation_status,
           review_status: row.review_status,
           review_metadata: row.review_metadata,
+          update_metadata: row.update_metadata,
           ai_generated_fields: row.ai_generated_fields,
           import_info: row.import_info || undefined,
           created_at: row.created_at,
@@ -396,6 +399,7 @@ export class QuestionStorage implements QuestionRepository {
       validation_status: row.validation_status,
       review_status: row.review_status,
       review_metadata: row.review_metadata,
+      update_metadata: row.update_metadata,
       ai_generated_fields: row.ai_generated_fields,
       import_info: row.import_info,
       created_at: row.created_at,
@@ -438,6 +442,7 @@ export class QuestionStorage implements QuestionRepository {
         validation_status: row.validation_status,
         review_status: row.review_status,
         review_metadata: row.review_metadata || undefined,
+        update_metadata: row.update_metadata,
         ai_generated_fields: row.ai_generated_fields || undefined,
         import_info: row.import_info || undefined,
         created_at: row.created_at,
@@ -952,10 +957,32 @@ export class QuestionStorage implements QuestionRepository {
 
     // Execute the operation
     await this.executeQuestionOperation('save', question.id, async () => {
-      const { error } = await this.supabase
+      logger.info('Saving question with data:', {
+        questionId: question.id,
+        operationData
+      });
+
+      const { data, error } = await this.supabase
         .from('questions')
-        .upsert(operationData);
+        .upsert(operationData)
+        .select('*')
+        .single();
+
       if (error) throw error;
+
+      logger.info('Question saved successfully, received response:', {
+        questionId: question.id,
+        update_metadata: data?.update_metadata,
+        updated_at: data?.updated_at
+      });
+
+      // Verify the update by fetching the latest version
+      const updatedQuestion = await this.getQuestion(question.id);
+      logger.info('Verified saved question:', {
+        questionId: question.id,
+        update_metadata: updatedQuestion?.update_metadata,
+        updated_at: updatedQuestion?.updated_at
+      });
     });
   }
 
@@ -1152,6 +1179,7 @@ export class QuestionStorage implements QuestionRepository {
           validation_status: row.validation_status,
           review_status: row.review_status,
           review_metadata: row.review_metadata || undefined,
+          update_metadata: row.update_metadata,
           ai_generated_fields: row.ai_generated_fields || undefined,
           import_info: row.import_info || undefined,
           created_at: row.created_at,

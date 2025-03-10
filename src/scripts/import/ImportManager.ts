@@ -80,6 +80,10 @@ export class ImportManager {
                         `Validation warnings: ${validationResult.warnings.map(w => w.message).join(', ')}` : 
                         ''
             },
+            update_metadata: {
+                lastUpdatedAt: new Date().toISOString(),
+                lastUpdatedBy: 'system'
+            },
             ai_generated_fields: DEFAULT_AI_GENERATED_FIELDS,
             import_info: importInfo,
             created_at: new Date().toISOString(),

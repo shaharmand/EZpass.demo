@@ -803,11 +803,14 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
         name: title
       };
 
+      // Get latest validation status
+      const validationResult = await validateQuestion(questionData);
+
       const saveOperation: SaveQuestion = {
         id: question.id,
         data: questionData,
         publication_status: question.publication_status,
-        validation_status: question.validation_status,
+        validation_status: validationResult.status,
         review_status: question.review_status
       };
 
@@ -831,11 +834,14 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
         }
       };
 
+      // Get latest validation status
+      const validationResult = await validateQuestion(questionData);
+
       const saveOperation: SaveQuestion = {
         id: question.id,
         data: questionData,
         publication_status: question.publication_status,
-        validation_status: question.validation_status,
+        validation_status: validationResult.status,
         review_status: question.review_status
       };
 
@@ -913,11 +919,14 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
         }
       };
 
+      // Get latest validation status
+      const validationResult = await validateQuestion(questionData);
+
       const saveOperation: SaveQuestion = {
         id: question.id,
         data: questionData,
         publication_status: question.publication_status,
-        validation_status: question.validation_status,
+        validation_status: validationResult.status,
         review_status: question.review_status
       };
 
@@ -982,11 +991,14 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
         metadata: metadata
       };
 
+      // Get latest validation status
+      const validationResult = await validateQuestion(questionData);
+
       const saveOperation: SaveQuestion = {
         id: question.id,
         data: questionData,
         publication_status: question.publication_status,
-        validation_status: question.validation_status,
+        validation_status: validationResult.status,
         review_status: question.review_status
       };
 
@@ -1032,11 +1044,14 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
         }
       };
 
+      // Get latest validation status
+      const validationResult = await validateQuestion(questionData);
+
       const saveOperation: SaveQuestion = {
         id: question.id,
         data: questionData,
         publication_status: question.publication_status,
-        validation_status: question.validation_status,
+        validation_status: validationResult.status,
         review_status: question.review_status
       };
 
@@ -1247,16 +1262,6 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
           </Col>
           <Col flex="1">
             <Space direction="vertical" style={{ width: '100%' }}>
-              <MetadataField>
-                <MetadataLabel>נושא</MetadataLabel>
-                <ReadOnlyField>{metadata.subjectId}</ReadOnlyField>
-              </MetadataField>
-
-              <MetadataField>
-                <MetadataLabel>תחום</MetadataLabel>
-                <ReadOnlyField>{metadata.domainId}</ReadOnlyField>
-              </MetadataField>
-
               <MetadataField>
                 <MetadataLabel>רמת קושי</MetadataLabel>
                 <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>

@@ -547,6 +547,8 @@ export function QuestionLibraryPage() {
   const loadQuestions = useCallback(async () => {
     try {
       setLoading(true);
+      // Update the questionLibrary's current list with the current filters
+      await questionLibrary.updateCurrentList(filters);
       const loadedQuestions = await questionStorage.getFilteredQuestions(filters);
       const filteredQuestions = loadedQuestions
         .filter(question => question && typeof question.id === 'string' && !question.id.startsWith('test_'))

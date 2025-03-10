@@ -47,6 +47,7 @@ class QuestionLibrary {
 
   async updateCurrentList(filters: QuestionFilters) {
     this.currentFilters = filters;
+    // Get the filtered list
     const questions = await questionStorage.getFilteredQuestions(filters);
     this.currentList = questions.map(q => q.id);
     this.currentPosition = 0;
@@ -82,7 +83,7 @@ class QuestionLibrary {
     return await questionStorage.getQuestion(prevId);
   }
 
-  async getCurrentPosition(currentId: string): Promise<{ index: number; total: number } | null> {
+  async getCurrentPosition(currentId: string): Promise<{ index: number; filteredTotal: number } | null> {
     // Make sure we have the latest list
     if (this.currentList.length === 0) {
       await this.updateCurrentList(this.currentFilters);
@@ -95,7 +96,7 @@ class QuestionLibrary {
 
     return {
       index: currentIndex + 1, // 1-based index for display
-      total: this.currentList.length
+      filteredTotal: this.currentList.length
     };
   }
 }

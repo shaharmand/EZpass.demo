@@ -7,6 +7,7 @@ import {
   ValidationStatus,
   ReviewStatusEnum,
   ReviewMetadata,
+  UpdateMetadata,
   AIGeneratedFields,
   QuestionType,
   DifficultyLevel,
@@ -28,6 +29,7 @@ export interface DatabaseOperation {
   validation_status: ValidationStatus;
   review_status: ReviewStatusEnum;
   review_metadata?: ReviewMetadata;
+  update_metadata?: UpdateMetadata;
   ai_generated_fields?: AIGeneratedFields;
   import_info?: ImportInfo;
   created_at?: string;

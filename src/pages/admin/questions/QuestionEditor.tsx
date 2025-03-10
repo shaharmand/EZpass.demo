@@ -195,7 +195,7 @@ export const QuestionEditor: FC = () => {
   const [nextQuestionId, setNextQuestionId] = useState<string | null>(null);
   const [listPosition, setListPosition] = useState<{
     currentIndex: number;
-    totalQuestions: number;
+    filteredTotal: number;
   } | null>(null);
 
   // Run validation whenever question changes
@@ -244,7 +244,7 @@ export const QuestionEditor: FC = () => {
         if (position) {
           setListPosition({
             currentIndex: position.index,
-            totalQuestions: position.total
+            filteredTotal: position.filteredTotal
           });
         }
       } catch (error) {
@@ -281,26 +281,22 @@ export const QuestionEditor: FC = () => {
   };
 
   const handleSave = async (updatedQuestion: SaveQuestion) => {
-    if (!question) return;
-    
     try {
-      // Ensure data is not undefined
-      if (!updatedQuestion.data) {
-        throw new Error('Question data is required');
-      }
-
-      // The updatedQuestion already has the correct structure, just pass it through
       await questionStorage.saveQuestion(updatedQuestion);
       
-      // Update local state with the changes - ensure we have a valid DatabaseQuestion
-      const updatedDatabaseQuestion: DatabaseQuestion = {
-        ...question,
-        data: updatedQuestion.data as Question // Type assertion is safe here because we checked above
-      };
+      // Add a small delay to ensure DB trigger has completed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Force reload the question to get updated metadata from DB
+      const updatedDatabaseQuestion = await questionStorage.getQuestion(updatedQuestion.id);
+      if (!updatedDatabaseQuestion) {
+        throw new Error('Failed to reload question after save');
+      }
+
       setQuestion(updatedDatabaseQuestion);
       message.success('Question saved successfully');
       setIsEditing(false);
-      setIsModified(true);
+      setIsModified(false);
     } catch (error) {
       console.error('Failed to save question:', error);
       message.error('Failed to save question');
@@ -419,7 +415,9 @@ export const QuestionEditor: FC = () => {
             validation_remarks: currentValidation ? [
               ...currentValidation.errors.map(e => e.message),
               ...currentValidation.warnings.map(w => w.message)
-            ] : []
+            ] : [],
+            update_metadata: question.update_metadata,
+            created_at: question.created_at
           }}
           onBack={handleBack}
           onSave={handleSimpleSave}
@@ -429,44 +427,12 @@ export const QuestionEditor: FC = () => {
           hasPrevious={!!prevQuestionId}
           hasNext={!!nextQuestionId}
           currentPosition={listPosition ? {
-            current: listPosition.currentIndex + 1,
-            total: listPosition.totalQuestions
+            current: listPosition.currentIndex,
+            filteredTotal: listPosition.filteredTotal
           } : undefined}
           onReviewStatusChange={handleReviewStatusChange}
           onPublicationStatusChange={handlePublicationStatusChange}
         />
-
-        {currentValidation && (
-          <ValidationSection>
-            <div className="section-header">סטטוס אימות</div>
-            {currentValidation.errors.length > 0 && (
-              <div className="validation-errors">
-                <div className="validation-header">
-                  <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-                  <Text strong>שגיאות ({currentValidation.errors.length})</Text>
-                </div>
-                <div className="validation-tags">
-                  {currentValidation.errors.map((error, index) => (
-                    <Tag key={index} color="error">{error.message}</Tag>
-                  ))}
-                </div>
-              </div>
-            )}
-            {currentValidation.warnings.length > 0 && (
-              <div className="validation-warnings">
-                <div className="validation-header">
-                  <WarningOutlined style={{ color: '#faad14' }} />
-                  <Text strong>אזהרות ({currentValidation.warnings.length})</Text>
-                </div>
-                <div className="validation-tags">
-                  {currentValidation.warnings.map((warning, index) => (
-                    <Tag key={index} color="warning">{warning.message}</Tag>
-                  ))}
-                </div>
-              </div>
-            )}
-          </ValidationSection>
-        )}
 
         <MainContent>
           <QuestionContentSection

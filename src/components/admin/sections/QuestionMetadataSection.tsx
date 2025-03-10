@@ -640,27 +640,6 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
 
         <div className="metadata-section">
           <div className="section-header">
-            <ApartmentOutlined />
-            {getFieldTranslation('metadata.subject_info')}
-          </div>
-          <div className="topic-hierarchy">
-            <div className="topic-level topic-level-1">
-              {getFieldValidation('subjectId', 'subject')}
-            </div>
-            <div className="topic-level topic-level-2">
-              {getFieldValidation('domainId', 'domain')}
-            </div>
-            <div className="topic-level topic-level-3">
-              {getFieldValidation('topicId', 'topic')}
-            </div>
-            <div className="topic-level topic-level-4">
-              {getFieldValidation('subtopicId', 'subtopic')}
-            </div>
-          </div>
-        </div>
-
-        <div className="metadata-section">
-          <div className="section-header">
             <DatabaseOutlined />
             {getFieldTranslation('metadata.source_info')}
           </div>

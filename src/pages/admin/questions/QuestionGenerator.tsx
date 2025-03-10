@@ -66,23 +66,13 @@ export const QuestionGenerator: React.FC = () => {
       // Generate question using the new question generation service
       const generatedQuestion = await questionGenerationService.generateQuestion({
         type: values.type,
-        prompt: `Generate a ${values.difficulty} level ${values.type} question about ${values.specificTopic || values.subtopic || values.topic} in construction safety.`,
-        subjectId: 'civil_engineering',
-        domainId: 'construction_safety',
-        topicId: values.topic,
-        subtopicId: values.subtopic,
         difficulty: values.difficulty,
-        estimatedTime: form.getFieldValue('estimatedTime'),
-        answerFormat: {
-          hasFinalAnswer: values.type !== QuestionType.OPEN,
-          finalAnswerType: values.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' :
-                          values.type === QuestionType.NUMERICAL ? 'numerical' : 'none',
-          requiresSolution: true
-        },
-        source: {
-          type: 'ezpass',
-          creatorType: 'ai'
-        }
+        topic: values.topic,
+        subtopic: values.subtopic,
+        subject: 'civil_engineering',
+        domainId: 'construction_safety',
+        educationType: ExamInstitutionType.PRACTICAL_ENGINEERING,
+        examType: ExamType.MAHAT_EXAM
       });
 
       // Convert to DatabaseQuestion type
@@ -100,7 +90,7 @@ export const QuestionGenerator: React.FC = () => {
       // Save the result
       setResult({
         systemPrompt: 'Question Generation',
-        userPrompt: `Generate a ${values.difficulty} level ${values.type} question about ${values.specificTopic || values.subtopic || values.topic} in construction safety.`,
+        userPrompt: JSON.stringify(values, null, 2),
         rawResponse: JSON.stringify(question, null, 2),
         questionId: question.id,
         question: question

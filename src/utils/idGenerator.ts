@@ -2,6 +2,9 @@ import { universalTopics, universalTopicsV2 } from '../services/universalTopics'
 import { questionStorage } from '../services/admin/questionStorage';
 import { Domain } from '../types/subject';
 
+// Add counter at the top of the file after imports
+let fakeIdCounter = 1;
+
 /**
  * Validates the basic format of a question ID
  * Expected format: XXX-YYY-NNNNNN where:
@@ -75,12 +78,41 @@ export function validateQuestionId(id: string, subjectId: string, domainId: stri
 }
 
 /**
+ * Generates a fake question ID for dry runs in the format XXX-YYY-99NNNN
+ * where XXX is the 3-letter subject code, YYY is the 3-letter domain code,
+ * and 99NNNN is a number starting with 99 followed by 4 sequential digits
+ */
+export function generateFakeQuestionId(subjectId: string, domainId: string): string {
+    // Validate that the domain belongs to the subject
+    if (!universalTopicsV2.getDomainSafe(subjectId, domainId)) {
+        throw new Error(`Domain ${domainId} does not belong to subject ${subjectId}`);
+    }
+
+    // Get and validate the 3-letter codes
+    const subjectCode = universalTopicsV2.getSubjectCode(subjectId);
+    const domainCode = universalTopicsV2.getDomainCode(domainId);
+    
+    // Use incrementing counter for sequential fake IDs
+    const currentCounter = fakeIdCounter++;
+    if (fakeIdCounter > 9999) {
+        fakeIdCounter = 1; // Reset if we reach max
+    }
+    
+    // Format: XXX-YYY-99NNNN where NNNN is padded to 4 digits
+    return `${subjectCode}-${domainCode}-99${currentCounter.toString().padStart(4, '0')}`;
+}
+
+/**
  * Generates a unique question ID in the format XXX-YYY-NNNNNN
  * where XXX is the 3-letter subject code, YYY is the 3-letter domain code,
  * and NNNNNN is a sequential number from the database
  * @throws Error if subject or domain ID is invalid
  */
-export async function generateQuestionId(subjectId: string, domainId: string): Promise<string> {
+export async function generateQuestionId(subjectId: string, domainId: string, isDryRun?: boolean): Promise<string> {
+    if (isDryRun) {
+        return generateFakeQuestionId(subjectId, domainId);
+    }
+
     // Validate that the domain belongs to the subject
     if (!universalTopicsV2.getDomainSafe(subjectId, domainId)) {
         throw new Error(`Domain ${domainId} does not belong to subject ${subjectId}`);

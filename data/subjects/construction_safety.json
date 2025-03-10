@@ -168,6 +168,17 @@
                     "percentageOfTotal": 1.4
                 },
                 {
+                    "id": "rappelling_and_tower_climbing",
+                    "name": "גלישה וטיפוס תרנים",
+                    "description": "בטיחות בעבודות גלישה, טיפוס תרנים והכשרת עובדים לעבודות אלו",
+                    "typicalQuestions": {
+                        "multiple_choice": "שאלות על ציוד בטיחות, תנאי מזג אוויר מותרים ואחריות מבצעים",
+                        "open": "תכנון עבודת גלישה ונהלי חירום",
+                        "numerical": "חישובי עומסי ציוד ומרחקי בטיחות"
+                    },
+                    "percentageOfTotal": 0
+                },
+                {
                     "id": "work_at_height",
                     "name": "עבודה בגובה",
                     "description": "הגדרות, אחריות, ציוד מגן, מניעת נפילה ותנאי העסקה",

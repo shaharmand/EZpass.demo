@@ -6,8 +6,12 @@ import {
   QuestionFetchParams,
   FilterState,
   EzpassCreatorType,
-  isValidQuestionType
+  isValidQuestionType,
+  SourceType,
+  ExamPeriod,
+  MoedType
 } from '../types/question';
+import { ExamType } from '../types/examTemplate';
 import { universalTopicsV2 } from '../services/universalTopics';
 import { examService } from '../services/examService';
 import { validateContent } from './contentFormatValidator';
@@ -38,10 +42,18 @@ const VALID_QUESTION_TYPES = [
 ] as const;
 const VALID_DIFFICULTY_LEVELS = [1, 2, 3, 4, 5] as const;
 const VALID_SOURCE_TYPES = ['exam', 'ezpass'] as const;
-const VALID_SEASONS = ['spring', 'summer'] as const;
-const VALID_MOEDS = ['a', 'b'] as const;
+const VALID_PERIODS: ExamPeriod[] = ['Spring', 'Summer', 'Winter', 'Fall'];
+const VALID_MOEDS: MoedType[] = ['A', 'B', 'Special'];
 
-export function validateQuestion(question: Question): ValidationResult {
+// Add specific period validations for different exam types
+const VALID_MAHAT_PERIODS: ExamPeriod[] = ['Spring', 'Summer'];
+const VALID_UNI_PERIODS: ExamPeriod[] = ['A', 'B', 'Summer'];
+const VALID_BAGRUT_PERIODS: ExamPeriod[] = ['Winter', 'Summer'];
+
+/**
+ * Validates if a question matches the given filter criteria
+ */
+export async function validateQuestion(question: Question): Promise<ValidationResult> {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
 
@@ -236,26 +248,76 @@ export function validateQuestion(question: Question): ValidationResult {
             if (!question.metadata.source.examTemplateId) {
               addError('metadata.source.examTemplateId', 'תבנית מבחן חסרה');
             } else {
-              // Validate that exam template exists
+              // Validate that exam template exists - synchronous call
               const examTemplate = examService.getExamById(question.metadata.source.examTemplateId);
               if (!examTemplate) {
                 addError('metadata.source.examTemplateId', `תבנית מבחן לא קיימת: ${question.metadata.source.examTemplateId}`);
+              } else {
+                // Check exam type and validate periods accordingly
+                if (examTemplate.examType === ExamType.GOVERNMENT_EXAM) {
+                  // For government exams, period and moed are not required
+                  if (question.metadata.source.period) {
+                    addWarning('metadata.source.period', 'תקופה לא נדרשת למבחן ממשלתי');
+                  }
+                  if (question.metadata.source.moed) {
+                    addWarning('metadata.source.moed', 'מועד לא נדרש למבחן ממשלתי');
+                  }
+                } else {
+                  // For all other exam types, validate period and moed
+                  if (!question.metadata.source.period) {
+                    addError('metadata.source.period', 'שדה תקופה במבחן: חסר (אביב/קיץ/חורף/סתיו)');
+                  } else {
+                    // Validate period based on exam type
+                    switch (examTemplate.examType) {
+                      case ExamType.MAHAT_EXAM:
+                        if (!VALID_MAHAT_PERIODS.includes(question.metadata.source.period)) {
+                          addError('metadata.source.period', 
+                            `שדה תקופה במבחן: ערך לא חוקי למבחן מה"ט. התקבל '${question.metadata.source.period}'. ` + 
+                            `תקופות חוקיות: ${VALID_MAHAT_PERIODS.join(', ')}`);
+                        }
+                        break;
+                        
+                      case ExamType.UNI_COURSE_EXAM:
+                        if (!VALID_UNI_PERIODS.includes(question.metadata.source.period)) {
+                          addError('metadata.source.period', 
+                            `שדה תקופה במבחן: ערך לא חוקי למבחן אוניברסיטה. התקבל '${question.metadata.source.period}'. ` + 
+                            `תקופות חוקיות: ${VALID_UNI_PERIODS.join(', ')}`);
+                        }
+                        break;
+                        
+                      case ExamType.BAGRUT_EXAM:
+                        if (!VALID_BAGRUT_PERIODS.includes(question.metadata.source.period)) {
+                          addError('metadata.source.period', 
+                            `שדה תקופה במבחן: ערך לא חוקי למבחן בגרות. התקבל '${question.metadata.source.period}'. ` + 
+                            `תקופות חוקיות: ${VALID_BAGRUT_PERIODS.join(', ')}`);
+                        }
+                        break;
+                        
+                      default:
+                        // For other exam types, allow all periods
+                        if (!VALID_PERIODS.includes(question.metadata.source.period)) {
+                          addError('metadata.source.period', 
+                            `שדה תקופה במבחן: ערך לא חוקי. התקבל '${question.metadata.source.period}'. ` + 
+                            `תקופות חוקיות: ${VALID_PERIODS.join(', ')}`);
+                        }
+                    }
+                  }
+
+                  // Validate moed for non-government exams
+                  if (!question.metadata.source.moed) {
+                    addError('metadata.source.moed', 'מועד חסר');
+                  } else if (!VALID_MOEDS.includes(question.metadata.source.moed)) {
+                    addError('metadata.source.moed', `מועד לא חוקי: ${question.metadata.source.moed}`);
+                  }
+                }
               }
             }
+
+            // Year validation is required for all exam types
             if (!question.metadata.source.year) {
               addError('metadata.source.year', 'שנה חסרה');
             } else if (question.metadata.source.year < 1900 || question.metadata.source.year > new Date().getFullYear() + 1) {
               addError('metadata.source.year', 'שנה לא חוקית');
-            }
-            if (!question.metadata.source.season) {
-              addError('metadata.source.season', 'תקופה חסרה');
-            } else if (!VALID_SEASONS.includes(question.metadata.source.season)) {
-              addError('metadata.source.season', `תקופה לא חוקית: ${question.metadata.source.season}`);
-            }
-            if (!question.metadata.source.moed) {
-              addError('metadata.source.moed', 'מועד חסר');
-            } else if (!VALID_MOEDS.includes(question.metadata.source.moed)) {
-              addError('metadata.source.moed', `מועד לא חוקי: ${question.metadata.source.moed}`);
             }
             break;
           case 'ezpass':
@@ -323,12 +385,9 @@ export function validateQuestion(question: Question): ValidationResult {
             message: 'מומלץ לכלול טקסט פתרון בשאלות פתוחות'
           });
         }
-        // Open MUST have evaluation
+        // Set default evaluation guidelines for open questions if none exist
         if (!question.evaluationGuidelines) {
-          errors.push({
-            field: 'evaluationGuidelines',
-            message: 'הערכה חסרה - נדרשת לשאלות פתוחות'
-          });
+          question.evaluationGuidelines = createDefaultOpenQuestionGuidelines();
         }
         break;
     }
@@ -420,8 +479,8 @@ export function validateQuestionFilter(params: QuestionFetchParams, filter: Filt
       if (filter.source.year && params.source.year !== filter.source.year) {
         addError('source.year', `שנת מבחן ${params.source.year} לא תואמת לשנה המבוקשת ${filter.source.year}`);
       }
-      if (filter.source.season && params.source.season !== filter.source.season) {
-        addError('source.season', `תקופת מבחן ${params.source.season} לא תואמת לתקופה המבוקשת ${filter.source.season}`);
+      if (filter.source.period && params.source.period !== filter.source.period) {
+        addError('source.period', `תקופת מבחן ${params.source.period} לא תואמת לתקופה המבוקשת ${filter.source.period}`);
       }
       if (filter.source.moed && params.source.moed !== filter.source.moed) {
         addError('source.moed', `מועד מבחן ${params.source.moed} לא תואם למועד המבוקש ${filter.source.moed}`);
@@ -475,7 +534,7 @@ export function satisfiesFilter(params: Question, filter: FilterState): boolean 
       if (filter.source.year && params.metadata.source.year !== filter.source.year) {
         return false;
       }
-      if (filter.source.season && params.metadata.source.season !== filter.source.season) {
+      if (filter.source.period && params.metadata.source.period !== filter.source.period) {
         return false;
       }
       if (filter.source.moed && params.metadata.source.moed !== filter.source.moed) {
@@ -498,7 +557,7 @@ export interface QuestionFilter {
   source?: {
     type: 'exam' | 'ezpass';
     year?: number;
-    season?: 'spring' | 'summer';
+    period?: 'Spring' | 'Summer' | 'Winter' | 'Fall';
     moed?: 'a' | 'b';
   };
 }
@@ -568,4 +627,36 @@ function validateFinalAnswer(finalAnswer: any, questionType?: QuestionType): Val
   }
 
   return errors;
+}
+
+interface ExamSourceFilter {
+    type: 'exam' | 'ezpass';
+    year?: number;
+    period?: ExamPeriod;
+    moed?: MoedType;
+};
+
+/**
+ * Creates default evaluation guidelines for open questions
+ */
+function createDefaultOpenQuestionGuidelines() {
+  return {
+    requiredCriteria: [
+      {
+        name: "Correctness",
+        description: "מידת הדיוק והנכונות של התשובה בהשוואה לפתרון המורה",
+        weight: 50
+      },
+      {
+        name: "Completeness",
+        description: "מידת השלמות של התשובה - האם כל הנקודות החשובות מהפתרון הוזכרו",
+        weight: 35
+      },
+      {
+        name: "Clarity",
+        description: "בהירות ההסבר, ארגון התשובה וסדר הגיוני",
+        weight: 15
+      }
+    ]
+  };
 } 

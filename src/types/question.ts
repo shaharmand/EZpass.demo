@@ -1,4 +1,5 @@
 import { ExamType, ExamInstitutionType } from './examTemplate';
+import { ImportInfo } from '../scripts/import/types/importTypes';
 
 /** 
  * Difficulty level from 1 (easiest) to 5 (hardest)
@@ -119,21 +120,6 @@ export interface FullAnswer {
   };
 }
 
-/** 
- * Information about where a question was imported from.
- * This is stored in the DB's import_info field, separate from the question itself.
- */
-export interface ImportInfo {
-  /** The system the question was imported from */
-  system: 'ezpass';  // Simplified to just ezpass since we're focusing on construction safety
-  /** Original ID in the source system */
-  originalId: string | number;
-  /** When this question was imported */
-  importedAt?: string;
-  /** Any additional system-specific data */
-  additionalData?: Record<string, any>;
-}
-
 /**
  * Question's validation status - simple result of automated validation
  */
@@ -170,6 +156,11 @@ export interface PublishInfo {
   publishedAt?: string; // ISO date string
 }
 
+export type ExamPeriod = "A" | "B" | "Summer" | "Winter" | "Spring" | "Fall" | string;
+
+// Add the new MoedType
+export type MoedType = "A" | "B" | "Special";
+
 /** 
  * Represents a complete question
  */
@@ -201,8 +192,8 @@ export interface Question {
       | { type: 'exam';
           examTemplateId: string;
           year: number;
-          season: 'spring' | 'summer';
-          moed: 'a' | 'b';
+          period?: ExamPeriod;
+          moed?: MoedType;
           order?: number;
         }
       | { type: 'ezpass';
@@ -351,8 +342,8 @@ export interface QuestionListItem {
       type: SourceType;
       examTemplateId?: string;
       year?: number;
-      season?: 'spring' | 'summer';
-      moed?: 'a' | 'b';
+      period?: ExamPeriod;
+      moed?: MoedType;
       creatorType?: EzpassCreatorType;
     };
   };
@@ -383,6 +374,8 @@ export interface QuestionFetchParams {
   type: QuestionType;
   /** Subject area */
   subject: string;
+  /** Domain area */
+  domainId: string;
   /** Target education level */
   educationType: ExamInstitutionType;
   /** Type of exam this is for */
@@ -392,8 +385,8 @@ export interface QuestionFetchParams {
     | { type: 'exam';
         examTemplateId: string;
         year: number;
-        season: 'spring' | 'summer';
-        moed: 'a' | 'b';
+        period?: ExamPeriod;
+        moed?: MoedType;
       }
     | { type: 'ezpass';
         creatorType: EzpassCreatorType;
@@ -549,8 +542,8 @@ export interface FilterState {
   source?: {
     type: 'exam' | 'ezpass';
     year?: number;
-    season?: 'spring' | 'summer';
-    moed?: 'a' | 'b';
+    period?: ExamPeriod;
+    moed?: MoedType;
   };
 }
 

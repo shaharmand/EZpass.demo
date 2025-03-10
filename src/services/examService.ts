@@ -151,73 +151,19 @@ class ExamService {
         this.examsByDomain.get(domainId)?.push(exam);
       });
 
-      // High-level summary
-      logger.info('📚 ExamService initialized successfully', {
+      // Simple success summary with counts
+      logger.info('ExamService initialized:', {
         totalExams: this.examCache.size,
-        examTypes: Array.from(this.examsByType.keys())
+        examsByType: Object.fromEntries(
+          Array.from(this.examsByType.entries()).map(([type, exams]) => [type, exams.length])
+        ),
+        examsBySubject: Object.fromEntries(
+          Array.from(this.examsBySubject.entries()).map(([id, exams]) => [id, exams.length])
+        ),
+        examsByDomain: Object.fromEntries(
+          Array.from(this.examsByDomain.entries()).map(([id, exams]) => [id, exams.length])
+        )
       });
-
-      // High-level subject summary
-      Array.from(this.examsBySubject.entries()).forEach(([subjectId, exams]) => {
-        logger.info(`📘 Subject: ${subjectId}`, {
-          totalExams: exams.length,
-          examTypes: Array.from(new Set(exams.map(e => e.examType))),
-          domains: Array.from(new Set(exams.map(e => e.domainId)))
-        });
-      });
-
-      // High-level domain summary
-      Array.from(this.examsByDomain.entries()).forEach(([domainId, exams]) => {
-        logger.info(`🏷️ Domain: ${domainId}`, {
-          totalExams: exams.length,
-          examTypes: Array.from(new Set(exams.map(e => e.examType))),
-          subjects: Array.from(new Set(exams.map(e => e.subjectId)))
-        });
-      });
-
-      // Detailed information (collapsed by default)
-      console.groupCollapsed('🔍 Detailed Information');
-      
-      // Detailed subject info
-      console.groupCollapsed('📚 Subjects');
-      Array.from(this.examsBySubject.entries()).forEach(([subjectId, exams]) => {
-        console.groupCollapsed(`${subjectId}`);
-        exams.forEach(exam => {
-          console.log(`${exam.names.short} (${exam.id})`);
-          console.log('  Topics:', exam.topics.map(t => t.name).join(', '));
-          console.log('  Total Subtopics:', exam.topics.reduce((sum, t) => sum + t.subTopics.length, 0));
-        });
-        console.groupEnd();
-      });
-      console.groupEnd();
-
-      // Detailed domain info
-      console.groupCollapsed('🏷️ Domains');
-      Array.from(this.examsByDomain.entries()).forEach(([domainId, exams]) => {
-        console.groupCollapsed(`${domainId}`);
-        exams.forEach(exam => {
-          console.log(`${exam.names.short} (${exam.id})`);
-          console.log('  Subject:', exam.subjectId);
-          console.log('  Type:', exam.examType);
-        });
-        console.groupEnd();
-      });
-      console.groupEnd();
-
-      // Detailed exam type info
-      console.groupCollapsed('📝 Exam Types');
-      Array.from(this.examsByType.entries()).forEach(([type, exams]) => {
-        console.groupCollapsed(`${type}`);
-        exams.forEach(exam => {
-          console.log(`${exam.names.short} (${exam.id})`);
-          console.log('  Subject:', exam.subjectId);
-          console.log('  Domain:', exam.domainId);
-        });
-        console.groupEnd();
-      });
-      console.groupEnd();
-
-      console.groupEnd();
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -240,7 +186,7 @@ class ExamService {
    * Gets all exams of a specific type.
    * @param examType Type of exams to load (bagrut/mahat)
    */
-  async getExamsByType(examType: ExamType): Promise<ExamTemplate[]> {
+  getExamsByType(examType: ExamType): ExamTemplate[] {
     const exams = this.examsByType.get(examType) || [];
     return exams;
   }
@@ -249,7 +195,7 @@ class ExamService {
    * Gets all exams of a specific domain.
    * @param domainId Domain ID to load exams for
    */
-  async getExamsByDomain(domainId: string): Promise<ExamTemplate[]> {
+  getExamsByDomain(domainId: string): ExamTemplate[] {
     const exams = this.examsByDomain.get(domainId) || [];
     return exams;
   }
@@ -258,7 +204,7 @@ class ExamService {
    * Gets a specific exam by ID.
    * @param examId Unique exam identifier
    */
-  async getExamById(examId: string): Promise<ExamTemplate | null> {
+  getExamById(examId: string): ExamTemplate | null {
     const examData = this.examCache.get(examId);
     if (!examData) return null;
     return examData;

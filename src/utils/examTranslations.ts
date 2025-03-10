@@ -1,4 +1,5 @@
 import { examService } from '../services/examService';
+import { enumMappings } from './translations';
 
 // Add exam template translations
 const examTemplateTranslations: Record<string, string> = {
@@ -18,19 +19,11 @@ export const getExamTemplateName = async (examTemplateId: string): Promise<strin
   }
 };
 
-// Season translations
-const seasonTranslations: Record<string, string> = {
-  'spring': 'אביב',
-  'summer': 'קיץ',
-  'winter': 'חורף'
-};
+// Season translations - use the same translations as in translations.ts
+const seasonTranslations = enumMappings.period;
 
-// Moed translations
-const moedTranslations: Record<string, string> = {
-  'a': 'א׳',
-  'b': 'ב׳',
-  'c': 'ג׳'
-};
+// Moed translations - use the same translations as in translations.ts
+const moedTranslations = enumMappings.moed;
 
 // Helper function to get exam source display text
 export const getExamSourceDisplayText = (source: {

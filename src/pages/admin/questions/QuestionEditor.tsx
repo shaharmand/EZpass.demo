@@ -201,8 +201,9 @@ export const QuestionEditor: FC = () => {
   // Run validation whenever question changes
   useEffect(() => {
     if (question) {
-      const result = validateQuestion(question.data);
-      setCurrentValidation(result);
+      validateQuestion(question.data).then(result => {
+        setCurrentValidation(result);
+      });
     }
   }, [question]);
 
@@ -215,7 +216,7 @@ export const QuestionEditor: FC = () => {
           if (found) {
             setQuestion(found);
             // Run validation immediately after setting the question
-            const validationResult = validateQuestion(found.data);
+            const validationResult = await validateQuestion(found.data);
             setCurrentValidation(validationResult);
           } else {
             message.error('Question not found');
@@ -414,7 +415,11 @@ export const QuestionEditor: FC = () => {
               reviewedBy: '',
               comments: ''
             },
-            validation_status: question.validation_status
+            validation_status: currentValidation?.status || question.validation_status,
+            validation_remarks: currentValidation ? [
+              ...currentValidation.errors.map(e => e.message),
+              ...currentValidation.warnings.map(w => w.message)
+            ] : []
           }}
           onBack={handleBack}
           onSave={handleSimpleSave}
@@ -438,7 +443,7 @@ export const QuestionEditor: FC = () => {
               <div className="validation-errors">
                 <div className="validation-header">
                   <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-                  <Text strong>שגיאות</Text>
+                  <Text strong>שגיאות ({currentValidation.errors.length})</Text>
                 </div>
                 <div className="validation-tags">
                   {currentValidation.errors.map((error, index) => (
@@ -451,7 +456,7 @@ export const QuestionEditor: FC = () => {
               <div className="validation-warnings">
                 <div className="validation-header">
                   <WarningOutlined style={{ color: '#faad14' }} />
-                  <Text strong>אזהרות</Text>
+                  <Text strong>אזהרות ({currentValidation.warnings.length})</Text>
                 </div>
                 <div className="validation-tags">
                   {currentValidation.warnings.map((warning, index) => (

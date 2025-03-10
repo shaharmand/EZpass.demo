@@ -7,14 +7,14 @@ import {
   ReviewStatusEnum,
   ReviewMetadata,
   AIGeneratedFields,
-  ImportInfo,
   QuestionType,
   SourceType,
   EzpassCreatorType,
   SaveQuestion,
   DEFAULT_PUBLICATION_METADATA,
   DEFAULT_REVIEW_METADATA,
-  DEFAULT_AI_GENERATED_FIELDS
+  DEFAULT_AI_GENERATED_FIELDS,
+  MoedType
 } from '../../types/question';
 import { CreateQuestion, QuestionRepository, DatabaseOperation, IQuestionListItem } from '../../types/storage';
 import { logger } from '../../utils/logger';
@@ -25,6 +25,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { isValidQuestionType, DEFAULT_QUESTION_TYPE, isValidDifficultyLevel, DEFAULT_DIFFICULTY_LEVEL, isValidSourceType, DEFAULT_SOURCE_TYPE, isValidCreatorType, DEFAULT_CREATOR_TYPE } from '../../types/question';
 import { validateQuestion } from '../../utils/questionValidator';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { ImportInfo } from '../../scripts/import/types/importTypes';
 
 interface QuestionFilters {
   subject?: string;
@@ -39,9 +40,10 @@ interface QuestionFilters {
   };
   sortBy?: 'created_at' | 'updated_at';
   sortOrder?: 'asc' | 'desc';
-  validationStatus?: ValidationStatus | null;
+  validation_status?: ValidationStatus | null;
   subtopic?: string;
-  publicationStatus?: PublicationStatusEnum | null;
+  publication_status?: PublicationStatusEnum | null;
+  review_status?: ReviewStatusEnum | null;
 }
 
 interface QuestionRow {
@@ -78,17 +80,30 @@ export class QuestionStorage implements QuestionRepository {
   private questionsCache: Map<string, DatabaseQuestion> = new Map();
   private initialized: boolean = false;
   private supabase: SupabaseClient;
+  private idCounterCache: Map<string, number> = new Map();
+  private idBatchSize: number = 100;
+  private idBatchCache: Map<string, { start: number; end: number; reserved: boolean }> = new Map();
 
   constructor(supabaseClient: SupabaseClient | null) {
     if (!supabaseClient) throw new Error('Supabase client not initialized');
     this.supabase = supabaseClient;
   }
 
-  private isExamSource(source: any): source is { type: 'exam'; examTemplateId: string; year: number; season: 'spring' | 'summer'; moed: 'a' | 'b'; order?: number } {
+  private isExamSource(source: any): source is { 
+    type: 'exam'; 
+    examTemplateId: string; 
+    year: number; 
+    period?: string;
+    moed?: MoedType;
+    order?: number;
+  } {
     return source?.type === 'exam';
   }
 
-  private isEzpassSource(source: any): source is { type: 'ezpass'; creatorType: EzpassCreatorType } {
+  private isEzpassSource(source: any): source is { 
+    type: 'ezpass'; 
+    creatorType: EzpassCreatorType;
+  } {
     return source?.type === 'ezpass';
   }
 
@@ -337,7 +352,7 @@ export class QuestionStorage implements QuestionRepository {
               type: SourceType.EXAM as const,
               examTemplateId: q.data.metadata.source!.examTemplateId,
               year: q.data.metadata.source!.year,
-              season: q.data.metadata.source!.season,
+              period: q.data.metadata.source!.period,
               moed: q.data.metadata.source!.moed,
               ...(q.data.metadata.source!.order ? { order: q.data.metadata.source!.order } : {})
             }
@@ -477,6 +492,45 @@ export class QuestionStorage implements QuestionRepository {
 
     // Run external validation which handles all content validation
     const validationResult = await validateQuestion(data);
+
+    // Log validation results
+    logger.info(`Validation results for question ${data.id}:`, {
+      status: validationResult.status,
+      errorCount: validationResult.errors.length,
+      warningCount: validationResult.warnings.length,
+      errors: validationResult.errors.map(e => `${e.field}: ${e.message}`),
+      warnings: validationResult.warnings.map(w => `${w.field}: ${w.message}`)
+    });
+
+    // Store validation results in review_metadata
+    const reviewComments = [];
+    if (validationResult.errors.length > 0) {
+      reviewComments.push('Validation Errors:');
+      validationResult.errors.forEach(error => {
+        reviewComments.push(`- ${error.field}: ${error.message}`);
+      });
+    }
+    if (validationResult.warnings.length > 0) {
+      reviewComments.push('Validation Warnings:');
+      validationResult.warnings.forEach(warning => {
+        reviewComments.push(`- ${warning.field}: ${warning.message}`);
+      });
+    }
+
+    // Update the question's review metadata with validation results
+    if (reviewComments.length > 0) {
+      await this.supabase
+        .from('questions')
+        .update({
+          review_metadata: {
+            reviewedAt: new Date().toISOString(),
+            reviewedBy: 'system',
+            comments: reviewComments.join('\n')
+          }
+        })
+        .eq('id', data.id);
+    }
+
     return validationResult.status;
   }
 
@@ -615,42 +669,29 @@ export class QuestionStorage implements QuestionRepository {
   }
 
   /**
-   * Generates a unique question ID based on subject and domain
+   * Gets the next available ID for a subject-domain combination
+   * Uses a database sequence to ensure uniqueness and no gaps
    */
-  private async generateUniqueQuestionId(subjectId: string, domainId: string): Promise<string> {
-    // Get the 3-letter codes for subject and domain
+  async getNextQuestionId(subjectId: string, domainId: string): Promise<string> {
+    // Get the next ID from the database sequence
+    const { data: result, error } = await this.supabase.rpc('get_next_question_number', {
+      p_subject_code: universalTopicsV2.getSubjectCode(subjectId),
+      p_domain_code: universalTopicsV2.getDomainCode(domainId)
+    });
+
+    if (error) {
+      logger.error('Error getting next question ID:', error);
+      throw error;
+    }
+
+    if (!result?.next_id) {
+      throw new Error('Failed to get next question ID');
+    }
+
+    // Format the ID with subject code, domain code, and 6-digit number
     const subjectCode = universalTopicsV2.getSubjectCode(subjectId);
     const domainCode = universalTopicsV2.getDomainCode(domainId);
-
-    let questionId = '';
-    let isUnique = false;
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    while (!isUnique && attempts < maxAttempts) {
-      const nextNumber = await this.getNextQuestionId(subjectId, domainId);
-      questionId = `${subjectCode}-${domainCode}-${String(nextNumber).padStart(6, '0')}`;
-
-      const { data: existingQuestion, error: fetchError } = await this.supabase
-        .from('questions')
-        .select('id')
-        .eq('id', questionId)
-        .single();
-
-      if (fetchError && fetchError.code === 'PGRST116') {
-        isUnique = true;
-      } else if (fetchError) {
-        throw fetchError;
-      }
-
-      attempts++;
-    }
-
-    if (!isUnique) {
-      throw new Error(`Failed to generate unique question ID after ${maxAttempts} attempts`);
-    }
-
-    return questionId;
+    return `${subjectCode}-${domainCode}-${String(result.next_id).padStart(6, '0')}`;
   }
 
   /**
@@ -670,7 +711,7 @@ export class QuestionStorage implements QuestionRepository {
     const domainId = question.question.metadata.domainId;
 
     // Generate the question ID - the ID generator will handle validation
-    const questionId = await this.generateUniqueQuestionId(subjectId, domainId);
+    const questionId = await this.getNextQuestionId(subjectId, domainId);
 
     // Create a new question data object with the generated ID
     const questionData = {
@@ -767,10 +808,13 @@ export class QuestionStorage implements QuestionRepository {
       throw new Error('Question data is required for creation');
     }
 
-    // Generate the question ID first
-    const questionId = await this.generateUniqueQuestionId(question.question.metadata.subjectId, question.question.metadata.domainId);
+    // Use existing ID if provided in the question data, otherwise generate a new one
+    const questionId = question.question.id || await this.getNextQuestionId(
+      question.question.metadata.subjectId, 
+      question.question.metadata.domainId
+    );
 
-    // Create a complete question with the generated ID
+    // Create a complete question with the ID
     const questionWithId = {
       ...question.question,
       id: questionId
@@ -793,9 +837,17 @@ export class QuestionStorage implements QuestionRepository {
       updated_at: new Date().toISOString(),
       // Required ImportInfo fields for a generated question
       import_info: question.import_info || {
-        system: 'ezpass',
-        originalId: questionId,
-        importedAt: new Date().toISOString()
+        importMetadata: {
+          importedAt: new Date().toISOString(),
+          importScript: 'question-storage'
+        },
+        source: {
+          name: 'ezpass',
+          files: [],
+          format: 'manual',
+          originalId: questionId
+        },
+        originalData: {}
       }
     };
 
@@ -996,12 +1048,16 @@ export class QuestionStorage implements QuestionRepository {
         .select('*');
 
       // Apply filters
-      if (filters.publicationStatus) {
-        query = query.eq('publication_status', filters.publicationStatus);
+      if (filters.publication_status) {
+        query = query.eq('publication_status', filters.publication_status);
       }
 
-      if (filters.validationStatus) {
-        query = query.eq('validation_status', filters.validationStatus);
+      if (filters.validation_status) {
+        query = query.eq('validation_status', filters.validation_status);
+      }
+
+      if (filters.review_status) {
+        query = query.eq('review_status', filters.review_status);
       }
 
       // Handle topic hierarchy filtering
@@ -1082,7 +1138,7 @@ export class QuestionStorage implements QuestionRepository {
 
   async getQuestionsNeedingAttention(): Promise<DatabaseQuestion[]> {
     const filters: QuestionFilters = {
-      validationStatus: ValidationStatus.WARNING
+      validation_status: ValidationStatus.WARNING
     };
     return this.getFilteredQuestions(filters);
   }
@@ -1101,31 +1157,6 @@ export class QuestionStorage implements QuestionRepository {
       console.error('Error getting questions:', error);
       throw error;
     }
-  }
-
-  async getNextQuestionId(subjectId: string, domainId: string): Promise<number> {
-    const { data: questions, error } = await this.supabase
-      .from('questions')
-      .select('id')
-      .like('id', `${universalTopicsV2.getSubjectCode(subjectId)}-${universalTopicsV2.getDomainCode(domainId)}-%`);
-
-    if (error) {
-      logger.error('Error getting next question ID:', error);
-      throw error;
-    }
-
-    // If no questions exist, start from 1
-    if (!questions || questions.length === 0) {
-      return 1;
-    }
-
-    // Extract numbers from IDs and find max
-    const numbers = questions.map(q => {
-      const match = q.id.match(/-(\d+)$/);
-      return match ? parseInt(match[1], 10) : 0;
-    });
-
-    return Math.max(...numbers) + 1;
   }
 
   async getQuestionStatistics(): Promise<QuestionStatistics> {

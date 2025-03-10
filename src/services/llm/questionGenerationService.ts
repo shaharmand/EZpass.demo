@@ -24,6 +24,7 @@ import { questionStorage } from '../admin/questionStorage';
 import { ExamType } from '../../types/examTemplate';
 import { generateQuestionId } from '../../utils/idGenerator';
 import { ReviewStatusEnum, ValidationStatus } from '../../types/question';
+import { ImportInfo } from "../../scripts/import/types/importTypes";
 
 const openai = new OpenAI({
   apiKey: process.env.REACT_APP_OPENAI_API_KEY,
@@ -880,13 +881,26 @@ EXAMPLE OF CORRECT OPEN QUESTION:
       };
 
       // Create the question in storage
+      const questionId = await this.generateQuestionId(params.subject, params.domainId);
+      const importInfo: ImportInfo = {
+        importMetadata: {
+          importedAt: new Date().toISOString(),
+          importScript: 'question-generation-service'
+        },
+        source: {
+          name: 'ezpass',
+          files: [],
+          format: 'ai-generated',
+          originalId: questionId
+        },
+        originalData: {
+          prompt: formatInstructions,
+          model: 'gpt-4-0125-preview'
+        }
+      };
       const createdQuestion = await questionStorage.createQuestion({
         question: questionWithFormat,
-        import_info: {
-          system: 'ezpass',
-          originalId: questionWithFormat.id,
-          importedAt: new Date().toISOString()
-        }
+        import_info: importInfo
       });
 
       return createdQuestion.data;

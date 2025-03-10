@@ -1,4 +1,4 @@
-import { QuestionType, DifficultyLevel, SourceType, QuestionStatus, ValidationStatus, PublicationStatusEnum } from '../types/question';
+import { QuestionType, DifficultyLevel, SourceType, QuestionStatus, ValidationStatus, PublicationStatusEnum, ExamPeriod, MoedType } from '../types/question';
 import { examService } from '../services/examService';
 import styled from 'styled-components';
 import { Card, Typography } from 'antd';
@@ -95,7 +95,7 @@ export {
 
 // Types
 type ValueType = 'subject' | 'domain' | 'topic' | 'subtopic' | 'enum' | 'other' | 'metadata';
-type EnumType = 'questionType' | 'difficulty' | 'sourceType' | 'publication_status' | 'season' | 'moed' | 'examTemplate';
+type EnumType = 'questionType' | 'difficulty' | 'sourceType' | 'publication_status' | 'period' | 'moed' | 'examTemplate';
 
 interface EnumMappings {
   questionType: Record<QuestionType, string>;
@@ -103,8 +103,8 @@ interface EnumMappings {
   sourceType: Record<SourceType, string>;
   publication_status: Record<PublicationStatusEnum, string>;
   validationStatus: Record<string, string>;
-  season: Record<'spring' | 'summer', string>;
-  moed: Record<'a' | 'b', string>;
+  period: Record<ExamPeriod, string>;
+  moed: Record<MoedType | string, string>;
   examTemplate: Record<string, string>;
 }
 
@@ -141,21 +141,34 @@ const enumMappings: EnumMappings = {
     'warning': 'אזהרה'
   },
 
-  season: {
+  period: {
+    'Spring': 'אביב',
+    'Summer': 'קיץ',
+    'Winter': 'חורף',
+    'Fall': 'סתיו',
+    'A': 'סמסטר א׳',
+    'B': 'סמסטר ב׳',
     'spring': 'אביב',
-    'summer': 'קיץ'
+    'summer': 'קיץ',
+    'winter': 'חורף',
+    'fall': 'סתיו',
+    'a': 'סמסטר א׳',
+    'b': 'סמסטר ב׳'
   },
 
   moed: {
+    'A': 'א׳',
+    'B': 'ב׳',
+    'Special': 'מיוחד',
     'a': 'א׳',
     'b': 'ב׳'
   },
 
   examTemplate: {
-    'mahat_civil_safety': 'בטיחות בבנייה - מה״ט',
-    'mahat_civil_construction': 'ביצוע בנייה - מה״ט',
-    'mahat_civil_management': 'ניהול הבנייה - מה״ט',
-    'mahat_civil_planning': 'תכנון מבנים - מה״ט'
+    'mahat_civil_safety': 'בטיחות',
+    'mahat_civil_construction': 'ביצוע',
+    'mahat_civil_management': 'ניהול',
+    'mahat_civil_planning': 'תכנון'
   }
 };
 
@@ -196,10 +209,12 @@ const fieldNameMapping: Record<string, string> = {
   'moed': 'מועד',
   'order': 'מספר שאלה',
 
-  // Season translations
-  'metadata.source.exam.season.spring': 'אביב',
-  'metadata.source.exam.season.summer': 'קיץ',
-  'metadata.source.exam.season.winter': 'חורף',
+  // Period translations
+  'metadata.source.exam.period': 'תקופה',
+  'metadata.source.exam.period.spring': 'אביב',
+  'metadata.source.exam.period.summer': 'קיץ',
+  'metadata.source.exam.period.winter': 'חורף',
+  'metadata.source.exam.period.fall': 'סתיו',
 
   // Moed translations
   'metadata.source.exam.moed.a': 'א׳',
@@ -258,7 +273,8 @@ const getEnumTranslation = (
 
   const translation = (mappings as Record<string, string>)[value.toString()];
   if (!translation) {
-    console.warn(`Missing enum translation for ${enumType}.${value}`);
+    // Use console.debug instead of console.warn to avoid triggering React's error boundary
+    console.debug(`Missing enum translation for ${enumType}.${value}`);
     return value.toString();
   }
   return translation;
@@ -329,10 +345,12 @@ const getDisplayValue = (
         return getEnumTranslation(enumType, value.toString() as SourceType);
       case 'publication_status':
         return getEnumTranslation(enumType, value as PublicationStatusEnum);
-      case 'season':
-        return enumMappings.season[value.toString() as 'spring' | 'summer'] || value.toString();
+      case 'period':
+        const periodValue = value.toString();
+        return enumMappings.period[periodValue] || periodValue;
       case 'moed':
-        return enumMappings.moed[value.toString() as 'a' | 'b'] || value.toString();
+        const moedValue = value.toString();
+        return enumMappings.moed[moedValue] || moedValue;
       case 'examTemplate':
         return enumMappings.examTemplate[value.toString()] || value.toString();
       default:
@@ -450,10 +468,10 @@ const FieldValue = styled(Text)<{ $isMissing?: boolean }>`
 
 // Add exam template translations
 const examTemplateTranslations: Record<string, string> = {
-  'mahat_civil_safety': 'בטיחות בבנייה - מה״ט',
-  'mahat_civil_construction': 'ביצוע בנייה - מה״ט',
-  'mahat_civil_management': 'ניהול הבנייה - מה״ט',
-  'mahat_civil_planning': 'תכנון מבנים - מה״ט'
+  'mahat_civil_safety': 'בטיחות',
+  'mahat_civil_construction': 'ביצוע',
+  'mahat_civil_management': 'ניהול',
+  'mahat_civil_planning': 'תכנון'
 };
 
 // Add unified source display function
@@ -474,14 +492,19 @@ export const getQuestionSourceDisplay = (source: {
       // Use static exam template translations
       const examName = examTemplateTranslations[source.examTemplateId] || source.examTemplateId;
       
-      const season = source.season ? getEnumTranslation('season', source.season) : '';
       const year = source.year?.toString() || '';
+      const season = source.season ? getEnumTranslation('period', source.season) : '';
       const moed = source.moed ? getEnumTranslation('moed', source.moed) : '';
-      const order = source.order ? `שאלה ${source.order}` : '';
       
-      return [examName, [season, year, moed].filter(Boolean).join(' '), order]
-        .filter(Boolean)
-        .join(' • ');
+      // Build parts array, filtering out empty values
+      const parts = [
+        examName,
+        year,
+        season,
+        moed
+      ].filter(Boolean);
+      
+      return parts.join(' • ');
 
     case SourceType.EZPASS:
       return 'שאלת תרגול מקורית - איזיפס';

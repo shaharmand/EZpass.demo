@@ -16,6 +16,7 @@ import {
 import { getQuestionTypeLabel } from '../utils/questionUtils';
 import { universalTopics } from '../services/universalTopics';
 import { QuestionType } from '../types/question';
+import { getEnumTranslation } from '../utils/translations';
 
 const { Text, Title } = Typography;
 
@@ -29,7 +30,7 @@ interface QuestionMetadataProps {
     source?: {
       examTemplateId?: string;
       year?: number;
-      season?: string;
+      period?: string;
       moed?: string;
     };
   };
@@ -104,7 +105,7 @@ const QuestionMetadata: React.FC<QuestionMetadataProps> = ({
   );
 
   const renderContent = () => (
-    <div className={compact ? 'metadata-compact' : 'metadata-full'}>
+    <div className={`metadata-container ${layout} ${compact ? 'compact' : ''}`}>
       {/* Topic Information */}
       <Card size="small" className="metadata-card" title={
         <Space>
@@ -182,43 +183,45 @@ const QuestionMetadata: React.FC<QuestionMetadataProps> = ({
       </Card>
 
       {/* Source Information */}
-      <Card size="small" className="metadata-card" title={
-        <Space>
-          <CalendarOutlined />
-          <span>מידע מקור</span>
-        </Space>
-      }>
-        <Row gutter={[16, 8]}>
-          <Col span={compact ? 24 : 12}>
-            {renderMetadataItem(
-              <BookOutlined />,
-              "תבנית",
-              <Text>{metadata.source?.examTemplateId || 'N/A'}</Text>
-            )}
-          </Col>
-          <Col span={compact ? 24 : 12}>
-            {renderMetadataItem(
-              <CalendarOutlined />,
-              "שנה",
-              <Text>{metadata.source?.year || 'N/A'}</Text>
-            )}
-          </Col>
-          <Col span={compact ? 24 : 12}>
-            {renderMetadataItem(
-              <CalendarOutlined />,
-              "עונה",
-              <Text>{metadata.source?.season || 'N/A'}</Text>
-            )}
-          </Col>
-          <Col span={compact ? 24 : 12}>
-            {renderMetadataItem(
-              <CalendarOutlined />,
-              "מועד",
-              <Text>{metadata.source?.moed || 'N/A'}</Text>
-            )}
-          </Col>
-        </Row>
-      </Card>
+      {metadata.source && (
+        <Card size="small" className="metadata-card" title={
+          <Space>
+            <CalendarOutlined />
+            <span>מידע מקור</span>
+          </Space>
+        }>
+          <Row gutter={[16, 8]}>
+            <Col span={compact ? 24 : 12}>
+              {renderMetadataItem(
+                <BookOutlined />,
+                "תבנית",
+                <Text>{metadata.source?.examTemplateId || 'N/A'}</Text>
+              )}
+            </Col>
+            <Col span={compact ? 24 : 12}>
+              {renderMetadataItem(
+                <CalendarOutlined />,
+                "שנה",
+                <Text>{metadata.source?.year || 'N/A'}</Text>
+              )}
+            </Col>
+            <Col span={compact ? 24 : 12}>
+              {renderMetadataItem(
+                <CalendarOutlined />,
+                "עונה",
+                <Text>{metadata.source?.period ? getEnumTranslation('period', metadata.source.period) : 'N/A'}</Text>
+              )}
+            </Col>
+            <Col span={compact ? 24 : 12}>
+              {renderMetadataItem(
+                <CalendarOutlined />,
+                "מועד",
+                <Text>{metadata.source?.moed ? getEnumTranslation('moed', metadata.source.moed) : 'N/A'}</Text>
+              )}
+            </Col>
+          </Row>
+        </Card>
+      )}
     </div>
   );
 

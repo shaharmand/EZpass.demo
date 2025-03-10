@@ -68,23 +68,12 @@ class UniversalTopics {
     });
 
     // Log initial structure after loading subjects_domains.json
-    logger.info('Initial subjects and domains loaded:', {
-      subjectsCount: this.subjects.length,
-      subjects: this.subjects.map(s => ({
-        id: s.id,
-        name: s.name,
-        domainsCount: s.domains.length,
-        domains: s.domains.map(d => ({
-          id: d.id,
-          name: d.name
-        }))
-      }))
+    logger.info('Initial structure loaded:', {
+      subjects: this.subjects.length,
+      domains: this.domainsMap.size
     }, 'UniversalTopics');
 
     // Load domain data files
-    logger.info('Loading domain data files...', null, 'UniversalTopics');
-
-    // Load each domain file
     const domainFiles = [
       { data: construction_safety, name: 'construction_safety' },
       { data: cs_data_structures_hsp, name: 'cs_data_structures_hsp' },
@@ -93,124 +82,36 @@ class UniversalTopics {
 
     domainFiles.forEach(({ data, name }) => {
       try {
-        logger.info(`Loading domain file: ${name}`, null, 'UniversalTopics');
         this.loadDomainDataFile(data);
       } catch (error) {
         logger.error(`Error loading domain file ${name}:`, error, 'UniversalTopics');
       }
     });
 
-    // Log complete final structure with detailed counts
-    logger.info('COMPLETE HIERARCHY LOADED:', {
-      totalSubjects: this.subjects.length,
-      totalDomains: this.domainsMap.size,
-      totalTopics: this.topicsMap.size,
-      totalSubtopics: this.subtopicsMap.size,
-      subjectsDetail: this.subjects.map(subject => ({
-        subjectId: subject.id,
-        subjectName: subject.name,
-        domains: subject.domains.map(domain => ({
-          domainId: domain.id,
-          domainName: domain.name,
-          topics: domain.topics.map(topic => ({
-            topicId: topic.id,
-            topicName: topic.name,
-            subtopicsCount: topic.subTopics.length,
-            subtopics: topic.subTopics.map(st => ({
-              id: st.id,
-              name: st.name
-            }))
-          }))
-        }))
-      }))
-    }, 'UniversalTopics');
-
-    // Log validation maps
-    logger.info('Validation Maps Status:', {
-      subjectsInMap: Array.from(this.subjectsMap.keys()),
-      domainsInMap: Array.from(this.domainsMap.keys()),
-      topicsInMap: Array.from(this.topicsMap.keys()),
-      subtopicsInMap: Array.from(this.subtopicsMap.keys())
+    // Log final structure with counts only
+    logger.info('Structure loaded successfully:', {
+      subjects: this.subjects.length,
+      domains: this.domainsMap.size,
+      topics: this.topicsMap.size,
+      subtopics: this.subtopicsMap.size
     }, 'UniversalTopics');
   }
 
   private verifyStructure() {
-    logger.info('Verifying structure integrity', {
-      subjectsCount: this.subjects.length,
-      domainsMapSize: this.domainsMap.size,
-      topicsMapSize: this.topicsMap.size,
-      subtopicsMapSize: this.subtopicsMap.size,
-      sample: {
-        constructionSafety: {
-          domain: this.domainsMap.get('construction_safety'),
-          topics: Array.from(this.topicsMap.entries())
-            .filter(([_, info]) => info.domainId === 'construction_safety')
-            .map(([id]) => id)
-        }
-      }
+    logger.info('Structure verified:', {
+      subjects: this.subjects.length,
+      domains: this.domainsMap.size,
+      topics: this.topicsMap.size,
+      subtopics: this.subtopicsMap.size
     }, 'UniversalTopics');
   }
 
-  private logValidationPaths() {
-    this.subjects.forEach(subject => {
-      subject.domains.forEach(domain => {
-        domain.topics.forEach(topic => {
-          logger.debug(`Validation path: ${subject.id} -> ${domain.id} -> ${topic.id}`, {
-            subjectName: subject.name,
-            domainName: domain.name,
-            topicName: topic.name,
-            subTopics: topic.subTopics.map(st => st.id)
-          });
-        });
-      });
-    });
-  }
-
   private logSubjectsAndDomains() {
-    logger.info('🔍 Detailed Information', null, 'UniversalTopics');
-    
-    // Log subjects with detailed domain information
-    logger.info('📚 Subjects', null, 'UniversalTopics');
-    
-    this.subjects.forEach(subject => {
-      logger.info(`Subject: ${subject.name} (${subject.id})`, null, 'UniversalTopics');
-      
-      // For each domain in the subject
-      subject.domains.forEach(domain => {
-        const topicsCount = domain.topics.length;
-        const subtopicsCount = domain.topics.reduce((sum, topic) => sum + topic.subTopics.length, 0);
-        
-        logger.info(`Domain: ${domain.name} (${domain.id})`, {
-          topicsCount,
-          topics: domain.topics.map(t => ({
-            name: t.name,
-            id: t.id,
-            subtopicsCount: t.subTopics.length,
-            subtopics: t.subTopics.map(st => ({
-              name: st.name,
-              id: st.id
-            }))
-          }))
-        }, 'UniversalTopics');
-      });
-    });
-
-    // Log domains summary with counts
-    logger.info('🏷️ Domains Summary', {
-      totalDomains: this.domainsMap.size,
-      domainDetails: Array.from(this.domainsMap.entries()).map(([domainId, info]) => {
-        const domain = info.domain;
-        const topicsCount = domain.topics.length;
-        const subtopicsCount = domain.topics.reduce((sum, topic) => sum + topic.subTopics.length, 0);
-        return {
-          domainId,
-          domainName: domain.name,
-          subjectId: info.subjectId,
-          topicsCount,
-          subtopicsCount,
-          totalItems: topicsCount + subtopicsCount
-        };
-      })
+    logger.info('Successfully loaded:', {
+      subjects: this.subjects.length,
+      domains: this.domainsMap.size,
+      topics: this.topicsMap.size,
+      subtopics: this.subtopicsMap.size
     }, 'UniversalTopics');
   }
 

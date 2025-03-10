@@ -1,25 +1,17 @@
-import { questionGenerationService } from './QuestionGenerationV2';
 import { QuestionType, DifficultyLevel, EzpassCreatorType } from '../../types/question';
-import { QuestionGenerationParams } from '../../types/questionGeneration';
+import { questionGenerationService } from './QuestionGenerationV2';
+import { ExamInstitutionType, ExamType } from '../../types/examTemplate';
 
 export async function testOpenQuestionGeneration() {
-  const params: QuestionGenerationParams = {
+  const params = {
     type: QuestionType.OPEN,
-    prompt: "תכנון בטיחות לעבודה בגובה",
-    subjectId: "construction_safety",
-    domainId: "work_at_height",
-    topicId: "safety_planning",
-    difficulty: 3,
-    estimatedTime: 15,
-    answerFormat: {
-      hasFinalAnswer: false,
-      finalAnswerType: 'none',
-      requiresSolution: true
-    },
-    source: {
-      type: 'ezpass',
-      creatorType: 'ai'
-    }
+    topic: 'safety_management_fundamentals',
+    subtopic: 'work_inspection_service',
+    difficulty: 3 as DifficultyLevel,
+    subject: 'civil_engineering',
+    domainId: 'construction_safety',
+    educationType: ExamInstitutionType.PRACTICAL_ENGINEERING,
+    examType: ExamType.MAHAT_EXAM
   };
 
   try {

@@ -38,6 +38,6 @@ export const adminRoutes: RouteObject = {
           element: <QuestionGenerator />,
         },
       ],
-    },
+    }
   ],
 }; 

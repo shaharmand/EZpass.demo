@@ -46,10 +46,13 @@ CREATE TABLE questions (
   CONSTRAINT valid_exam_source CHECK (
     (data->'metadata'->'source'->>'type') != 'exam'
     OR (
-      data->'metadata'->'source'->>'examTemplateId' IS NOT NULL
-      AND (data->'metadata'->'source'->>'year')::int BETWEEN 1900 AND 2100
-      AND data->'metadata'->'source'->>'season' IN ('spring', 'summer')
-      AND data->'metadata'->'source'->>'moed' IN ('a', 'b')
+      (data->'metadata'->'source'->>'type' = 'exam' AND
+       data->'metadata'->'source'->>'examTemplateId' IS NOT NULL AND
+       data->'metadata'->'source'->>'year' IS NOT NULL AND
+       data->'metadata'->'source'->>'period' IN ('Spring', 'Summer', 'Winter', 'Fall'))
+      OR
+      (data->'metadata'->'source'->>'type' = 'ezpass' AND
+       data->'metadata'->'source'->>'creatorType' IN ('ai', 'human'))
     )
   ),
 

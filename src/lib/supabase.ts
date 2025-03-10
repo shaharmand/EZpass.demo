@@ -22,43 +22,24 @@ import { logger } from '../utils/logger';
 
 let supabaseInstance: SupabaseClient | null = null;
 
-// Helper function to get environment mode
-function getEnvironmentMode(): string {
-  try {
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      return import.meta.env.MODE || 'unknown';
-    }
-    return process.env.NODE_ENV || 'unknown';
-  } catch (error) {
-    return 'unknown';
-  }
-}
-
 // Helper function to get environment variable value
 function getEnvVar(name: string): string | undefined {
   try {
     // Try REACT_APP_ prefix
     const reactAppValue = process.env[`REACT_APP_${name}`];
     if (reactAppValue) {
-      console.log(`✅ Found REACT_APP_${name} [${process.env.NODE_ENV}]`);
+      console.log(`✅ Found REACT_APP_${name}`);
       return reactAppValue;
     }
 
-    // Try NEXT_PUBLIC_ prefix (for Vercel)
-    const nextPublicValue = process.env[`NEXT_PUBLIC_${name}`];
-    if (nextPublicValue) {
-      console.log(`✅ Found NEXT_PUBLIC_${name} [${process.env.NODE_ENV}]`);
-      return nextPublicValue;
-    }
-
-    // Try without prefix (for Vercel)
+    // Try without prefix (for Node.js scripts)
     const plainValue = process.env[name];
     if (plainValue) {
-      console.log(`✅ Found ${name} [${process.env.NODE_ENV}]`);
+      console.log(`✅ Found ${name}`);
       return plainValue;
     }
 
-    console.log(`❌ No ${name} found with any prefix [${process.env.NODE_ENV}]`);
+    console.log(`❌ No ${name} found with any prefix`);
     return undefined;
   } catch (error) {
     console.error(`Error accessing environment variable ${name}:`, error);
@@ -66,24 +47,13 @@ function getEnvVar(name: string): string | undefined {
   }
 }
 
-export function getSupabase(isDryRun = false): SupabaseClient | null {
-  if (isDryRun) {
-    logger.info('Dry run mode - using mock Supabase client');
-    return null;
-  }
-
+export function getSupabase(): SupabaseClient {
   // Return existing instance if available
   if (supabaseInstance) {
     return supabaseInstance;
   }
 
-  const envInfo = {
-    mode: process.env.NODE_ENV,
-    isDevelopment: process.env.NODE_ENV === 'development',
-    isProduction: process.env.NODE_ENV === 'production'
-  };
-
-  console.log('🔍 Checking environment variables...', envInfo);
+  console.log('🔍 Checking environment variables...');
   
   const supabaseUrl = getEnvVar('SUPABASE_URL');
   const supabaseAnonKey = getEnvVar('SUPABASE_ANON_KEY');
@@ -92,8 +62,7 @@ export function getSupabase(isDryRun = false): SupabaseClient | null {
   console.log('🔑 Environment variables status:', {
     SUPABASE_URL: supabaseUrl ? '✅' : '❌',
     SUPABASE_ANON_KEY: supabaseAnonKey ? '✅' : '❌',
-    AUTH_REDIRECT_URL: authRedirectUrl ? '✅' : '❌',
-    environment: envInfo.mode
+    AUTH_REDIRECT_URL: authRedirectUrl ? '✅' : '❌'
   });
 
   // Log auth redirect status
@@ -111,7 +80,7 @@ export function getSupabase(isDryRun = false): SupabaseClient | null {
     if (!supabaseAnonKey) missingVars.push('SUPABASE_ANON_KEY');
     
     const error = `Missing required Supabase environment variables: ${missingVars.join(', ')}\n` +
-      'Please ensure these are set in your .env file with either VITE_ or REACT_APP_ prefix.';
+      'Please ensure these are set in your .env file with either REACT_APP_ prefix or directly.';
     console.error('❌', error);
     throw new Error(error);
   }
@@ -123,7 +92,7 @@ export function getSupabase(isDryRun = false): SupabaseClient | null {
         persistSession: true,
         detectSessionInUrl: true,
         flowType: 'implicit' as AuthFlowType,
-        storage: globalThis.localStorage,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
         ...(authRedirectUrl && { redirectTo: authRedirectUrl })
       }
     };

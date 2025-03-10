@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Space, Typography, Button, Row, Col, Tag } from 'antd';
+import { Card, Space, Typography, Button, Row, Col, Tag, Select } from 'antd';
 import { 
   EditOutlined, 
   ProfileOutlined,
@@ -16,10 +16,12 @@ import {
   DatabaseQuestion,
   EzpassCreatorType,
   SourceType,
-  SaveQuestion
+  SaveQuestion,
+  MoedType,
+  ExamPeriod
 } from '../../../types/question';
 import { ValidationDisplay } from '../../validation/ValidationDisplay';
-import { getEnumTranslation, getFieldTranslation, formatValidationDetails, fieldNameMapping, getQuestionSourceDisplay } from '../../../utils/translations';
+import { getEnumTranslation, getFieldTranslation, formatValidationDetails, fieldNameMapping, getQuestionSourceDisplay, enumMappings } from '../../../utils/translations';
 import { getExamTemplateName, getExamSourceDisplayText } from '../../../utils/examTranslations';
 import { ValidationError, ValidationWarning, ValidationResult } from '../../../types/validation';
 import { universalTopicsV2 } from '../../../services/universalTopics';
@@ -44,34 +46,19 @@ interface MetadataValidationResult {
 }
 
 type ValueType = 'subject' | 'domain' | 'topic' | 'subtopic' | 'enum' | 'text' | 'number' | 'date';
-type EnumType = 'questionType' | 'difficulty' | 'publication_status' | 'season' | 'moed' | 'examTemplate';
+type EnumType = 'questionType' | 'difficulty' | 'publication_status' | 'period' | 'moed' | 'examTemplate';
 
 interface DisplayValue {
   text: string;
   isMissing: boolean;
 }
 
-type ExamSource = {
-  type: 'exam';
-  examTemplateId: string;
-  year: number;
-  season: 'spring' | 'summer';
-  moed: 'a' | 'b';
-};
-
-type EzpassSource = {
-  type: 'ezpass';
-  creatorType: EzpassCreatorType;
-};
-
-type QuestionSource = ExamSource | EzpassSource;
-
-function isExamSource(source: QuestionSource): source is ExamSource {
-  return source.type === 'exam';
+function isExamSource(source: Question['metadata']['source']): source is Extract<Question['metadata']['source'], { type: 'exam' }> {
+  return source?.type === 'exam';
 }
 
-function isEzpassSource(source: QuestionSource): source is EzpassSource {
-  return source.type === 'ezpass';
+function isEzpassSource(source: Question['metadata']['source']): source is Extract<Question['metadata']['source'], { type: 'ezpass' }> {
+  return source?.type === 'ezpass';
 }
 
 const ValidationSection = styled.div`
@@ -143,26 +130,32 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
     );
   }
 
-  const validateMetadata = (question: Question): MetadataValidationResult => {
-    const result = validateQuestion(question);
+  const validateQuestionData = React.useCallback(async (questionData: Question) => {
+    const result = await validateQuestion(questionData);
     return {
       success: result.errors.length === 0,
       errors: result.errors || [],
       warnings: result.warnings || []
     };
-  };
+  }, []);
 
   useEffect(() => {
-    if (question) {
-      const result = validateMetadata(question.data);
-      setValidationState(result);
-    }
-  }, [question]);
+    if (!question) return;
+    
+    const validate = async () => {
+      const result = await validateQuestionData(question.data);
+      if (result.errors.length > 0 || result.warnings.length > 0) {
+        setValidationState(result);
+      }
+    };
+    validate();
+  }, [question?.id, validateQuestionData]);
 
   useEffect(() => {
     const loadExamTemplate = async () => {
-      if (question?.data?.metadata?.source?.type === 'exam' && question?.data?.metadata?.source?.examTemplateId) {
-        const template = await examService.getExamById(question.data.metadata.source.examTemplateId);
+      const source = question?.data?.metadata?.source;
+      if (source?.type === 'exam' && source.examTemplateId) {
+        const template = await examService.getExamById(source.examTemplateId);
         setExamTemplate(template);
       }
     };
@@ -171,19 +164,25 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
 
   useEffect(() => {
     const loadSourceDisplay = async () => {
-      if (question?.data?.metadata?.source) {
-        const display = await getQuestionSourceDisplay({
-          sourceType: question.data.metadata.source.type as SourceType,
-          ...(question.data.metadata.source.type === SourceType.EXAM ? {
-            examTemplateId: question.data.metadata.source.examTemplateId,
-            year: question.data.metadata.source.year,
-            season: question.data.metadata.source.season,
-            moed: question.data.metadata.source.moed,
-            order: question.data.metadata.source.order
-          } : {})
-        });
-        setSourceDisplay(display);
+      const source = question?.data?.metadata?.source;
+      if (!source || !('type' in source)) {
+        setSourceDisplay('');
+        return;
       }
+
+      const sourceProps = source.type === 'exam' ? {
+        sourceType: SourceType.EXAM,
+        examTemplateId: source.examTemplateId,
+        year: source.year,
+        season: source.period,
+        moed: source.moed,
+        order: source.order
+      } : {
+        sourceType: SourceType.EZPASS
+      } as const;
+
+      const display = getQuestionSourceDisplay(sourceProps);
+      setSourceDisplay(display);
     };
     loadSourceDisplay();
   }, [question?.data?.metadata?.source]);
@@ -212,11 +211,11 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
         case 'publication_status':
           translatedValue = getEnumTranslation(enumType, String(value) as PublicationStatusEnum);
           break;
-        case 'season':
-          translatedValue = fieldNameMapping[`metadata.source.exam.season.${value}`] || String(value);
+        case 'period':
+          translatedValue = enumMappings.period[value.toString() as keyof typeof enumMappings.period] || String(value);
           break;
         case 'moed':
-          translatedValue = fieldNameMapping[`metadata.source.exam.moed.${value}`] || String(value);
+          translatedValue = enumMappings.moed[value.toString() as keyof typeof enumMappings.moed] || String(value);
           break;
         case 'examTemplate':
           translatedValue = examTemplate?.names?.medium || String(value);
@@ -313,8 +312,8 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
           case 'year':
             fieldValue = source.year;
             break;
-          case 'season':
-            fieldValue = source.season;
+          case 'period':
+            fieldValue = source.period;
             break;
           case 'moed':
             fieldValue = source.moed;
@@ -381,24 +380,43 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
 
   const renderSourceInfo = () => {
     const source = question?.data?.metadata?.source;
-    if (!source) return null;
+    if (!source || !('type' in source)) return null;
 
     return (
       <div>
         <Text>
-          {getQuestionSourceDisplay({
-            sourceType: source.type as SourceType,
-            ...(source.type === SourceType.EXAM ? {
+          {sourceDisplay || getQuestionSourceDisplay({
+            sourceType: source.type === 'exam' ? SourceType.EXAM : SourceType.EZPASS,
+            ...(isExamSource(source) ? {
               examTemplateId: source.examTemplateId,
               year: source.year,
-              season: source.season,
+              season: source.period,
               moed: source.moed,
               order: source.order
             } : {})
-          })}
+          } as const)}
         </Text>
       </div>
     );
+  };
+
+  const handleSourceChange = (field: string, value: any) => {
+    if (!question.data.metadata.source) return;
+    
+    const updatedSource = {
+      ...question.data.metadata.source,
+      [field]: value
+    };
+    onSave({
+      ...question,
+      data: {
+        ...question.data,
+        metadata: {
+          ...question.data.metadata,
+          source: updatedSource
+        }
+      }
+    });
   };
 
   return (

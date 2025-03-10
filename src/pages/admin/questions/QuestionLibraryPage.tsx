@@ -64,6 +64,7 @@ import { questionLibrary, QuestionFilters } from '../../../services/questionLibr
 import { getEnumTranslation, enumMappings } from '../../../utils/translations';
 import styled from 'styled-components';
 import { debounce } from 'lodash';
+import { examService } from '../../../services/examService';
 
 dayjs.extend(relativeTime);
 dayjs.locale('he');
@@ -125,6 +126,29 @@ const TableStyles = styled.div`
       &:last-child {
         border-right: 0;
       }
+
+      &.sticky {
+        position: sticky;
+        right: 0;
+        z-index: 2;
+        background: #fff;
+        box-shadow: -2px 0 4px rgba(0,0,0,0.05);
+        
+        &::after {
+          content: '';
+          position: absolute;
+          right: -1px;
+          top: 0;
+          bottom: 0;
+          width: 1px;
+          background: #f0f0f0;
+        }
+      }
+
+      &.sticky-header {
+        background: #fafafa;
+        z-index: 3;
+      }
     }
 
     th {
@@ -184,6 +208,10 @@ const TableStyles = styled.div`
         
         td {
           background-color: #fafafa;
+          
+          &.sticky {
+            background-color: #fafafa;
+          }
         }
       }
       
@@ -192,6 +220,10 @@ const TableStyles = styled.div`
         
         td {
           background-color: #e6f7ff;
+          
+          &.sticky {
+            background-color: #e6f7ff;
+          }
         }
       }
 
@@ -328,6 +360,28 @@ const StyledRow = styled.tr`
   }
 `;
 
+const FilterSection = styled(Card)`
+  margin-bottom: 16px;
+  
+  .filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .filter-label {
+    font-size: 14px;
+    color: #666;
+  }
+`;
+
 export function QuestionLibraryPage() {
   const [questions, setQuestions] = useState<QuestionListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -387,7 +441,7 @@ export function QuestionLibraryPage() {
                 type: SourceType.EXAM,
                 examTemplateId: question.data.metadata.source.examTemplateId,
                 year: question.data.metadata.source.year,
-                season: question.data.metadata.source.season,
+                period: question.data.metadata.source.period,
                 moed: question.data.metadata.source.moed
               };
             } else if (question.data.metadata.source.type === 'ezpass') {
@@ -490,14 +544,25 @@ export function QuestionLibraryPage() {
         header: 'פעולות',
         size: 100,
         cell: ({ row }) => (
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            onClick={() => handleEditClick(row.original.id)}
-          >
-            ערוך
-          </Button>
+          <Space>
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => handleEditClick(row.original.id)}
+            >
+              ערוך
+            </Button>
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(row.original.id)}
+            />
+          </Space>
         ),
+        meta: {
+          sticky: true
+        }
       },
       {
         id: 'id',
@@ -507,6 +572,63 @@ export function QuestionLibraryPage() {
         cell: ({ getValue }) => {
           const id = getValue() as string;
           return id.replace(/^(\w+)-(\w+)-(\d+)$/, '$1-$2-$3');
+        },
+      },
+      {
+        id: 'type',
+        header: 'סוג',
+        accessorKey: 'metadata.type',
+        size: 100,
+        cell: ({ row }) => {
+          const isEditing = editingCell?.id === row.original.id && editingCell?.field === 'type';
+          const type = row.original.metadata.type;
+
+          if (isEditing) {
+            return (
+              <Form form={form} initialValues={{ type }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Form.Item name="type">
+                    <Select
+                      style={{ width: '100%' }}
+                      autoFocus
+                      onBlur={() => setEditingCell(null)}
+                      onKeyDown={e => {
+                        if (e.key === 'Escape') setEditingCell(null);
+                      }}
+                    >
+                      {Object.entries(enumMappings.questionType).map(([key, label]) => (
+                        <Option key={key} value={key}>{label}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                  <div className="edit-actions">
+                    <Button 
+                      size="small" 
+                      type="primary"
+                      icon={<SaveOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const values = form.getFieldsValue();
+                        handleSaveEdit(row.original.id, 'type', values.type);
+                      }}
+                    />
+                  </div>
+                </Space>
+              </Form>
+            );
+          }
+
+          return (
+            <EditableCell
+              className="editable"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingCell({ id: row.original.id, field: 'type' });
+              }}
+            >
+              {enumMappings.questionType[type] || type}
+            </EditableCell>
+          );
         },
       },
       {
@@ -559,7 +681,7 @@ export function QuestionLibraryPage() {
               >
                 <div className="content-title">{row.original.name || 'Untitled'}</div>
               </EditableCell>
-              <div className="content-text">
+              <div className="content-text" style={{ WebkitLineClamp: 1 }}>
                 {row.original.content.text}
               </div>
             </div>
@@ -581,9 +703,44 @@ export function QuestionLibraryPage() {
 
           return (
             <div>
-              <div>{topic?.name || topicId}</div>
-              {subtopic && <small style={{ color: '#666' }}>{subtopic.name}</small>}
+              {subtopic && <div style={{ fontWeight: 500 }}>{subtopic.name}</div>}
+              <div style={{ color: '#666' }}>{topic?.name || topicId}</div>
             </div>
+          );
+        },
+      },
+      {
+        id: 'source',
+        header: 'מקור',
+        accessorKey: 'metadata.source',
+        size: 150,
+        cell: ({ getValue }) => {
+          const source = getValue() as QuestionListItem['metadata']['source'];
+          if (!source) return '-';
+          if (source.type === SourceType.EXAM) {
+            const exam = examService.getExamById(source.examTemplateId || '');
+            const examName = exam?.names.short || source.examTemplateId;
+            const year = source.year;
+            const period = source.period ? getEnumTranslation('period', source.period) : '';
+            const moed = source.moed ? getEnumTranslation('moed', source.moed) : '';
+            
+            const parts = [
+              examName,
+              year,
+              period,
+              moed
+            ].filter(Boolean);
+            
+            return (
+              <Tag icon={<BookOutlined />}>
+                {parts.join(' • ')}
+              </Tag>
+            );
+          }
+          return (
+            <Tag icon={source.creatorType === EzpassCreatorType.AI ? <RobotOutlined /> : <UserOutlined />}>
+              {source.creatorType === EzpassCreatorType.AI ? 'AI' : 'מורה'}
+            </Tag>
           );
         },
       },
@@ -696,85 +853,6 @@ export function QuestionLibraryPage() {
         },
       },
       {
-        id: 'type',
-        header: 'סוג',
-        accessorKey: 'metadata.type',
-        size: 100,
-        cell: ({ row }) => {
-          const isEditing = editingCell?.id === row.original.id && editingCell?.field === 'type';
-          const type = row.original.metadata.type;
-
-          if (isEditing) {
-            return (
-              <Form form={form} initialValues={{ type }}>
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <Form.Item name="type">
-                    <Select
-                      style={{ width: '100%' }}
-                      autoFocus
-                      onBlur={() => setEditingCell(null)}
-                      onKeyDown={e => {
-                        if (e.key === 'Escape') setEditingCell(null);
-                      }}
-                    >
-                      {Object.entries(enumMappings.questionType).map(([key, label]) => (
-                        <Option key={key} value={key}>{label}</Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                  <div className="edit-actions">
-                    <Button 
-                      size="small" 
-                      type="primary"
-                      icon={<SaveOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const values = form.getFieldsValue();
-                        handleSaveEdit(row.original.id, 'type', values.type);
-                      }}
-                    />
-                  </div>
-                </Space>
-              </Form>
-            );
-          }
-
-          return (
-            <EditableCell
-              className="editable"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingCell({ id: row.original.id, field: 'type' });
-              }}
-            >
-              {enumMappings.questionType[type] || type}
-            </EditableCell>
-          );
-        },
-      },
-      {
-        id: 'source',
-        header: 'מקור',
-        accessorKey: 'metadata.source',
-        size: 150,
-        cell: ({ getValue }) => {
-          const source = getValue() as QuestionListItem['metadata']['source'];
-          if (!source) return '-';
-          if (source.type === SourceType.EXAM) {
-            return (
-              <Tag icon={<BookOutlined />}>
-                {`בחינה ${source.year} ${source.season} מועד ${source.moed}`}
-              </Tag>
-            );
-          }
-          return (
-            <Tag icon={source.creatorType === EzpassCreatorType.AI ? <RobotOutlined /> : <UserOutlined />}>
-              {source.creatorType === EzpassCreatorType.AI ? 'AI' : 'מורה'}
-            </Tag>
-          );
-        },
-      },
-      {
         id: 'validationStatus',
         header: 'תקינות',
         accessorKey: 'validation_status',
@@ -830,19 +908,6 @@ export function QuestionLibraryPage() {
         accessorKey: 'updated_at',
         size: 150,
         cell: ({ getValue }) => dayjs(getValue() as string).format('DD/MM/YYYY HH:mm'),
-      },
-      {
-        id: 'delete',
-        header: '',
-        size: 50,
-        cell: ({ row }) => (
-          <Button
-            type="text"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(row.original.id)}
-          />
-        ),
       },
     ],
     [editingCell, form, universalTopics]
@@ -920,6 +985,28 @@ export function QuestionLibraryPage() {
     }
   }, [columns]);
 
+  // Add status filter handlers
+  const handleValidationStatusChange = (value: ValidationStatus | undefined) => {
+    setFilters(prev => ({
+      ...prev,
+      validation_status: value
+    }));
+  };
+
+  const handlePublicationStatusChange = (value: PublicationStatusEnum | undefined) => {
+    setFilters(prev => ({
+      ...prev,
+      publication_status: value
+    }));
+  };
+
+  const handleReviewStatusChange = (value: ReviewStatusEnum | undefined) => {
+    setFilters(prev => ({
+      ...prev,
+      review_status: value
+    }));
+  };
+
   return (
     <PageContainer>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -929,6 +1016,98 @@ export function QuestionLibraryPage() {
             {/* ... existing stats card content ... */}
           </StatsCard>
         )}
+
+        <FilterSection>
+          <div className="section-header">
+            <Text strong>סינון שאלות</Text>
+          </div>
+          <div className="filter-grid">
+            {/* Existing filters */}
+            
+            {/* Status filters */}
+            <div className="filter-group">
+              <div className="filter-label">סטטוס אימות</div>
+              <Select
+                allowClear
+                style={{ width: '100%' }}
+                placeholder="בחר סטטוס אימות"
+                value={filters.validation_status}
+                onChange={handleValidationStatusChange}
+              >
+                <Option value={ValidationStatus.VALID}>
+                  <Space>
+                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                    <span>תקין</span>
+                  </Space>
+                </Option>
+                <Option value={ValidationStatus.WARNING}>
+                  <Space>
+                    <WarningOutlined style={{ color: '#faad14' }} />
+                    <span>אזהרות</span>
+                  </Space>
+                </Option>
+                <Option value={ValidationStatus.ERROR}>
+                  <Space>
+                    <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+                    <span>שגיאות</span>
+                  </Space>
+                </Option>
+              </Select>
+            </div>
+
+            <div className="filter-group">
+              <div className="filter-label">סטטוס פרסום</div>
+              <Select
+                allowClear
+                style={{ width: '100%' }}
+                placeholder="בחר סטטוס פרסום"
+                value={filters.publication_status}
+                onChange={handlePublicationStatusChange}
+              >
+                {Object.entries(PUBLICATION_STATUS_DESCRIPTIONS).map(([status, description]) => (
+                  <Option key={status} value={status}>
+                    <Space>
+                      {status === PublicationStatusEnum.PUBLISHED ? (
+                        <CheckOutlined style={{ color: '#52c41a' }} />
+                      ) : status === PublicationStatusEnum.DRAFT ? (
+                        <EditOutlined style={{ color: '#1677ff' }} />
+                      ) : (
+                        <StopOutlined style={{ color: '#ff4d4f' }} />
+                      )}
+                      <span>{description}</span>
+                    </Space>
+                  </Option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="filter-group">
+              <div className="filter-label">סטטוס סקירה</div>
+              <Select
+                allowClear
+                style={{ width: '100%' }}
+                placeholder="בחר סטטוס סקירה"
+                value={filters.review_status}
+                onChange={handleReviewStatusChange}
+              >
+                {Object.entries(REVIEW_STATUS_DESCRIPTIONS).map(([status, description]) => (
+                  <Option key={status} value={status}>
+                    <Space>
+                      {status === ReviewStatusEnum.APPROVED ? (
+                        <CheckOutlined style={{ color: '#52c41a' }} />
+                      ) : status === ReviewStatusEnum.PENDING_REVIEW ? (
+                        <ClockCircleOutlined style={{ color: '#faad14' }} />
+                      ) : (
+                        <CloseOutlined style={{ color: '#ff4d4f' }} />
+                      )}
+                      <span>{description}</span>
+                    </Space>
+                  </Option>
+                ))}
+              </Select>
+            </div>
+          </div>
+        </FilterSection>
 
         <Card>
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -984,28 +1163,10 @@ export function QuestionLibraryPage() {
                               position: 'relative',
                               cursor: 'grab',
                             }}
-                            className={header.column.getCanSort() ? 'sortable' : ''}
+                            className={`${header.column.getCanSort() ? 'sortable' : ''} ${
+                              (header.column.columnDef.meta as any)?.sticky ? 'sticky sticky-header' : ''
+                            }`}
                             onClick={header.column.getToggleSortingHandler()}
-                            draggable
-                            onDragStart={e => {
-                              e.dataTransfer.setData('text/plain', header.id);
-                            }}
-                            onDragOver={e => {
-                              e.preventDefault();
-                            }}
-                            onDrop={e => {
-                              e.preventDefault();
-                              const fromId = e.dataTransfer.getData('text/plain');
-                              const toId = header.id;
-                              if (fromId !== toId) {
-                                const newColumnOrder = [...columnOrder];
-                                const fromIndex = newColumnOrder.indexOf(fromId);
-                                const toIndex = newColumnOrder.indexOf(toId);
-                                newColumnOrder.splice(fromIndex, 1);
-                                newColumnOrder.splice(toIndex, 0, fromId);
-                                setColumnOrder(newColumnOrder);
-                              }
-                            }}
                           >
                             {flexRender(
                               header.column.columnDef.header,
@@ -1030,7 +1191,12 @@ export function QuestionLibraryPage() {
                         className={row.getIsSelected() ? 'selected' : ''}
                       >
                         {row.getVisibleCells().map(cell => (
-                          <td key={cell.id}>
+                          <td 
+                            key={cell.id}
+                            className={
+                              (cell.column.columnDef.meta as any)?.sticky ? 'sticky' : ''
+                            }
+                          >
                             {flexRender(
                               cell.column.columnDef.cell,
                               cell.getContext()

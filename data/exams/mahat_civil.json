@@ -5,9 +5,9 @@
       "id": "mahat_civil_safety",
       "code": "M101",
       "names": {
-        "short": "בטיחות בבנייה",
-        "medium": "בטיחות בבנייה - מה\"ט",
-        "full": "בחינת מה\"ט - בטיחות בעבודות בנייה והנדסה אזרחית"
+        "short": "מה\"ט",
+        "medium": "מה\"ט",
+        "full": "מה\"ט"
       },
       "examType": "mahat_exam",
       "difficulty": 3,
@@ -76,8 +76,8 @@
       ]
     },
     {
-      "id": "construction_manager_certification",
-      "code": "M102",
+      "id": "construction_manager_committee",
+      "code": "M102", 
       "names": {
         "short": "וועדת הסמכה למנהל עבודה",
         "medium": "וועדת הסמכה למנהל עבודה",

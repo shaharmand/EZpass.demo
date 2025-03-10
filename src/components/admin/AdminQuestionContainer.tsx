@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Space } from 'antd';
+import { Space, Typography } from 'antd';
 import { Question, QuestionStatus, DatabaseQuestion } from '../../types/question';
 import { QuestionMetadataSection } from './sections/QuestionMetadataSection';
 import { QuestionContentSection } from './sections/QuestionContentSection';
 import { SolutionAndEvaluationSection } from './sections/SolutionAndEvaluationSection';
 
 interface AdminQuestionContainerProps {
-  question: DatabaseQuestion;
+  question?: DatabaseQuestion;
   onSave?: (updatedQuestion: DatabaseQuestion) => Promise<void>;
 }
 
@@ -21,7 +21,7 @@ export const AdminQuestionContainer: React.FC<AdminQuestionContainerProps> = ({
   };
 
   const handleSectionSave = async (sectionId: string, sectionData: any) => {
-    if (onSave) {
+    if (onSave && question) {
       const updatedQuestion = {
         ...question,
         ...sectionData
@@ -30,6 +30,14 @@ export const AdminQuestionContainer: React.FC<AdminQuestionContainerProps> = ({
     }
     setEditingSection(null);
   };
+
+  if (!question) {
+    return (
+      <Space direction="vertical" size="large" style={{ width: '100%', textAlign: 'center', padding: '2rem' }}>
+        <Typography.Text type="secondary">No question selected</Typography.Text>
+      </Space>
+    );
+  }
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>

@@ -1,5 +1,5 @@
 export interface FormatWarning {
-  type: 'math' | 'code';
+  type: 'math' | 'code' | 'text';
   message: string;
 }
 
@@ -70,11 +70,26 @@ export function validateCodeBlocks(text: string): FormatWarning[] {
   return warnings;
 }
 
+export function validateTextFormat(text: string): FormatWarning[] {
+  const warnings: FormatWarning[] = [];
+  
+  // Check if text ends with a period, question mark, exclamation mark, colon, or hyphen
+  if (!text.trim().match(/[.?!:\-]$/)) {
+    warnings.push({ 
+      type: 'text', 
+      message: 'חסר סימן פיסוק בסוף השאלה (נקודה, סימן שאלה, סימן קריאה, נקודתיים או מקף)'
+    });
+  }
+
+  return warnings;
+}
+
 export function validateContent(text: string): FormatWarning[] {
   if (!text) return [];
   
   return [
     ...validateMathFormat(text),
-    ...validateCodeBlocks(text)
+    ...validateCodeBlocks(text),
+    ...validateTextFormat(text)
   ];
 } 

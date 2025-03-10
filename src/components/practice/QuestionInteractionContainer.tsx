@@ -292,7 +292,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
                 ...(question.metadata.source.type === SourceType.EXAM ? {
                   examTemplateId: question.metadata.source.examTemplateId,
                   year: question.metadata.source.year,
-                  season: question.metadata.source.season,
+                  period: question.metadata.source.period,
                   moed: question.metadata.source.moed,
                   order: question.metadata.source.order
                 } : {})

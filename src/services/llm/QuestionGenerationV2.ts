@@ -7,8 +7,10 @@ import {
   Question, 
   QuestionType, 
   EzpassCreatorType,
-  AnswerContentGuidelines
+  AnswerContentGuidelines,
+  QuestionFetchParams
 } from "../../types/question";
+import { ImportInfo } from "../../scripts/import/types/importTypes";
 import { QuestionGenerationParams } from "../../types/questionGeneration";
 import { logger } from '../../utils/logger';
 import { questionStorage } from '../admin/questionStorage';
@@ -37,73 +39,82 @@ export class QuestionGenerationServiceV2 {
     };
   }
 
-  async generateQuestion(params: QuestionGenerationParams): Promise<Question> {
+  async generateQuestion(params: QuestionFetchParams): Promise<Question> {
     try {
-      // Convert params to QuestionPromptParams
-      const promptParams = this.convertToPromptParams(params);
+      // Convert params to a prompt string
+      const prompt = `Generate a ${params.difficulty} level ${params.type} question about ${params.topic} in ${params.subject}.
+      Use the following parameters:
+      - Subject: ${params.subject}
+      - Domain: ${params.domainId}
+      - Topic: ${params.topic}
+      - Subtopic: ${params.subtopic || 'none'}
+      - Difficulty: ${params.difficulty}
+      - Answer Format: ${params.type}
+      - Education Type: ${params.educationType}
+      - Exam Type: ${params.examType}`;
 
-      // Build the complete prompt using our component system
-      const promptBuilder = new QuestionPromptBuilder(promptParams);
-      const prompt = promptBuilder.build();
-      
-      // Get format instructions for the parser
-      const formatInstructions = await this.parser.getFormatInstructions();
+      const messages = [
+        new SystemMessage("You are an expert question generator for educational content."),
+        new HumanMessage(prompt)
+      ];
 
-      // Log the full prompt for debugging
-      logger.debug('Full generation prompt:', prompt);
+      const response = await this.llm.invoke(messages);
+      const parsedOutput = await this.parser.invoke(response.content as string);
 
-      // Generate the question using LangChain
-      const response = await this.llm.invoke([
-        new SystemMessage(prompt),
-        new HumanMessage(formatInstructions)
-      ]);
-
-      // Parse and validate the response
-      const content = response.content;
-      if (typeof content !== 'string') {
-        throw new Error('Unexpected response format from LLM');
-      }
-
-      // Parse the response into our Question type
-      const parsedQuestion = await this.parser.parse(content);
-
-      // Convert source to use string literals and enum values
-      const source = params.source ? {
-        type: params.source.type,
-        creatorType: params.source.creatorType === 'ai' ? EzpassCreatorType.AI : EzpassCreatorType.HUMAN
-      } : {
-        type: 'ezpass' as const,
-        creatorType: EzpassCreatorType.AI
-      };
-
-      // Ensure the metadata has the required answerFormat and source
-      const questionWithFormat = {
-        ...parsedQuestion,
+      // Add metadata required by Question type
+      const question: Question = {
+        ...parsedOutput,
         metadata: {
-          ...parsedQuestion.metadata,
-          answerFormat: params.answerFormat,
-          source
+          ...parsedOutput.metadata,
+          answerFormat: {
+            hasFinalAnswer: params.type !== QuestionType.OPEN,
+            finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' :
+                           params.type === QuestionType.NUMERICAL ? 'numerical' : 'none',
+            requiresSolution: true
+          },
+          source: {
+            type: 'ezpass' as const,
+            creatorType: EzpassCreatorType.AI
+          }
         },
         evaluationGuidelines: {
-          requiredCriteria: [],
-          scoringMethod: 'sum',
-          maxScore: 100
-        } as AnswerContentGuidelines
+          requiredCriteria: [
+            {
+              name: 'Basic Understanding',
+              description: 'Shows understanding of core concepts',
+              weight: 100
+            }
+          ]
+        }
+      };
+
+      // Add import info
+      const importInfo: ImportInfo = {
+        importMetadata: {
+          importedAt: new Date().toISOString(),
+          importScript: 'question-generation-v2'
+        },
+        source: {
+          name: 'ezpass',
+          files: [],
+          format: 'ai-generated'
+        },
+        originalData: {
+          prompt,
+          model: this.llm.modelName,
+          params: params
+        }
       };
 
       // Create the question in storage
       const createdQuestion = await questionStorage.createQuestion({
-        question: questionWithFormat,
-        import_info: {
-          system: 'ezpass',
-          originalId: questionWithFormat.id,
-          importedAt: new Date().toISOString()
-        }
+        question,
+        import_info: importInfo
       });
 
       return createdQuestion.data;
     } catch (error) {
-      logger.error('Error generating question:', error);
+      logger.error('Failed to generate question:', error);
       throw error;
     }
   }

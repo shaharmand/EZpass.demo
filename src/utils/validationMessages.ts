@@ -72,7 +72,7 @@ export const createValidationMessage = {
       `שדה סוג מקור: ערך לא חוקי. התקבל '${received}'. הערכים החוקיים הם: ${validOptions.map(opt => `'${opt}'`).join(' | ')}`,
     missingExamTemplate: 'שדה תבנית מבחן: חסר - exam template required',
     missingYear: 'שדה שנה: חסר - year required',
-    missingSeason: 'שדה תקופה: חסר - season required',
+    missingPeriod: 'שדה תקופה במבחן: חסר (אביב/קיץ/חורף/סתיו) - exam period required (Spring/Summer/Winter/Fall)',
     missingMoed: 'שדה מועד: חסר - moed required',
     missingBookName: 'שדה שם ספר: חסר - book name required',
     missingAuthorName: 'שדה שם מחבר: חסר - author name required'

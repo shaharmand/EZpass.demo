@@ -2,13 +2,13 @@ import { validateQuestion, ValidationResult } from '../utils/questionValidator';
 import { Question } from '../types/question';
 
 export function useQuestionValidation() {
-  const validateQuestionData = (question: Question): { 
-    success: boolean; 
+  const validateQuestionData = async (question: Question): Promise<{
+    success: boolean;
     errors: ValidationResult['errors'];
     warnings: ValidationResult['warnings'];
-  } => {
+  }> => {
     try {
-      const validationResult = validateQuestion(question);
+      const validationResult = await validateQuestion(question);
       const success = validationResult.errors.length === 0;
       
       if (!success) {
@@ -27,7 +27,7 @@ export function useQuestionValidation() {
       console.error('❌ Validation error:', error);
       return {
         success: false,
-        errors: [{ field: 'general', message: 'Validation failed unexpectedly' }],
+        errors: [],
         warnings: []
       };
     }

@@ -17,9 +17,16 @@ export default function QuestionsPage() {
       const savedQuestion = await questionStorage.createQuestion({
         question: newQuestionTemplate.data as Question,
         import_info: {
-          system: 'ezpass',
-          originalId: 'new',
-          importedAt: new Date().toISOString()
+          source: {
+            name: 'ezpass',
+            files: [],
+            format: 'json'
+          },
+          importMetadata: {
+            importedAt: new Date().toISOString(),
+            importScript: 'manual-creation'
+          },
+          originalData: {}
         }
       });
 

@@ -220,7 +220,7 @@ export const TeacherQuestionView: React.FC<QuestionPageProps> = () => {
               source: question.metadata.source?.type === 'exam' ? {
                 examTemplateId: question.metadata.source.examTemplateId,
                 year: question.metadata.source.year,
-                season: question.metadata.source.season,
+                period: question.metadata.source.period,
                 moed: question.metadata.source.moed
               } : undefined,
               subtopicId: question.metadata.subtopicId

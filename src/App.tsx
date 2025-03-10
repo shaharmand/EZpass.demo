@@ -11,12 +11,12 @@ import ExamDashboard from './pages/ExamDashboard';
 import { UserProfile } from './pages/UserProfile';
 import AdminLayout from './layouts/AdminLayout';
 import AdminDashboard from './pages/admin/Dashboard';
-import QuestionsPage from './pages/admin/questions';
+import AuthCallback from './pages/AuthCallback';
+import { checkEnvironmentVariables } from './utils/envCheck';
+import { QuestionLibraryPage } from './pages/admin/questions/QuestionLibraryPage';
 import { QuestionEditor } from './pages/admin/questions/QuestionEditor';
 import { QuestionImport } from './pages/admin/questions/QuestionImport';
-import AuthCallback from './pages/AuthCallback';
 import { QuestionGenerator } from './pages/admin/questions/QuestionGenerator';
-import { checkEnvironmentVariables } from './utils/envCheck';
 
 const App: React.FC = () => {
   useEffect(() => {
@@ -62,7 +62,7 @@ const App: React.FC = () => {
             }>
               <Route index element={<AdminDashboard />} />
               <Route path="questions">
-                <Route index element={<QuestionsPage />} />
+                <Route index element={<QuestionLibraryPage />} />
                 <Route path="new" element={<QuestionEditor />} />
                 <Route path=":id" element={<QuestionEditor />} />
                 <Route path="import" element={<QuestionImport />} />

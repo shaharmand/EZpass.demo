@@ -640,6 +640,27 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
   const [solution, setSolution] = useState(question.data.schoolAnswer?.solution?.text || '');
   const [hasUnsavedSolutionChanges, setHasUnsavedSolutionChanges] = useState(false);
   const inputRef = React.useRef<InputRef>(null);
+  const [validationResult, setValidationResult] = useState<ContentValidationResult>({
+    success: true,
+    errors: [],
+    warnings: []
+  });
+
+  useEffect(() => {
+    const validateData = async () => {
+      const result = await validateQuestion(question.data);
+      setValidationResult({
+        success: result.errors.length === 0,
+        errors: result.errors,
+        warnings: result.warnings
+      });
+    };
+    validateData();
+  }, [question.data]);
+
+  const contentErrors = validationResult.errors.filter(
+    (err: ValidationError) => err.field.startsWith('content') || err.field === 'options'
+  );
 
   // Load topics when subject and domain change
   useEffect(() => {
@@ -723,11 +744,6 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
     };
 
     onSave(saveOperation);
-  };
-
-  const validateQuestionContent = (updatedQuestion: DatabaseQuestion): ContentValidationResult => {
-    const validationResult = validateContent(updatedQuestion);
-    return validationResult;
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -832,20 +848,6 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
       console.error('Failed to save content:', error);
     }
   };
-
-  const validateContent = (question: DatabaseQuestion): ContentValidationResult => {
-    const validationResult = validateQuestion(question.data);
-    return {
-      success: validationResult.errors.length === 0,
-      errors: validationResult.errors,
-      warnings: validationResult.warnings
-    };
-  };
-
-  const validationResult = validateContent(question);
-  const contentErrors = validationResult.errors.filter(
-    (err: ValidationError) => err.field.startsWith('content') || err.field === 'options'
-  );
 
   const handleCancel = () => {
     setContent(question.data.content?.text || '');
@@ -1127,9 +1129,9 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
                   disabled={!isEditing}
                   style={{ width: '300px' }}
                 >
-                  <Select.Option value={QuestionType.MULTIPLE_CHOICE}>שאלה אמריקאית</Select.Option>
+                  <Select.Option value={QuestionType.MULTIPLE_CHOICE}>שאלה סגורה</Select.Option>
                   <Select.Option value={QuestionType.OPEN}>שאלה פתוחה</Select.Option>
-                  <Select.Option value={QuestionType.NUMERICAL}>שאלה מספרית</Select.Option>
+                  <Select.Option value={QuestionType.NUMERICAL}>שאלה חישובית</Select.Option>
                 </QuestionTypeSelect>
               </EditableWrapper>
             </Col>
@@ -1351,13 +1353,15 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
                         <MetadataLabel>סמסטר</MetadataLabel>
                         <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>
                           <SourceSelect
-                            value={metadata.source.season}
-                            onChange={(value: string) => handleMetadataChange('source', { ...metadata.source, season: value })}
+                            value={metadata.source.period}
+                            onChange={(value: string) => handleMetadataChange('source', { ...metadata.source, period: value })}
                             className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedMetadataChanges ? 'has-changes' : ''}`}
                             disabled={!isEditing}
                           >
                             <Select.Option value="spring">אביב</Select.Option>
                             <Select.Option value="summer">קיץ</Select.Option>
+                            <Select.Option value="winter">חורף</Select.Option>
+                            <Select.Option value="fall">סתיו</Select.Option>
                           </SourceSelect>
                         </EditableWrapper>
                       </MetadataField>
@@ -1371,8 +1375,9 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
                             className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedMetadataChanges ? 'has-changes' : ''}`}
                             disabled={!isEditing}
                           >
-                            <Select.Option value="a">א</Select.Option>
-                            <Select.Option value="b">ב</Select.Option>
+                            <Select.Option value="a">א׳</Select.Option>
+                            <Select.Option value="b">ב׳</Select.Option>
+                            <Select.Option value="c">ג׳</Select.Option>
                           </SourceSelect>
                         </EditableWrapper>
                       </MetadataField>

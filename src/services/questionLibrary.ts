@@ -4,6 +4,7 @@ import type {
   QuestionType, 
   ValidationStatus, 
   PublicationStatusEnum,
+  ReviewStatusEnum,
   DatabaseQuestion 
 } from '../types/question';
 
@@ -11,7 +12,8 @@ export interface QuestionFilters {
   subject?: string;
   domain?: string;
   topic?: string;
-  type?: string;
+  subtopic?: string;
+  type?: QuestionType;
   difficulty?: number;
   searchText?: string;
   dateRange?: {
@@ -20,9 +22,9 @@ export interface QuestionFilters {
   };
   sortBy?: 'created_at' | 'updated_at';
   sortOrder?: 'asc' | 'desc';
-  validation_status?: ValidationStatus | null;
-  subtopic?: string;
-  publication_status?: PublicationStatusEnum | null;
+  validation_status?: ValidationStatus;
+  publication_status?: PublicationStatusEnum;
+  review_status?: ReviewStatusEnum;
 }
 
 class QuestionLibrary {
@@ -30,7 +32,7 @@ class QuestionLibrary {
   private currentList: string[] = [];
   private currentPosition: number = 0;
 
-  async getFilteredList(filters?: any): Promise<string[]> {
+  async getFilteredList(filters?: QuestionFilters): Promise<string[]> {
     // Get filtered questions and extract their IDs
     const questions = await questionStorage.getFilteredQuestions(filters || {});
     return questions.map(q => q.id);

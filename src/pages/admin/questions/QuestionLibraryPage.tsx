@@ -37,7 +37,9 @@ import {
   RobotOutlined,
   UserOutlined,
   SaveOutlined,
-  CloseOutlined
+  CloseOutlined,
+  LeftOutlined,
+  RightOutlined
 } from '@ant-design/icons/lib/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -52,9 +54,10 @@ import {
   SourceType,
   EzpassCreatorType,
   PUBLICATION_STATUS_DESCRIPTIONS,
-  REVIEW_STATUS_DESCRIPTIONS
+  REVIEW_STATUS_DESCRIPTIONS,
+  MoedType
 } from '../../../types/question';
-import { SubTopic } from '../../../types/subject';
+import { SubTopic, Topic } from '../../../types/subject';
 import { questionStorage } from '../../../services/admin/questionStorage';
 import { universalTopics } from '../../../services/universalTopics';
 import dayjs from 'dayjs';
@@ -65,6 +68,9 @@ import { getEnumTranslation, enumMappings } from '../../../utils/translations';
 import styled from 'styled-components';
 import { debounce } from 'lodash';
 import { examService } from '../../../services/examService';
+import { supabase } from '../../../lib/supabase';
+import { UserRole } from '../../../types/userTypes';
+import { ExamType } from '../../../types/examTemplate';
 
 dayjs.extend(relativeTime);
 dayjs.locale('he');
@@ -264,48 +270,35 @@ const StatsCard = styled(Card)`
   }
 
   .stat-group {
-    padding: 12px;
+    padding: 16px;
     border-radius: 8px;
     background: #fafafa;
+    transition: all 0.3s;
+
+    &:hover {
+      background: #f0f0f0;
+    }
   }
 
   .stat-title {
     font-size: 14px;
     color: #666;
     margin-bottom: 8px;
-  }
-
-  .stat-value {
-    font-size: 24px;
-    font-weight: 500;
-    color: #262626;
-  }
-
-  .stat-item {
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 600;
+    color: #262626;
+  }
+
+  .stat-subtitle {
+    font-size: 13px;
+    color: #999;
     margin-top: 4px;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.2s;
-
-    &:hover {
-      background: rgba(0, 0, 0, 0.05);
-    }
-
-    &.active {
-      background: #e6f4ff;
-    }
-  }
-
-  .stat-label {
-    font-size: 14px;
-  }
-
-  .stat-number {
-    font-weight: 500;
   }
 `;
 
@@ -374,11 +367,136 @@ const FilterSection = styled(Card)`
     display: flex;
     flex-direction: column;
     gap: 8px;
+
+    &.has-value {
+      .filter-label {
+        color: #1677ff;
+        font-weight: 600;
+      }
+
+      .ant-select .ant-select-selector {
+        border-color: #1677ff;
+        background-color: #e6f4ff;
+      }
+
+      .ant-input-affix-wrapper {
+        border-color: #1677ff;
+        background-color: #e6f4ff;
+      }
+    }
   }
 
   .filter-label {
+    font-size: 13px;
+    color: #666;
+    font-weight: 500;
+  }
+
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .search-group {
+      flex: 2;
+      min-width: 300px;
+    }
+
+    .type-group {
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .topic-group {
+      flex: 1.5;
+      min-width: 200px;
+    }
+
+    .subtopic-group {
+      flex: 1.5;
+      min-width: 200px;
+    }
+
+    .difficulty-group {
+      flex: 0.5;
+      min-width: 100px;
+    }
+
+    .source-filters {
+      display: flex;
+      gap: 8px;
+      flex: 2;
+      min-width: 300px;
+
+      .filter-group {
+        flex: 1;
+      }
+    }
+
+    .status-filters {
+      display: flex;
+      gap: 8px;
+      flex: 3;
+      min-width: 450px;
+
+      .filter-group {
+        flex: 0 1 auto;
+        min-width: 120px;
+      }
+    }
+  }
+`;
+
+const PaginationSection = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px 24px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .pagination-info {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .page-info {
     font-size: 14px;
     color: #666;
+  }
+
+  .results-info {
+    font-size: 13px;
+    color: #999;
+  }
+
+  .pagination-buttons {
+    display: flex;
+    gap: 8px;
+
+    .ant-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      
+      .anticon {
+        font-size: 12px;
+      }
+    }
   }
 `;
 
@@ -388,7 +506,6 @@ export function QuestionLibraryPage() {
   const [searchText, setSearchText] = useState('');
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [filters, setFilters] = useState<QuestionFilters>({});
-  const [statistics, setStatistics] = useState<ValidationStatistics | null>(null);
   const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
@@ -399,9 +516,9 @@ export function QuestionLibraryPage() {
 
   // Get unique subjects and their domains
   const subjects = universalTopics.getAllSubjects();
-  const selectedSubject = subjects.find(s => s.id === filters.subject);
+  const selectedSubject = subjects.find(s => s.id === 'civil_engineering');
   const domains = selectedSubject?.domains || [];
-  const selectedDomain = domains.find(d => d.id === filters.domain);
+  const selectedDomain = domains.find(d => d.id === 'construction_safety');
   const topics = selectedDomain?.topics || [];
   const selectedTopic = topics.find(t => t.id === filters.topic);
 
@@ -1010,230 +1127,340 @@ export function QuestionLibraryPage() {
   return (
     <PageContainer>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {/* Stats Card */}
-        {statistics && (
-          <StatsCard>
-            {/* ... existing stats card content ... */}
-          </StatsCard>
-        )}
-
         <FilterSection>
           <div className="section-header">
-            <Text strong>סינון שאלות</Text>
+            <Title level={4}>סינון שאלות</Title>
           </div>
-          <div className="filter-grid">
-            {/* Existing filters */}
-            
-            {/* Status filters */}
-            <div className="filter-group">
-              <div className="filter-label">סטטוס אימות</div>
-              <Select
-                allowClear
+          
+          {/* First row - Basic filters */}
+          <div className="filter-row">
+            <div className={`filter-group search-group${searchText ? ' has-value' : ''}`}>
+              <div className="filter-label">חיפוש</div>
+              <Input
+                placeholder="חיפוש שאלות..."
+                prefix={<SearchOutlined />}
+                value={searchText}
+                onChange={e => handleSearchChange(e.target.value)}
                 style={{ width: '100%' }}
-                placeholder="בחר סטטוס אימות"
-                value={filters.validation_status}
-                onChange={handleValidationStatusChange}
+              />
+            </div>
+
+            <div className={`filter-group type-group${filters.type ? ' has-value' : ''}`}>
+              <div className="filter-label">סוג שאלה</div>
+              <Select 
+                placeholder="בחר סוג"
+                style={{ width: '100%' }}
+                allowClear
+                value={filters.type}
+                onChange={value => setFilters(prev => ({ ...prev, type: value }))}
               >
-                <Option value={ValidationStatus.VALID}>
-                  <Space>
-                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                    <span>תקין</span>
-                  </Space>
-                </Option>
-                <Option value={ValidationStatus.WARNING}>
-                  <Space>
-                    <WarningOutlined style={{ color: '#faad14' }} />
-                    <span>אזהרות</span>
-                  </Space>
-                </Option>
-                <Option value={ValidationStatus.ERROR}>
-                  <Space>
-                    <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-                    <span>שגיאות</span>
-                  </Space>
-                </Option>
+                {Object.entries(enumMappings.questionType).map(([key, label]) => (
+                  <Option key={key} value={key}>{label}</Option>
+                ))}
               </Select>
             </div>
 
-            <div className="filter-group">
-              <div className="filter-label">סטטוס פרסום</div>
+            <div className={`filter-group difficulty-group${filters.difficulty ? ' has-value' : ''}`}>
+              <div className="filter-label">רמת קושי</div>
               <Select
-                allowClear
+                placeholder="קושי"
                 style={{ width: '100%' }}
-                placeholder="בחר סטטוס פרסום"
-                value={filters.publication_status}
-                onChange={handlePublicationStatusChange}
+                allowClear
+                value={filters.difficulty}
+                onChange={value => setFilters(prev => ({ ...prev, difficulty: value }))}
               >
-                {Object.entries(PUBLICATION_STATUS_DESCRIPTIONS).map(([status, description]) => (
-                  <Option key={status} value={status}>
-                    <Space>
-                      {status === PublicationStatusEnum.PUBLISHED ? (
-                        <CheckOutlined style={{ color: '#52c41a' }} />
-                      ) : status === PublicationStatusEnum.DRAFT ? (
-                        <EditOutlined style={{ color: '#1677ff' }} />
-                      ) : (
-                        <StopOutlined style={{ color: '#ff4d4f' }} />
-                      )}
-                      <span>{description}</span>
-                    </Space>
+                {[1, 2, 3, 4, 5].map(level => (
+                  <Option key={level} value={level}>{level}</Option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          {/* Second row - Topic and Source filters */}
+          <div className="filter-row">
+            <div className={`filter-group topic-group${filters.topic ? ' has-value' : ''}`}>
+              <div className="filter-label">נושא</div>
+              <Select
+                placeholder="בחר נושא"
+                style={{ width: '100%' }}
+                allowClear
+                value={filters.topic}
+                onChange={value => {
+                  setFilters(prev => ({
+                    ...prev,
+                    topic: value,
+                    subtopic: undefined
+                  }));
+                }}
+              >
+                {topics.map((topic: Topic) => (
+                  <Option key={topic.id} value={topic.id}>
+                    {topic.name}
                   </Option>
                 ))}
               </Select>
             </div>
 
-            <div className="filter-group">
-              <div className="filter-label">סטטוס סקירה</div>
+            <div className={`filter-group subtopic-group${filters.subtopic ? ' has-value' : ''}`}>
+              <div className="filter-label">תת-נושא</div>
               <Select
-                allowClear
+                placeholder="בחר תת-נושא"
                 style={{ width: '100%' }}
-                placeholder="בחר סטטוס סקירה"
-                value={filters.review_status}
-                onChange={handleReviewStatusChange}
+                allowClear
+                value={filters.subtopic}
+                onChange={value => setFilters(prev => ({ ...prev, subtopic: value }))}
+                disabled={!filters.topic}
               >
-                {Object.entries(REVIEW_STATUS_DESCRIPTIONS).map(([status, description]) => (
-                  <Option key={status} value={status}>
-                    <Space>
-                      {status === ReviewStatusEnum.APPROVED ? (
-                        <CheckOutlined style={{ color: '#52c41a' }} />
-                      ) : status === ReviewStatusEnum.PENDING_REVIEW ? (
-                        <ClockCircleOutlined style={{ color: '#faad14' }} />
-                      ) : (
-                        <CloseOutlined style={{ color: '#ff4d4f' }} />
-                      )}
-                      <span>{description}</span>
-                    </Space>
+                {selectedTopic?.subTopics.map((subtopic: SubTopic) => (
+                  <Option key={subtopic.id} value={subtopic.id}>
+                    {subtopic.name}
                   </Option>
                 ))}
               </Select>
+            </div>
+
+            <div className="source-filters">
+              <div className={`filter-group${filters.source?.year ? ' has-value' : ''}`}>
+                <div className="filter-label">שנה</div>
+                <Select
+                  placeholder="שנה"
+                  style={{ width: '100%' }}
+                  allowClear
+                  value={filters.source?.year}
+                  onChange={value => setFilters(prev => ({
+                    ...prev,
+                    source: { ...prev.source, year: value }
+                  }))}
+                >
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                    <Option key={year} value={year}>{year}</Option>
+                  ))}
+                </Select>
+              </div>
+
+              <div className={`filter-group${filters.source?.period ? ' has-value' : ''}`}>
+                <div className="filter-label">עונה</div>
+                <Select
+                  placeholder="עונה"
+                  style={{ width: '100%' }}
+                  allowClear
+                  value={filters.source?.period}
+                  onChange={value => setFilters(prev => ({
+                    ...prev,
+                    source: { ...prev.source, period: value }
+                  }))}
+                >
+                  <Option value="Spring">אביב</Option>
+                  <Option value="Summer">קיץ</Option>
+                  <Option value="Winter">חורף</Option>
+                  <Option value="Fall">סתיו</Option>
+                </Select>
+              </div>
+
+              <div className={`filter-group${filters.source?.moed ? ' has-value' : ''}`}>
+                <div className="filter-label">מועד</div>
+                <Select
+                  placeholder="מועד"
+                  style={{ width: '100%' }}
+                  allowClear
+                  value={filters.source?.moed}
+                  onChange={value => setFilters(prev => ({
+                    ...prev,
+                    source: { ...prev.source, moed: value }
+                  }))}
+                >
+                  <Option value="A">א</Option>
+                  <Option value="B">ב</Option>
+                  <Option value="Special">ג</Option>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Third row - Status filters */}
+          <div className="filter-row">
+            <div className="status-filters">
+              <div className={`filter-group${filters.validation_status ? ' has-value' : ''}`}>
+                <div className="filter-label">סטטוס אימות</div>
+                <Select
+                  allowClear
+                  style={{ width: '100%' }}
+                  placeholder="אימות"
+                  value={filters.validation_status}
+                  onChange={handleValidationStatusChange}
+                >
+                  <Option value={ValidationStatus.VALID}>
+                    <Space>
+                      <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                      <span>תקין</span>
+                    </Space>
+                  </Option>
+                  <Option value={ValidationStatus.WARNING}>
+                    <Space>
+                      <WarningOutlined style={{ color: '#faad14' }} />
+                      <span>אזהרות</span>
+                    </Space>
+                  </Option>
+                  <Option value={ValidationStatus.ERROR}>
+                    <Space>
+                      <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+                      <span>שגיאות</span>
+                    </Space>
+                  </Option>
+                </Select>
+              </div>
+
+              <div className={`filter-group${filters.publication_status ? ' has-value' : ''}`}>
+                <div className="filter-label">סטטוס פרסום</div>
+                <Select
+                  allowClear
+                  style={{ width: '100%' }}
+                  placeholder="פרסום"
+                  value={filters.publication_status}
+                  onChange={handlePublicationStatusChange}
+                >
+                  {Object.entries(PUBLICATION_STATUS_DESCRIPTIONS).map(([status, description]) => (
+                    <Option key={status} value={status}>
+                      <Space>
+                        {status === PublicationStatusEnum.PUBLISHED ? (
+                          <CheckOutlined style={{ color: '#52c41a' }} />
+                        ) : status === PublicationStatusEnum.DRAFT ? (
+                          <EditOutlined style={{ color: '#1677ff' }} />
+                        ) : (
+                          <StopOutlined style={{ color: '#ff4d4f' }} />
+                        )}
+                        <span>{description}</span>
+                      </Space>
+                    </Option>
+                  ))}
+                </Select>
+              </div>
+
+              <div className={`filter-group${filters.review_status ? ' has-value' : ''}`}>
+                <div className="filter-label">סטטוס סקירה</div>
+                <Select
+                  allowClear
+                  style={{ width: '100%' }}
+                  placeholder="סקירה"
+                  value={filters.review_status}
+                  onChange={handleReviewStatusChange}
+                >
+                  {Object.entries(REVIEW_STATUS_DESCRIPTIONS).map(([status, description]) => (
+                    <Option key={status} value={status}>
+                      <Space>
+                        {status === ReviewStatusEnum.APPROVED ? (
+                          <CheckOutlined style={{ color: '#52c41a' }} />
+                        ) : status === ReviewStatusEnum.PENDING_REVIEW ? (
+                          <ClockCircleOutlined style={{ color: '#faad14' }} />
+                        ) : (
+                          <CloseOutlined style={{ color: '#ff4d4f' }} />
+                        )}
+                        <span>{description}</span>
+                      </Space>
+                    </Option>
+                  ))}
+                </Select>
+              </div>
             </div>
           </div>
         </FilterSection>
 
+        <PaginationSection>
+          <div className="pagination-info">
+            <Text className="results-info">{'נמצאו ' + questions.length + ' שאלות'}</Text>
+            <Text className="page-info">{'עמוד ' + (table.getState().pagination.pageIndex + 1) + ' מתוך ' + table.getPageCount()}</Text>
+          </div>
+          
+          <div className="pagination-buttons">
+            <Button
+              type="primary"
+              ghost
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+              icon={<RightOutlined />}
+            >
+              הקודם
+            </Button>
+            <Button
+              type="primary"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+              icon={<LeftOutlined />}
+            >
+              הבא
+            </Button>
+          </div>
+        </PaginationSection>
+
         <Card>
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            <Row gutter={16} align="middle" justify="space-between">
-              <Col>
-                <Space size="middle">
-                  <Input
-                    placeholder="חיפוש שאלות..."
-                    prefix={<SearchOutlined />}
-                    value={searchText}
-                    onChange={e => handleSearchChange(e.target.value)}
-                    style={{ width: 200 }}
-                  />
-                </Space>
-              </Col>
-              <Col>
-                <Space>
-                  <Select 
-                    placeholder="סוג שאלה"
-                    style={{ width: 120 }}
-                    allowClear
-                    onChange={value => setFilters(prev => ({ ...prev, type: value }))}
-                  >
-                    {Object.entries(enumMappings.questionType).map(([key, label]) => (
-                      <Option key={key} value={key}>{label}</Option>
-                    ))}
-                  </Select>
-                  <Select
-                    placeholder="רמת קושי"
-                    style={{ width: 120 }}
-                    allowClear
-                    onChange={value => setFilters(prev => ({ ...prev, difficulty: value }))}
-                  >
-                    {[1, 2, 3, 4, 5].map(level => (
-                      <Option key={level} value={level}>{level}</Option>
-                    ))}
-                  </Select>
-                </Space>
-              </Col>
-            </Row>
-
-            <TableStyles>
-              <div className="table-container">
-                <table>
-                  <thead>
-                    {table.getHeaderGroups().map(headerGroup => (
-                      <tr key={headerGroup.id}>
-                        {headerGroup.headers.map(header => (
-                          <th 
-                            key={header.id}
-                            style={{ 
-                              width: header.getSize(),
-                              position: 'relative',
-                              cursor: 'grab',
+          <TableStyles>
+            <div className="table-container">
+              <table>
+                <thead>
+                  {table.getHeaderGroups().map(headerGroup => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map(header => (
+                        <th 
+                          key={header.id}
+                          style={{ 
+                            width: header.getSize(),
+                            position: 'relative',
+                            cursor: 'grab',
+                          }}
+                          className={`${header.column.getCanSort() ? 'sortable' : ''} ${
+                            (header.column.columnDef.meta as any)?.sticky ? 'sticky sticky-header' : ''
+                          }`}
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                          <div
+                            {...{
+                              onMouseDown: header.getResizeHandler(),
+                              onTouchStart: header.getResizeHandler(),
+                              className: `resizer ${header.column.getIsResizing() ? 'isResizing' : ''}`,
                             }}
-                            className={`${header.column.getCanSort() ? 'sortable' : ''} ${
-                              (header.column.columnDef.meta as any)?.sticky ? 'sticky sticky-header' : ''
-                            }`}
-                            onClick={header.column.getToggleSortingHandler()}
-                          >
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                            <div
-                              {...{
-                                onMouseDown: header.getResizeHandler(),
-                                onTouchStart: header.getResizeHandler(),
-                                className: `resizer ${header.column.getIsResizing() ? 'isResizing' : ''}`,
-                              }}
-                            />
-                          </th>
-                        ))}
-                      </tr>
-                    ))}
-                  </thead>
-                  <tbody>
-                    {table.getRowModel().rows.map(row => (
-                      <StyledRow 
-                        key={row.id}
-                        className={row.getIsSelected() ? 'selected' : ''}
-                      >
-                        {row.getVisibleCells().map(cell => (
-                          <td 
-                            key={cell.id}
-                            className={
-                              (cell.column.columnDef.meta as any)?.sticky ? 'sticky' : ''
-                            }
-                          >
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </td>
-                        ))}
-                      </StyledRow>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </TableStyles>
+                          />
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.map(row => (
+                    <StyledRow 
+                      key={row.id}
+                      className={row.getIsSelected() ? 'selected' : ''}
+                    >
+                      {row.getVisibleCells().map(cell => (
+                        <td 
+                          key={cell.id}
+                          className={
+                            (cell.column.columnDef.meta as any)?.sticky ? 'sticky' : ''
+                          }
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </td>
+                      ))}
+                    </StyledRow>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </TableStyles>
 
-            <Row justify="space-between" align="middle">
-              <Col>
-                <Text type="secondary">
-                  {`מציג ${table.getRowModel().rows.length} מתוך ${questions.length} שאלות`}
-                </Text>
-              </Col>
-              <Col>
-                <Space>
-                  <Button
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                  >
-                    הקודם
-                  </Button>
-                  <Button
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                  >
-                    הבא
-                  </Button>
-                </Space>
-              </Col>
-            </Row>
-          </Space>
+          <Row justify="end" align="middle" style={{ marginTop: '16px' }}>
+            <Col>
+              <Text type="secondary">
+                {'מציג ' + table.getRowModel().rows.length + ' מתוך ' + questions.length + ' שאלות בעמוד זה'}
+              </Text>
+            </Col>
+          </Row>
         </Card>
       </Space>
     </PageContainer>

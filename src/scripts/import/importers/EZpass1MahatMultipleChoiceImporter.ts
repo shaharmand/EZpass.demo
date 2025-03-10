@@ -411,8 +411,8 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
             metadata: {
                 subjectId: 'civil_engineering',
                 domainId: 'construction_safety',
-                topicId,
-                subtopicId,
+                topicId: topicId || '',
+                subtopicId: subtopicId || '',
                 type: QuestionType.MULTIPLE_CHOICE,
                 difficulty: 3,
                 answerFormat: {

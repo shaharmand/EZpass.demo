@@ -165,6 +165,14 @@ IMPORTANT:
 7. All feedback MUST be in Hebrew and be specific to the student's work
 8. Include practical next steps and learning resources where appropriate`;
 
+      // Log the messages being sent to AI
+      console.log('\n=== AI Feedback Request ===');
+      console.log('\nSystem Message:');
+      console.log(systemMessage);
+      console.log('\nUser Message:');
+      console.log(prompt);
+      console.log('\n===========================\n');
+
       const response = await this.openAIService.complete(prompt, {
         model: isQuick ? 'gpt-3.5-turbo' : 'gpt-4-turbo-preview',
         temperature: 0.7,

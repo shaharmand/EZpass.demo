@@ -5,7 +5,9 @@ import type {
   ValidationStatus, 
   PublicationStatusEnum,
   ReviewStatusEnum,
-  DatabaseQuestion 
+  DatabaseQuestion,
+  ExamPeriod,
+  MoedType
 } from '../types/question';
 
 export interface QuestionFilters {
@@ -25,6 +27,11 @@ export interface QuestionFilters {
   validation_status?: ValidationStatus;
   publication_status?: PublicationStatusEnum;
   review_status?: ReviewStatusEnum;
+  source?: {
+    year?: number;
+    period?: ExamPeriod;
+    moed?: MoedType;
+  };
 }
 
 class QuestionLibrary {

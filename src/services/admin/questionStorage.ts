@@ -44,6 +44,11 @@ interface QuestionFilters {
   subtopic?: string;
   publication_status?: PublicationStatusEnum | null;
   review_status?: ReviewStatusEnum | null;
+  source?: {
+    year?: number;
+    period?: string;
+    moed?: MoedType;
+  };
 }
 
 interface QuestionRow {
@@ -1043,92 +1048,124 @@ export class QuestionStorage implements QuestionRepository {
 
   async getFilteredQuestions(filters: QuestionFilters): Promise<DatabaseQuestion[]> {
     try {
-      let query = this.supabase
-        .from('questions')
-        .select('*');
+      let allQuestions: DatabaseQuestion[] = [];
+      let hasMore = true;
+      let page = 0;
+      const pageSize = 1000; // Supabase's default limit
 
-      // Apply filters
-      if (filters.publication_status) {
-        query = query.eq('publication_status', filters.publication_status);
-      }
+      while (hasMore) {
+        let query = this.supabase
+          .from('questions')
+          .select('*')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
 
-      if (filters.validation_status) {
-        query = query.eq('validation_status', filters.validation_status);
-      }
-
-      if (filters.review_status) {
-        query = query.eq('review_status', filters.review_status);
-      }
-
-      // Handle topic hierarchy filtering
-      if (filters.subject || filters.domain || filters.topic) {
-        if (filters.subject) {
-          query = query.eq('data->metadata->>subjectId', filters.subject);
-        }
-        
-        if (filters.domain) {
-          query = query.eq('data->metadata->>domainId', filters.domain);
-        }
-        
-        if (filters.topic) {
-          query = query.eq('data->metadata->>topicId', filters.topic);
+        // Apply filters
+        if (filters.publication_status) {
+          query = query.eq('publication_status', filters.publication_status);
         }
 
-        if (filters.subtopic) {
-          query = query.eq('data->metadata->>subtopicId', filters.subtopic);
+        if (filters.validation_status) {
+          query = query.eq('validation_status', filters.validation_status);
         }
+
+        if (filters.review_status) {
+          query = query.eq('review_status', filters.review_status);
+        }
+
+        // Handle topic hierarchy filtering
+        if (filters.subject || filters.domain || filters.topic) {
+          if (filters.subject) {
+            query = query.eq('data->metadata->>subjectId', filters.subject);
+          }
+          
+          if (filters.domain) {
+            query = query.eq('data->metadata->>domainId', filters.domain);
+          }
+          
+          if (filters.topic) {
+            query = query.eq('data->metadata->>topicId', filters.topic);
+          }
+
+          if (filters.subtopic) {
+            query = query.eq('data->metadata->>subtopicId', filters.subtopic);
+          }
+        }
+
+        if (filters.type) {
+          query = query.eq('data->metadata->>type', filters.type);
+        }
+
+        if (filters.difficulty) {
+          query = query.eq('data->metadata->>difficulty', filters.difficulty);
+        }
+
+        if (filters.searchText) {
+          query = query.or(`data->content->>text.ilike.%${filters.searchText}%,id.ilike.%${filters.searchText}%`);
+        }
+
+        // Add source filtering if provided
+        if (filters.source) {
+          if (filters.source.year) {
+            query = query.eq('data->metadata->source->>year', filters.source.year.toString());
+          }
+          if (filters.source.period) {
+            query = query.eq('data->metadata->source->>period', filters.source.period);
+          }
+          if (filters.source.moed) {
+            query = query.eq('data->metadata->source->>moed', filters.source.moed);
+          }
+        }
+
+        // Add date range filtering if provided
+        if (filters.dateRange?.start) {
+          query = query.gte('created_at', filters.dateRange.start.toISOString());
+        }
+        if (filters.dateRange?.end) {
+          query = query.lte('created_at', filters.dateRange.end.toISOString());
+        }
+
+        // Add sorting
+        if (filters.sortBy) {
+          query = query.order(filters.sortBy, { 
+            ascending: filters.sortOrder === 'asc'
+          });
+        } else {
+          // Default sort by created_at desc
+          query = query.order('created_at', { ascending: false });
+        }
+
+        const { data: questions, error } = await query;
+
+        if (error) throw error;
+
+        if (!questions || questions.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        // Transform and add to results
+        const transformedQuestions = questions.map(row => ({
+          id: row.id,
+          data: row.data,
+          publication_status: row.publication_status,
+          publication_metadata: row.publication_metadata || undefined,
+          validation_status: row.validation_status,
+          review_status: row.review_status,
+          review_metadata: row.review_metadata || undefined,
+          ai_generated_fields: row.ai_generated_fields || undefined,
+          import_info: row.import_info || undefined,
+          created_at: row.created_at,
+          updated_at: row.updated_at
+        }));
+
+        allQuestions = allQuestions.concat(transformedQuestions);
+
+        // Check if we got a full page of results
+        hasMore = questions.length === pageSize;
+        page++;
       }
 
-      if (filters.type) {
-        query = query.eq('data->metadata->>type', filters.type);
-      }
-
-      if (filters.difficulty) {
-        query = query.eq('data->metadata->>difficulty', filters.difficulty);
-      }
-
-      if (filters.searchText) {
-        query = query.or(`data->content->>text.ilike.%${filters.searchText}%,id.ilike.%${filters.searchText}%`);
-      }
-
-      // Add date range filtering if provided
-      if (filters.dateRange?.start) {
-        query = query.gte('created_at', filters.dateRange.start.toISOString());
-      }
-      if (filters.dateRange?.end) {
-        query = query.lte('created_at', filters.dateRange.end.toISOString());
-      }
-
-      // Add sorting
-      if (filters.sortBy) {
-        query = query.order(filters.sortBy, { 
-          ascending: filters.sortOrder === 'asc'
-        });
-      } else {
-        // Default sort by created_at desc
-        query = query.order('created_at', { ascending: false });
-      }
-
-      const { data: questions, error } = await query;
-
-      if (error) throw error;
-
-      if (!questions) return [];
-
-      // Transform to DatabaseQuestion format
-      return questions.map(row => ({
-        id: row.id,
-        data: row.data,
-        publication_status: row.publication_status,
-        publication_metadata: row.publication_metadata || undefined,
-        validation_status: row.validation_status,
-        review_status: row.review_status,
-        review_metadata: row.review_metadata || undefined,
-        ai_generated_fields: row.ai_generated_fields || undefined,
-        import_info: row.import_info || undefined,
-        created_at: row.created_at,
-        updated_at: row.updated_at
-      }));
+      return allQuestions;
 
     } catch (error) {
       console.error('Error in getFilteredQuestions:', error);
@@ -1160,15 +1197,6 @@ export class QuestionStorage implements QuestionRepository {
   }
 
   async getQuestionStatistics(): Promise<QuestionStatistics> {
-    const { data: questions, error } = await this.supabase
-      .from('questions')
-      .select('publication_status, review_status, validation_status');
-
-    if (error) {
-      console.error('Failed to load question statistics:', error);
-      throw error;
-    }
-
     const stats: QuestionStatistics = {
       publication: {
         published: 0,
@@ -1185,35 +1213,64 @@ export class QuestionStorage implements QuestionRepository {
       }
     };
 
-    questions?.forEach(q => {
-      // Publication stats
-      if (q.publication_status === PublicationStatusEnum.PUBLISHED) {
-        stats.publication.published++;
-      } else {
-        stats.publication.draft++;
+    let hasMore = true;
+    let page = 0;
+    const pageSize = 1000; // Supabase's default limit
+
+    try {
+      while (hasMore) {
+        const { data: questions, error } = await this.supabase
+          .from('questions')
+          .select('publication_status, review_status, validation_status')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw error;
+
+        if (!questions || questions.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        if (questions.length < pageSize) {
+          hasMore = false;
+        }
+
+        questions.forEach(q => {
+          // Publication stats
+          if (q.publication_status === PublicationStatusEnum.PUBLISHED) {
+            stats.publication.published++;
+          } else {
+            stats.publication.draft++;
+          }
+
+          // Review stats
+          if (q.review_status === ReviewStatusEnum.PENDING_REVIEW) {
+            stats.review.pending++;
+          }
+          stats.review.total++;
+
+          // Validation stats
+          switch (q.validation_status) {
+            case ValidationStatus.ERROR:
+              stats.validation.error++;
+              break;
+            case ValidationStatus.WARNING:
+              stats.validation.warning++;
+              break;
+            case ValidationStatus.VALID:
+              stats.validation.valid++;
+              break;
+          }
+        });
+
+        page++;
       }
 
-      // Review stats
-      if (q.review_status === 'PENDING_REVIEW') {
-        stats.review.pending++;
-      }
-      stats.review.total++;
-
-      // Validation stats
-      switch (q.validation_status) {
-        case ValidationStatus.ERROR:
-          stats.validation.error++;
-          break;
-        case ValidationStatus.WARNING:
-          stats.validation.warning++;
-          break;
-        case ValidationStatus.VALID:
-          stats.validation.valid++;
-          break;
-      }
-    });
-
-    return stats;
+      return stats;
+    } catch (error) {
+      console.error('Failed to load question statistics:', error);
+      throw error;
+    }
   }
 
   async saveQuestions(questions: DatabaseOperation[]): Promise<void> {

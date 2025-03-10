@@ -20,10 +20,52 @@ import { getEnumTranslation } from '../../../utils/translations';
 
 const { Text } = Typography;
 
-const NavigationGroup = styled(Space.Compact)`
-  direction: rtl;
-  .ant-btn {
-    margin: 0;
+const NavigationButton = styled(Button)`
+  min-width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 500;
+  border-width: 2px;
+  border-color: #1677ff;
+  color: #1677ff;
+  background: #fff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.02);
+  transition: all 0.2s;
+
+  &:not(:disabled) {
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      background-color: #e6f4ff !important;
+      border-color: #4096ff !important;
+      color: #4096ff !important;
+    }
+    
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.02);
+      background-color: #bae0ff !important;
+      border-color: #0958d9 !important;
+    }
+  }
+
+  &:disabled {
+    background-color: #f5f5f5;
+    border-color: #d9d9d9;
+    color: rgba(0, 0, 0, 0.25);
+    box-shadow: none;
+  }
+
+  &.home-button {
+    min-width: 120px;
+    background: #fff;
+    
+    &:hover {
+      color: #4096ff !important;
+    }
   }
 `;
 
@@ -45,41 +87,14 @@ const NavigationControls = styled.div`
   .nav-group {
     display: inline-flex;
     align-items: center;
-    background: #f5f5f5;
+    background: #fff;
     border-radius: 8px;
     padding: 2px;
     
-    .ant-btn {
-      min-width: 32px;
-      height: 32px;
-      padding: 0;
-      border: none;
-      
-      &:hover {
-        background: #e6e6e6;
-      }
-      
-      &:disabled {
-        background: transparent;
-        opacity: 0.5;
-      }
-    }
-
     .counter {
       padding: 0 12px;
       font-weight: 500;
       color: #262626;
-    }
-  }
-
-  .home-button {
-    color: #595959;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    
-    &:hover {
-      color: #1677ff;
     }
   }
 `;
@@ -307,6 +322,126 @@ const CompactValidation = styled.div`
   }
 `;
 
+const ActionButton = styled(Button)<{ $isPendingReview?: boolean; $isDraft?: boolean }>`
+  min-width: 120px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 500;
+  border-width: 2px;
+  border-color: #1677ff;
+  color: #1677ff;
+  background: #fff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.02);
+  transition: all 0.2s;
+
+  &:not(:disabled) {
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      background-color: #e6f4ff !important;
+      border-color: #4096ff !important;
+      color: #4096ff !important;
+    }
+    
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.02);
+      background-color: #bae0ff !important;
+      border-color: #0958d9 !important;
+    }
+  }
+
+  &:disabled {
+    background-color: #f5f5f5;
+    border-color: #d9d9d9;
+    color: rgba(0, 0, 0, 0.25);
+    box-shadow: none;
+  }
+
+  &.save-button {
+    background-color: #1677ff;
+    color: white;
+    
+    &:hover {
+      background-color: #4096ff !important;
+      border-color: #4096ff !important;
+      color: white !important;
+    }
+    
+    &:active {
+      background-color: #0958d9 !important;
+      border-color: #0958d9 !important;
+    }
+    
+    &:disabled {
+      background-color: #f5f5f5;
+      border-color: #d9d9d9;
+      color: rgba(0, 0, 0, 0.25);
+    }
+  }
+
+  &.publish-button {
+    border-color: ${props => props.disabled ? '#d9d9d9' : 
+      props.$isDraft ? '#52c41a' : '#faad14'};
+    color: ${props => props.disabled ? 'rgba(0, 0, 0, 0.25)' : 
+      props.$isDraft ? '#52c41a' : '#faad14'};
+    background-color: ${props => props.disabled ? '#f5f5f5' : '#fff'};
+    
+    &:not(:disabled) {
+      &:hover {
+        background-color: ${props => props.$isDraft ? '#f6ffed' : '#fff7e6'} !important;
+        border-color: ${props => props.$isDraft ? '#73d13d' : '#ffd666'} !important;
+        color: ${props => props.$isDraft ? '#73d13d' : '#ffa940'} !important;
+      }
+      
+      &:active {
+        background-color: ${props => props.$isDraft ? '#d9f7be' : '#fff1b8'} !important;
+        border-color: ${props => props.$isDraft ? '#389e0d' : '#d48806'} !important;
+        color: ${props => props.$isDraft ? '#389e0d' : '#d48806'} !important;
+      }
+    }
+
+    &:disabled {
+      background-color: #f5f5f5;
+      border-color: #d9d9d9;
+      color: rgba(0, 0, 0, 0.25);
+      box-shadow: none;
+    }
+  }
+
+  &.review-button {
+    border-color: ${props => props.disabled ? '#d9d9d9' : 
+      props.$isPendingReview ? '#52c41a' : '#faad14'};
+    color: ${props => props.disabled ? 'rgba(0, 0, 0, 0.25)' : 
+      props.$isPendingReview ? '#52c41a' : '#faad14'};
+    background-color: ${props => props.disabled ? '#f5f5f5' : '#fff'};
+    
+    &:not(:disabled) {
+      &:hover {
+        background-color: ${props => props.$isPendingReview ? '#f6ffed' : '#fff7e6'} !important;
+        border-color: ${props => props.$isPendingReview ? '#73d13d' : '#ffd666'} !important;
+        color: ${props => props.$isPendingReview ? '#73d13d' : '#ffa940'} !important;
+      }
+      
+      &:active {
+        background-color: ${props => props.$isPendingReview ? '#d9f7be' : '#fff1b8'} !important;
+        border-color: ${props => props.$isPendingReview ? '#389e0d' : '#d48806'} !important;
+        color: ${props => props.$isPendingReview ? '#389e0d' : '#d48806'} !important;
+      }
+    }
+
+    &:disabled {
+      background-color: #f5f5f5;
+      border-color: #d9d9d9;
+      color: rgba(0, 0, 0, 0.25);
+      box-shadow: none;
+    }
+  }
+`;
+
 const ToolbarContainer = styled.div`
   display: flex;
   align-items: center;
@@ -318,20 +453,6 @@ const ToolbarContainer = styled.div`
 
   .ant-space {
     gap: 16px !important;
-  }
-
-  .ant-btn {
-    height: 32px;
-    border-radius: 6px;
-    
-    &:not(.ant-btn-primary) {
-      border-color: #d9d9d9;
-      
-      &:hover {
-        border-color: #1677ff;
-        color: #1677ff;
-      }
-    }
   }
 
   .divider {
@@ -410,26 +531,31 @@ const QuestionEditToolbar = ({
   return (
     <ToolbarContainer>
       <Space>
-        <Button 
-          type="primary"
+        <ActionButton 
+          className="save-button"
           onClick={onSave}
           disabled={!isModified}
         >
           שמירה
-        </Button>
+        </ActionButton>
         <span className="divider" />
-        <Button
-          onClick={onPublicationStatusChange}
-          icon={isDraft ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
-        >
-          {isDraft ? 'פרסום' : 'העבר לטיוטה'}
-        </Button>
-        <Button
+        <ActionButton
+          className="review-button"
           onClick={onReviewStatusChange}
           icon={isPendingReview ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
+          $isPendingReview={isPendingReview}
         >
           {isPendingReview ? 'אישור' : 'העבר לבדיקה'}
-        </Button>
+        </ActionButton>
+        <ActionButton
+          className="publish-button"
+          onClick={onPublicationStatusChange}
+          icon={isDraft ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
+          disabled={!isApproved || (isDraft && isPendingReview)}
+          $isDraft={isDraft}
+        >
+          {isDraft ? 'פרסום' : 'העבר לטיוטה'}
+        </ActionButton>
       </Space>
     </ToolbarContainer>
   );
@@ -523,11 +649,11 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
           )}
         </QuestionInfo>
         <NavigationControls>
-          <Button className="home-button" icon={<HomeOutlined />} onClick={onBack}>
+          <NavigationButton className="home-button" icon={<HomeOutlined />} onClick={onBack}>
             חזרה לספרייה
-          </Button>
+          </NavigationButton>
           <div className="nav-group">
-            <Button 
+            <NavigationButton 
               icon={<RightOutlined />} 
               disabled={!hasPrevious}
               onClick={onPrevious}
@@ -535,7 +661,7 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
             <Text className="counter">
               {currentPosition?.filteredTotal || 0} / {currentPosition?.current || 1}
             </Text>
-            <Button 
+            <NavigationButton 
               icon={<LeftOutlined />} 
               disabled={!hasNext}
               onClick={onNext}
@@ -561,7 +687,7 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
             <StatusItem>
               <div className="status-header">
                 <span className="label">סטטוס פרסום:</span>
-                <CompactTag color={isDraft ? 'default' : 'success'}>
+                <CompactTag color={isDraft ? 'warning' : 'success'}>
                   {isDraft ? 'טיוטה' : 'מפורסם'}
                 </CompactTag>
               </div>

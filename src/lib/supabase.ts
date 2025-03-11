@@ -135,4 +135,25 @@ export const supabase = new Proxy({} as SupabaseClient, {
 // For backwards compatibility with CommonJS scripts
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { getSupabase, supabase, clearSupabaseInstance };
+}
+
+// Helper function for image uploads
+export async function uploadImage(file: File, bucket: string = 'images'): Promise<string> {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+  const filePath = `${bucket}/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, file);
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
 } 

@@ -1,179 +1,144 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { AutoFocusPlugin } from '@lexical/react/LexicalAutoFocusPlugin';
-import { HeadingNode, QuoteNode } from '@lexical/rich-text';
-import { TableCellNode, TableNode, TableRowNode } from '@lexical/table';
-import { ListItemNode, ListNode } from '@lexical/list';
-import { CodeHighlightNode, CodeNode } from '@lexical/code';
-import { AutoLinkNode, LinkNode } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
+import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
+import { TRANSFORMERS } from '@lexical/markdown';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
+import { LinkNode } from '@lexical/link';
+import { ListItemNode, ListNode } from '@lexical/list';
+import { HeadingNode, QuoteNode } from '@lexical/rich-text';
+import { CodeNode } from '@lexical/code';
 import styled from 'styled-components';
-import { EditorToolbar } from './EditorToolbar';
+import { Button, Space } from 'antd';
+import { FunctionOutlined, PictureOutlined } from '@ant-design/icons';
+import { $createParagraphNode, $getRoot } from 'lexical';
+import type { LexicalEditor as LexicalEditorType } from 'lexical';
+import { MathNode, $createMathNode } from './nodes/MathNode';
+import { ImageNode } from './nodes/ImageNode';
 import { markdownToLexical, lexicalToMarkdown } from '../../utils/markdownConversion';
+import { EditorToolbar } from './EditorToolbar';
 
-const EditorContainer = styled.div`
+const Container = styled.div`
   position: relative;
   background: #fff;
   border: 1px solid #d9d9d9;
-  border-radius: 6px;
-  font-family: system-ui, -apple-system;
-  direction: rtl;
-  
-  &:hover {
-    border-color: #40a9ff;
-  }
-  
-  &:focus-within {
-    border-color: #40a9ff;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-  }
-
-  &.has-changes {
-    background: #fffbe6;
-    border-color: #faad14;
-    
-    &:hover, &:focus-within {
-      border-color: #d48806;
-      box-shadow: 0 0 0 2px rgba(250, 173, 20, 0.2);
-    }
-  }
+  border-radius: 4px;
+  font-family: system-ui, -apple-system, sans-serif;
 `;
 
-const EditorContent = styled.div`
+const Content = styled.div`
   position: relative;
-  text-align: right;
-`;
-
-const ContentEditableStyled = styled(ContentEditable)`
   min-height: 150px;
-  padding: 12px;
-  outline: none;
-  
-  p {
-    margin: 0;
-    margin-bottom: 8px;
-  }
-  
-  .editor-paragraph {
-    margin: 0;
-    margin-bottom: 8px;
-  }
-
-  ul, ol {
-    margin: 0;
-    margin-bottom: 8px;
-    padding-right: 24px;
-    padding-left: 0;
-  }
-
-  li {
-    margin: 0;
-    margin-bottom: 4px;
-  }
+  padding: 16px;
 `;
 
-const Placeholder = styled.div`
+const StyledContentEditable = styled(ContentEditable)`
+  outline: none;
+  min-height: 150px;
+`;
+
+const PlaceholderText = styled.div`
   color: #999;
   overflow: hidden;
   position: absolute;
   text-overflow: ellipsis;
-  top: 12px;
-  right: 12px;
-  left: 12px;
+  top: 16px;
+  left: 16px;
+  right: 16px;
   user-select: none;
   white-space: nowrap;
   display: inline-block;
   pointer-events: none;
 `;
 
-// Define the editor theme
-const theme = {
-  text: {
-    bold: 'font-bold',
-    italic: 'italic',
-    underline: 'underline',
-  },
-  paragraph: 'editor-paragraph',
-};
-
-// Define the nodes we want to use
-const nodes = [
-  HeadingNode,
-  QuoteNode,
-  ListNode,
-  ListItemNode,
-  CodeNode,
-  CodeHighlightNode,
-  TableNode,
-  TableCellNode,
-  TableRowNode,
-  AutoLinkNode,
-  LinkNode,
-];
-
-interface LexicalEditorProps {
-  onChange?: (editorState: string) => void;
-  initialContent?: string;
-  placeholder?: string;
-  hasChanges?: boolean;
-}
-
-function OnChangePlugin({ onChange }: { onChange?: (editorState: string) => void }) {
-  const [editor] = useLexicalComposerContext();
-  
-  React.useEffect(() => {
-    if (onChange) {
-      return editor.registerUpdateListener(({ editorState }) => {
-        editorState.read(() => {
-          const markdown = lexicalToMarkdown(JSON.stringify(editorState.toJSON()));
-          onChange(markdown);
-        });
-      });
-    }
-  }, [editor, onChange]);
-  
-  return null;
-}
-
 function LexicalErrorBoundary({ children }: { children: React.ReactNode }) {
   return <React.Fragment>{children}</React.Fragment>;
 }
 
-export function LexicalEditor({ onChange, initialContent, placeholder, hasChanges }: LexicalEditorProps) {
+// Toolbar component with math and image buttons
+function Toolbar() {
+  const [editor] = useLexicalComposerContext();
+
+  const insertMath = useCallback(() => {
+    editor.update(() => {
+      const paragraph = $createParagraphNode();
+      const mathNode = $createMathNode('');
+      paragraph.append(mathNode);
+      $getRoot().append(paragraph);
+    });
+  }, [editor]);
+
+  const insertImage = useCallback(() => {
+    editor.update(() => {
+      const paragraph = $createParagraphNode();
+      const imageNode = new ImageNode('', 'Click to upload image');
+      paragraph.append(imageNode);
+      $getRoot().append(paragraph);
+    });
+  }, [editor]);
+
+  return (
+    <div className="editor-toolbar" style={{ padding: '8px', borderBottom: '1px solid #d9d9d9' }}>
+      <EditorToolbar />
+      <Space style={{ marginTop: '8px' }}>
+        <Button onClick={insertMath} icon={<FunctionOutlined />}>
+          Math
+        </Button>
+        <Button onClick={insertImage} icon={<PictureOutlined />}>
+          Image
+        </Button>
+      </Space>
+    </div>
+  );
+}
+
+interface LexicalEditorProps {
+  initialValue?: string;
+  onChange?: (value: string) => void;
+  placeholder?: string;
+}
+
+export default function LexicalEditor({ initialValue = '', onChange, placeholder = 'Enter some text...' }: LexicalEditorProps) {
   const initialConfig = {
-    namespace: 'QuestionEditor',
-    theme,
-    nodes,
+    namespace: 'MyEditor',
+    theme: {},
     onError: (error: Error) => {
-      console.error('Lexical Editor Error:', error);
+      console.error('Lexical error:', error);
     },
-    editorState: initialContent ? markdownToLexical(initialContent) : undefined,
+    nodes: [
+      MathNode,
+      ImageNode,
+      LinkNode,
+      ListItemNode,
+      ListNode,
+      HeadingNode,
+      QuoteNode,
+      CodeNode
+    ]
   };
 
   return (
-    <EditorContainer className={hasChanges ? 'has-changes' : ''}>
-      <LexicalComposer initialConfig={initialConfig}>
-        <EditorToolbar />
-        <EditorContent>
+    <LexicalComposer initialConfig={initialConfig}>
+      <Container>
+        <Toolbar />
+        <Content>
           <RichTextPlugin
-            contentEditable={<ContentEditableStyled />}
-            placeholder={
-              <Placeholder>{placeholder || 'הזן את תוכן השאלה...'}</Placeholder>
-            }
+            contentEditable={<StyledContentEditable />}
+            placeholder={<PlaceholderText>{placeholder}</PlaceholderText>}
             ErrorBoundary={LexicalErrorBoundary}
           />
           <HistoryPlugin />
           <AutoFocusPlugin />
-          <ListPlugin />
           <LinkPlugin />
-          <OnChangePlugin onChange={onChange} />
-        </EditorContent>
-      </LexicalComposer>
-    </EditorContainer>
+          <ListPlugin />
+          <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+        </Content>
+      </Container>
+    </LexicalComposer>
   );
 } 

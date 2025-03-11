@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Space, Typography, Button, Input, Row, Col, Tag, Select, message } from 'antd';
 import type { InputRef } from 'antd/lib/input';
-import { EditOutlined, FileTextOutlined, SaveOutlined, WarningOutlined } from '@ant-design/icons';
+import { EditOutlined, FileTextOutlined, SaveOutlined, WarningOutlined, CloseOutlined } from '@ant-design/icons';
 import { Question, DatabaseQuestion, SaveQuestion, ValidationStatus, PublicationStatusEnum, QuestionType, NumericalAnswer, FinalAnswerType } from '../../../types/question';
 import { universalTopics } from '../../../services/universalTopics';
 import { Topic, SubTopic } from '../../../types/subject';
@@ -13,6 +13,7 @@ import { MarkdownEditor } from '../../MarkdownEditor';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
 import 'dayjs/locale/he';
+import LexicalEditor from '../../editor/LexicalEditor';
 
 const { Title, Text } = Typography;
 
@@ -928,17 +929,17 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
     }
   };
 
-  const handleContentChange = (newContent: string) => {
-    setTempState(prev => ({ ...prev, content: newContent }));
-    setChangedFields(prev => {
-      const next = new Set(prev);
-      if (newContent !== question.data.content?.text) {
+  const handleContentChange = (value: string) => {
+    if (question.data.content?.text !== value) {
+      const newContent = { ...question.data.content, text: value };
+      onModified?.(true);
+      setTempState(prev => ({ ...prev, content: newContent.text }));
+      setChangedFields(prev => {
+        const next = new Set(prev);
         next.add('content');
-      } else {
-        next.delete('content');
-      }
-      return next;
-    });
+        return next;
+      });
+    }
   };
 
   const handleOptionChange = (index: number, value: string) => {
@@ -1147,46 +1148,55 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
               <SectionLabel>תוכן השאלה:</SectionLabel>
               <ContentInputWrapper>
                 <ContentInputRow>
-                  <EditableWrapper isEditable={!isContentEditing} isEditing={isEditing} globalEditing={isContentEditing} onClick={() => {
-                    if (!isContentEditing) {
-                      onEdit();
-                      setIsContentEditing(true);
-                      setTimeout(() => {
-                        const textArea = document.querySelector('textarea.edit-mode') as HTMLTextAreaElement;
-                        if (textArea) {
-                          textArea.focus();
-                        }
-                      }, 100);
-                    }
-                  }}
-                  style={{ width: '100%' }}
-                  >
-                    <ContentInput
-                      value={tempState.content}
-                      onChange={(e) => handleContentChange(e.target.value)}
-                      placeholder="הזן את תוכן השאלה"
-                      className={`${isContentEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('content') ? 'has-changes' : ''}`}
-                      autoSize={{ minRows: 3, maxRows: 10 }}
-                      onKeyPress={handleContentKeyPress}
-                      readOnly={!isContentEditing}
-                    />
-                  </EditableWrapper>
-                  {isContentEditing && (
-                    <CloseButton onClick={() => {
-                      setTempState(prev => ({ ...prev, content: question.data.content?.text || '' }));
-                      setChangedFields(prev => {
-                        const next = new Set(prev);
-                        next.delete('content');
-                        return next;
-                      });
-                      setIsContentEditing(false);
-                      if (!hasUnsavedChanges) {
-                        onExitEdit?.();
+                  <EditableWrapper 
+                    isEditable={!isContentEditing} 
+                    isEditing={isEditing} 
+                    globalEditing={isContentEditing} 
+                    onClick={() => {
+                      if (!isContentEditing) {
+                        onEdit?.();
+                        setIsContentEditing(true);
                       }
-                    }}>
-                      ✕
-                    </CloseButton>
-                  )}
+                    }}
+                    style={{ width: '100%' }}
+                  >
+                    {isContentEditing ? (
+                      <div style={{ position: 'relative', width: '100%' }}>
+                        <LexicalEditor
+                          initialValue={tempState.content}
+                          onChange={handleContentChange}
+                          placeholder="הזן את תוכן השאלה..."
+                        />
+                        <Button
+                          type="text"
+                          icon={<CloseOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTempState(prev => ({ ...prev, content: question.data.content?.text || '' }));
+                            setChangedFields(prev => {
+                              const next = new Set(prev);
+                              next.delete('content');
+                              return next;
+                            });
+                            setIsContentEditing(false);
+                            if (!changedFields.size) {
+                              onExitEdit?.();
+                            }
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: 8,
+                            right: 8,
+                            zIndex: 1,
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div style={{ minHeight: '100px', padding: '12px', width: '100%' }}>
+                        {tempState.content || 'הזן את תוכן השאלה...'}
+                      </div>
+                    )}
+                  </EditableWrapper>
                 </ContentInputRow>
               </ContentInputWrapper>
             </Col>

@@ -30,22 +30,25 @@ declare global {
 export type SerializedMathNode = SerializedLexicalNode & {
   type: 'math';
   latex: string;
+  isDisplay: boolean;
   version: 1;
 };
 
-const MathDisplay = styled.span`
-  display: inline-flex;
+const MathDisplay = styled.span<{ $isDisplay: boolean }>`
+  display: ${props => props.$isDisplay ? 'block' : 'inline-flex'};
   align-items: center;
   cursor: pointer;
-  padding: 0;  // Removed padding
-  margin: 0;   // Removed margin
+  padding: ${props => props.$isDisplay ? '1em 0' : '0'};
+  margin: ${props => props.$isDisplay ? '1em auto' : '0'};
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   background: #f5f5f5;
   min-width: 20px;
-  min-height: 32px;
+  min-height: ${props => props.$isDisplay ? '40px' : '32px'};
   vertical-align: middle;
-  line-height: 1;  // Reduced line height
+  line-height: 1;
+  text-align: ${props => props.$isDisplay ? 'center' : 'inherit'};
+  width: ${props => props.$isDisplay ? '100%' : 'auto'};
   
   &:hover {
     border-color: #40a9ff;
@@ -53,8 +56,12 @@ const MathDisplay = styled.span`
   }
 
   .katex {
-    font-size: 1.2em;
+    font-size: ${props => props.$isDisplay ? '1.2em' : '1.1em'};
     line-height: 1;
+    direction: ltr;
+    display: ${props => props.$isDisplay ? 'block' : 'inline-block'};
+    text-align: ${props => props.$isDisplay ? 'center' : 'inherit'};
+    width: ${props => props.$isDisplay ? '100%' : 'auto'};
     
     .katex-html {
       // Remove all padding and margins
@@ -122,9 +129,41 @@ const StyledModal = styled(Modal)`
 `;
 
 const MathToolbar = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   margin-bottom: 16px;
   border-bottom: 1px solid #f0f0f0;
   padding-bottom: 16px;
+`;
+
+const DisplayModeToggle = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 8px 0;
+`;
+
+const DisplayModeLabel = styled.div`
+  color: #666;
+  margin-right: 8px;
+`;
+
+const DisplayModeButton = styled(Button)<{ $active: boolean }>`
+  min-width: 90px;
+  
+  ${props => props.$active && `
+    color: #1890ff;
+    background: #e6f7ff;
+    border-color: #1890ff;
+  `}
+`;
+
+const OperationsToolbar = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 `;
 
 const MathButton = styled(Button)`
@@ -243,24 +282,26 @@ const COMPLEX_OPERATORS = [
 
 export class MathNode extends DecoratorNode<JSX.Element> {
   __latex: string;
+  __isDisplay: boolean;
 
   static getType(): string {
     return 'math';
   }
 
   static clone(node: MathNode): MathNode {
-    return new MathNode(node.__latex, node.__key);
+    return new MathNode(node.__latex, node.__isDisplay, node.__key);
   }
 
-  constructor(latex: string, key?: string) {
+  constructor(latex: string, isDisplay: boolean = false, key?: string) {
     super(key);
     this.__latex = latex;
+    this.__isDisplay = isDisplay;
   }
 
   createDOM(): HTMLElement {
     const span = document.createElement('span');
     span.className = 'math-node';
-    span.style.display = 'inline';
+    span.style.display = this.__isDisplay ? 'block' : 'inline';
     return span;
   }
 
@@ -273,8 +314,13 @@ export class MathNode extends DecoratorNode<JSX.Element> {
     self.__latex = latex;
   }
 
+  setDisplay(isDisplay: boolean): void {
+    const self = this.getWritable();
+    self.__isDisplay = isDisplay;
+  }
+
   static importJSON(serializedNode: SerializedMathNode): MathNode {
-    const node = $createMathNode(serializedNode.latex);
+    const node = $createMathNode(serializedNode.latex, serializedNode.isDisplay);
     return node;
   }
 
@@ -282,6 +328,7 @@ export class MathNode extends DecoratorNode<JSX.Element> {
     return {
       type: 'math',
       latex: this.__latex,
+      isDisplay: this.__isDisplay,
       version: 1,
     };
   }
@@ -367,19 +414,26 @@ function findAndWrapExpression(currentValue: string, wrapper: (expr: string) => 
   return currentValue.trim() ? wrapper(currentValue) : wrapper(' ');
 }
 
-function MathComponent({ node }: { node: MathNode }) {
+function MathComponent({ node }: { node: MathNode }): JSX.Element {
   const [editor] = useLexicalComposerContext();
-  const [isModalVisible, setIsModalVisible] = useState(!node.__latex);  // Open immediately if no latex
+  const [isModalVisible, setIsModalVisible] = useState(!node.__latex);
   const [currentLatex, setCurrentLatex] = useState(node.__latex || '');
+  const [isDisplay, setIsDisplay] = useState(node.__isDisplay);
   const [renderedMath, setRenderedMath] = useState<string>('');
   const mathFieldRef = useRef<MathfieldElement | null>(null);
 
+  // Sync display state with node
+  useEffect(() => {
+    setIsDisplay(node.__isDisplay);
+  }, [node.__isDisplay]);
+
+  // Update rendered math when latex or display mode changes
   useEffect(() => {
     if (node.__latex) {
       try {
         const html = katex.renderToString(node.__latex, {
           throwOnError: false,
-          displayMode: false,
+          displayMode: node.__isDisplay,
           output: 'html'
         });
         setRenderedMath(html);
@@ -390,13 +444,13 @@ function MathComponent({ node }: { node: MathNode }) {
     } else {
       setRenderedMath('');
     }
-  }, [node.__latex]);
+  }, [node.__latex, node.__isDisplay]);
 
   const handleClick = useCallback(() => {
     setIsModalVisible(true);
-    // If it's an existing node, use its latex content
     setCurrentLatex(node.__latex || '');
-  }, [node.__latex]);
+    setIsDisplay(node.__isDisplay);
+  }, [node.__latex, node.__isDisplay]);
 
   const handleOk = useCallback(() => {
     if (mathFieldRef.current) {
@@ -404,6 +458,7 @@ function MathComponent({ node }: { node: MathNode }) {
       if (latex.trim()) {
         editor.update(() => {
           node.setLatex(latex);
+          node.setDisplay(isDisplay);
         });
       } else {
         // Remove empty node
@@ -413,7 +468,7 @@ function MathComponent({ node }: { node: MathNode }) {
       }
     }
     setIsModalVisible(false);
-  }, [editor, node]);
+  }, [editor, node, isDisplay]);
 
   const handleCancel = useCallback(() => {
     // If it's a new node (no latex), remove it
@@ -526,12 +581,12 @@ function MathComponent({ node }: { node: MathNode }) {
         <MathDisplay 
           onClick={handleClick}
           dangerouslySetInnerHTML={{ __html: renderedMath }}
-          style={{ display: 'inline-flex' }}
+          $isDisplay={node.__isDisplay}
         />
       ) : (
         <MathDisplay 
           onClick={() => setIsModalVisible(true)}
-          style={{ display: 'inline-flex' }}
+          $isDisplay={node.__isDisplay}
         >
           {/* Empty span for click target when no expression */}
         </MathDisplay>
@@ -548,8 +603,58 @@ function MathComponent({ node }: { node: MathNode }) {
         destroyOnClose
         maskClosable={false}
       >
+        <DisplayModeToggle>
+          <DisplayModeLabel>מיקום וגודל:</DisplayModeLabel>
+          <Tooltip title="הנוסחה תשתלב בתוך הטקסט">
+            <DisplayModeButton
+              onClick={() => {
+                setIsDisplay(false);
+                if (mathFieldRef.current) {
+                  const latex = mathFieldRef.current.value;
+                  try {
+                    const html = katex.renderToString(latex, {
+                      throwOnError: false,
+                      displayMode: false,
+                      output: 'html'
+                    });
+                    setRenderedMath(html);
+                  } catch (error) {
+                    console.error('KaTeX rendering error:', error);
+                  }
+                }
+              }}
+              $active={!isDisplay}
+            >
+              בתוך השורה
+            </DisplayModeButton>
+          </Tooltip>
+          <Tooltip title="הנוסחה תופיע במרכז בשורה משלה">
+            <DisplayModeButton
+              onClick={() => {
+                setIsDisplay(true);
+                if (mathFieldRef.current) {
+                  const latex = mathFieldRef.current.value;
+                  try {
+                    const html = katex.renderToString(latex, {
+                      throwOnError: false,
+                      displayMode: true,
+                      output: 'html'
+                    });
+                    setRenderedMath(html);
+                  } catch (error) {
+                    console.error('KaTeX rendering error:', error);
+                  }
+                }
+              }}
+              $active={isDisplay}
+            >
+              בשורה נפרדת
+            </DisplayModeButton>
+          </Tooltip>
+        </DisplayModeToggle>
+
         <MathToolbar>
-          <Space wrap>
+          <OperationsToolbar>
             {MATH_OPERATIONS.map((op) => (
               <Tooltip key={typeof op.label === 'string' ? op.label : op.insert} title={op.tooltip}>
                 <MathButton 
@@ -559,8 +664,9 @@ function MathComponent({ node }: { node: MathNode }) {
                 </MathButton>
               </Tooltip>
             ))}
-          </Space>
+          </OperationsToolbar>
         </MathToolbar>
+
         <math-field
           ref={mathFieldRef}
           style={{ width: '100%', minHeight: '100px', fontSize: '20px', padding: '8px' }}
@@ -576,8 +682,8 @@ function MathComponent({ node }: { node: MathNode }) {
   );
 }
 
-export function $createMathNode(latex: string): MathNode {
-  return new MathNode(latex);
+export function $createMathNode(latex: string, isDisplay: boolean = false): MathNode {
+  return new MathNode(latex, isDisplay);
 }
 
 export function $isMathNode(node: any): boolean {

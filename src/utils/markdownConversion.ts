@@ -1,28 +1,24 @@
-import type MarkdownIt from 'markdown-it';
-import markdownit from 'markdown-it';
+import MarkdownIt from 'markdown-it';
 import { $createParagraphNode, $createTextNode, $getRoot } from 'lexical';
 import { $createListNode, $createListItemNode } from '@lexical/list';
 import type { EditorState, LexicalNode } from 'lexical';
 
-const md = new markdownit();
+interface EditorNode {
+  children: EditorNode[];
+  direction: string;
+  format: string;
+  indent: number;
+  type: string;
+  version: number;
+  [key: string]: any; // For additional properties
+}
 
 interface LexicalEditorState {
-  root: {
-    children: Array<any>;
-    direction: string;
-    format: string;
-    indent: number;
-    type: string;
-    version: number;
-  }
+  root: EditorNode;
 }
 
 export function markdownToLexical(markdown: string): string {
   try {
-    // Parse markdown to tokens
-    const tokens = md.parse(markdown, {});
-    
-    // Create editor state
     const editorState: LexicalEditorState = {
       root: {
         children: [],
@@ -34,15 +30,27 @@ export function markdownToLexical(markdown: string): string {
       }
     };
 
-    let currentList: any = null;
+    let currentList: EditorNode | null = null;
+    let currentAlignment = '';
+
+    const md = new MarkdownIt();
+    const tokens = md.parse(markdown, {});
     
-    // Convert tokens to Lexical nodes
     for (const token of tokens) {
-      if (token.type === 'paragraph_open') {
-        const paragraph = {
+      if (token.type === 'html_block' || token.type === 'html_inline') {
+        // Check for alignment divs
+        const alignMatch = token.content.match(/<div style="text-align:\s*(left|center|right)">/i);
+        if (alignMatch) {
+          currentAlignment = alignMatch[1];
+        } else if (token.content.includes('</div>')) {
+          currentAlignment = '';
+        }
+      }
+      else if (token.type === 'paragraph_open') {
+        const paragraph: EditorNode = {
           children: [],
           direction: 'rtl',
-          format: '',
+          format: currentAlignment || '',
           indent: 0,
           type: 'paragraph',
           version: 1,
@@ -53,25 +61,48 @@ export function markdownToLexical(markdown: string): string {
         const lastChild = editorState.root.children[editorState.root.children.length - 1];
         if (lastChild) {
           // Process content for math formulas and images
-          const parts = token.content.split(/(\$[^\$]+\$|\!\[.*?\]\(.*?\))/g);
+          const parts = token.content.split(/(\$\$[^\$]+\$\$|\$[^\$]+\$|\!\[.*?\]\(.*?\))/g);
           for (const part of parts) {
-            if (part.startsWith('$') && part.endsWith('$')) {
-              // Math formula
-              const latex = part.slice(1, -1);
-              const mathNode = {
+            if (part.startsWith('$$') && part.endsWith('$$')) {
+              // Display math formula
+              const latex = part.slice(2, -2);
+              const mathNode: EditorNode = {
                 type: 'math',
+                direction: 'ltr',
+                format: '',
+                indent: 0,
                 __latex: latex,
-                version: 1
+                __isDisplay: true,
+                version: 1,
+                children: []
               };
               lastChild.children.push(mathNode);
-            } 
+            }
+            else if (part.startsWith('$') && part.endsWith('$')) {
+              // Inline math formula
+              const latex = part.slice(1, -1);
+              const mathNode: EditorNode = {
+                type: 'math',
+                direction: 'ltr',
+                format: '',
+                indent: 0,
+                __latex: latex,
+                __isDisplay: false,
+                version: 1,
+                children: []
+              };
+              lastChild.children.push(mathNode);
+            }
             else if (part.startsWith('![') && part.includes('](')) {
               // Image
               const altMatch = part.match(/\!\[(.*?)\]/);
               const srcMatch = part.match(/\((.*?)\)/);
               if (srcMatch) {
-                const imageNode = {
+                const imageNode: EditorNode = {
                   type: 'image',
+                  direction: 'ltr',
+                  format: '',
+                  indent: 0,
                   src: srcMatch[1],
                   altText: altMatch ? altMatch[1] : '',
                   width: null,
@@ -79,45 +110,31 @@ export function markdownToLexical(markdown: string): string {
                   maxWidth: 800,
                   showCaption: false,
                   caption: altMatch ? altMatch[1] : '',
-                  version: 1
+                  version: 1,
+                  children: []
                 };
                 lastChild.children.push(imageNode);
               }
             }
             else if (part) {
               // Regular text
-              const textNode = {
+              const textNode: EditorNode = {
+                type: 'text',
+                direction: 'rtl',
+                format: '',
+                indent: 0,
                 detail: 0,
-                format: 0,
                 mode: 'normal',
                 style: '',
                 text: part,
-                type: 'text',
                 version: 1,
+                children: []
               };
               lastChild.children.push(textNode);
             }
           }
         }
       }
-      else if (token.type === 'image') {
-        const lastChild = editorState.root.children[editorState.root.children.length - 1];
-        if (lastChild) {
-          const imageNode = {
-            type: 'image',
-            src: token.attrs[0][1], // src is usually the first attribute
-            altText: token.attrs[1] ? token.attrs[1][1] : '',
-            width: null,
-            height: null,
-            maxWidth: 800,
-            showCaption: false,
-            caption: token.attrs[1] ? token.attrs[1][1] : '',
-            version: 1
-          };
-          lastChild.children.push(imageNode);
-        }
-      }
-      // Add support for lists
       else if (token.type === 'bullet_list_open' || token.type === 'ordered_list_open') {
         currentList = {
           children: [],
@@ -125,10 +142,8 @@ export function markdownToLexical(markdown: string): string {
           format: '',
           indent: 0,
           type: token.type === 'bullet_list_open' ? 'bullet' : 'number',
-          listType: token.type === 'bullet_list_open' ? 'bullet' : 'number',
-          start: 1,
-          tag: token.type === 'bullet_list_open' ? 'ul' : 'ol',
           version: 1,
+          start: token.type === 'ordered_list_open' ? 1 : undefined,
         };
       }
       else if (token.type === 'bullet_list_close' || token.type === 'ordered_list_close') {
@@ -139,7 +154,7 @@ export function markdownToLexical(markdown: string): string {
       }
       else if (token.type === 'list_item_open') {
         if (currentList) {
-          const listItem = {
+          const listItem: EditorNode = {
             children: [],
             direction: 'rtl',
             format: '',
@@ -155,15 +170,35 @@ export function markdownToLexical(markdown: string): string {
         const lastList = currentList.children[currentList.children.length - 1];
         if (lastList) {
           // Process content for math formulas and images in list items
-          const parts = token.content.split(/(\$[^\$]+\$|\!\[.*?\]\(.*?\))/g);
+          const parts = token.content.split(/(\$\$[^\$]+\$\$|\$[^\$]+\$|\!\[.*?\]\(.*?\))/g);
           for (const part of parts) {
-            if (part.startsWith('$') && part.endsWith('$')) {
-              // Math formula
-              const latex = part.slice(1, -1);
-              const mathNode = {
+            if (part.startsWith('$$') && part.endsWith('$$')) {
+              // Display math formula
+              const latex = part.slice(2, -2);
+              const mathNode: EditorNode = {
                 type: 'math',
+                direction: 'ltr',
+                format: '',
+                indent: 0,
                 __latex: latex,
-                version: 1
+                __isDisplay: true,
+                version: 1,
+                children: []
+              };
+              lastList.children.push(mathNode);
+            }
+            else if (part.startsWith('$') && part.endsWith('$')) {
+              // Inline math formula
+              const latex = part.slice(1, -1);
+              const mathNode: EditorNode = {
+                type: 'math',
+                direction: 'ltr',
+                format: '',
+                indent: 0,
+                __latex: latex,
+                __isDisplay: false,
+                version: 1,
+                children: []
               };
               lastList.children.push(mathNode);
             }
@@ -172,8 +207,11 @@ export function markdownToLexical(markdown: string): string {
               const altMatch = part.match(/\!\[(.*?)\]/);
               const srcMatch = part.match(/\((.*?)\)/);
               if (srcMatch) {
-                const imageNode = {
+                const imageNode: EditorNode = {
                   type: 'image',
+                  direction: 'ltr',
+                  format: '',
+                  indent: 0,
                   src: srcMatch[1],
                   altText: altMatch ? altMatch[1] : '',
                   width: null,
@@ -181,21 +219,25 @@ export function markdownToLexical(markdown: string): string {
                   maxWidth: 800,
                   showCaption: false,
                   caption: altMatch ? altMatch[1] : '',
-                  version: 1
+                  version: 1,
+                  children: []
                 };
                 lastList.children.push(imageNode);
               }
             }
             else if (part) {
               // Regular text
-              const textNode = {
+              const textNode: EditorNode = {
+                type: 'text',
+                direction: 'rtl',
+                format: '',
+                indent: 0,
                 detail: 0,
-                format: 0,
                 mode: 'normal',
                 style: '',
                 text: part,
-                type: 'text',
                 version: 1,
+                children: []
               };
               lastList.children.push(textNode);
             }
@@ -207,32 +249,7 @@ export function markdownToLexical(markdown: string): string {
     return JSON.stringify(editorState);
   } catch (error) {
     console.error('Error converting markdown to Lexical:', error);
-    // Return a valid empty editor state
-    return JSON.stringify({
-      root: {
-        children: [{
-          children: [{
-            detail: 0,
-            format: 0,
-            mode: 'normal',
-            style: '',
-            text: '',
-            type: 'text',
-            version: 1,
-          }],
-          direction: 'rtl',
-          format: '',
-          indent: 0,
-          type: 'paragraph',
-          version: 1,
-        }],
-        direction: 'rtl',
-        format: '',
-        indent: 0,
-        type: 'root',
-        version: 1,
-      }
-    });
+    return '';
   }
 }
 
@@ -248,7 +265,16 @@ export function lexicalToMarkdown(editorState: string): string {
         case 'text':
           return node.text;
         case 'paragraph':
-          return node.children.map(processNode).join('') + '\n\n';
+          const content = node.children.map(processNode).join('');
+          // Add alignment if specified
+          if (node.format === 'left') {
+            return `<div style="text-align: left">\n\n${content}\n\n</div>\n\n`;
+          } else if (node.format === 'center') {
+            return `<div style="text-align: center">\n\n${content}\n\n</div>\n\n`;
+          } else if (node.format === 'right') {
+            return `<div style="text-align: right">\n\n${content}\n\n</div>\n\n`;
+          }
+          return content + '\n\n';
         case 'bullet':
         case 'number':
           return node.children.map((item: any) => {
@@ -258,10 +284,9 @@ export function lexicalToMarkdown(editorState: string): string {
         case 'listitem':
           return node.children.map(processNode).join('');
         case 'math':
-          // Add inline math formula with $ delimiters
-          return `$${node.__latex}$`;
+          // Use double dollar signs for display math
+          return node.__isDisplay ? `$$${node.__latex}$$` : `$${node.__latex}$`;
         case 'image':
-          // Convert image to markdown format
           const alt = node.altText || node.caption || '';
           return `![${alt}](${node.src})`;
         default:

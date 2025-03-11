@@ -2,6 +2,25 @@
  * Main MarkdownRenderer implementation
  * Used for rendering markdown content with LaTeX and code blocks
  * Handles RTL/LTR properly and provides comprehensive styling
+ * 
+ * Display Math Formatting:
+ * For consistent behavior across all markdown implementations, display math should be:
+ * 1. Surrounded by double dollar signs ($$) on their own lines
+ * 2. Separated from other content by empty lines
+ * 
+ * Correct format:
+ * ```
+ * Some text here.
+ * 
+ * $$
+ * E = mc^2
+ * $$
+ * 
+ * More text here.
+ * ```
+ * 
+ * While inline format `$$E = mc^2$$` might work in some implementations,
+ * it's recommended to use the multi-line format for consistent display math rendering.
  */
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -15,8 +34,8 @@ import { CRITICAL_SECTIONS } from '../utils/logger';
 import 'katex/dist/katex.min.css';
 import './MarkdownRenderer.css';
 
-// Debug flag - set to true when debugging KaTeX/Hebrew issues
-const DEBUG_KATEX = false;
+// Enable debug logging for KaTeX
+const DEBUG_KATEX = true;
 
 // Custom error handler for KaTeX - suppress all errors silently
 const errorHandler = (_msg: string, _err: any) => {
@@ -41,223 +60,235 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   className = ''
 }) => {
-  // Pre-process code blocks to preserve newlines and indentation
+  // Pre-process content to ensure display math is on its own line
   const processedContent = React.useMemo(() => {
     if (!content) return '';
 
-    if (DEBUG_KATEX) {
-      logger.debug('Starting markdown content processing', {
-        contentLength: content.length,
-        hasLatex: content.includes('$'),
-        hasCodeBlocks: content.includes('```'),
-        hebrewChars: content.match(/[\u0590-\u05FF]/g)?.join(''),
-        dollarSignCount: (content.match(/\$/g) || []).length,
-        contentPreview: content.slice(0, 100)
-      }, CRITICAL_SECTIONS.LATEX);
-    }
+    // Direct console logging for initial content
+    console.log('🔍 Initial content:', {
+      contentLength: content.length,
+      hasLatex: content.includes('$'),
+      hasDisplayMath: content.includes('$$'),
+      displayMathMatches: content.match(/\$\$(.*?)\$\$/g)?.length || 0,
+      preview: content.slice(0, 100)
+    });
     
     try {
-      // Process code blocks
-      const processedWithCode = content.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, language, code) => {
-        if (DEBUG_KATEX) {
-          logger.debug('Processing code block', {
-            language: language || 'none',
-            codeLength: code.length,
-            hasLatex: code.includes('$'),
-            hasHebrewInCode: /[\u0590-\u05FF]/.test(code)
-          }, CRITICAL_SECTIONS.CODE_BLOCKS);
+      // Only process display math (exactly two $ signs), leave inline math alone
+      const withDisplayMath = content.replace(/\$\$([^$]+?)\$\$/g, (match, full) => {
+        // If it's already properly formatted (has newlines around $$), leave it as is
+        if (/\n\s*\$\$[\s\S]*?\$\$\s*\n/.test(match)) {
+          return match;
         }
-
-        const cleanCode = code
-          .replace(/^\n+/, '')
-          .replace(/\n+$/, '')
-          .split('\n')
-          .map((line: string) => line.replace(/^[ \t]+/, (indent) => ' '.repeat(indent.length)))
-          .join('\n');
         
-        return `\`\`\`${language || ''}\n${cleanCode}\n\`\`\``;
+        // Extract the math content between $$
+        const mathContent = match.trim().replace(/^\$\$|\$\$$/g, '').trim();
+        
+        // Add newlines only if needed
+        return `\n\n$$\n${mathContent}\n$$\n\n`;
       });
 
-      // Log potential math expressions
-      const mathExpressions = processedWithCode.match(/\$([^$]+)\$/g) || [];
-      if (DEBUG_KATEX) {
-        mathExpressions.forEach((expr, index) => {
-          const hebrewChars = expr.match(/[\u0590-\u05FF]/g) || [];
-          const specialChars = expr.match(/[^\w\s$]/g) || [];
-          
-          logger.debug(`Math expression ${index + 1} analysis`, {
-            expression: expr,
-            hasHebrew: hebrewChars.length > 0,
-            hebrewCharacters: hebrewChars,
-            length: expr.length,
-            position: {
-              start: processedWithCode.indexOf(expr),
-              end: processedWithCode.indexOf(expr) + expr.length
-            },
-            surroundingContext: {
-              before: processedWithCode.slice(Math.max(0, processedWithCode.indexOf(expr) - 20), processedWithCode.indexOf(expr)),
-              after: processedWithCode.slice(processedWithCode.indexOf(expr) + expr.length, processedWithCode.indexOf(expr) + expr.length + 20)
-            },
-            specialCharacters: specialChars,
-            characterBreakdown: Array.from(expr).map(char => ({
-              char,
-              code: char.charCodeAt(0),
-              isHebrew: /[\u0590-\u05FF]/.test(char)
-            })),
-            hasDollarSign: expr.includes('$')
-          }, CRITICAL_SECTIONS.LATEX);
-        });
-      }
+      // Log any remaining improperly formatted display math
+      const displayMathMatches = withDisplayMath.match(/\$\$([^$]+?)\$\$/g) || [];
+      displayMathMatches.forEach(match => {
+        const hasNewlines = /\n/.test(match);
+        const isInParagraph = /\S\$\$|\$\$\S/.test(match);
+        
+        if (!hasNewlines || isInParagraph) {
+          console.warn('⚠️ Display math might not be properly formatted:', {
+            math: match,
+            hasNewlines,
+            isInParagraph,
+            tip: 'Display math should be on its own lines:\n$$\nformula\n$$'
+          });
+        }
+      });
 
-      return processedWithCode;
+      // Log the content structure
+      console.log('📏 Content structure:', {
+        paragraphs: withDisplayMath.split(/\n\s*\n/).filter(Boolean).map(p => ({
+          content: p,
+          hasDisplayMath: p.includes('$$'),
+          isDisplayMath: /^\$\$[\s\S]*\$\$$/.test(p),
+          lines: p.split('\n'),
+          lineCount: p.split('\n').length
+        }))
+      });
+
+      return withDisplayMath; // Return the properly formatted content
+
     } catch (error: any) {
-      if (DEBUG_KATEX) {
-        logger.error('Error processing markdown content', {
-          error,
-          contentPreview: content.slice(0, 100),
-          errorName: error.name,
-          errorMessage: error.message,
-          errorStack: error.stack
-        }, CRITICAL_SECTIONS.LATEX);
-      }
-      return content; // Return original content on error
+      console.error('❌ Error processing content:', error);
+      return content;
     }
   }, [content]);
 
-  // Log when component renders
+  // Log component renders
   React.useEffect(() => {
-    if (DEBUG_KATEX) {
-      logger.debug('MarkdownRenderer rendered', {
-        originalLength: content?.length,
-        processedLength: processedContent?.length,
-        className,
-        hasProcessedContent: !!processedContent
-      }, CRITICAL_SECTIONS.LATEX);
-    }
+    console.log('🔄 MarkdownRenderer rendered:', {
+      originalLength: content?.length,
+      processedLength: processedContent?.length,
+      className
+    });
   }, [content, processedContent, className]);
 
   return (
     <div className={`markdown-content ${className}`} dir="rtl">
       <ReactMarkdown
-        remarkPlugins={[remarkMath]}
+        remarkPlugins={[
+          // Debug plugin to see what remark-math receives
+          () => (tree: any) => {
+            const getNodeInfo = (node: any) => ({
+              type: node.type,
+              value: node.value,
+              children: node.children?.map((c: any) => getNodeInfo(c))
+            });
+            
+            console.log('🔄 Before remark-math AST:', {
+              tree: getNodeInfo(tree),
+              content: processedContent,
+              paragraphs: processedContent.split('\n\n').filter(Boolean)
+            });
+            return tree;
+          },
+          // Use remark-math with no config (use defaults)
+          remarkMath,
+          // Debug what remark-math produced
+          () => (tree: any) => {
+            const getNodeInfo = (node: any) => ({
+              type: node.type,
+              value: node.value,
+              data: node.data,
+              children: node.children?.map((c: any) => getNodeInfo(c))
+            });
+            
+            console.log('🔄 After remark-math AST:', {
+              tree: getNodeInfo(tree),
+              mathNodes: tree.children?.filter((n: any) => n.type === 'math' || n.type === 'inlineMath').map((n: any) => ({
+                type: n.type,
+                value: n.value,
+                data: n.data
+              }))
+            });
+            return tree;
+          }
+        ]}
         rehypePlugins={[
-          [rehypeKatex, { 
+          // Plugin to inspect before rehype-katex
+          () => (tree: any) => {
+            const getNodeInfo = (node: any) => ({
+              type: node.type,
+              tagName: node.tagName,
+              properties: node.properties,
+              value: node.value,
+              children: node.children?.map((c: any) => getNodeInfo(c))
+            });
+            
+            console.log('📝 Before rehype-katex AST:', getNodeInfo(tree));
+            
+            const visit = (node: any, parent: any = null) => {
+              if (node.tagName === 'span' && node.properties?.className?.includes('math')) {
+                console.log('📐 Math span:', {
+                  className: node.properties.className,
+                  value: node.children?.[0]?.value,
+                  parentTagName: parent?.tagName,
+                  parentChildrenCount: parent?.children?.length,
+                  isDisplay: node.properties.className.includes('math-display')
+                });
+              }
+              if (node.children) {
+                node.children.forEach((child: any) => visit(child, node));
+              }
+            };
+            visit(tree);
+            return tree;
+          },
+          [rehypeKatex, {
             strict: false,
-            trust: true,
+            output: 'html',
             throwOnError: false,
-            errorColor: '#FF0000',
-            globalGroup: true,
-            output: 'html',  // Prevent console logging
-            maxSize: 100,
-            maxExpand: 1000,
-            minRuleThickness: 0.04,
-            errorHandler: (msg: string, err: any) => {
-              // Completely suppress all KaTeX errors
-              return;
-            },
-            macros: {},
+            displayMode: (node: any) => {
+              const isDisplay = node.properties?.className?.includes('math-display');
+              console.log('📐 rehype-katex display check:', {
+                className: node.properties?.className,
+                value: node.children?.[0]?.value,
+                parentTagName: node.parent?.tagName,
+                isDisplay
+              });
+              return isDisplay;
+            }
           }]
         ]}
         components={{
-          code({node, inline, className, children, ...props}: CodeProps) {
+          code({node, inline, className, children, ...props}) {
             const match = /language-(\w+)/.exec(className || '');
             const language = match ? match[1] : '';
-            
-            if (inline) {
+            const codeContent = String(children).replace(/\n$/, '');
+
+            if (!inline && language) {
               return (
-                <code 
-                  className={className} 
-                  dir="ltr"
-                  style={{
-                    direction: 'ltr',
-                    unicodeBidi: 'isolate',
-                    fontFamily: "'Fira Code', Consolas, Monaco, 'Andale Mono', monospace",
-                    backgroundColor: '#f8fafc',
-                    padding: '0.15em 0.3em',
-                    borderRadius: '3px',
-                    fontSize: '0.9em',
-                    color: '#1f2937',
-                    border: '1px solid #e5e7eb',
-                    display: 'inline-block',
-                    margin: '0 0.2em'
-                  }}
-                  {...props}
-                >
-                  {children}
-                </code>
-              );
-            }
-
-            // Ensure code content is properly formatted
-            const codeContent = Array.isArray(children) 
-              ? children.join('\n') 
-              : String(children);
-
-            return (
-              <div dir="ltr" style={{ 
-                direction: 'ltr', 
-                unicodeBidi: 'isolate', 
-                margin: '1em 0',
-                backgroundColor: '#f8fafc',
-                borderRadius: '8px',
-                padding: '0.5rem',
-                border: '1px solid #e2e8f0'
-              }}>
-                <SyntaxHighlighter
-                  language={language || 'text'}
-                  style={oneLight as any}
-                  PreTag="div"
-                  showLineNumbers={true}
-                  wrapLongLines={false}
-                  customStyle={{
-                    margin: 0,
-                    padding: '1em',
-                    backgroundColor: '#ffffff',
-                    borderRadius: '6px',
-                    fontSize: '0.9em',
-                    lineHeight: 1.5,
-                    border: '1px solid #e5e7eb',
-                    direction: 'ltr',
-                    textAlign: 'left',
-                    whiteSpace: 'pre'
-                  }}
-                  codeTagProps={{
-                    style: {
+                <div className="code-block-wrapper" dir="ltr">
+                  <SyntaxHighlighter
+                    language={language}
+                    style={oneLight}
+                    showLineNumbers={true}
+                    customStyle={{
+                      margin: 0,
+                      padding: '1em',
+                      backgroundColor: '#1f2937',
+                      borderRadius: '0.375rem',
                       fontFamily: "'Fira Code', Consolas, Monaco, 'Andale Mono', monospace",
                       fontSize: 'inherit',
                       lineHeight: 'inherit',
                       whiteSpace: 'pre'
-                    }
-                  }}
-                  lineNumberStyle={{
-                    minWidth: '2.5em',
-                    paddingRight: '1em',
-                    paddingLeft: '0.5em',
-                    textAlign: 'right',
-                    color: '#94a3b8',
-                    backgroundColor: '#f8fafc',
-                    borderRight: '1px solid #e5e7eb',
-                    marginRight: '1em'
-                  }}
-                  {...props}
-                >
-                  {codeContent.replace(/\n$/, '')}
-                </SyntaxHighlighter>
-              </div>
-            );
+                    }}
+                    lineNumberStyle={{
+                      minWidth: '2.5em',
+                      paddingRight: '1em',
+                      paddingLeft: '0.5em',
+                      textAlign: 'right',
+                      color: '#94a3b8',
+                      backgroundColor: '#f8fafc',
+                      borderRight: '1px solid #e5e7eb',
+                      marginRight: '1em'
+                    }}
+                    {...props}
+                  >
+                    {codeContent}
+                  </SyntaxHighlighter>
+                </div>
+              );
+            }
+            return <code className={className} {...props}>{children}</code>;
           },
-          // Enhanced math handling
           span({node, className, children, ...props}) {
-            if (className?.includes('math-inline')) {
+            if (className?.includes('math')) {
+              const isDisplay = className.includes('math-display');
+              
+              if (isDisplay) {
+                return (
+                  <div 
+                    dir="ltr"
+                    style={{
+                      direction: 'ltr',
+                      unicodeBidi: 'isolate',
+                      textAlign: 'center',
+                      width: '100%'
+                    }}
+                  >
+                    {children}
+                  </div>
+                );
+              }
+              
               return (
                 <span 
-                  dir="ltr" 
-                  style={{ 
-                    display: 'inline-block', 
+                  dir="ltr"
+                  style={{
                     direction: 'ltr',
-                    verticalAlign: 'middle',
-                    padding: '0 0.2em'
-                  }} 
+                    unicodeBidi: 'isolate',
+                    display: 'inline-block'
+                  }}
                   {...props}
                 >
                   {children}
@@ -266,7 +297,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             }
             return <span className={className} {...props}>{children}</span>;
           },
-          // Ensure proper RTL for paragraphs
           p({children, ...props}) {
             return (
               <p dir="auto" {...props}>
@@ -274,7 +304,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               </p>
             );
           },
-          // Ensure proper RTL for lists
           ol({children, ...props}) {
             return (
               <ol dir="rtl" style={{ listStyleType: 'decimal', margin: '1em 0', paddingRight: '1.5em' }} {...props}>

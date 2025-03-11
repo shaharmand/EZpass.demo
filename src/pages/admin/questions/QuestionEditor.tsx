@@ -1,4 +1,4 @@
-import React, { useState, useEffect, FC } from 'react';
+import React, { useState, useEffect, FC, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Space, Typography, Button, message, Tag, Divider, Tooltip } from 'antd';
 import { 
@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { QuestionMetadataSection } from '../../../components/admin/sections/QuestionMetadataSection';
 import { QuestionContentSection } from '../../../components/admin/sections/QuestionContentSection';
+import type { QuestionContentSectionHandle } from '../../../components/admin/sections/QuestionContentSection';
 import { SolutionAndEvaluationSection } from '../../../components/admin/sections/SolutionAndEvaluationSection';
 import { QuestionHeaderSection } from '../../../components/admin/sections/QuestionHeaderSection';
 import { QuestionJsonData } from '../../../components/admin/QuestionJsonData';
@@ -38,7 +39,7 @@ const { Title, Text } = Typography;
 const PageContainer = styled.div`
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 16px 32px;
+  padding: 0 16px 80px;
 `;
 
 const ValidationSection = styled.div`
@@ -183,6 +184,66 @@ const PageTitle = styled.div`
   }
 `;
 
+const EditActionBar = styled.div`
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  
+  .action-bar-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .unsaved-changes {
+    color: #faad14;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    
+    .anticon {
+      font-size: 16px;
+    }
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 12px;
+
+    .ant-btn {
+      min-width: 90px;
+      height: 32px;
+      
+      &[type="primary"] {
+        background: #1677ff;
+        
+        &:not(:disabled):hover {
+          background: #4096ff;
+        }
+      }
+    }
+  }
+`;
+
+const EditableContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+  padding: 16px;
+  margin-bottom: 32px;
+  
+  > ${EditActionBar} {
+    margin: 0 0 16px;
+  }
+`;
+
 export const QuestionEditor: FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -197,6 +258,7 @@ export const QuestionEditor: FC = () => {
     currentIndex: number;
     filteredTotal: number;
   } | null>(null);
+  const contentSectionRef = useRef<QuestionContentSectionHandle>(null);
 
   // Run validation whenever question changes
   useEffect(() => {
@@ -303,18 +365,42 @@ export const QuestionEditor: FC = () => {
     }
   };
 
-  const handleSimpleSave = () => {
+  const handleSimpleSave = async (updatedData?: SaveQuestion) => {
     if (!question) return;
     
-    const saveQuestion: SaveQuestion = {
-      id: question.id,
-      data: question.data,
-      publication_status: question.publication_status,
-      validation_status: question.validation_status,
-      review_status: question.review_status
-    };
-    
-    handleSave(saveQuestion);
+    try {
+      console.log('Parent handleSimpleSave called with:', updatedData);
+      
+      // Use the updated data from child component if provided, otherwise use current question
+      const saveOperation = updatedData || {
+        id: question.id,
+        data: question.data,
+        publication_status: question.publication_status,
+        validation_status: question.validation_status,
+        review_status: question.review_status
+      };
+      
+      console.log('Parent calling questionStorage.saveQuestion with:', saveOperation);
+      await questionStorage.saveQuestion(saveOperation);
+      
+      // Add a small delay to ensure DB trigger has completed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Force reload the question to get updated metadata from DB
+      const updatedQuestionData = await questionStorage.getQuestion(saveOperation.id);
+      if (!updatedQuestionData) {
+        throw new Error('Failed to reload question after save');
+      }
+
+      console.log('Parent received updated question data:', updatedQuestionData);
+      setQuestion(updatedQuestionData);
+      message.success('Question saved successfully');
+      setIsEditing(false);
+      setIsModified(false);
+    } catch (error) {
+      console.error('Failed to save question:', error);
+      message.error('Failed to save question');
+    }
   };
 
   const handleReviewStatusChange = async (updatedQuestion: Question & { 
@@ -389,6 +475,31 @@ export const QuestionEditor: FC = () => {
     navigate('/admin/questions');
   };
 
+  const handleModified = (modified: boolean) => {
+    setIsModified(modified);
+  };
+
+  const handleCancel = () => {
+    // Reload the original question data to revert all changes
+    if (question) {
+      // Force a re-render by creating a new question object
+      const resetQuestion = { ...question };
+      setQuestion(resetQuestion);
+      setIsEditing(false);
+      setIsModified(false);
+      
+      // Force child components to reset their state by temporarily unmounting them
+      setIsEditing(false);
+      setTimeout(() => {
+        setQuestion(resetQuestion);
+      }, 0);
+    }
+  };
+
+  const handleSaveButtonClick = () => {
+    contentSectionRef.current?.handleSimpleSave();
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -420,8 +531,6 @@ export const QuestionEditor: FC = () => {
             created_at: question.created_at
           }}
           onBack={handleBack}
-          onSave={handleSimpleSave}
-          isModified={isModified}
           onPrevious={prevQuestionId ? () => navigate(`/admin/questions/${prevQuestionId}`) : undefined}
           onNext={nextQuestionId ? () => navigate(`/admin/questions/${nextQuestionId}`) : undefined}
           hasPrevious={!!prevQuestionId}
@@ -434,36 +543,79 @@ export const QuestionEditor: FC = () => {
           onPublicationStatusChange={handlePublicationStatusChange}
         />
 
-        <MainContent>
-          <QuestionContentSection
-            question={question}
-            isEditing={isEditing}
-            onEdit={() => setIsEditing(true)}
-            onSave={handleSave}
-          />
-          
-          <QuestionMetadataSection
-            question={question}
-            isEditing={isEditing}
-            onEdit={() => setIsEditing(true)}
-            onSave={handleSave}
-          />
+        <EditableContent>
+          <EditActionBar>
+            <div className="action-bar-content">
+              <div className="unsaved-changes">
+                {isEditing ? (
+                  isModified ? (
+                    <>
+                      <WarningOutlined />
+                      <span>יש שינויים שלא נשמרו</span>
+                    </>
+                  ) : (
+                    <span style={{ color: '#8c8c8c' }}>אין שינויים</span>
+                  )
+                ) : (
+                  <span style={{ color: '#595959', fontSize: '14px' }}>
+                    לחץ על שדה כדי לערוך
+                  </span>
+                )}
+              </div>
+              <div className="action-buttons">
+                <Button 
+                  onClick={handleCancel}
+                  disabled={!isEditing || !isModified}
+                >
+                  בטל
+                </Button>
+                <Button 
+                  type="primary"
+                  onClick={handleSaveButtonClick}
+                  disabled={!isEditing || !isModified}
+                >
+                  שמור שינויים
+                </Button>
+              </div>
+            </div>
+          </EditActionBar>
 
-          <SolutionAndEvaluationSection
-            question={question}
-            isEditing={isEditing}
-            onEdit={() => setIsEditing(true)}
-            onSave={handleSave}
-          />
+          <MainContent>
+            <QuestionContentSection
+              question={question}
+              isEditing={isEditing}
+              onEdit={() => setIsEditing(true)}
+              onSave={handleSave}
+              onModified={setIsModified}
+              ref={contentSectionRef}
+              data-section="content"
+            />
+            
+            <QuestionMetadataSection
+              question={question}
+              isEditing={isEditing}
+              onEdit={() => setIsEditing(true)}
+              onSave={handleSave}
+              onModified={setIsModified}
+            />
 
-          <JsonSection title="Question JSON Data">
-            <QuestionJsonData question={question} />
-          </JsonSection>
+            <SolutionAndEvaluationSection
+              question={question}
+              isEditing={isEditing}
+              onEdit={() => setIsEditing(true)}
+              onSave={handleSave}
+              onModified={setIsModified}
+            />
+          </MainContent>
+        </EditableContent>
 
-          <JsonSection title="Import Info">
-            <QuestionImportInfo importInfo={question?.import_info} />
-          </JsonSection>
-        </MainContent>
+        <JsonSection title="Question JSON Data">
+          <QuestionJsonData question={question} />
+        </JsonSection>
+
+        <JsonSection title="Import Info">
+          <QuestionImportInfo importInfo={question?.import_info} />
+        </JsonSection>
       </Space>
     </PageContainer>
   );

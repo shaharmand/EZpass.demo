@@ -17,7 +17,11 @@ export const AdminQuestionContainer: React.FC<AdminQuestionContainerProps> = ({
   const [editingSection, setEditingSection] = useState<string | null>(null);
 
   const handleSectionEdit = (sectionId: string) => {
-    setEditingSection(sectionId);
+    if (editingSection === sectionId) {
+      setEditingSection(null);
+    } else {
+      setEditingSection(sectionId);
+    }
   };
 
   const handleSectionSave = async (sectionId: string, sectionData: any) => {
@@ -28,7 +32,9 @@ export const AdminQuestionContainer: React.FC<AdminQuestionContainerProps> = ({
       };
       await onSave(updatedQuestion);
     }
-    setEditingSection(null);
+    if (editingSection === sectionId) {
+      setEditingSection(null);
+    }
   };
 
   if (!question) {
@@ -43,6 +49,7 @@ export const AdminQuestionContainer: React.FC<AdminQuestionContainerProps> = ({
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       {/* Metadata Section */}
       <QuestionMetadataSection
+        key="metadata"
         question={question}
         isEditing={editingSection === 'metadata'}
         onEdit={() => handleSectionEdit('metadata')}
@@ -51,6 +58,7 @@ export const AdminQuestionContainer: React.FC<AdminQuestionContainerProps> = ({
 
       {/* Content Section */}
       <QuestionContentSection
+        key="content"
         question={question}
         isEditing={editingSection === 'content'}
         onEdit={() => handleSectionEdit('content')}
@@ -59,6 +67,7 @@ export const AdminQuestionContainer: React.FC<AdminQuestionContainerProps> = ({
 
       {/* Solution and Evaluation Section */}
       <SolutionAndEvaluationSection
+        key="solution"
         question={question}
         isEditing={editingSection === 'solution'}
         onEdit={() => handleSectionEdit('solution')}

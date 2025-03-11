@@ -37,6 +37,7 @@ interface QuestionMetadataSectionProps {
   isEditing: boolean;
   onEdit: () => void;
   onSave: (data: SaveQuestion) => Promise<void>;
+  onModified?: (modified: boolean) => void;
 }
 
 interface MetadataValidationResult {
@@ -106,11 +107,25 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
   question,
   isEditing,
   onEdit,
-  onSave
+  onSave,
+  onModified
 }) => {
   const [examTemplate, setExamTemplate] = useState<ExamTemplate | null>(null);
   const [validationState, setValidationState] = useState<MetadataValidationResult | null>(null);
   const [sourceDisplay, setSourceDisplay] = useState<string>('');
+  const [isModified, setIsModified] = useState(false);
+
+  useEffect(() => {
+    onModified?.(isModified);
+  }, [isModified, onModified]);
+
+  // Add effect to reset state when editing is cancelled
+  useEffect(() => {
+    if (!isEditing) {
+      setIsModified(false);
+      // Reset any other section-specific state here
+    }
+  }, [isEditing]);
 
   if (!question?.data?.metadata) {
     return (
@@ -417,6 +432,11 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
         }
       }
     });
+  };
+
+  const handleMetadataChange = (field: string, value: any) => {
+    setIsModified(true);
+    // ... rest of the handler
   };
 
   return (

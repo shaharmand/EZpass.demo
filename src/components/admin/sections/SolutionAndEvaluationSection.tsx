@@ -15,16 +15,36 @@ interface SolutionAndEvaluationSectionProps {
   isEditing: boolean;
   onEdit: () => void;
   onSave: (data: SaveQuestion) => Promise<void>;
+  onModified?: (modified: boolean) => void;
 }
 
 export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSectionProps> = ({
   question,
   isEditing,
   onEdit,
-  onSave
+  onSave,
+  onModified
 }) => {
   const [solutionValidationErrors, setSolutionValidationErrors] = useState<ValidationError[]>([]);
   const [evaluationValidationErrors, setEvaluationValidationErrors] = useState<ValidationError[]>([]);
+  const [isModified, setIsModified] = useState(false);
+
+  useEffect(() => {
+    onModified?.(isModified);
+  }, [isModified, onModified]);
+
+  // Add effect to reset state when editing is cancelled
+  useEffect(() => {
+    if (!isEditing) {
+      setIsModified(false);
+      // Reset any other section-specific state here
+    }
+  }, [isEditing]);
+
+  const handleSolutionChange = (value: string) => {
+    setIsModified(true);
+    // ... rest of the handler
+  };
 
   const validateSolutionAndEvaluation = async () => {
     const result = await validateQuestion(question.data);

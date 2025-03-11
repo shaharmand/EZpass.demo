@@ -171,33 +171,41 @@ const PageHeader = styled.div`
 `;
 
 const CompactTag = styled(Tag)`
-  &&& {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0 8px;
-    height: 24px;
-    border-radius: 4px;
-    font-size: 13px;
-    font-weight: 500;
-    border: none;
-    background: ${props => props.color === 'success' ? '#f6ffed' : 
-      props.color === 'warning' ? '#fffbe6' : 
-      props.color === 'error' ? '#fff2f0' : '#f5f5f5'};
-    color: ${props => props.color === 'success' ? '#52c41a' : 
-      props.color === 'warning' ? '#faad14' : 
-      props.color === 'error' ? '#ff4d4f' : '#595959'};
-    box-shadow: 0 0 0 1px ${props => props.color === 'success' ? '#b7eb8f' : 
-      props.color === 'warning' ? '#ffe58f' : 
-      props.color === 'error' ? '#ffccc7' : '#d9d9d9'};
-      
-    .anticon {
-      font-size: 14px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: none;
+  
+  &.ant-tag-success {
+    border: 1px solid #b7eb8f;
+    
+    &.update-status {
+      background: #f5f5f5;
+      color: #595959;
+      border: 1px solid #d9d9d9;
     }
+  }
+  
+  &.ant-tag-warning {
+    border: 1px solid #ffe58f;
+    
+    &.update-status {
+      background: #f5f5f5;
+      color: #595959;
+      border: 1px solid #d9d9d9;
+    }
+  }
 
-    &:hover {
-      opacity: 0.85;
-    }
+  &.ant-tag-error {
+    border: 1px solid #ffccc7;
+  }
+
+  &.update-status {
+    background: #f5f5f5;
+    color: #595959;
+    border: 1px solid #d9d9d9;
   }
 `;
 
@@ -385,22 +393,22 @@ const ActionButton = styled(Button)<{ $isPendingReview?: boolean; $isDraft?: boo
 
   &.publish-button {
     border-color: ${props => props.disabled ? '#d9d9d9' : 
-      props.$isDraft ? '#52c41a' : '#faad14'};
+      props.$isDraft ? '#1677ff' : '#1677ff'};
     color: ${props => props.disabled ? 'rgba(0, 0, 0, 0.25)' : 
-      props.$isDraft ? '#52c41a' : '#faad14'};
+      props.$isDraft ? '#1677ff' : '#1677ff'};
     background-color: ${props => props.disabled ? '#f5f5f5' : '#fff'};
     
     &:not(:disabled) {
       &:hover {
-        background-color: ${props => props.$isDraft ? '#f6ffed' : '#fff7e6'} !important;
-        border-color: ${props => props.$isDraft ? '#73d13d' : '#ffd666'} !important;
-        color: ${props => props.$isDraft ? '#73d13d' : '#ffa940'} !important;
+        background-color: #e6f4ff !important;
+        border-color: #4096ff !important;
+        color: #4096ff !important;
       }
       
       &:active {
-        background-color: ${props => props.$isDraft ? '#d9f7be' : '#fff1b8'} !important;
-        border-color: ${props => props.$isDraft ? '#389e0d' : '#d48806'} !important;
-        color: ${props => props.$isDraft ? '#389e0d' : '#d48806'} !important;
+        background-color: #bae0ff !important;
+        border-color: #0958d9 !important;
+        color: #0958d9 !important;
       }
     }
 
@@ -414,22 +422,22 @@ const ActionButton = styled(Button)<{ $isPendingReview?: boolean; $isDraft?: boo
 
   &.review-button {
     border-color: ${props => props.disabled ? '#d9d9d9' : 
-      props.$isPendingReview ? '#52c41a' : '#faad14'};
+      props.$isPendingReview ? '#1677ff' : '#1677ff'};
     color: ${props => props.disabled ? 'rgba(0, 0, 0, 0.25)' : 
-      props.$isPendingReview ? '#52c41a' : '#faad14'};
+      props.$isPendingReview ? '#1677ff' : '#1677ff'};
     background-color: ${props => props.disabled ? '#f5f5f5' : '#fff'};
     
     &:not(:disabled) {
       &:hover {
-        background-color: ${props => props.$isPendingReview ? '#f6ffed' : '#fff7e6'} !important;
-        border-color: ${props => props.$isPendingReview ? '#73d13d' : '#ffd666'} !important;
-        color: ${props => props.$isPendingReview ? '#73d13d' : '#ffa940'} !important;
+        background-color: #e6f4ff !important;
+        border-color: #4096ff !important;
+        color: #4096ff !important;
       }
       
       &:active {
-        background-color: ${props => props.$isPendingReview ? '#d9f7be' : '#fff1b8'} !important;
-        border-color: ${props => props.$isPendingReview ? '#389e0d' : '#d48806'} !important;
-        color: ${props => props.$isPendingReview ? '#389e0d' : '#d48806'} !important;
+        background-color: #bae0ff !important;
+        border-color: #0958d9 !important;
+        color: #0958d9 !important;
       }
     }
 
@@ -484,7 +492,7 @@ interface QuestionHeaderSectionProps {
     created_at: string;
   };
   onBack: () => void;
-  onSave: () => void;
+  onSave?: () => void;
   isModified?: boolean;
   onPrevious?: () => void;
   onNext?: () => void;
@@ -509,8 +517,6 @@ interface QuestionEditToolbarProps {
     publication_status: PublicationStatusEnum;
     review_status: ReviewStatusEnum;
   };
-  isModified?: boolean;
-  onSave: () => void;
   onReviewStatusChange?: () => void;
   onPublicationStatusChange?: () => void;
   isDraft: boolean;
@@ -520,8 +526,6 @@ interface QuestionEditToolbarProps {
 
 const QuestionEditToolbar = ({
   question,
-  isModified,
-  onSave,
   onReviewStatusChange,
   onPublicationStatusChange,
   isDraft,
@@ -532,14 +536,6 @@ const QuestionEditToolbar = ({
     <ToolbarContainer>
       <Space>
         <ActionButton 
-          className="save-button"
-          onClick={onSave}
-          disabled={!isModified}
-        >
-          שמירה
-        </ActionButton>
-        <span className="divider" />
-        <ActionButton
           className="review-button"
           onClick={onReviewStatusChange}
           icon={isPendingReview ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
@@ -672,8 +668,6 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
 
       <QuestionEditToolbar
         question={question}
-        isModified={isModified}
-        onSave={onSave}
         onReviewStatusChange={handleReviewStatusChange}
         onPublicationStatusChange={handlePublicationStatusChange}
         isDraft={isDraft}
@@ -686,24 +680,7 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
           <StatusColumn span={6}>
             <StatusItem>
               <div className="status-header">
-                <span className="label">סטטוס פרסום:</span>
-                <CompactTag color={isDraft ? 'warning' : 'success'}>
-                  {isDraft ? 'טיוטה' : 'מפורסם'}
-                </CompactTag>
-              </div>
-              {!isDraft && question.publication_metadata?.publishedAt && (
-                <MetadataItem>
-                  פורסם על ידי {question.publication_metadata.publishedBy}{' '}
-                  ב-{dayjs(question.publication_metadata.publishedAt).locale('he').format('DD/MM/YYYY HH:mm')}
-                </MetadataItem>
-              )}
-            </StatusItem>
-          </StatusColumn>
-          
-          <StatusColumn span={6}>
-            <StatusItem>
-              <div className="status-header">
-                <span className="label">סטטוס בדיקה:</span>
+                <span className="label">סטטוס סקירה:</span>
                 <CompactTag color={isPendingReview ? 'warning' : 'success'}>
                   {REVIEW_STATUS_DESCRIPTIONS[question.review_status]}
                 </CompactTag>
@@ -725,6 +702,23 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
           <StatusColumn span={6}>
             <StatusItem>
               <div className="status-header">
+                <span className="label">סטטוס פרסום:</span>
+                <CompactTag color={isDraft ? 'warning' : 'success'}>
+                  {isDraft ? 'טיוטה' : 'מפורסם'}
+                </CompactTag>
+              </div>
+              {!isDraft && question.publication_metadata?.publishedAt && (
+                <MetadataItem>
+                  פורסם על ידי {question.publication_metadata.publishedBy}{' '}
+                  ב-{dayjs(question.publication_metadata.publishedAt).locale('he').format('DD/MM/YYYY HH:mm')}
+                </MetadataItem>
+              )}
+            </StatusItem>
+          </StatusColumn>
+
+          <StatusColumn span={6}>
+            <StatusItem>
+              <div className="status-header">
                 <span className="label">סטטוס אימות:</span>
                 {isValidationError || isValidationWarning ? (
                   <CompactTag 
@@ -736,10 +730,12 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
                     {remarks.length} {isValidationError ? 'שגיאות' : 'אזהרות'}
                   </CompactTag>
                 ) : (
-                  <CompactValidation>
-                    <CheckCircleOutlined className="success-icon" />
-                    <Text type="success">תקין</Text>
-                  </CompactValidation>
+                  <CompactTag 
+                    color="success"
+                    icon={<CheckCircleOutlined />}
+                  >
+                    תקין
+                  </CompactTag>
                 )}
               </div>
               {hasValidationIssues && (
@@ -754,9 +750,11 @@ export const QuestionHeaderSection: React.FC<QuestionHeaderSectionProps> = ({
             <StatusItem>
               <div className="status-header">
                 <span className="label">סטטוס עדכון:</span>
-                <CompactTag color={question.update_metadata?.lastUpdatedBy && 
-                                 question.update_metadata?.lastUpdatedAt && 
-                                 dayjs(question.update_metadata.lastUpdatedAt).isValid() ? 'success' : 'default'}>
+                <CompactTag 
+                  className="update-status"
+                  color={question.update_metadata?.lastUpdatedBy && 
+                         question.update_metadata?.lastUpdatedAt && 
+                         dayjs(question.update_metadata.lastUpdatedAt).isValid() ? 'success' : 'default'}>
                   {question.update_metadata?.lastUpdatedBy && 
                    question.update_metadata?.lastUpdatedAt && 
                    dayjs(question.update_metadata.lastUpdatedAt).isValid() ? 'עודכן' : 'לא עודכן'}

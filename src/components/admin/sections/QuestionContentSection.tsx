@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Space, Typography, Button, Input, Row, Col, Tag, Select } from 'antd';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, Space, Typography, Button, Input, Row, Col, Tag, Select, message } from 'antd';
 import type { InputRef } from 'antd/lib/input';
-import { EditOutlined, FileTextOutlined, SaveOutlined } from '@ant-design/icons';
+import { EditOutlined, FileTextOutlined, SaveOutlined, WarningOutlined } from '@ant-design/icons';
 import { Question, DatabaseQuestion, SaveQuestion, ValidationStatus, PublicationStatusEnum, QuestionType, NumericalAnswer, FinalAnswerType } from '../../../types/question';
 import { universalTopics } from '../../../services/universalTopics';
 import { Topic, SubTopic } from '../../../types/subject';
@@ -23,17 +23,17 @@ const ContentCard = styled(Card)`
 `;
 
 const SectionLabel = styled(Text)`
-  font-weight: 500;
-  color: #262626;
-  margin-left: 8px;
-  white-space: nowrap;
+  font-weight: 400;
+  color: #666;
+  margin-bottom: 8px;
+  display: block;
 `;
 
 interface TitleSectionProps {
   isEditable?: boolean;
 }
 
-const ContentSection = styled.div<TitleSectionProps>`
+const ContentSection = styled.div<{ isEditable: boolean }>`
   margin-bottom: 24px;
   padding: 16px;
   background: #fff;
@@ -42,13 +42,13 @@ const ContentSection = styled.div<TitleSectionProps>`
   transition: all 0.2s ease;
 
   &:hover {
-    border-color: ${props => !props.isEditable ? '#40a9ff' : '#f0f0f0'};
-    cursor: ${props => !props.isEditable ? 'pointer' : 'default'};
-    background: ${props => !props.isEditable ? '#fafafa' : '#fff'};
+    border-color: ${props => props.isEditable ? '#40a9ff' : '#f0f0f0'};
+    cursor: ${props => props.isEditable ? 'pointer' : 'default'};
+    background: ${props => props.isEditable ? '#fafafa' : '#fff'};
   }
 `;
 
-const TitleSection = styled.div<TitleSectionProps>`
+const TitleSection = styled.div<{ isEditable: boolean }>`
   margin-bottom: 24px;
   padding: 16px;
   background: #fff;
@@ -57,19 +57,26 @@ const TitleSection = styled.div<TitleSectionProps>`
   transition: all 0.2s ease;
 
   &:hover {
-    border-color: ${props => !props.isEditable ? '#40a9ff' : '#f0f0f0'};
-    cursor: ${props => !props.isEditable ? 'pointer' : 'default'};
-    background: ${props => !props.isEditable ? '#fafafa' : '#fff'};
+    border-color: ${props => props.isEditable ? '#40a9ff' : '#f0f0f0'};
+    cursor: ${props => props.isEditable ? 'pointer' : 'default'};
+    background: ${props => props.isEditable ? '#fafafa' : '#fff'};
   }
 `;
 
-const EditableWrapper = styled.div<{ isEditable: boolean }>`
+interface EditableWrapperProps {
+  isEditable: boolean;
+  isEditing?: boolean;
+  globalEditing?: boolean;
+}
+
+const EditableWrapper = styled.div<EditableWrapperProps>`
   position: relative;
   display: flex;
   align-items: center;
+  cursor: ${props => !props.isEditable ? 'default' : 'pointer'};
   
   &:hover:after {
-    content: ${props => !props.isEditable ? '"ערוך"' : 'none'};
+    content: ${props => props.isEditable && !props.globalEditing ? '"ערוך"' : 'none'};
     position: absolute;
     top: -20px;
     right: 0;
@@ -80,16 +87,104 @@ const EditableWrapper = styled.div<{ isEditable: boolean }>`
     border-radius: 4px;
     opacity: 1;
   }
+
+  &.question-type-wrapper {
+    cursor: pointer !important;
+    
+    &:hover:after {
+      content: ${props => props.isEditable && !props.globalEditing ? '"שנה סוג שאלה"' : 'none'};
+    }
+
+    .ant-select-selector {
+      cursor: pointer !important;
+    }
+  }
 `;
 
 const TitleRow = styled(Row)`
+  width: 100%;
+`;
+
+const CloseButton = styled.div`
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  display: flex;
   align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #8c8c8c;
+  font-size: 12px;
+  transition: all 0.2s;
+  z-index: 1;
+  
+  &:hover {
+    background: #d9d9d9;
+    color: #595959;
+  }
+  
+  &:active {
+    background: #bfbfbf;
+    color: #434343;
+  }
+`;
+
+const TitleInputWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 4px;
+  position: relative;
+`;
+
+const TitleInputRow = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
+  position: relative;
+`;
+
+const TitleStatusRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+interface CharacterCountProps {
+  count: number;
+}
+
+const CharacterCount = styled.span<CharacterCountProps>`
+  font-size: 12px;
+  color: ${props => props.count >= 50 ? '#ff4d4f' : '#8c8c8c'};
+  margin-right: 8px;
+  min-width: 40px;
+  text-align: left;
+`;
+
+const EditModeButtons = styled(Space)`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+`;
+
+const ButtonGroup = styled(Space)`
+  display: flex;
+  gap: 8px;
 `;
 
 const TitleInput = styled(Input)`
   font-size: 16px;
+  font-weight: 500;
   transition: all 0.2s ease;
-  width: 100%;
+  width: 400px;
+  max-width: 100%;
   
   &.view-mode {
     color: #262626;
@@ -112,6 +207,7 @@ const TitleInput = styled(Input)`
     background: #fff;
     padding: 8px 12px;
     cursor: text;
+    font-weight: 500;
     
     &:hover {
       border-color: #40a9ff;
@@ -124,6 +220,7 @@ const TitleInput = styled(Input)`
   }
 
   &.has-changes {
+    background: #fffbe6;
     border-color: #faad14;
     
     &:hover, &:focus {
@@ -134,9 +231,11 @@ const TitleInput = styled(Input)`
 `;
 
 const UnsavedChangesText = styled(Text)`
-  color: #faad14;
+  color: #8c8c8c;
   font-size: 12px;
   margin-right: 8px;
+  min-width: 100px;
+  text-align: left;
 `;
 
 const QuestionText = styled.div`
@@ -172,6 +271,7 @@ const ActionButtons = styled(Space)`
 
 const ContentInput = styled(Input.TextArea)`
   font-size: 16px;
+  font-weight: 500;
   transition: all 0.2s ease;
   width: 100%;
   resize: vertical;
@@ -185,7 +285,7 @@ const ContentInput = styled(Input.TextArea)`
     padding: 12px;
     resize: none;
     border-radius: 6px;
-    font-weight: 400;
+    font-weight: 500;
     
     &:hover {
       background: #f0f0f0;
@@ -199,6 +299,7 @@ const ContentInput = styled(Input.TextArea)`
     background: #fff;
     padding: 12px;
     cursor: text;
+    font-weight: 500;
     
     &:hover {
       border-color: #40a9ff;
@@ -211,6 +312,7 @@ const ContentInput = styled(Input.TextArea)`
   }
 
   &.has-changes {
+    background: #fffbe6;
     border-color: #faad14;
     
     &:hover, &:focus {
@@ -345,11 +447,18 @@ interface FormattedOption {
 
 type QuestionOption = string | FormattedOption;
 
+// Add this interface before the QuestionContentSectionProps interface
+export interface QuestionContentSectionHandle {
+  handleSimpleSave: () => Promise<void>;
+}
+
 interface QuestionContentSectionProps {
   question: DatabaseQuestion;
   isEditing: boolean;
   onEdit: () => void;
   onSave: (data: SaveQuestion) => Promise<void>;
+  onExitEdit?: () => void;
+  onModified?: (modified: boolean) => void;
 }
 
 interface ContentValidationResult {
@@ -425,77 +534,45 @@ const MetadataInput = styled(Input)`
       box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
     }
   }
-
-  &.has-changes {
-    border-color: #faad14;
-    
-    &:hover, &:focus {
-      border-color: #d48806;
-      box-shadow: 0 0 0 2px rgba(250, 173, 20, 0.2);
-    }
-  }
 `;
 
-const QuestionTypeSelect = styled(Select<QuestionType>)`
-  width: 100%;
+const QuestionTypeSelect = styled(Select)<{ isEditing: boolean }>`
+  width: 210px;
   
-  &.view-mode {
-    .ant-select-selector {
-      color: #262626;
-      background: #fafafa !important;
-      border: none !important;
-      cursor: pointer;
-      padding: 8px 12px;
-      border-radius: 6px;
-      height: auto !important;
-      min-height: 32px;
-    }
+  .ant-select-selector {
+    color: #262626 !important;
+    background: ${props => props.isEditing ? '#fff' : '#fafafa'} !important;
+    border: ${props => props.isEditing ? '1px solid #d9d9d9' : 'none'} !important;
+    cursor: pointer !important;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    height: auto !important;
+    min-height: 32px !important;
+    font-weight: 600 !important;
     
-    .ant-select-selection-item {
-      line-height: 1.5;
-      padding: 4px 0;
-    }
-    
-    &:hover .ant-select-selector {
-      background: #f0f0f0 !important;
+    &:hover {
+      background: ${props => props.isEditing ? '#fff' : '#f0f0f0'} !important;
+      border-color: ${props => props.isEditing ? '#40a9ff' : 'none'} !important;
     }
   }
 
-  &.edit-mode {
-    .ant-select-selector {
-      border: 1px solid #d9d9d9;
-      border-radius: 6px;
-      background: #fff;
-      padding: 8px 12px;
-      cursor: text;
-      height: auto !important;
-      min-height: 32px;
-    }
-    
-    .ant-select-selection-item {
-      line-height: 1.5;
-      padding: 4px 0;
-    }
-    
-    &:hover .ant-select-selector {
-      border-color: #40a9ff;
-    }
-    
-    &.ant-select-focused .ant-select-selector {
-      border-color: #40a9ff;
-      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-    }
+  .ant-select-selection-item {
+    line-height: 1.5;
+    padding: 4px 0;
+    font-weight: 600;
   }
 
-  &.has-changes {
-    .ant-select-selector {
-      border-color: #faad14 !important;
-    }
+  &.ant-select-focused .ant-select-selector {
+    border-color: #40a9ff !important;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+  }
+
+  &.has-changes .ant-select-selector {
+    background: #fffbe6 !important;
+    border-color: #faad14 !important;
     
-    &:hover .ant-select-selector,
-    &.ant-select-focused .ant-select-selector {
+    &:hover {
       border-color: #d48806 !important;
-      box-shadow: 0 0 0 2px rgba(250, 173, 20, 0.2);
     }
   }
 `;
@@ -536,18 +613,6 @@ const DifficultySelect = styled(Select<number>)`
       box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
     }
   }
-
-  &.has-changes {
-    .ant-select-selector {
-      border-color: #faad14 !important;
-    }
-    
-    &:hover .ant-select-selector,
-    &.ant-select-focused .ant-select-selector {
-      border-color: #d48806 !important;
-      box-shadow: 0 0 0 2px rgba(250, 173, 20, 0.2);
-    }
-  }
 `;
 
 const SourceSelect = styled(Select<string>)`
@@ -586,18 +651,6 @@ const SourceSelect = styled(Select<string>)`
       box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
     }
   }
-
-  &.has-changes {
-    .ant-select-selector {
-      border-color: #faad14 !important;
-    }
-    
-    &:hover .ant-select-selector,
-    &.ant-select-focused .ant-select-selector {
-      border-color: #d48806 !important;
-      box-shadow: 0 0 0 2px rgba(250, 173, 20, 0.2);
-    }
-  }
 `;
 
 const ReadOnlyField = styled.div`
@@ -612,91 +665,155 @@ const SolutionInput = styled(ContentInput)`
   min-height: 150px;
 `;
 
-export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
+const QuestionTypeSection = styled(ContentSection)`
+  &:hover {
+    cursor: ${props => props.isEditable ? 'pointer' : 'default'} !important;
+  }
+
+  .ant-select-selector {
+    cursor: ${props => props.isEditable ? 'pointer' : 'default'} !important;
+  }
+`;
+
+const EditActionBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #f0f0f0;
+
+  .action-bar-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .unsaved-changes {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .action-buttons {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+`;
+
+const ContentInputWrapper = styled(TitleInputWrapper)`
+  position: relative;
+`;
+
+const ContentInputRow = styled(TitleInputRow)``;
+
+export const QuestionContentSection = React.forwardRef<QuestionContentSectionHandle, QuestionContentSectionProps>(({
   question,
   isEditing,
   onEdit,
-  onSave
-}) => {
-  const [title, setTitle] = useState(question.data.name || '');
-  const [content, setContent] = useState(question.data.content?.text || '');
-  const [options, setOptions] = useState<FormattedOption[]>(
-    (question.data.content?.options || ['', '', '', '']).map(opt => 
-      typeof opt === 'string' ? { text: opt, format: 'markdown' } : opt
-    )
-  );
+  onSave,
+  onExitEdit,
+  onModified
+}, ref) => {
+  const inputRef = React.useRef<InputRef>(null);
+  const divRef = useRef<HTMLDivElement>(null);
+  const [isTitleEditing, setIsTitleEditing] = useState(false);
+  const [isTypeEditing, setIsTypeEditing] = useState(false);
+  const [isContentEditing, setIsContentEditing] = useState(false);
+  const [isOptionsEditing, setIsOptionsEditing] = useState(false);
+  const [isMetadataEditing, setIsMetadataEditing] = useState(false);
+  const [isSolutionEditing, setIsSolutionEditing] = useState(false);
   const [availableTopics, setAvailableTopics] = useState<Topic[]>([]);
   const [availableSubtopics, setAvailableSubtopics] = useState<SubTopic[]>([]);
-  const [correctOption, setCorrectOption] = useState<1 | 2 | 3 | 4 | undefined>(
-    question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
+  const [changedFields, setChangedFields] = useState<Set<string>>(new Set());
+  const [isModified, setIsModified] = useState(false);
+  const hasUnsavedChanges = changedFields.size > 0;
+
+  const getFinalAnswerType = (type: QuestionType): FinalAnswerType => {
+    switch (type) {
+      case QuestionType.MULTIPLE_CHOICE:
+        return 'multiple_choice';
+      case QuestionType.NUMERICAL:
+        return 'numerical';
+      default:
+        return 'none';
+    }
+  };
+
+  const [tempState, setTempState] = useState({
+    title: question.data.name || '',
+    content: question.data.content?.text || '',
+    options: (question.data.content?.options || ['', '', '', '']).map(opt => 
+      typeof opt === 'string' ? { text: opt, format: 'markdown' as const } : { ...opt, format: 'markdown' as const }
+    ),
+    correctOption: question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
       ? question.data.schoolAnswer.finalAnswer.value as 1 | 2 | 3 | 4
-      : undefined
-  );
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [hasUnsavedContentChanges, setHasUnsavedContentChanges] = useState(false);
-  const [hasUnsavedOptionsChanges, setHasUnsavedOptionsChanges] = useState(false);
-  const [metadata, setMetadata] = useState(question.data.metadata);
-  const [hasUnsavedMetadataChanges, setHasUnsavedMetadataChanges] = useState(false);
-  const [solution, setSolution] = useState(question.data.schoolAnswer?.solution?.text || '');
-  const [hasUnsavedSolutionChanges, setHasUnsavedSolutionChanges] = useState(false);
-  const inputRef = React.useRef<InputRef>(null);
-  const [validationResult, setValidationResult] = useState<ContentValidationResult>({
-    success: true,
-    errors: [],
-    warnings: []
+      : undefined,
+    metadata: question.data.metadata,
+    solution: question.data.schoolAnswer?.solution?.text || ''
   });
 
   useEffect(() => {
-    const validateData = async () => {
-      const result = await validateQuestion(question.data);
-      setValidationResult({
-        success: result.errors.length === 0,
-        errors: result.errors,
-        warnings: result.warnings
-      });
-    };
-    validateData();
-  }, [question.data]);
+    onModified?.(hasUnsavedChanges);
+    setIsModified(hasUnsavedChanges);
+  }, [hasUnsavedChanges, onModified]);
 
-  const contentErrors = validationResult.errors.filter(
-    (err: ValidationError) => err.field.startsWith('content') || err.field === 'options'
-  );
-
-  // Load topics when subject and domain change
   useEffect(() => {
-    if (metadata.subjectId && metadata.domainId) {
-      const subject = universalTopics.getAllSubjects().find(s => s.id === metadata.subjectId);
-      const domain = subject?.domains.find(d => d.id === metadata.domainId);
-      if (domain) {
-        setAvailableTopics(domain.topics);
-        // If there's a selected topic, load its subtopics
-        if (metadata.topicId) {
-          const topic = domain.topics.find(t => t.id === metadata.topicId);
-          if (topic) {
-            setAvailableSubtopics(topic.subTopics);
-          }
-        }
-      }
+    if (!isEditing) {
+      setTempState({
+        title: question.data.name || '',
+        content: question.data.content?.text || '',
+        options: (question.data.content?.options || ['', '', '', '']).map(opt => 
+          typeof opt === 'string' ? { text: opt, format: 'markdown' as const } : { ...opt, format: 'markdown' as const }
+        ),
+        correctOption: question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
+          ? question.data.schoolAnswer.finalAnswer.value as 1 | 2 | 3 | 4
+          : undefined,
+        metadata: question.data.metadata,
+        solution: question.data.schoolAnswer?.solution?.text || ''
+      });
+      setChangedFields(new Set());
+      setIsTitleEditing(false);
+      setIsTypeEditing(false);
+      setIsContentEditing(false);
+      setIsOptionsEditing(false);
+      setIsMetadataEditing(false);
+      setIsSolutionEditing(false);
     }
-  }, [metadata.subjectId, metadata.domainId, metadata.topicId]);
+  }, [isEditing, question]);
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setTempState(prev => ({ ...prev, title: newTitle }));
+    setChangedFields(prev => {
+      const next = new Set(prev);
+      if (newTitle !== question.data.name) {
+        next.add('title');
+      } else {
+        next.delete('title');
+      }
+      return next;
+    });
+  };
+
+  const handleTitleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setTempState(prev => ({ ...prev, title: question.data.name || '' }));
+      setChangedFields(prev => {
+        const next = new Set(prev);
+        next.delete('title');
+        return next;
+      });
+      setIsTitleEditing(false);
+    }
+  };
 
   const handleQuestionTypeChange = (value: unknown) => {
     const questionType = value as QuestionType;
-    
-    // Helper function to get the final answer type
-    const getFinalAnswerType = (type: QuestionType): FinalAnswerType => {
-      switch (type) {
-        case QuestionType.MULTIPLE_CHOICE:
-          return 'multiple_choice';
-        case QuestionType.NUMERICAL:
-          return 'numerical';
-        default:
-          return 'none';
-      }
-    };
-
     const newMetadata = {
-      ...metadata,
+      ...tempState.metadata,
       type: questionType,
       answerFormat: {
         hasFinalAnswer: questionType !== QuestionType.OPEN,
@@ -704,184 +821,168 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
         requiresSolution: true
       }
     };
+    setTempState(prev => ({ ...prev, metadata: newMetadata }));
+    setChangedFields(prev => {
+      const next = new Set(prev);
+      next.add('metadata');
+      return next;
+    });
+  };
 
-    // Update question data based on type
-    let updatedQuestionData: Question = {
-      ...question.data,
-      metadata: newMetadata,
-      content: {
-        ...question.data.content,
-        options: questionType === QuestionType.MULTIPLE_CHOICE ? ['', '', '', ''].map(opt => ({ text: opt, format: 'markdown' as const })) : []
-      },
-      schoolAnswer: questionType === QuestionType.MULTIPLE_CHOICE ? 
-        {
-          ...question.data.schoolAnswer,
-          finalAnswer: { type: 'multiple_choice' as const, value: 1 }
-        } :
-        questionType === QuestionType.NUMERICAL ?
-          {
-            ...question.data.schoolAnswer,
-            finalAnswer: { type: 'numerical', value: 0, tolerance: 0 }
-          } :
-          {
-            solution: question.data.schoolAnswer?.solution || { text: '', format: 'markdown' }
+  // Define handleSimpleSave at component level
+  const handleSimpleSave = async () => {
+    try {
+      const updatedQuestionData: Question = {
+        ...question.data,
+        name: tempState.title,
+        content: {
+          text: tempState.content,
+          format: 'markdown',
+          options: tempState.metadata.type === QuestionType.MULTIPLE_CHOICE 
+            ? tempState.options 
+            : undefined
+        },
+        metadata: {
+          ...question.data.metadata,
+          ...tempState.metadata,
+          type: tempState.metadata.type,
+          answerFormat: {
+            hasFinalAnswer: tempState.metadata.type !== QuestionType.OPEN,
+            finalAnswerType: getFinalAnswerType(tempState.metadata.type),
+            requiresSolution: true
           }
-    };
-
-    // Update local state
-    setMetadata(newMetadata);
-    setOptions(questionType === QuestionType.MULTIPLE_CHOICE ? ['', '', '', ''].map(opt => ({ text: '', format: 'markdown' })) : []);
-    setCorrectOption(questionType === QuestionType.MULTIPLE_CHOICE ? 1 : undefined);
-    setHasUnsavedMetadataChanges(true);
-
-    // Save changes immediately
-    const saveOperation: SaveQuestion = {
-      id: question.id,
-      data: updatedQuestionData,
-      publication_status: question.publication_status,
-      validation_status: question.validation_status,
-      review_status: question.review_status
-    };
-
-    onSave(saveOperation);
-  };
-
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value;
-    setTitle(newTitle);
-    setHasUnsavedChanges(newTitle !== question.data.name);
-  };
-
-  const handleContentChange = (newContent: string) => {
-    setContent(newContent);
-    setHasUnsavedContentChanges(newContent !== question.data.content?.text);
-  };
-
-  const handleContentClick = () => {
-    if (!isEditing) {
-      onEdit();
-      setTimeout(() => {
-        const textArea = document.querySelector('textarea.edit-mode') as HTMLTextAreaElement;
-        if (textArea) {
-          textArea.focus();
+        },
+        schoolAnswer: {
+          finalAnswer: tempState.metadata.type === QuestionType.MULTIPLE_CHOICE && tempState.correctOption 
+            ? {
+                type: 'multiple_choice' as const,
+                value: tempState.correctOption
+              }
+            : question.data.schoolAnswer?.finalAnswer,
+          solution: {
+            text: tempState.solution,
+            format: 'markdown'
+          }
         }
-      }, 100);
+      };
+
+      const saveOperation: SaveQuestion = {
+        id: question.id,
+        data: updatedQuestionData,
+        publication_status: question.publication_status,
+        validation_status: question.validation_status,
+        review_status: question.review_status
+      };
+
+      await onSave(saveOperation);
+      
+      // Reset editing states after successful save
+      setChangedFields(new Set());
+      setIsModified(false);
+      setIsTitleEditing(false);
+      setIsTypeEditing(false);
+      setIsContentEditing(false);
+      setIsOptionsEditing(false);
+      setIsMetadataEditing(false);
+      setIsSolutionEditing(false);
+      
+      onExitEdit?.();
+    } catch (error) {
+      console.error('Failed to save changes:', error);
+      message.error('Failed to save changes');
     }
   };
 
-  const handleTitleClick = () => {
-    if (!isEditing) {
-      onEdit();
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
-  };
+  // Expose handleSimpleSave to parent
+  React.useImperativeHandle(ref, () => ({
+    handleSimpleSave
+  }));
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (hasUnsavedChanges) {
-        handleSaveTitle();
-      }
-    }
+  const handleCancelAll = () => {
+    setTempState({
+      title: question.data.name || '',
+      content: question.data.content?.text || '',
+      options: (question.data.content?.options || ['', '', '', '']).map(opt => 
+        typeof opt === 'string' ? { text: opt, format: 'markdown' } : opt
+      ),
+      correctOption: question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
+        ? question.data.schoolAnswer.finalAnswer.value as 1 | 2 | 3 | 4
+        : undefined,
+      metadata: question.data.metadata,
+      solution: question.data.schoolAnswer?.solution?.text || ''
+    });
+    setChangedFields(new Set());
+    onExitEdit?.();
   };
 
   const handleContentKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && e.ctrlKey) {
       e.preventDefault();
-      if (hasUnsavedContentChanges) {
-        handleSaveContent();
+      if (hasUnsavedChanges) {
+        handleSimpleSave();
+      } else {
+        onExitEdit?.();
       }
+    } else if (e.key === 'Escape') {
+      handleCancelAll();
     }
   };
 
-  const handleSaveTitle = async () => {
-    try {
-      const questionData: Question = {
-        ...question.data,
-        name: title
-      };
-
-      // Get latest validation status
-      const validationResult = await validateQuestion(questionData);
-
-      const saveOperation: SaveQuestion = {
-        id: question.id,
-        data: questionData,
-        publication_status: question.publication_status,
-        validation_status: validationResult.status,
-        review_status: question.review_status
-      };
-
-      await onSave(saveOperation);
-      setHasUnsavedChanges(false);
-      if (isEditing) {
-        onEdit();
+  const handleContentChange = (newContent: string) => {
+    setTempState(prev => ({ ...prev, content: newContent }));
+    setChangedFields(prev => {
+      const next = new Set(prev);
+      if (newContent !== question.data.content?.text) {
+        next.add('content');
+      } else {
+        next.delete('content');
       }
-    } catch (error) {
-      console.error('Failed to save title:', error);
-    }
-  };
-
-  const handleSaveContent = async () => {
-    try {
-      const questionData: Question = {
-        ...question.data,
-        content: {
-          ...question.data.content,
-          text: content
-        }
-      };
-
-      // Get latest validation status
-      const validationResult = await validateQuestion(questionData);
-
-      const saveOperation: SaveQuestion = {
-        id: question.id,
-        data: questionData,
-        publication_status: question.publication_status,
-        validation_status: validationResult.status,
-        review_status: question.review_status
-      };
-
-      await onSave(saveOperation);
-      setHasUnsavedContentChanges(false);
-      if (isEditing) {
-        onEdit();
-      }
-    } catch (error) {
-      console.error('Failed to save content:', error);
-    }
-  };
-
-  const handleCancel = () => {
-    setContent(question.data.content?.text || '');
-    setHasUnsavedContentChanges(false);
-    if (isEditing) {
-      onEdit();
-    }
+      return next;
+    });
   };
 
   const handleOptionChange = (index: number, value: string) => {
-    const newOptions = [...options];
-    newOptions[index] = { text: value, format: 'markdown' };
-    setOptions(newOptions);
-    setHasUnsavedOptionsChanges(
-      !question.data.content?.options ||
-      newOptions.some((opt, i) => {
-        const existingOpt = question.data.content?.options?.[i];
-        if (typeof existingOpt === 'object') {
-          return opt.text !== existingOpt.text;
+    const newOptions = [...tempState.options];
+    newOptions[index] = { text: value, format: 'markdown' as const };
+    setTempState(prev => ({ ...prev, options: newOptions }));
+    setChangedFields(prev => {
+      const next = new Set(prev);
+      if (!question.data.content?.options || 
+          newOptions.some((opt, i) => {
+            const existingOpt = question.data.content?.options?.[i];
+            if (typeof existingOpt === 'object') {
+              return opt.text !== existingOpt.text;
+            }
+            return opt.text !== existingOpt;
+          })) {
+        next.add('options');
+      } else {
+        next.delete('options');
+      }
+      return next;
+    });
+  };
+
+  const handleCorrectOptionClick = (index: number) => {
+    if (isEditing) {
+      const newCorrectOption = (index + 1) as 1 | 2 | 3 | 4;
+      setTempState(prev => ({ ...prev, correctOption: newCorrectOption }));
+      setChangedFields(prev => {
+        const next = new Set(prev);
+        if (newCorrectOption !== question.data.schoolAnswer?.finalAnswer?.value) {
+          next.add('correctOption');
+        } else {
+          next.delete('correctOption');
         }
-        return opt.text !== existingOpt;
-      })
-    );
+        return next;
+      });
+    }
   };
 
   const handleOptionClick = (index: number) => {
     if (!isEditing) {
       onEdit();
+      setIsOptionsEditing(true);
       setTimeout(() => {
         const inputs = document.querySelectorAll('input.edit-mode');
         const optionInput = inputs[index] as HTMLInputElement;
@@ -892,80 +993,9 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
     }
   };
 
-  const handleCorrectOptionClick = (index: number) => {
-    if (isEditing) {
-      setCorrectOption((index + 1) as 1 | 2 | 3 | 4);
-      setHasUnsavedOptionsChanges(true);
-    }
-  };
-
-  const handleSaveOptions = async () => {
-    if (!correctOption) return;
-
-    try {
-      const questionData: Question = {
-        ...question.data,
-        content: {
-          ...question.data.content,
-          text: content,
-          options: options
-        },
-        schoolAnswer: {
-          ...question.data.schoolAnswer,
-          finalAnswer: {
-            type: 'multiple_choice' as const,
-            value: correctOption
-          }
-        }
-      };
-
-      // Get latest validation status
-      const validationResult = await validateQuestion(questionData);
-
-      const saveOperation: SaveQuestion = {
-        id: question.id,
-        data: questionData,
-        publication_status: question.publication_status,
-        validation_status: validationResult.status,
-        review_status: question.review_status
-      };
-
-      await onSave(saveOperation);
-      setHasUnsavedOptionsChanges(false);
-      if (isEditing) {
-        onEdit();
-      }
-    } catch (error) {
-      console.error('Failed to save options:', error);
-    }
-  };
-
-  const handleCancelTitle = () => {
-    setTitle(question.data.name || '');
-    setHasUnsavedChanges(false);
-    if (isEditing) {
-      onEdit();
-    }
-  };
-
-  const handleCancelOptions = () => {
-    setOptions((question.data.content?.options || ['', '', '', '']).map(opt => 
-      typeof opt === 'string' ? { text: opt, format: 'markdown' } : opt
-    ));
-    setCorrectOption(
-      question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
-        ? question.data.schoolAnswer.finalAnswer.value as 1 | 2 | 3 | 4
-        : undefined
-    );
-    setHasUnsavedOptionsChanges(false);
-    if (isEditing) {
-      onEdit();
-    }
-  };
-
   const handleMetadataChange = (field: string, value: any) => {
     const newMetadata = {
-      ...metadata,
+      ...tempState.metadata,
       [field]: value
     };
 
@@ -980,97 +1010,25 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
       }
     }
 
-    setMetadata(newMetadata);
-    setHasUnsavedMetadataChanges(true);
-  };
-
-  const handleSaveMetadata = async () => {
-    try {
-      const questionData: Question = {
-        ...question.data,
-        metadata: metadata
-      };
-
-      // Get latest validation status
-      const validationResult = await validateQuestion(questionData);
-
-      const saveOperation: SaveQuestion = {
-        id: question.id,
-        data: questionData,
-        publication_status: question.publication_status,
-        validation_status: validationResult.status,
-        review_status: question.review_status
-      };
-
-      await onSave(saveOperation);
-      setHasUnsavedMetadataChanges(false);
-      if (isEditing) {
-        onEdit();
-      }
-    } catch (error) {
-      console.error('Failed to save metadata:', error);
-    }
-  };
-
-  const handleCancelMetadata = () => {
-    setMetadata(question.data.metadata);
-    setHasUnsavedMetadataChanges(false);
-    if (isEditing) {
-      onEdit();
-    }
-  };
-
-  const handleMetadataFieldClick = () => {
-    if (!isEditing) {
-      onEdit();
-    }
+    setTempState(prev => ({ ...prev, metadata: newMetadata }));
+    setChangedFields(prev => {
+      const next = new Set(prev);
+      next.add('metadata');
+      return next;
+    });
   };
 
   const handleSolutionChange = (newSolution: string) => {
-    setSolution(newSolution);
-    setHasUnsavedSolutionChanges(newSolution !== question.data.schoolAnswer?.solution?.text);
-  };
-
-  const handleSaveSolution = async () => {
-    try {
-      const questionData: Question = {
-        ...question.data,
-        schoolAnswer: {
-          ...question.data.schoolAnswer,
-          solution: {
-            text: solution,
-            format: 'markdown'
-          }
-        }
-      };
-
-      // Get latest validation status
-      const validationResult = await validateQuestion(questionData);
-
-      const saveOperation: SaveQuestion = {
-        id: question.id,
-        data: questionData,
-        publication_status: question.publication_status,
-        validation_status: validationResult.status,
-        review_status: question.review_status
-      };
-
-      await onSave(saveOperation);
-      setHasUnsavedSolutionChanges(false);
-      if (isEditing) {
-        onEdit();
+    setTempState(prev => ({ ...prev, solution: newSolution }));
+    setChangedFields(prev => {
+      const next = new Set(prev);
+      if (newSolution !== question.data.schoolAnswer?.solution?.text) {
+        next.add('solution');
+      } else {
+        next.delete('solution');
       }
-    } catch (error) {
-      console.error('Failed to save solution:', error);
-    }
-  };
-
-  const handleCancelSolution = () => {
-    setSolution(question.data.schoolAnswer?.solution?.text || '');
-    setHasUnsavedSolutionChanges(false);
-    if (isEditing) {
-      onEdit();
-    }
+      return next;
+    });
   };
 
   if (!question?.data.content) {
@@ -1090,59 +1048,89 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
   }
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
-      <TitleSection isEditable={isEditing}>
-        <Space direction="vertical" style={{ width: '100%' }}>
+    <div ref={divRef} data-section="content">
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <TitleSection isEditable={!isTitleEditing}>
           <TitleRow>
-            <Col flex="0 0 auto">
+            <Col span={24}>
               <SectionLabel>שם השאלה:</SectionLabel>
-            </Col>
-            <Col flex="1">
-              <EditableWrapper isEditable={isEditing} onClick={handleTitleClick}>
-                <TitleInput
-                  ref={inputRef}
-                  value={title}
-                  onChange={handleTitleChange}
-                  onKeyPress={handleKeyPress}
-                  placeholder="לא הוגדר שם לשאלה"
-                  className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedChanges ? 'has-changes' : ''}`}
-                  readOnly={!isEditing}
-                />
-              </EditableWrapper>
-            </Col>
-            <Col flex="0 0 auto">
-              <Space>
-                {hasUnsavedChanges && (
-                  <>
-                    <UnsavedChangesText>שינויים לא שמורים</UnsavedChangesText>
-                    <Button onClick={handleCancelTitle}>
-                      בטל
-                    </Button>
-                    <Button
-                      type="primary"
-                      icon={<SaveOutlined />}
-                      onClick={handleSaveTitle}
-                    >
-                      שמור
-                    </Button>
-                  </>
+              <TitleInputWrapper>
+                <TitleInputRow>
+                  <EditableWrapper 
+                    isEditable={!isTitleEditing} 
+                    isEditing={isEditing}
+                    globalEditing={isTitleEditing}
+                    onClick={() => {
+                      if (!isTitleEditing) {
+                        onEdit();
+                        setIsTitleEditing(true);
+                        setTimeout(() => {
+                          inputRef.current?.focus();
+                        }, 100);
+                      }
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    <TitleInput
+                      ref={inputRef}
+                      value={tempState.title}
+                      onChange={handleTitleChange}
+                      onKeyDown={handleTitleKeyPress}
+                      placeholder="לא הוגדר שם לשאלה"
+                      className={`${isTitleEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('title') ? 'has-changes' : ''}`}
+                      readOnly={!isTitleEditing}
+                      maxLength={50}
+                    />
+                  </EditableWrapper>
+                  {isTitleEditing && (
+                    <CloseButton onClick={() => {
+                      setTempState(prev => ({ ...prev, title: question.data.name || '' }));
+                      setChangedFields(prev => {
+                        const next = new Set(prev);
+                        next.delete('title');
+                        return next;
+                      });
+                      setIsTitleEditing(false);
+                    }}>
+                      ✕
+                    </CloseButton>
+                  )}
+                </TitleInputRow>
+                {isTitleEditing && (
+                  <TitleStatusRow>
+                    <CharacterCount count={tempState.title.length}>
+                      {tempState.title.length}/50
+                    </CharacterCount>
+                  </TitleStatusRow>
                 )}
-              </Space>
+              </TitleInputWrapper>
             </Col>
           </TitleRow>
+        </TitleSection>
 
+        <QuestionTypeSection isEditable={!isTypeEditing}>
           <TitleRow>
-            <Col flex="0 0 auto">
+            <Col span={24}>
               <SectionLabel>סוג שאלה:</SectionLabel>
-            </Col>
-            <Col flex="1">
-              <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>
+              <EditableWrapper 
+                isEditable={!isTypeEditing} 
+                isEditing={isEditing}
+                globalEditing={isTypeEditing}
+                onClick={() => {
+                  if (!isTypeEditing) {
+                    onEdit();
+                    setIsTypeEditing(true);
+                  }
+                }}
+                style={{ cursor: 'pointer' }}
+                className="question-type-wrapper"
+              >
                 <QuestionTypeSelect
-                  value={metadata.type}
+                  value={tempState.metadata.type}
                   onChange={handleQuestionTypeChange}
-                  className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedMetadataChanges ? 'has-changes' : ''}`}
-                  disabled={!isEditing}
-                  style={{ width: '300px' }}
+                  isEditing={isTypeEditing}
+                  disabled={!isTypeEditing}
+                  className={`${changedFields.has('metadata') ? 'has-changes' : ''}`}
                 >
                   <Select.Option value={QuestionType.MULTIPLE_CHOICE}>שאלה סגורה</Select.Option>
                   <Select.Option value={QuestionType.OPEN}>שאלה פתוחה</Select.Option>
@@ -1151,309 +1139,393 @@ export const QuestionContentSection: React.FC<QuestionContentSectionProps> = ({
               </EditableWrapper>
             </Col>
           </TitleRow>
-        </Space>
-      </TitleSection>
-      
-      <ContentSection isEditable={isEditing}>
-        <TitleRow>
-          <Col flex="0 0 auto">
-            <SectionLabel>תוכן השאלה:</SectionLabel>
-          </Col>
-          <Col flex="1">
-            <EditableWrapper isEditable={isEditing} onClick={handleContentClick}>
-              <ContentInput
-                value={content}
-                onChange={(e) => handleContentChange(e.target.value)}
-                placeholder="הזן את תוכן השאלה"
-                className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedContentChanges ? 'has-changes' : ''}`}
-                autoSize={{ minRows: 3, maxRows: 10 }}
-                onKeyPress={handleContentKeyPress}
-                readOnly={!isEditing}
-              />
-            </EditableWrapper>
-          </Col>
-          <Col flex="0 0 auto">
-            <Space>
-              {hasUnsavedContentChanges && (
-                <>
-                  <UnsavedChangesText>שינויים לא שמורים</UnsavedChangesText>
-                  <Button
-                    onClick={handleCancel}
-                  >
-                    בטל
-                  </Button>
-                  <Button
-                    type="primary"
-                    icon={<SaveOutlined />}
-                    onClick={handleSaveContent}
-                  >
-                    שמור
-                  </Button>
-                </>
-              )}
-            </Space>
-          </Col>
-        </TitleRow>
-      </ContentSection>
-
-      {metadata.type === QuestionType.MULTIPLE_CHOICE && (
-        <OptionsSection isEditable={isEditing}>
+        </QuestionTypeSection>
+        
+        <ContentSection isEditable={!isContentEditing}>
           <TitleRow>
-            <Col flex="0 0 auto">
-              <SectionLabel>אפשרויות:</SectionLabel>
-            </Col>
-            <Col flex="1">
-              {options.map((option, index) => (
-                <OptionWrapper key={index}>
-                  <OptionLabel>{String.fromCharCode(1488 + index)}.</OptionLabel>
-                  <RadioButton 
-                    isSelected={correctOption === index + 1}
-                    onClick={() => isEditing && handleCorrectOptionClick(index)}
-                    style={{ cursor: isEditing ? 'pointer' : 'default' }}
-                  />
-                  <EditableWrapper 
-                    isEditable={isEditing}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOptionClick(index);
-                    }}
-                    style={{ flex: 1 }}
+            <Col span={24}>
+              <SectionLabel>תוכן השאלה:</SectionLabel>
+              <ContentInputWrapper>
+                <ContentInputRow>
+                  <EditableWrapper isEditable={!isContentEditing} isEditing={isEditing} globalEditing={isContentEditing} onClick={() => {
+                    if (!isContentEditing) {
+                      onEdit();
+                      setIsContentEditing(true);
+                      setTimeout(() => {
+                        const textArea = document.querySelector('textarea.edit-mode') as HTMLTextAreaElement;
+                        if (textArea) {
+                          textArea.focus();
+                        }
+                      }, 100);
+                    }
+                  }}
+                  style={{ width: '100%' }}
                   >
-                    <OptionInput
-                      value={option.text}
-                      onChange={(e) => handleOptionChange(index, e.target.value)}
-                      placeholder={`אפשרות ${index + 1}`}
-                      className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedOptionsChanges ? 'has-changes' : ''}`}
-                      readOnly={!isEditing}
-                      onClick={(e) => e.stopPropagation()}
-                      isCorrect={correctOption === index + 1}
+                    <ContentInput
+                      value={tempState.content}
+                      onChange={(e) => handleContentChange(e.target.value)}
+                      placeholder="הזן את תוכן השאלה"
+                      className={`${isContentEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('content') ? 'has-changes' : ''}`}
+                      autoSize={{ minRows: 3, maxRows: 10 }}
+                      onKeyPress={handleContentKeyPress}
+                      readOnly={!isContentEditing}
                     />
                   </EditableWrapper>
-                </OptionWrapper>
-              ))}
-            </Col>
-            <Col flex="0 0 auto">
-              <Space>
-                {hasUnsavedOptionsChanges && (
-                  <>
-                    <UnsavedChangesText>שינויים לא שמורים</UnsavedChangesText>
-                    <Button onClick={handleCancelOptions}>
-                      בטל
-                    </Button>
-                    <Button
-                      type="primary"
-                      icon={<SaveOutlined />}
-                      onClick={handleSaveOptions}
-                    >
-                      שמור
-                    </Button>
-                  </>
-                )}
-              </Space>
-            </Col>
-          </TitleRow>
-        </OptionsSection>
-      )}
-
-      <MetadataSection isEditable={isEditing}>
-        <TitleRow>
-          <Col flex="0 0 auto">
-            <SectionLabel>מטא-דאטה:</SectionLabel>
-          </Col>
-          <Col flex="1">
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <MetadataField>
-                <MetadataLabel>רמת קושי</MetadataLabel>
-                <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>
-                  <DifficultySelect
-                    value={metadata.difficulty}
-                    onChange={(value) => handleMetadataChange('difficulty', value)}
-                    className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedMetadataChanges ? 'has-changes' : ''}`}
-                    disabled={!isEditing}
-                    style={{ width: '200px' }}
-                  >
-                    <Select.Option value={1}>קל מאוד</Select.Option>
-                    <Select.Option value={2}>קל</Select.Option>
-                    <Select.Option value={3}>בינוני</Select.Option>
-                    <Select.Option value={4}>קשה</Select.Option>
-                    <Select.Option value={5}>קשה מאוד</Select.Option>
-                  </DifficultySelect>
-                </EditableWrapper>
-              </MetadataField>
-
-              <MetadataField>
-                <MetadataLabel>נושא משנה</MetadataLabel>
-                <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>
-                  <Select
-                    value={metadata.topicId}
-                    onChange={(value) => handleMetadataChange('topicId', value)}
-                    placeholder="בחר נושא משנה"
-                    className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedMetadataChanges ? 'has-changes' : ''}`}
-                    disabled={!isEditing}
-                    style={{ width: '100%' }}
-                  >
-                    {availableTopics.map(topic => (
-                      <Select.Option key={topic.id} value={topic.id}>
-                        {topic.name}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </EditableWrapper>
-              </MetadataField>
-
-              <MetadataField>
-                <MetadataLabel>תת-נושא</MetadataLabel>
-                <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>
-                  <Select
-                    value={metadata.subtopicId}
-                    onChange={(value) => handleMetadataChange('subtopicId', value)}
-                    placeholder="בחר תת-נושא"
-                    className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedMetadataChanges ? 'has-changes' : ''}`}
-                    disabled={!isEditing || !metadata.topicId}
-                    style={{ width: '100%' }}
-                  >
-                    {availableSubtopics.map(subtopic => (
-                      <Select.Option key={subtopic.id} value={subtopic.id}>
-                        {subtopic.name}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </EditableWrapper>
-              </MetadataField>
-
-              <MetadataField>
-                <MetadataLabel>זמן מוערך (דקות)</MetadataLabel>
-                <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>
-                  <MetadataInput
-                    type="number"
-                    value={metadata.estimatedTime}
-                    onChange={(e) => handleMetadataChange('estimatedTime', parseInt(e.target.value))}
-                    placeholder="הזן זמן מוערך בדקות"
-                    className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedMetadataChanges ? 'has-changes' : ''}`}
-                    readOnly={!isEditing}
-                  />
-                </EditableWrapper>
-              </MetadataField>
-
-              {metadata.source && (
-                <>
-                  <MetadataField>
-                    <MetadataLabel>מקור</MetadataLabel>
-                    <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>
-                      <SourceSelect
-                        value={metadata.source.type}
-                        onChange={(value: string) => handleMetadataChange('source', { ...metadata.source, type: value })}
-                        className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedMetadataChanges ? 'has-changes' : ''}`}
-                        disabled={!isEditing}
-                      >
-                        <Select.Option value="exam">מבחן</Select.Option>
-                        <Select.Option value="ezpass">EZPass</Select.Option>
-                      </SourceSelect>
-                    </EditableWrapper>
-                  </MetadataField>
-
-                  {metadata.source.type === 'exam' && (
-                    <>
-                      <MetadataField>
-                        <MetadataLabel>סמסטר</MetadataLabel>
-                        <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>
-                          <SourceSelect
-                            value={metadata.source.period}
-                            onChange={(value: string) => handleMetadataChange('source', { ...metadata.source, period: value })}
-                            className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedMetadataChanges ? 'has-changes' : ''}`}
-                            disabled={!isEditing}
-                          >
-                            <Select.Option value="spring">אביב</Select.Option>
-                            <Select.Option value="summer">קיץ</Select.Option>
-                            <Select.Option value="winter">חורף</Select.Option>
-                            <Select.Option value="fall">סתיו</Select.Option>
-                          </SourceSelect>
-                        </EditableWrapper>
-                      </MetadataField>
-
-                      <MetadataField>
-                        <MetadataLabel>מועד</MetadataLabel>
-                        <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>
-                          <SourceSelect
-                            value={metadata.source.moed}
-                            onChange={(value) => handleMetadataChange('source', { ...metadata.source, moed: value })}
-                            className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedMetadataChanges ? 'has-changes' : ''}`}
-                            disabled={!isEditing}
-                          >
-                            <Select.Option value="a">א׳</Select.Option>
-                            <Select.Option value="b">ב׳</Select.Option>
-                            <Select.Option value="c">ג׳</Select.Option>
-                          </SourceSelect>
-                        </EditableWrapper>
-                      </MetadataField>
-                    </>
+                  {isContentEditing && (
+                    <CloseButton onClick={() => {
+                      setTempState(prev => ({ ...prev, content: question.data.content?.text || '' }));
+                      setChangedFields(prev => {
+                        const next = new Set(prev);
+                        next.delete('content');
+                        return next;
+                      });
+                      setIsContentEditing(false);
+                      if (!hasUnsavedChanges) {
+                        onExitEdit?.();
+                      }
+                    }}>
+                      ✕
+                    </CloseButton>
                   )}
-                </>
-              )}
-            </Space>
-          </Col>
-          <Col flex="0 0 auto">
-            <Space>
-              {hasUnsavedMetadataChanges && (
-                <>
-                  <UnsavedChangesText>שינויים לא שמורים</UnsavedChangesText>
-                  <Button onClick={handleCancelMetadata}>
-                    בטל
-                  </Button>
-                  <Button
-                    type="primary"
-                    icon={<SaveOutlined />}
-                    onClick={handleSaveMetadata}
-                  >
-                    שמור
-                  </Button>
-                </>
-              )}
-            </Space>
-          </Col>
-        </TitleRow>
-      </MetadataSection>
-
-      {(metadata.type === QuestionType.OPEN || metadata.type === QuestionType.NUMERICAL) && (
-        <ContentSection isEditable={isEditing}>
-          <TitleRow>
-            <Col flex="0 0 auto">
-              <SectionLabel>פתרון:</SectionLabel>
-            </Col>
-            <Col flex="1">
-              <EditableWrapper isEditable={isEditing} onClick={handleMetadataFieldClick}>
-                <SolutionInput
-                  value={solution}
-                  onChange={(e) => handleSolutionChange(e.target.value)}
-                  placeholder="הזן את פתרון השאלה"
-                  className={`${isEditing ? 'edit-mode' : 'view-mode'} ${hasUnsavedSolutionChanges ? 'has-changes' : ''}`}
-                  autoSize={{ minRows: 3, maxRows: 10 }}
-                  readOnly={!isEditing}
-                />
-              </EditableWrapper>
-            </Col>
-            <Col flex="0 0 auto">
-              <Space>
-                {hasUnsavedSolutionChanges && (
-                  <>
-                    <UnsavedChangesText>שינויים לא שמורים</UnsavedChangesText>
-                    <Button onClick={handleCancelSolution}>
-                      בטל
-                    </Button>
-                    <Button
-                      type="primary"
-                      icon={<SaveOutlined />}
-                      onClick={handleSaveSolution}
-                    >
-                      שמור
-                    </Button>
-                  </>
-                )}
-              </Space>
+                </ContentInputRow>
+              </ContentInputWrapper>
             </Col>
           </TitleRow>
         </ContentSection>
-      )}
-    </Space>
+
+        {tempState.metadata.type === QuestionType.MULTIPLE_CHOICE && (
+          <OptionsSection isEditable={isEditing}>
+            <TitleRow>
+              <Col flex="0 0 auto">
+                <SectionLabel>אפשרויות:</SectionLabel>
+              </Col>
+              <Col flex="1">
+                <ContentInputWrapper>
+                  <ContentInputRow>
+                    <div style={{ width: '100%' }}>
+                      {tempState.options.map((option, index) => (
+                        <OptionWrapper key={index}>
+                          <OptionLabel>{String.fromCharCode(1488 + index)}.</OptionLabel>
+                          <RadioButton 
+                            isSelected={tempState.correctOption === index + 1}
+                            onClick={() => isEditing && handleCorrectOptionClick(index)}
+                            style={{ cursor: isEditing ? 'pointer' : 'default' }}
+                          />
+                          <EditableWrapper 
+                            isEditable={isEditing}
+                            isEditing={isEditing}
+                            globalEditing={isOptionsEditing}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOptionClick(index);
+                            }}
+                            style={{ flex: 1 }}
+                          >
+                            <OptionInput
+                              value={option.text}
+                              onChange={(e) => handleOptionChange(index, e.target.value)}
+                              placeholder={`אפשרות ${index + 1}`}
+                              className={`${isEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('options') ? 'has-changes' : ''}`}
+                              readOnly={!isEditing}
+                              onClick={(e) => e.stopPropagation()}
+                              isCorrect={tempState.correctOption === index + 1}
+                            />
+                          </EditableWrapper>
+                        </OptionWrapper>
+                      ))}
+                    </div>
+                    {isOptionsEditing && (
+                      <CloseButton onClick={() => {
+                        setTempState(prev => ({ ...prev, options: (question.data.content?.options || ['', '', '', '']).map(opt => 
+                          typeof opt === 'string' ? { text: opt, format: 'markdown' } : opt
+                        ) }));
+                        setChangedFields(prev => {
+                          const next = new Set(prev);
+                          next.delete('options');
+                          return next;
+                        });
+                        setIsOptionsEditing(false);
+                      }}>
+                        ✕
+                      </CloseButton>
+                    )}
+                  </ContentInputRow>
+                </ContentInputWrapper>
+              </Col>
+            </TitleRow>
+          </OptionsSection>
+        )}
+
+        <MetadataSection isEditable={isEditing}>
+          <TitleRow>
+            <Col flex="0 0 auto">
+              <SectionLabel>מטא-דאטה:</SectionLabel>
+            </Col>
+            <Col flex="1">
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <MetadataField>
+                  <MetadataLabel>רמת קושי</MetadataLabel>
+                  <EditableWrapper isEditable={!isMetadataEditing} isEditing={isEditing} globalEditing={isMetadataEditing} onClick={() => {
+                    if (!isEditing) {
+                      onEdit();
+                      setIsMetadataEditing(true);
+                    }
+                  }}>
+                    <DifficultySelect
+                      value={tempState.metadata.difficulty}
+                      onChange={(value) => handleMetadataChange('difficulty', value)}
+                      className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('difficulty') ? 'has-changes' : ''}`}
+                      disabled={!isMetadataEditing}
+                      style={{ width: '200px' }}
+                    >
+                      <Select.Option value={1}>קל מאוד</Select.Option>
+                      <Select.Option value={2}>קל</Select.Option>
+                      <Select.Option value={3}>בינוני</Select.Option>
+                      <Select.Option value={4}>קשה</Select.Option>
+                      <Select.Option value={5}>קשה מאוד</Select.Option>
+                    </DifficultySelect>
+                  </EditableWrapper>
+                </MetadataField>
+
+                <MetadataField>
+                  <MetadataLabel>נושא משנה</MetadataLabel>
+                  <EditableWrapper isEditable={!isMetadataEditing} isEditing={isEditing} globalEditing={isMetadataEditing} onClick={() => {
+                    if (!isEditing) {
+                      onEdit();
+                      setIsMetadataEditing(true);
+                    }
+                  }}>
+                    <Select
+                      value={tempState.metadata.topicId}
+                      onChange={(value) => handleMetadataChange('topicId', value)}
+                      placeholder="בחר נושא משנה"
+                      className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('topicId') ? 'has-changes' : ''}`}
+                      disabled={!isMetadataEditing}
+                      style={{ width: '100%' }}
+                    >
+                      {availableTopics.map(topic => (
+                        <Select.Option key={topic.id} value={topic.id}>
+                          {topic.name}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </EditableWrapper>
+                </MetadataField>
+
+                <MetadataField>
+                  <MetadataLabel>תת-נושא</MetadataLabel>
+                  <EditableWrapper isEditable={!isMetadataEditing} isEditing={isEditing} globalEditing={isMetadataEditing} onClick={() => {
+                    if (!isEditing) {
+                      onEdit();
+                      setIsMetadataEditing(true);
+                    }
+                  }}>
+                    <Select
+                      value={tempState.metadata.subtopicId}
+                      onChange={(value) => handleMetadataChange('subtopicId', value)}
+                      placeholder="בחר תת-נושא"
+                      className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('subtopicId') ? 'has-changes' : ''}`}
+                      disabled={!isMetadataEditing || !tempState.metadata.topicId}
+                      style={{ width: '100%' }}
+                    >
+                      {availableSubtopics.map(subtopic => (
+                        <Select.Option key={subtopic.id} value={subtopic.id}>
+                          {subtopic.name}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </EditableWrapper>
+                </MetadataField>
+
+                <MetadataField>
+                  <MetadataLabel>זמן מוערך (דקות)</MetadataLabel>
+                  <EditableWrapper isEditable={!isMetadataEditing} isEditing={isEditing} globalEditing={isMetadataEditing} onClick={() => {
+                    if (!isEditing) {
+                      onEdit();
+                      setIsMetadataEditing(true);
+                    }
+                  }}>
+                    <MetadataInput
+                      type="number"
+                      value={tempState.metadata.estimatedTime}
+                      onChange={(e) => handleMetadataChange('estimatedTime', parseInt(e.target.value))}
+                      placeholder="הזן זמן מוערך בדקות"
+                      className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('estimatedTime') ? 'has-changes' : ''}`}
+                      readOnly={!isMetadataEditing}
+                    />
+                  </EditableWrapper>
+                </MetadataField>
+
+                {tempState.metadata.source && (
+                  <>
+                    <MetadataField>
+                      <MetadataLabel>מקור</MetadataLabel>
+                      <EditableWrapper isEditable={!isMetadataEditing} isEditing={isEditing} globalEditing={isMetadataEditing} onClick={() => {
+                        if (!isEditing) {
+                          onEdit();
+                          setIsMetadataEditing(true);
+                        }
+                      }}>
+                        <SourceSelect
+                          value={tempState.metadata.source.type}
+                          onChange={(value: string) => handleMetadataChange('source', { ...tempState.metadata.source, type: value })}
+                          className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('source') ? 'has-changes' : ''}`}
+                          disabled={!isMetadataEditing}
+                        >
+                          <Select.Option value="exam">מבחן</Select.Option>
+                          <Select.Option value="ezpass">EZPass</Select.Option>
+                        </SourceSelect>
+                      </EditableWrapper>
+                    </MetadataField>
+
+                    {tempState.metadata.source.type === 'exam' && (
+                      <>
+                        <MetadataField>
+                          <MetadataLabel>סמסטר</MetadataLabel>
+                          <EditableWrapper isEditable={!isMetadataEditing} isEditing={isEditing} globalEditing={isMetadataEditing} onClick={() => {
+                            if (!isEditing) {
+                              onEdit();
+                              setIsMetadataEditing(true);
+                            }
+                          }}>
+                            <SourceSelect
+                              value={tempState.metadata.source.period}
+                              onChange={(value: string) => handleMetadataChange('source', { ...tempState.metadata.source, period: value })}
+                              className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('source') ? 'has-changes' : ''}`}
+                              disabled={!isMetadataEditing}
+                            >
+                              <Select.Option value="spring">אביב</Select.Option>
+                              <Select.Option value="summer">קיץ</Select.Option>
+                              <Select.Option value="winter">חורף</Select.Option>
+                              <Select.Option value="fall">סתיו</Select.Option>
+                            </SourceSelect>
+                          </EditableWrapper>
+                        </MetadataField>
+
+                        <MetadataField>
+                          <MetadataLabel>מועד</MetadataLabel>
+                          <EditableWrapper isEditable={!isMetadataEditing} isEditing={isEditing} globalEditing={isMetadataEditing} onClick={() => {
+                            if (!isEditing) {
+                              onEdit();
+                              setIsMetadataEditing(true);
+                            }
+                          }}>
+                            <SourceSelect
+                              value={tempState.metadata.source.moed}
+                              onChange={(value) => handleMetadataChange('source', { ...tempState.metadata.source, moed: value })}
+                              className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('source') ? 'has-changes' : ''}`}
+                              disabled={!isMetadataEditing}
+                            >
+                              <Select.Option value="a">א׳</Select.Option>
+                              <Select.Option value="b">ב׳</Select.Option>
+                              <Select.Option value="c">ג׳</Select.Option>
+                            </SourceSelect>
+                          </EditableWrapper>
+                        </MetadataField>
+                      </>
+                    )}
+                  </>
+                )}
+              </Space>
+            </Col>
+            <Col flex="0 0 auto">
+              {isMetadataEditing && changedFields.has('metadata') && (
+                <EditModeButtons>
+                  <Button onClick={() => {
+                    setTempState(prev => ({ ...prev, metadata: question.data.metadata }));
+                    setChangedFields(prev => {
+                      const next = new Set(prev);
+                      next.delete('metadata');
+                      return next;
+                    });
+                  }}>
+                    בטל
+                  </Button>
+                </EditModeButtons>
+              )}
+            </Col>
+          </TitleRow>
+        </MetadataSection>
+
+        {(tempState.metadata.type === QuestionType.OPEN || tempState.metadata.type === QuestionType.NUMERICAL) && (
+          <ContentSection isEditable={isEditing}>
+            <TitleRow>
+              <Col flex="0 0 auto">
+                <SectionLabel>פתרון:</SectionLabel>
+              </Col>
+              <Col flex="1">
+                <EditableWrapper isEditable={!isSolutionEditing} isEditing={isEditing} globalEditing={isSolutionEditing} onClick={() => {
+                  if (!isEditing) {
+                    onEdit();
+                    setIsSolutionEditing(true);
+                  }
+                }}>
+                  <SolutionInput
+                    value={tempState.solution}
+                    onChange={(e) => handleSolutionChange(e.target.value)}
+                    placeholder="הזן את פתרון השאלה"
+                    className={`${isSolutionEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('solution') ? 'has-changes' : ''}`}
+                    autoSize={{ minRows: 3, maxRows: 10 }}
+                    readOnly={!isSolutionEditing}
+                  />
+                </EditableWrapper>
+              </Col>
+              <Col flex="0 0 auto">
+                {isSolutionEditing && changedFields.has('solution') && (
+                  <EditModeButtons>
+                    <Button onClick={() => {
+                      setTempState(prev => ({ ...prev, solution: question.data.schoolAnswer?.solution?.text || '' }));
+                      setChangedFields(prev => {
+                        const next = new Set(prev);
+                        next.delete('solution');
+                        return next;
+                      });
+                    }}>
+                      בטל
+                    </Button>
+                  </EditModeButtons>
+                )}
+              </Col>
+            </TitleRow>
+          </ContentSection>
+        )}
+
+        <EditActionBar>
+          <div className="action-bar-content">
+            <div className="unsaved-changes">
+              {isEditing ? (
+                isModified ? (
+                  <>
+                    <WarningOutlined />
+                    <span>יש שינויים שלא נשמרו</span>
+                  </>
+                ) : (
+                  <span style={{ color: '#8c8c8c' }}>אין שינויים</span>
+                )
+              ) : (
+                <span style={{ color: '#595959', fontSize: '14px' }}>
+                  לחץ על שדה כדי לערוך
+                </span>
+              )}
+            </div>
+            <div className="action-buttons">
+              <Button 
+                onClick={handleCancelAll}
+                disabled={!isEditing || !isModified}
+              >
+                בטל
+              </Button>
+              <Button 
+                type="primary"
+                onClick={handleSimpleSave}
+                disabled={!isEditing || !isModified}
+              >
+                שמור שינויים
+              </Button>
+            </div>
+          </div>
+        </EditActionBar>
+      </Space>
+    </div>
   );
-}; 
+}); 

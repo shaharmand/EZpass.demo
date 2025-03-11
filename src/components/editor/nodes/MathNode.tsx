@@ -33,20 +33,83 @@ export type SerializedMathNode = SerializedLexicalNode & {
   version: 1;
 };
 
-const MathDisplay = styled.div`
-  display: inline-block;
+const MathDisplay = styled.span`
+  display: inline-flex;
+  align-items: center;
   cursor: pointer;
-  padding: 4px;
-  margin: 0 2px;
+  padding: 0;  // Removed padding
+  margin: 0;   // Removed margin
   border: 1px solid #d9d9d9;
   border-radius: 4px;
   background: #f5f5f5;
-  min-width: 50px;
-  min-height: 30px;
+  min-width: 20px;
+  min-height: 32px;
+  vertical-align: middle;
+  line-height: 1;  // Reduced line height
   
   &:hover {
     border-color: #40a9ff;
     background: #e6f7ff;
+  }
+
+  .katex {
+    font-size: 1.2em;
+    line-height: 1;
+    
+    .katex-html {
+      // Remove all padding and margins
+      .mord, .mbin, .mrel, .mopen, .mclose {
+        padding: 0;
+        margin: 0;
+      }
+      
+      // Minimal fraction spacing
+      .mfrac {
+        margin: 0;
+        padding: 0;
+        
+        .frac-line {
+          margin: 0;
+        }
+        
+        .vlist-t {
+          min-height: 2.6em;  // Minimum required for fractions
+          
+          .vlist-r:first-child > .vlist {
+            margin-bottom: 1px;  // Minimal margin
+          }
+          
+          .vlist-r:last-child > .vlist {
+            margin-top: 1px;     // Minimal margin
+          }
+        }
+      }
+      
+      // Minimal square root spacing
+      .sqrt {
+        padding: 0;
+        
+        & > .vlist {
+          margin: 0;
+        }
+
+        .sqrt-line {
+          padding: 0;
+        }
+      }
+      
+      // No spacing for superscripts and subscripts
+      .msupsub {
+        margin: 0;
+        padding: 0;
+      }
+
+      // No spacing for base elements
+      .base {
+        margin: 0;
+        padding: 0;
+      }
+    }
   }
 `;
 
@@ -195,9 +258,10 @@ export class MathNode extends DecoratorNode<JSX.Element> {
   }
 
   createDOM(): HTMLElement {
-    const div = document.createElement('div');
-    div.className = 'math-node';
-    return div;
+    const span = document.createElement('span');
+    span.className = 'math-node';
+    span.style.display = 'inline';
+    return span;
   }
 
   updateDOM(): false {
@@ -225,10 +289,6 @@ export class MathNode extends DecoratorNode<JSX.Element> {
   decorate(): JSX.Element {
     return <MathComponent node={this} />;
   }
-
-  // Add static klass property
-  static klass = 'MathNode';
-  static type = 'math';
 }
 
 // Utility function to find and wrap the last expression
@@ -319,7 +379,8 @@ function MathComponent({ node }: { node: MathNode }) {
       try {
         const html = katex.renderToString(node.__latex, {
           throwOnError: false,
-          displayMode: true
+          displayMode: false,
+          output: 'html'
         });
         setRenderedMath(html);
       } catch (error) {
@@ -465,10 +526,14 @@ function MathComponent({ node }: { node: MathNode }) {
         <MathDisplay 
           onClick={handleClick}
           dangerouslySetInnerHTML={{ __html: renderedMath }}
+          style={{ display: 'inline-flex' }}
         />
       ) : (
-        <MathDisplay onClick={() => setIsModalVisible(true)}>
-          {/* Empty div for click target when no expression */}
+        <MathDisplay 
+          onClick={() => setIsModalVisible(true)}
+          style={{ display: 'inline-flex' }}
+        >
+          {/* Empty span for click target when no expression */}
         </MathDisplay>
       )}
       

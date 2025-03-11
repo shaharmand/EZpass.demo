@@ -193,14 +193,22 @@ function ImageComponent({ node }: { node: ImageNode }) {
                       min={10}
                       max={100}
                       value={width}
-                      onChange={(value) => node.setWidth(value)}
+                      onChange={(value) => {
+                        editor.update(() => {
+                          node.setWidth(value);
+                        });
+                      }}
                     />
                   </div>
                   <div>
                     <div style={{ marginBottom: '8px' }}>יישור</div>
                     <Radio.Group
                       value={alignment}
-                      onChange={(e) => node.setAlignment(e.target.value)}
+                      onChange={(e) => {
+                        editor.update(() => {
+                          node.setAlignment(e.target.value);
+                        });
+                      }}
                     >
                       <Radio.Button value="left">שמאל</Radio.Button>
                       <Radio.Button value="center">מרכז</Radio.Button>

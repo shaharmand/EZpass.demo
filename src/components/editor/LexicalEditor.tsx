@@ -8,6 +8,7 @@ import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { TRANSFORMERS } from '@lexical/markdown';
+import { MATH_TRANSFORMERS } from '../../utils/mathTransformers';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { LinkNode } from '@lexical/link';
 import { ListItemNode, ListNode } from '@lexical/list';
@@ -16,13 +17,14 @@ import { CodeNode } from '@lexical/code';
 import styled from 'styled-components';
 import { Button, Space, Tooltip, Modal, Upload, message } from 'antd';
 import { FunctionOutlined, PictureOutlined, UploadOutlined } from '@ant-design/icons';
-import { $getRoot, $createParagraphNode, $createTextNode } from 'lexical';
+import { $getRoot, $createParagraphNode, $createTextNode, $getSelection } from 'lexical';
 import type { LexicalEditor as LexicalEditorType } from 'lexical';
 import { MathNode, $createMathNode } from './nodes/MathNode';
 import { ImageNode } from './nodes/ImageNode';
 import { EditorToolbar } from './EditorToolbar';
 import { supabase } from '../../lib/supabase';
 import { $convertFromMarkdownString, $convertToMarkdownString } from '@lexical/markdown';
+import { MarkdownRenderer } from '../MarkdownRenderer';
 
 interface ContainerProps {
   $hasChanges?: boolean;
@@ -156,13 +158,23 @@ interface ToolbarProps {
 function Toolbar({ hasChanges }: ToolbarProps) {
   const [editor] = useLexicalComposerContext();
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   const insertMath = useCallback(() => {
     editor.update(() => {
-      const paragraph = $createParagraphNode();
-      const mathNode = $createMathNode('');
-      paragraph.append(mathNode);
-      $getRoot().append(paragraph);
+      // Get current selection
+      const selection = $getSelection();
+      
+      if (selection) {
+        // Create a math node with empty latex
+        const mathNode = $createMathNode('');
+        
+        // Insert at selection
+        selection.insertNodes([mathNode]);
+        
+        // Immediately open the math editor modal
+        setIsModalVisible(true);
+      }
     });
   }, [editor]);
 
@@ -291,6 +303,7 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
   const isFirstMount = React.useRef(true);
   const wasExternalChange = React.useRef(false);
   const editorRef = React.useRef<LexicalEditorType | null>(null);
+  const [previewKey, setPreviewKey] = useState(0);
   
   // Shared cancel logic
   const handleCancel = useCallback((newText: string, isLocalCancel: boolean = false) => {
@@ -322,7 +335,7 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
       console.log('LexicalEditor - Inside update callback');
       const root = $getRoot();
       root.clear();
-      $convertFromMarkdownString(textToRestore, TRANSFORMERS);
+      $convertFromMarkdownString(textToRestore, [...TRANSFORMERS, ...MATH_TRANSFORMERS]);
       console.log('LexicalEditor - Editor state updated');
     });
     
@@ -375,7 +388,7 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
       if (isFirstMount.current) {
         const root = $getRoot();
         root.clear();
-        $convertFromMarkdownString(initialValue, TRANSFORMERS);
+        $convertFromMarkdownString(initialValue, [...TRANSFORMERS, ...MATH_TRANSFORMERS]);
         wasExternalChange.current = false;
         isFirstMount.current = false;
         originalText.current = initialValue;
@@ -405,7 +418,7 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
           <AutoFocusPlugin />
           <LinkPlugin />
           <ListPlugin />
-          <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+          <MarkdownShortcutPlugin transformers={[...TRANSFORMERS, ...MATH_TRANSFORMERS]} />
           <OnChangePlugin 
             onChange={(text) => {
               // Only update state if this wasn't triggered by an external change
@@ -417,16 +430,37 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
                   currentText: text.trim(),
                   initialText: originalText.current.trim(),
                   hasChanged,
-                  wasExternalChange: false
+                  wasExternalChange: false,
+                  hasMath: text.includes('$')
                 });
 
                 setInternalHasChanges(hasChanged);
+                // Force re-render of preview
+                setPreviewKey(prev => prev + 1);
               }
               
               onChange?.(text);
             }} 
           />
         </Content>
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '16px',
+          border: '1px solid #d9d9d9',
+          borderRadius: '4px',
+          backgroundColor: '#ffffff'
+        }}>
+          <div style={{ 
+            borderBottom: '1px solid #f0f0f0',
+            marginBottom: '16px',
+            paddingBottom: '8px',
+            fontWeight: 500,
+            color: '#666'
+          }}>
+            תצוגה מקדימה
+          </div>
+          <MarkdownRenderer key={previewKey} content={currentText.current || ''} />
+        </div>
       </Container>
     </LexicalComposer>
   );
@@ -444,7 +478,7 @@ function OnChangePlugin({ onChange }: { onChange: (text: string) => void }) {
       updateCount.current++;
       
       editorState.read(() => {
-        const markdown = $convertToMarkdownString(TRANSFORMERS);
+        const markdown = $convertToMarkdownString([...TRANSFORMERS, ...MATH_TRANSFORMERS]);
         debugLog('MARKDOWN CONVERSION', {
           updateCount: updateCount.current,
           content: markdown,

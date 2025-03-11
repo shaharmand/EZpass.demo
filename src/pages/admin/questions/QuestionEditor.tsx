@@ -480,19 +480,15 @@ export const QuestionEditor: FC = () => {
   };
 
   const handleCancel = () => {
-    // Reload the original question data to revert all changes
+    console.log('=== QuestionEditor - Cancel Chain Start ===');
+    console.log('QuestionEditor - handleCancel started');
     if (question) {
-      // Force a re-render by creating a new question object
-      const resetQuestion = { ...question };
-      setQuestion(resetQuestion);
+      console.log('QuestionEditor - Current state:', { isEditing, isModified });
+      console.log('QuestionEditor - Triggering cancel by setting isEditing=false');
       setIsEditing(false);
       setIsModified(false);
-      
-      // Force child components to reset their state by temporarily unmounting them
-      setIsEditing(false);
-      setTimeout(() => {
-        setQuestion(resetQuestion);
-      }, 0);
+      console.log('QuestionEditor - handleCancel completed');
+      console.log('=== QuestionEditor - Cancel Chain End ===');
     }
   };
 
@@ -587,6 +583,7 @@ export const QuestionEditor: FC = () => {
               onEdit={() => setIsEditing(true)}
               onSave={handleSave}
               onModified={setIsModified}
+              onCancel={handleCancel}
               ref={contentSectionRef}
               data-section="content"
             />

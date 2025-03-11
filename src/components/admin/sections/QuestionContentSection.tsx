@@ -460,6 +460,7 @@ interface QuestionContentSectionProps {
   onSave: (data: SaveQuestion) => Promise<void>;
   onExitEdit?: () => void;
   onModified?: (modified: boolean) => void;
+  onCancel?: () => void;
 }
 
 interface ContentValidationResult {
@@ -706,9 +707,76 @@ const EditActionBar = styled.div`
 
 const ContentInputWrapper = styled(TitleInputWrapper)`
   position: relative;
+  
+  .lexical-editor-container {
+    transition: all 0.2s ease;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    background: #fff;
+    
+    &.has-changes {
+      background: #fffbe6;
+      border-color: #faad14;
+      
+      &:hover, &:focus-within {
+        border-color: #d48806;
+        box-shadow: 0 0 0 2px rgba(250, 173, 20, 0.2);
+      }
+    }
+  }
 `;
 
-const ContentInputRow = styled(TitleInputRow)``;
+const ContentInputRow = styled(TitleInputRow)`
+  .close-button {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #8c8c8c;
+    font-size: 12px;
+    transition: all 0.2s;
+    z-index: 1;
+    
+    &:hover {
+      background: #d9d9d9;
+      color: #595959;
+    }
+    
+    &:active {
+      background: #bfbfbf;
+      color: #434343;
+    }
+  }
+`;
+
+// Add debug helper at the top of the file, after imports
+const debugLog = (section: string, data: any) => {
+  console.log(`=== ${section} ===`);
+  console.log(JSON.stringify(data, null, 2));
+};
+
+const getFinalAnswerType = (type: QuestionType): FinalAnswerType => {
+  switch (type) {
+    case QuestionType.MULTIPLE_CHOICE:
+      return 'multiple_choice';
+    case QuestionType.NUMERICAL:
+      return 'numerical';
+    default:
+      return 'none';
+  }
+};
+
+// Add after imports
+interface UniversalTopics {
+  topics: Topic[];
+}
 
 export const QuestionContentSection = React.forwardRef<QuestionContentSectionHandle, QuestionContentSectionProps>(({
   question,
@@ -716,65 +784,89 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
   onEdit,
   onSave,
   onExitEdit,
-  onModified
+  onModified,
+  onCancel
 }, ref) => {
   const inputRef = React.useRef<InputRef>(null);
   const divRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<{ reset: (text: string) => void }>(null);
+  
+  // Individual editing states
   const [isTitleEditing, setIsTitleEditing] = useState(false);
   const [isTypeEditing, setIsTypeEditing] = useState(false);
   const [isContentEditing, setIsContentEditing] = useState(false);
   const [isOptionsEditing, setIsOptionsEditing] = useState(false);
   const [isMetadataEditing, setIsMetadataEditing] = useState(false);
   const [isSolutionEditing, setIsSolutionEditing] = useState(false);
-  const [availableTopics, setAvailableTopics] = useState<Topic[]>([]);
+
+  // Individual field states
+  const [title, setTitle] = useState(question.data.name || '');
+  const [content, setContent] = useState(question.data.content?.text || '');
+  const [questionType, setQuestionType] = useState(question.data.metadata.type);
+  const [options, setOptions] = useState((question.data.content?.options || ['', '', '', '']).map(opt => 
+    typeof opt === 'string' ? { text: opt, format: 'markdown' as const } : opt
+  ));
+  const [correctOption, setCorrectOption] = useState<1 | 2 | 3 | 4 | undefined>(
+    question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
+      ? question.data.schoolAnswer.finalAnswer.value as 1 | 2 | 3 | 4
+      : undefined
+  );
+  const [metadata, setMetadata] = useState(question.data.metadata);
+  const [solution, setSolution] = useState(question.data.schoolAnswer?.solution?.text || '');
   const [availableSubtopics, setAvailableSubtopics] = useState<SubTopic[]>([]);
+
+  // Track changes for each field
   const [changedFields, setChangedFields] = useState<Set<string>>(new Set());
   const [isModified, setIsModified] = useState(false);
-  const hasUnsavedChanges = changedFields.size > 0;
 
-  const getFinalAnswerType = (type: QuestionType): FinalAnswerType => {
-    switch (type) {
-      case QuestionType.MULTIPLE_CHOICE:
-        return 'multiple_choice';
-      case QuestionType.NUMERICAL:
-        return 'numerical';
-      default:
-        return 'none';
+  // Initialize subtopics when component mounts or topic changes
+  useEffect(() => {
+    if (metadata.topicId) {
+      const topic = universalTopics.getTopic(metadata.topicId);
+      if (topic) {
+        setAvailableSubtopics(topic.subTopics || []);
+      }
     }
-  };
-
-  const [tempState, setTempState] = useState({
-    title: question.data.name || '',
-    content: question.data.content?.text || '',
-    options: (question.data.content?.options || ['', '', '', '']).map(opt => 
-      typeof opt === 'string' ? { text: opt, format: 'markdown' as const } : { ...opt, format: 'markdown' as const }
-    ),
-    correctOption: question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
-      ? question.data.schoolAnswer.finalAnswer.value as 1 | 2 | 3 | 4
-      : undefined,
-    metadata: question.data.metadata,
-    solution: question.data.schoolAnswer?.solution?.text || ''
-  });
+  }, [metadata.topicId]);
 
   useEffect(() => {
-    onModified?.(hasUnsavedChanges);
-    setIsModified(hasUnsavedChanges);
-  }, [hasUnsavedChanges, onModified]);
+    onModified?.(changedFields.size > 0);
+    setIsModified(changedFields.size > 0);
+  }, [changedFields, onModified]);
 
+  // Reset states when editing mode changes
   useEffect(() => {
     if (!isEditing) {
-      setTempState({
-        title: question.data.name || '',
-        content: question.data.content?.text || '',
-        options: (question.data.content?.options || ['', '', '', '']).map(opt => 
-          typeof opt === 'string' ? { text: opt, format: 'markdown' as const } : { ...opt, format: 'markdown' as const }
-        ),
-        correctOption: question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
-          ? question.data.schoolAnswer.finalAnswer.value as 1 | 2 | 3 | 4
-          : undefined,
-        metadata: question.data.metadata,
-        solution: question.data.schoolAnswer?.solution?.text || ''
+      console.log('=== QuestionContentSection - Cancel Chain ===');
+      console.log('QuestionContentSection - useEffect triggered by isEditing=false');
+      console.log('QuestionContentSection - Current state:', {
+        title,
+        content,
+        questionType,
+        isModified,
+        changedFields: Array.from(changedFields)
       });
+      
+      setTitle(question.data.name || '');
+      setContent(question.data.content?.text || '');
+      setQuestionType(question.data.metadata.type);
+      setOptions((question.data.content?.options || ['', '', '', '']).map(opt => 
+        typeof opt === 'string' ? { text: opt, format: 'markdown' as const } : opt
+      ));
+      setCorrectOption(
+        question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
+          ? question.data.schoolAnswer.finalAnswer.value as 1 | 2 | 3 | 4
+          : undefined
+      );
+      setMetadata(question.data.metadata);
+      setSolution(question.data.schoolAnswer?.solution?.text || '');
+      
+      // Reset editor content
+      if (editorRef.current?.reset) {
+        console.log('QuestionContentSection - Calling editor reset');
+        editorRef.current.reset(question.data.content?.text || '');
+      }
+      
       setChangedFields(new Set());
       setIsTitleEditing(false);
       setIsTypeEditing(false);
@@ -782,12 +874,15 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
       setIsOptionsEditing(false);
       setIsMetadataEditing(false);
       setIsSolutionEditing(false);
+      
+      console.log('QuestionContentSection - States reset completed');
+      console.log('=== QuestionContentSection - Cancel Chain End ===');
     }
   }, [isEditing, question]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
-    setTempState(prev => ({ ...prev, title: newTitle }));
+    setTitle(newTitle);
     setChangedFields(prev => {
       const next = new Set(prev);
       if (newTitle !== question.data.name) {
@@ -799,69 +894,61 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
     });
   };
 
-  const handleTitleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      setTempState(prev => ({ ...prev, title: question.data.name || '' }));
-      setChangedFields(prev => {
-        const next = new Set(prev);
-        next.delete('title');
-        return next;
-      });
-      setIsTitleEditing(false);
-    }
-  };
-
   const handleQuestionTypeChange = (value: unknown) => {
-    const questionType = value as QuestionType;
+    const newType = value as QuestionType;
+    setQuestionType(newType);
+    
+    // Update metadata with new type
     const newMetadata = {
-      ...tempState.metadata,
-      type: questionType,
+      ...metadata,
+      type: newType,
       answerFormat: {
-        hasFinalAnswer: questionType !== QuestionType.OPEN,
-        finalAnswerType: getFinalAnswerType(questionType),
+        hasFinalAnswer: newType !== QuestionType.OPEN,
+        finalAnswerType: getFinalAnswerType(newType),
         requiresSolution: true
       }
     };
-    setTempState(prev => ({ ...prev, metadata: newMetadata }));
+    setMetadata(newMetadata);
+    
     setChangedFields(prev => {
       const next = new Set(prev);
-      next.add('metadata');
+      if (newType !== question.data.metadata.type) {
+        next.add('metadata');
+      } else {
+        next.delete('metadata');
+      }
       return next;
     });
   };
 
-  // Define handleSimpleSave at component level
   const handleSimpleSave = async () => {
     try {
       const updatedQuestionData: Question = {
         ...question.data,
-        name: tempState.title,
+        name: title,
         content: {
-          text: tempState.content,
+          text: content,
           format: 'markdown',
-          options: tempState.metadata.type === QuestionType.MULTIPLE_CHOICE 
-            ? tempState.options 
-            : undefined
+          options: questionType === QuestionType.MULTIPLE_CHOICE ? options : undefined
         },
         metadata: {
-          ...question.data.metadata,
-          ...tempState.metadata,
-          type: tempState.metadata.type,
+          ...metadata,
+          type: questionType,
           answerFormat: {
-            hasFinalAnswer: tempState.metadata.type !== QuestionType.OPEN,
-            finalAnswerType: getFinalAnswerType(tempState.metadata.type),
+            hasFinalAnswer: questionType !== QuestionType.OPEN,
+            finalAnswerType: getFinalAnswerType(questionType),
             requiresSolution: true
           }
         },
         schoolAnswer: {
-          finalAnswer: tempState.metadata.type === QuestionType.MULTIPLE_CHOICE && tempState.correctOption 
+          finalAnswer: questionType === QuestionType.MULTIPLE_CHOICE && correctOption 
             ? {
                 type: 'multiple_choice' as const,
-                value: tempState.correctOption
+                value: correctOption
               }
             : question.data.schoolAnswer?.finalAnswer,
           solution: {
-            text: tempState.solution,
+            text: solution,
             format: 'markdown'
           }
         }
@@ -894,37 +981,70 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
     }
   };
 
-  // Expose handleSimpleSave to parent
-  React.useImperativeHandle(ref, () => ({
-    handleSimpleSave
-  }));
-
   const handleCancelAll = () => {
-    setTempState({
-      title: question.data.name || '',
-      content: question.data.content?.text || '',
-      options: (question.data.content?.options || ['', '', '', '']).map(opt => 
-        typeof opt === 'string' ? { text: opt, format: 'markdown' } : opt
-      ),
-      correctOption: question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
-        ? question.data.schoolAnswer.finalAnswer.value as 1 | 2 | 3 | 4
-        : undefined,
-      metadata: question.data.metadata,
-      solution: question.data.schoolAnswer?.solution?.text || ''
+    console.log('=== QuestionContentSection - Cancel Chain ===');
+    console.log('QuestionContentSection - handleCancelAll started');
+    console.log('QuestionContentSection - Current state:', {
+      title,
+      content,
+      questionType,
+      isModified,
+      changedFields: Array.from(changedFields)
     });
+    
+    // Reset all field states to original values
+    setTitle(question.data.name || '');
+    setContent(question.data.content?.text || '');
+    setQuestionType(question.data.metadata.type);
+    setOptions((question.data.content?.options || ['', '', '', '']).map(opt => 
+      typeof opt === 'string' ? { text: opt, format: 'markdown' as const } : opt
+    ));
+    setCorrectOption(
+      question.data.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
+        ? question.data.schoolAnswer.finalAnswer.value as 1 | 2 | 3 | 4
+        : undefined
+    );
+    setMetadata(question.data.metadata);
+    setSolution(question.data.schoolAnswer?.solution?.text || '');
+    
+    // Reset editor content
+    if (editorRef.current?.reset) {
+      console.log('QuestionContentSection - Calling editor reset');
+      editorRef.current.reset(question.data.content?.text || '');
+    }
+
+    // Reset all editing states
+    setIsTitleEditing(false);
+    setIsTypeEditing(false);
+    setIsContentEditing(false);
+    setIsOptionsEditing(false);
+    setIsMetadataEditing(false);
+    setIsSolutionEditing(false);
+    
+    // Clear changed fields
     setChangedFields(new Set());
-    onExitEdit?.();
+    setIsModified(false);
+    
+    // Call parent cancel handler
+    console.log('QuestionContentSection - Calling parent onCancel');
+    onCancel?.();
+    
+    console.log('QuestionContentSection - handleCancelAll completed');
+    console.log('=== QuestionContentSection - Cancel Chain End ===');
   };
 
   const handleContentKeyPress = (e: React.KeyboardEvent) => {
+    console.log('handleContentKeyPress triggered, key:', e.key);
     if (e.key === 'Enter' && e.ctrlKey) {
+      console.log('Ctrl+Enter pressed, saving changes');
       e.preventDefault();
-      if (hasUnsavedChanges) {
+      if (changedFields.size > 0) {
         handleSimpleSave();
       } else {
         onExitEdit?.();
       }
     } else if (e.key === 'Escape') {
+      console.log('Escape pressed, cancelling changes');
       handleCancelAll();
     }
   };
@@ -933,7 +1053,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
     if (question.data.content?.text !== value) {
       const newContent = { ...question.data.content, text: value };
       onModified?.(true);
-      setTempState(prev => ({ ...prev, content: newContent.text }));
+      setContent(newContent.text);
       setChangedFields(prev => {
         const next = new Set(prev);
         next.add('content');
@@ -943,9 +1063,9 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
   };
 
   const handleOptionChange = (index: number, value: string) => {
-    const newOptions = [...tempState.options];
+    const newOptions = [...options];
     newOptions[index] = { text: value, format: 'markdown' as const };
-    setTempState(prev => ({ ...prev, options: newOptions }));
+    setOptions(newOptions);
     setChangedFields(prev => {
       const next = new Set(prev);
       if (!question.data.content?.options || 
@@ -967,7 +1087,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
   const handleCorrectOptionClick = (index: number) => {
     if (isEditing) {
       const newCorrectOption = (index + 1) as 1 | 2 | 3 | 4;
-      setTempState(prev => ({ ...prev, correctOption: newCorrectOption }));
+      setCorrectOption(newCorrectOption);
       setChangedFields(prev => {
         const next = new Set(prev);
         if (newCorrectOption !== question.data.schoolAnswer?.finalAnswer?.value) {
@@ -996,22 +1116,22 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
 
   const handleMetadataChange = (field: string, value: any) => {
     const newMetadata = {
-      ...tempState.metadata,
+      ...metadata,
       [field]: value
     };
 
-    // If topic changes, reset subtopic and update available subtopics
+    // If topic changes, reset subtopic
     if (field === 'topicId') {
       newMetadata.subtopicId = '';
-      const topic = availableTopics.find(t => t.id === value);
+      const topic = universalTopics.getTopic(value);
       if (topic) {
-        setAvailableSubtopics(topic.subTopics);
+        setAvailableSubtopics(topic.subTopics || []);
       } else {
         setAvailableSubtopics([]);
       }
     }
 
-    setTempState(prev => ({ ...prev, metadata: newMetadata }));
+    setMetadata(newMetadata);
     setChangedFields(prev => {
       const next = new Set(prev);
       next.add('metadata');
@@ -1020,7 +1140,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
   };
 
   const handleSolutionChange = (newSolution: string) => {
-    setTempState(prev => ({ ...prev, solution: newSolution }));
+    setSolution(newSolution);
     setChangedFields(prev => {
       const next = new Set(prev);
       if (newSolution !== question.data.schoolAnswer?.solution?.text) {
@@ -1074,9 +1194,9 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                   >
                     <TitleInput
                       ref={inputRef}
-                      value={tempState.title}
+                      value={title}
                       onChange={handleTitleChange}
-                      onKeyDown={handleTitleKeyPress}
+                      onKeyDown={handleContentKeyPress}
                       placeholder="לא הוגדר שם לשאלה"
                       className={`${isTitleEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('title') ? 'has-changes' : ''}`}
                       readOnly={!isTitleEditing}
@@ -1085,7 +1205,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                   </EditableWrapper>
                   {isTitleEditing && (
                     <CloseButton onClick={() => {
-                      setTempState(prev => ({ ...prev, title: question.data.name || '' }));
+                      setTitle(question.data.name || '');
                       setChangedFields(prev => {
                         const next = new Set(prev);
                         next.delete('title');
@@ -1099,8 +1219,8 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                 </TitleInputRow>
                 {isTitleEditing && (
                   <TitleStatusRow>
-                    <CharacterCount count={tempState.title.length}>
-                      {tempState.title.length}/50
+                    <CharacterCount count={title.length}>
+                      {title.length}/50
                     </CharacterCount>
                   </TitleStatusRow>
                 )}
@@ -1127,7 +1247,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                 className="question-type-wrapper"
               >
                 <QuestionTypeSelect
-                  value={tempState.metadata.type}
+                  value={questionType}
                   onChange={handleQuestionTypeChange}
                   isEditing={isTypeEditing}
                   disabled={!isTypeEditing}
@@ -1163,16 +1283,20 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                     {isContentEditing ? (
                       <div style={{ position: 'relative', width: '100%' }}>
                         <LexicalEditor
-                          initialValue={tempState.content}
+                          ref={editorRef}
+                          initialValue={content}
                           onChange={handleContentChange}
                           placeholder="הזן את תוכן השאלה..."
+                          hasChanges={changedFields.has('content')}
                         />
-                        <Button
-                          type="text"
-                          icon={<CloseOutlined />}
+                        <div 
+                          className="close-button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setTempState(prev => ({ ...prev, content: question.data.content?.text || '' }));
+                            if (editorRef.current?.reset) {
+                              editorRef.current.reset(question.data.content?.text || '');
+                            }
+                            setContent(question.data.content?.text || '');
                             setChangedFields(prev => {
                               const next = new Set(prev);
                               next.delete('content');
@@ -1183,17 +1307,13 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                               onExitEdit?.();
                             }
                           }}
-                          style={{
-                            position: 'absolute',
-                            top: 8,
-                            right: 8,
-                            zIndex: 1,
-                          }}
-                        />
+                        >
+                          ✕
+                        </div>
                       </div>
                     ) : (
                       <div style={{ minHeight: '100px', padding: '12px', width: '100%' }}>
-                        {tempState.content || 'הזן את תוכן השאלה...'}
+                        {content || 'הזן את תוכן השאלה...'}
                       </div>
                     )}
                   </EditableWrapper>
@@ -1203,7 +1323,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
           </TitleRow>
         </ContentSection>
 
-        {tempState.metadata.type === QuestionType.MULTIPLE_CHOICE && (
+        {questionType === QuestionType.MULTIPLE_CHOICE && (
           <OptionsSection isEditable={isEditing}>
             <TitleRow>
               <Col flex="0 0 auto">
@@ -1213,11 +1333,11 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                 <ContentInputWrapper>
                   <ContentInputRow>
                     <div style={{ width: '100%' }}>
-                      {tempState.options.map((option, index) => (
+                      {options.map((option, index) => (
                         <OptionWrapper key={index}>
                           <OptionLabel>{String.fromCharCode(1488 + index)}.</OptionLabel>
                           <RadioButton 
-                            isSelected={tempState.correctOption === index + 1}
+                            isSelected={correctOption === index + 1}
                             onClick={() => isEditing && handleCorrectOptionClick(index)}
                             style={{ cursor: isEditing ? 'pointer' : 'default' }}
                           />
@@ -1238,7 +1358,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                               className={`${isEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('options') ? 'has-changes' : ''}`}
                               readOnly={!isEditing}
                               onClick={(e) => e.stopPropagation()}
-                              isCorrect={tempState.correctOption === index + 1}
+                              isCorrect={correctOption === index + 1}
                             />
                           </EditableWrapper>
                         </OptionWrapper>
@@ -1246,9 +1366,9 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                     </div>
                     {isOptionsEditing && (
                       <CloseButton onClick={() => {
-                        setTempState(prev => ({ ...prev, options: (question.data.content?.options || ['', '', '', '']).map(opt => 
+                        setOptions((question.data.content?.options || ['', '', '', '']).map(opt => 
                           typeof opt === 'string' ? { text: opt, format: 'markdown' } : opt
-                        ) }));
+                        ));
                         setChangedFields(prev => {
                           const next = new Set(prev);
                           next.delete('options');
@@ -1282,7 +1402,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                     }
                   }}>
                     <DifficultySelect
-                      value={tempState.metadata.difficulty}
+                      value={metadata.difficulty}
                       onChange={(value) => handleMetadataChange('difficulty', value)}
                       className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('difficulty') ? 'has-changes' : ''}`}
                       disabled={!isMetadataEditing}
@@ -1306,18 +1426,22 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                     }
                   }}>
                     <Select
-                      value={tempState.metadata.topicId}
+                      value={metadata.topicId}
                       onChange={(value) => handleMetadataChange('topicId', value)}
                       placeholder="בחר נושא משנה"
                       className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('topicId') ? 'has-changes' : ''}`}
                       disabled={!isMetadataEditing}
                       style={{ width: '100%' }}
                     >
-                      {availableTopics.map(topic => (
-                        <Select.Option key={topic.id} value={topic.id}>
-                          {topic.name}
-                        </Select.Option>
-                      ))}
+                      {universalTopics.getAllSubjects().flatMap(subject => 
+                        subject.domains.flatMap(domain => 
+                          domain.topics.map((topic: Topic) => (
+                            <Select.Option key={topic.id} value={topic.id}>
+                              {topic.name}
+                            </Select.Option>
+                          ))
+                        )
+                      )}
                     </Select>
                   </EditableWrapper>
                 </MetadataField>
@@ -1331,11 +1455,11 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                     }
                   }}>
                     <Select
-                      value={tempState.metadata.subtopicId}
+                      value={metadata.subtopicId}
                       onChange={(value) => handleMetadataChange('subtopicId', value)}
                       placeholder="בחר תת-נושא"
                       className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('subtopicId') ? 'has-changes' : ''}`}
-                      disabled={!isMetadataEditing || !tempState.metadata.topicId}
+                      disabled={!isMetadataEditing || !metadata.topicId}
                       style={{ width: '100%' }}
                     >
                       {availableSubtopics.map(subtopic => (
@@ -1357,7 +1481,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                   }}>
                     <MetadataInput
                       type="number"
-                      value={tempState.metadata.estimatedTime}
+                      value={metadata.estimatedTime}
                       onChange={(e) => handleMetadataChange('estimatedTime', parseInt(e.target.value))}
                       placeholder="הזן זמן מוערך בדקות"
                       className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('estimatedTime') ? 'has-changes' : ''}`}
@@ -1366,7 +1490,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                   </EditableWrapper>
                 </MetadataField>
 
-                {tempState.metadata.source && (
+                {metadata.source && (
                   <>
                     <MetadataField>
                       <MetadataLabel>מקור</MetadataLabel>
@@ -1377,8 +1501,8 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                         }
                       }}>
                         <SourceSelect
-                          value={tempState.metadata.source.type}
-                          onChange={(value: string) => handleMetadataChange('source', { ...tempState.metadata.source, type: value })}
+                          value={metadata.source.type}
+                          onChange={(value: string) => handleMetadataChange('source', { ...metadata.source, type: value })}
                           className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('source') ? 'has-changes' : ''}`}
                           disabled={!isMetadataEditing}
                         >
@@ -1388,7 +1512,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                       </EditableWrapper>
                     </MetadataField>
 
-                    {tempState.metadata.source.type === 'exam' && (
+                    {metadata.source.type === 'exam' && (
                       <>
                         <MetadataField>
                           <MetadataLabel>סמסטר</MetadataLabel>
@@ -1399,8 +1523,8 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                             }
                           }}>
                             <SourceSelect
-                              value={tempState.metadata.source.period}
-                              onChange={(value: string) => handleMetadataChange('source', { ...tempState.metadata.source, period: value })}
+                              value={metadata.source.period}
+                              onChange={(value: string) => handleMetadataChange('source', { ...metadata.source, period: value })}
                               className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('source') ? 'has-changes' : ''}`}
                               disabled={!isMetadataEditing}
                             >
@@ -1421,8 +1545,8 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                             }
                           }}>
                             <SourceSelect
-                              value={tempState.metadata.source.moed}
-                              onChange={(value) => handleMetadataChange('source', { ...tempState.metadata.source, moed: value })}
+                              value={metadata.source.moed}
+                              onChange={(value) => handleMetadataChange('source', { ...metadata.source, moed: value })}
                               className={`${isMetadataEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('source') ? 'has-changes' : ''}`}
                               disabled={!isMetadataEditing}
                             >
@@ -1442,7 +1566,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
               {isMetadataEditing && changedFields.has('metadata') && (
                 <EditModeButtons>
                   <Button onClick={() => {
-                    setTempState(prev => ({ ...prev, metadata: question.data.metadata }));
+                    setMetadata(question.data.metadata);
                     setChangedFields(prev => {
                       const next = new Set(prev);
                       next.delete('metadata');
@@ -1457,7 +1581,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
           </TitleRow>
         </MetadataSection>
 
-        {(tempState.metadata.type === QuestionType.OPEN || tempState.metadata.type === QuestionType.NUMERICAL) && (
+        {(questionType === QuestionType.OPEN || questionType === QuestionType.NUMERICAL) && (
           <ContentSection isEditable={isEditing}>
             <TitleRow>
               <Col flex="0 0 auto">
@@ -1471,7 +1595,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                   }
                 }}>
                   <SolutionInput
-                    value={tempState.solution}
+                    value={solution}
                     onChange={(e) => handleSolutionChange(e.target.value)}
                     placeholder="הזן את פתרון השאלה"
                     className={`${isSolutionEditing ? 'edit-mode' : 'view-mode'} ${changedFields.has('solution') ? 'has-changes' : ''}`}
@@ -1484,7 +1608,7 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
                 {isSolutionEditing && changedFields.has('solution') && (
                   <EditModeButtons>
                     <Button onClick={() => {
-                      setTempState(prev => ({ ...prev, solution: question.data.schoolAnswer?.solution?.text || '' }));
+                      setSolution(question.data.schoolAnswer?.solution?.text || '');
                       setChangedFields(prev => {
                         const next = new Set(prev);
                         next.delete('solution');
@@ -1520,7 +1644,10 @@ export const QuestionContentSection = React.forwardRef<QuestionContentSectionHan
             </div>
             <div className="action-buttons">
               <Button 
-                onClick={handleCancelAll}
+                onClick={() => {
+                  console.log('Cancel button clicked');
+                  handleCancelAll();
+                }}
                 disabled={!isEditing || !isModified}
               >
                 בטל

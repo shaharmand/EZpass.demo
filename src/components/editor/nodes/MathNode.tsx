@@ -14,6 +14,9 @@ interface MathfieldElement extends HTMLElement {
   focus: () => void;
   blur: () => void;
   insert: (text: string) => void;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  selection: string;
 }
 
 declare global {
@@ -48,8 +51,10 @@ const MathDisplay = styled.div`
 `;
 
 const StyledModal = styled(Modal)`
-  .ant-modal-content {
-    position: relative;
+  /* Only keep essential math field styles */
+  math-field::part(virtual-keyboard-toggle),
+  math-field::part(menu-toggle) {
+    display: none !important;
   }
 `;
 
@@ -81,13 +86,17 @@ const MathButton = styled(Button)`
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 3px;
+    gap: 2px;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px 0;
   }
   
   .fraction-line {
-    width: 14px;
+    width: 12px;
     height: 1px;
     background: currentColor;
+    margin: 1px 0;
   }
 
   .subscript {
@@ -101,8 +110,24 @@ const MathButton = styled(Button)`
 // Define common math operations
 const MATH_OPERATIONS = [
   {
-    label: '√',
-    insert: '\\sqrt{}'  // Has special handling for selection
+    label: '×',
+    insert: '\\times',
+    tooltip: 'כפל'
+  },
+  {
+    label: '/',
+    insert: '/',
+    tooltip: 'חילוק'
+  },
+  {
+    label: '±',
+    insert: '\\pm',
+    tooltip: 'פלוס מינוס'
+  },
+  {
+    label: 'a²',
+    insert: '^2',
+    tooltip: 'לחץ כדי להעלות בריבוע את הביטוי האחרון או סמן ביטוי שתרצה להעלות בריבוע'
   },
   {
     label: <div className="fraction">
@@ -110,19 +135,23 @@ const MATH_OPERATIONS = [
              <div className="fraction-line"></div>
              <div>b</div>
            </div>,
-    insert: '\\frac{}{}'  // Has special handling for expressions
+    insert: '\\frac{}{}',
+    tooltip: 'לחץ כדי ליצור שבר עם הביטוי האחרון במונה או סמן ביטוי שתרצה שיהיה במונה'
   },
   {
-    label: 'x²',
-    insert: '^2'  // Has special handling for selection
+    label: <span dangerouslySetInnerHTML={{ __html: katex.renderToString('\\sqrt{a}', { throwOnError: false }) }} />,
+    insert: '\\sqrt{}',
+    tooltip: 'לחץ כדי להכניס לשורש את הביטוי האחרון או סמן ביטוי שתרצה שיכנס מתחת לשורש'
   },
   {
-    label: '×',
-    insert: '\\times'
+    label: '=',
+    insert: '=',
+    tooltip: 'שווה'
   },
   {
-    label: '÷',
-    insert: '\\div'
+    label: '≈',
+    insert: '\\approx',
+    tooltip: 'בקירוב שווה'
   }
 ];
 
@@ -196,67 +225,92 @@ export class MathNode extends DecoratorNode<JSX.Element> {
   decorate(): JSX.Element {
     return <MathComponent node={this} />;
   }
+
+  // Add static klass property
+  static klass = 'MathNode';
+  static type = 'math';
 }
 
-function findLastCompleteExpression(text: string): { beforeIndex: number, afterIndex: number } | null {
-  // First check for expressions like sqrt{} and ^2
-  for (const marker of EXPRESSION_MARKERS) {
-    const startIndex = text.lastIndexOf(marker.start);
-    if (startIndex >= 0) {
-      if (marker.start === '^') {
-        // For superscripts, take the character before ^ and the number after
-        const beforeStart = startIndex > 0 ? startIndex - 1 : startIndex;
-        const afterIndex = startIndex + 1;
-        if (afterIndex < text.length && /[0-9]/.test(text[afterIndex])) {
-          return {
-            beforeIndex: beforeStart,
-            afterIndex: afterIndex + 1
-          };
-        }
-      } else if (marker.start === '\\sqrt{') {
-        // For sqrt, find matching closing brace
-        let depth = 1;
-        let i = startIndex + marker.start.length;
-        while (i < text.length && depth > 0) {
-          if (text[i] === '{') depth++;
-          if (text[i] === '}') depth--;
-          i++;
-        }
-        if (depth === 0) {
-          return {
-            beforeIndex: startIndex,
-            afterIndex: i
-          };
+// Utility function to find and wrap the last expression
+function findAndWrapExpression(currentValue: string, wrapper: (expr: string) => string): string {
+  console.log('DEBUG - findAndWrapExpression input:', currentValue);
+  
+  // If the last non-space character is a closing brace, find its matching opening brace
+  const trimmedValue = currentValue.trimEnd();
+  if (trimmedValue.endsWith('}')) {
+    let bracketCount = 0;
+    let i = trimmedValue.length - 1;
+    
+    // Find matching opening bracket
+    while (i >= 0) {
+      if (trimmedValue[i] === '}') {
+        bracketCount++;
+      } else if (trimmedValue[i] === '{') {
+        bracketCount--;
+        if (bracketCount === 0) {
+          // Found matching pair, now look for the start of the command
+          let j = i - 1;
+          while (j >= 0) {
+            // Skip over \left and \right commands
+            if (trimmedValue[j] === 't' && j >= 4 && trimmedValue.substring(j-4, j+1) === '\\left') {
+              j -= 5;
+              continue;
+            }
+            if (trimmedValue[j] === 't' && j >= 5 && trimmedValue.substring(j-5, j+1) === '\\right') {
+              j -= 6;
+              continue;
+            }
+            // Stop at actual command or operator
+            if (trimmedValue[j] === '\\' || trimmedValue[j] === '+' || 
+                trimmedValue[j] === '-' || trimmedValue[j] === '=' || trimmedValue[j] === ' ') {
+              break;
+            }
+            j--;
+          }
+          const beforePart = currentValue.substring(0, j + 1);
+          const expressionToWrap = currentValue.substring(j + 1);
+          console.log('DEBUG - Found bracketed expression:');
+          console.log('1. Expression:', expressionToWrap);
+          console.log('2. Text before:', beforePart);
+          return beforePart + wrapper(expressionToWrap);
         }
       }
-    }
-  }
-
-  // Then check for simple operators
-  let lastIndex = -1;
-  let foundOp = '';
-  for (const op of SIMPLE_OPERATORS) {
-    const index = text.lastIndexOf(op);
-    if (index > lastIndex) {
-      lastIndex = index;
-      foundOp = op;
+      i--;
     }
   }
   
-  if (lastIndex >= 0) {
-    return {
-      beforeIndex: lastIndex + foundOp.length,  // After the operator (include it in first part)
-      afterIndex: text.length  // Take everything after
-    };
+  // If no bracketed expression at the end, check for operators
+  let lastOperatorIndex = -1;
+  for (const op of ['+', '-', '=', '\\times', '\\div']) {
+    const index = currentValue.lastIndexOf(op);
+    if (index > lastOperatorIndex) {
+      lastOperatorIndex = index;
+    }
   }
   
-  return null;
+  if (lastOperatorIndex >= 0) {
+    // Take everything after the operator
+    let startIndex = lastOperatorIndex + 1;
+    while (startIndex < currentValue.length && currentValue[startIndex] === ' ') {
+      startIndex++;
+    }
+    const beforePart = currentValue.substring(0, startIndex);
+    const expressionToWrap = currentValue.substring(startIndex).trim();
+    console.log('DEBUG - Found operator:');
+    console.log('1. Operator:', currentValue.substring(lastOperatorIndex, startIndex));
+    console.log('2. Expression after:', expressionToWrap);
+    return expressionToWrap ? beforePart + wrapper(expressionToWrap) : currentValue + wrapper(' ');
+  }
+  
+  // If no operators found, wrap the entire text if not empty
+  console.log('DEBUG - No operators or brackets found, using entire text:', currentValue);
+  return currentValue.trim() ? wrapper(currentValue) : wrapper(' ');
 }
 
 function MathComponent({ node }: { node: MathNode }) {
   const [editor] = useLexicalComposerContext();
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [currentLatex, setCurrentLatex] = useState(node.__latex);
+  const [isModalVisible, setIsModalVisible] = useState(!node.__latex);  // Open immediately if no latex
+  const [currentLatex, setCurrentLatex] = useState(node.__latex || '');
   const [renderedMath, setRenderedMath] = useState<string>('');
   const mathFieldRef = useRef<MathfieldElement | null>(null);
 
@@ -273,29 +327,48 @@ function MathComponent({ node }: { node: MathNode }) {
         setRenderedMath('Invalid math expression');
       }
     } else {
-      setRenderedMath('Click to edit math');
+      setRenderedMath('');
     }
   }, [node.__latex]);
 
   const handleClick = useCallback(() => {
     setIsModalVisible(true);
-  }, []);
+    // If it's an existing node, use its latex content
+    setCurrentLatex(node.__latex || '');
+  }, [node.__latex]);
 
   const handleOk = useCallback(() => {
     if (mathFieldRef.current) {
-      // Get the latest value directly from the math field
       const latex = mathFieldRef.current.value;
-      editor.update(() => {
-        node.setLatex(latex);
-      });
+      if (latex.trim()) {
+        editor.update(() => {
+          node.setLatex(latex);
+        });
+      } else {
+        // Remove empty node
+        editor.update(() => {
+          node.remove();
+        });
+      }
     }
     setIsModalVisible(false);
   }, [editor, node]);
 
   const handleCancel = useCallback(() => {
-    setCurrentLatex(node.__latex);
+    // If it's a new node (no latex), remove it
+    if (!node.__latex) {
+      editor.update(() => {
+        node.remove();
+      });
+    } else {
+      // Restore previous value
+      if (mathFieldRef.current) {
+        mathFieldRef.current.value = node.__latex;
+      }
+      setCurrentLatex(node.__latex);
+    }
     setIsModalVisible(false);
-  }, [node.__latex]);
+  }, [editor, node, node.__latex]);
 
   const handleChange = useCallback((evt: any) => {
     const newValue = evt.target.value;
@@ -309,43 +382,29 @@ function MathComponent({ node }: { node: MathNode }) {
   const handleInsert = (latex: string) => {
     if (mathFieldRef.current) {
       const mathField = mathFieldRef.current;
-      const selection = window.getSelection();
-      let textToUse = selection ? selection.toString().trim() : '';
+      const currentValue = mathField.value;
       
-      if (latex === '\\frac{}{}') {
-        const currentValue = mathField.value;
-        const lastExpression = findLastCompleteExpression(currentValue);
-        
-        if (lastExpression) {
-          const beforeOp = currentValue.substring(0, lastExpression.beforeIndex);
-          const afterOp = currentValue.substring(lastExpression.beforeIndex);
-          const newValue = beforeOp + '\\frac{' + afterOp + '}{}';
-          mathField.value = newValue;
-        } else {
-          mathField.value = '\\frac{' + currentValue + '}{}';
-        }
-        mathField.focus();
-        mathField.executeCommand('moveToPreviousChar');
-      } else if (latex === '\\sqrt{}') {
-        if (textToUse) {
-          mathField.executeCommand('deleteBackward');
-          mathField.insert('\\sqrt{' + textToUse + '}');
-        } else {
-          mathField.insert('\\sqrt{\\phantom{\\quad}}');
-          mathField.executeCommand('moveToPreviousChar');
-          mathField.executeCommand('moveToPreviousChar');
-        }
-      } else if (latex === '^2' || latex === '^3') {
-        if (textToUse) {
-          mathField.executeCommand('deleteBackward');
-          mathField.insert(textToUse + latex);
-        } else {
-          mathField.insert(latex);
-        }
+      console.log('DEBUG - Initial latex string:', currentValue);
+      
+      // Get selection from mathfield directly
+      console.log('DEBUG - Selection info:');
+      console.log('mathfield.selection:', mathField.selection);
+      console.log('mathfield.selectionStart:', mathField.selectionStart);
+      console.log('mathfield.selectionEnd:', mathField.selectionEnd);
+      
+      // Try using mathfield's insert with selection
+      if (latex === '\\sqrt{}') {
+        mathField.insert('\\sqrt{#@}');  // #@ is MathLive's placeholder for selection
+      } else if (latex === '\\frac{}{}') {
+        mathField.insert('\\frac{#@}{}');
+        mathField.executeCommand('moveToPreviousChar');  // Move cursor back into denominator
+      } else if (latex === '^2') {
+        mathField.insert('#@^2');
       } else {
         mathField.insert(latex);
       }
       
+      console.log('DEBUG - Final latex string:', mathField.value);
       mathField.focus();
       setCurrentLatex(mathField.value);
     }
@@ -372,7 +431,11 @@ function MathComponent({ node }: { node: MathNode }) {
         const mathField = document.querySelector('math-field') as MathfieldElement;
         if (mathField) {
           mathFieldRef.current = mathField;
-          mathField.value = currentLatex;
+          
+          // Set initial value based on whether it's a new or existing node
+          const initialValue = node.__latex || '';
+          mathField.value = initialValue;
+          setCurrentLatex(initialValue);
           mathField.focus();
 
           const handleKeyDown = (evt: Event) => {
@@ -394,20 +457,28 @@ function MathComponent({ node }: { node: MathNode }) {
         }
       }, 100);
     }
-  }, [isModalVisible, handleOk, handleCancel, currentLatex]);
+  }, [isModalVisible, handleOk, handleCancel, node.__latex]);  // Add node.__latex back to deps
 
   return (
     <>
-      <MathDisplay 
-        onClick={handleClick}
-        dangerouslySetInnerHTML={{ __html: renderedMath }}
-      />
+      {renderedMath ? (
+        <MathDisplay 
+          onClick={handleClick}
+          dangerouslySetInnerHTML={{ __html: renderedMath }}
+        />
+      ) : (
+        <MathDisplay onClick={() => setIsModalVisible(true)}>
+          {/* Empty div for click target when no expression */}
+        </MathDisplay>
+      )}
       
       <StyledModal
-        title="Edit Math Equation"
+        title="עריכת נוסחה מתמטית"
         open={isModalVisible}
         onOk={handleOk}
         onCancel={handleCancel}
+        okText="אישור"
+        cancelText="ביטול"
         width={600}
         destroyOnClose
         maskClosable={false}
@@ -415,12 +486,13 @@ function MathComponent({ node }: { node: MathNode }) {
         <MathToolbar>
           <Space wrap>
             {MATH_OPERATIONS.map((op) => (
-              <MathButton 
-                key={typeof op.label === 'string' ? op.label : op.insert}
-                onClick={() => handleInsert(op.insert)}
-              >
-                {op.label}
-              </MathButton>
+              <Tooltip key={typeof op.label === 'string' ? op.label : op.insert} title={op.tooltip}>
+                <MathButton 
+                  onClick={() => handleInsert(op.insert)}
+                >
+                  {op.label}
+                </MathButton>
+              </Tooltip>
             ))}
           </Space>
         </MathToolbar>
@@ -429,6 +501,10 @@ function MathComponent({ node }: { node: MathNode }) {
           style={{ width: '100%', minHeight: '100px', fontSize: '20px', padding: '8px' }}
           value={currentLatex}
           onChange={handleChange}
+          virtual-keyboard-mode="off"
+          virtual-keyboards="off"
+          keyboard-mode="manual"
+          menu-editor="none"
         />
       </StyledModal>
     </>

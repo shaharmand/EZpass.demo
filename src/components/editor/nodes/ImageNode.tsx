@@ -42,6 +42,17 @@ const ImageToolbar = styled.div`
   border-radius: 4px;
   padding: 4px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  z-index: 10;
+`;
+
+const EditableContent = styled.div<{ $isEditing: boolean }>`
+  background: ${props => props.$isEditing ? '#FFFBE6' : 'transparent'};
+  transition: background-color 0.3s ease;
+  position: relative;
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: ${props => props.$isEditing ? '1px solid #ffe58f' : 'none'};
 `;
 
 const PlaceholderText = styled.div`
@@ -151,143 +162,72 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
 
 function ImageComponent({ node }: { node: ImageNode }) {
   const [editor] = useLexicalComposerContext();
-  const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  const updateWidth = useCallback((width: number) => {
-    editor.update(() => {
-      node.setWidth(width);
-    });
-  }, [editor, node]);
+  const src = node.__src;
+  const altText = node.__altText;
+  const width = node.__width;
+  const alignment = node.__alignment;
 
-  const updateAlignment = useCallback((alignment: 'left' | 'center' | 'right') => {
-    editor.update(() => {
-      node.setAlignment(alignment);
-    });
-  }, [editor, node]);
-
-  const deleteImage = useCallback(() => {
-    editor.update(() => {
-      node.remove();
-    });
-  }, [editor, node]);
-
-  const settingsContent = (
-    <Space direction="vertical" style={{ width: 200 }}>
-      <div>
-        <div>Width</div>
-        <Slider
-          min={10}
-          max={100}
-          value={node.__width}
-          onChange={updateWidth}
-        />
-      </div>
-      <div>
-        <div>Alignment</div>
-        <Radio.Group value={node.__alignment} onChange={e => updateAlignment(e.target.value)}>
-          <Radio.Button value="left">Left</Radio.Button>
-          <Radio.Button value="center">Center</Radio.Button>
-          <Radio.Button value="right">Right</Radio.Button>
-        </Radio.Group>
-      </div>
-      <Button danger icon={<DeleteOutlined />} onClick={deleteImage}>
-        Delete Image
-      </Button>
-    </Space>
-  );
-
-  const beforeUpload = useCallback(async (file: File) => {
-    try {
-      setLoading(true);
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `42yurj_1/${crypto.randomUUID()}.${fileExt}`;
-      
-      console.log('Attempting to upload to:', fileName);
-      const { data, error } = await supabase.storage
-        .from('question-images')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: file.type
-        });
-
-      if (error) {
-        console.error('Upload error:', error);
-        if (error.message.includes('policy')) {
-          message.error('Policy violation: Make sure the file is being uploaded to the correct folder');
-          console.log('Policy requires folder: 42yurj_1');
-        } else if (error.message.includes('permission') || error.message.includes('unauthorized')) {
-          message.error('Permission denied for upload to INSERT folder');
-        } else {
-          message.error(`Upload failed: ${error.message}`);
-        }
-        return false;
-      }
-
-      if (data) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('question-images')
-          .getPublicUrl(fileName);
-
-        editor.update(() => {
-          node.setSrc(publicUrl);
-        });
-        
-        message.success('Upload successful');
-      }
-
-    } catch (error) {
-      console.error('Upload error:', error);
-      message.error('Upload failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-    
-    return false;
-  }, [editor, node]);
+  const onDelete = useCallback(() => {
+    node.remove();
+  }, [node]);
 
   return (
-    <ImageContainer $align={node.__alignment}>
-      <ImageWrapper $width={node.__width}>
-        <Upload
-          showUploadList={false}
-          beforeUpload={beforeUpload}
-          accept="image/*"
-        >
-          {node.__src ? (
-            <>
-              <img 
-                src={node.__src} 
-                alt={node.__altText} 
-                style={{ width: '100%' }}
+    <ImageContainer $align={alignment}>
+      <ImageWrapper $width={width}>
+        <img 
+          src={src} 
+          alt={altText} 
+          style={{ width: '100%', height: 'auto', display: 'block' }} 
+        />
+        <ImageToolbar className="image-toolbar">
+          <Space>
+            <Popover
+              content={
+                <div style={{ padding: '12px', minWidth: '200px' }}>
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ marginBottom: '8px' }}>רוחב התמונה</div>
+                    <Slider
+                      min={10}
+                      max={100}
+                      value={width}
+                      onChange={(value) => node.setWidth(value)}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ marginBottom: '8px' }}>יישור</div>
+                    <Radio.Group
+                      value={alignment}
+                      onChange={(e) => node.setAlignment(e.target.value)}
+                    >
+                      <Radio.Button value="left">שמאל</Radio.Button>
+                      <Radio.Button value="center">מרכז</Radio.Button>
+                      <Radio.Button value="right">ימין</Radio.Button>
+                    </Radio.Group>
+                  </div>
+                </div>
+              }
+              trigger="click"
+              open={showSettings}
+              onOpenChange={setShowSettings}
+              placement="bottom"
+            >
+              <Button 
+                type="text" 
+                icon={<SettingOutlined />} 
+                size="small"
               />
-              <ImageToolbar className="image-toolbar">
-                <Popover
-                  content={settingsContent}
-                  title="Image Settings"
-                  trigger="click"
-                  open={showSettings}
-                  onOpenChange={setShowSettings}
-                >
-                  <Button 
-                    icon={<SettingOutlined />}
-                    size="small"
-                    onClick={e => {
-                      e.stopPropagation();
-                      setShowSettings(!showSettings);
-                    }}
-                  />
-                </Popover>
-              </ImageToolbar>
-            </>
-          ) : (
-            <PlaceholderText>
-              {loading ? 'Uploading...' : node.__altText}
-            </PlaceholderText>
-          )}
-        </Upload>
+            </Popover>
+            <Button 
+              type="text" 
+              icon={<DeleteOutlined />} 
+              size="small"
+              onClick={onDelete}
+            />
+          </Space>
+        </ImageToolbar>
       </ImageWrapper>
     </ImageContainer>
   );

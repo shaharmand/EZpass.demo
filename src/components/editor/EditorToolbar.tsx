@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { Button, Space } from 'antd';
+import { Button, Space, Tooltip } from 'antd';
 import {
   BoldOutlined,
   ItalicOutlined,
@@ -22,6 +22,7 @@ const ToolbarContainer = styled.div`
   background: #fafafa;
   border-top-left-radius: 6px;
   border-top-right-radius: 6px;
+  position: relative;
 `;
 
 const ToolbarButton = styled(Button)`
@@ -29,6 +30,35 @@ const ToolbarButton = styled(Button)`
     color: #1890ff;
     background: #e6f7ff;
     border-color: #1890ff;
+  }
+
+  .anticon {
+    font-size: 14px !important;
+    line-height: 1 !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    outline: none !important;
+    background: none !important;
+  }
+
+  .ant-btn-icon {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Explicitly hide any unwanted content */
+  &::before,
+  &::after {
+    display: none !important;
+  }
+
+  /* Ensure only the icon is visible */
+  span:not(.anticon) {
+    display: none !important;
   }
 `;
 
@@ -76,53 +106,67 @@ export function EditorToolbar() {
   return (
     <ToolbarContainer>
       <Space>
-        <ToolbarButton
-          icon={<BoldOutlined />}
-          className={isBold ? 'active' : ''}
-          onClick={() => {
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
-          }}
-        />
-        <ToolbarButton
-          icon={<ItalicOutlined />}
-          className={isItalic ? 'active' : ''}
-          onClick={() => {
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
-          }}
-        />
-        <ToolbarButton
-          icon={<UnderlineOutlined />}
-          className={isUnderline ? 'active' : ''}
-          onClick={() => {
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
-          }}
-        />
-        <ToolbarButton
-          icon={<OrderedListOutlined />}
-          className={isOrderedList ? 'active' : ''}
-          onClick={() => {
-            editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
-          }}
-        />
-        <ToolbarButton
-          icon={<UnorderedListOutlined />}
-          className={isUnorderedList ? 'active' : ''}
-          onClick={() => {
-            editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
-          }}
-        />
-        <ToolbarButton
-          icon={<UndoOutlined />}
-          onClick={() => {
-            editor.dispatchCommand(UNDO_COMMAND, undefined);
-          }}
-        />
-        <ToolbarButton
-          icon={<RedoOutlined />}
-          onClick={() => {
-            editor.dispatchCommand(REDO_COMMAND, undefined);
-          }}
-        />
+        <Tooltip title="הדגשה" mouseEnterDelay={0.5}>
+          <ToolbarButton
+            icon={<BoldOutlined />}
+            className={isBold ? 'active' : ''}
+            onClick={() => {
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="כתב נטוי" mouseEnterDelay={0.5}>
+          <ToolbarButton
+            icon={<ItalicOutlined />}
+            className={isItalic ? 'active' : ''}
+            onClick={() => {
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="קו תחתון" mouseEnterDelay={0.5}>
+          <ToolbarButton
+            icon={<UnderlineOutlined />}
+            className={isUnderline ? 'active' : ''}
+            onClick={() => {
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="רשימה ממוספרת" mouseEnterDelay={0.5}>
+          <ToolbarButton
+            icon={<OrderedListOutlined />}
+            className={isOrderedList ? 'active' : ''}
+            onClick={() => {
+              editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="רשימת נקודות" mouseEnterDelay={0.5}>
+          <ToolbarButton
+            icon={<UnorderedListOutlined />}
+            className={isUnorderedList ? 'active' : ''}
+            onClick={() => {
+              editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="בטל" mouseEnterDelay={0.5}>
+          <ToolbarButton
+            icon={<UndoOutlined />}
+            onClick={() => {
+              editor.dispatchCommand(UNDO_COMMAND, undefined);
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="בצע שוב" mouseEnterDelay={0.5}>
+          <ToolbarButton
+            icon={<RedoOutlined />}
+            onClick={() => {
+              editor.dispatchCommand(REDO_COMMAND, undefined);
+            }}
+          />
+        </Tooltip>
       </Space>
     </ToolbarContainer>
   );

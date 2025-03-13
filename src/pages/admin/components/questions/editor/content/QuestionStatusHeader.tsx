@@ -99,13 +99,88 @@ const NavigationButton = styled(Button)`
   }
 `;
 
-const StatusBar = styled.div<{ $hasValidationIssues: boolean }>`
+const StatusBar = styled.div<{ $hasValidationIssues: boolean; $isDraft: boolean }>`
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 12px 24px;
+  background: ${props => {
+    if (props.$hasValidationIssues) return '#fff2e8';
+    if (props.$isDraft) return '#fffbe6';
+    return '#f6ffed';
+  }};
+  border-bottom: 1px solid ${props => {
+    if (props.$hasValidationIssues) return '#ffbb96';
+    if (props.$isDraft) return '#ffe58f';
+    return '#b7eb8f';
+  }};
+`;
+
+const StatusActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-right: auto;
+`;
+
+const StatusInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 24px;
+`;
+
+const StatusBadge = styled.div<{ $type: 'error' | 'warning' | 'success' | 'info' }>`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  position: relative;
+  cursor: default;
+  
+  ${props => {
+    switch (props.$type) {
+      case 'error':
+        return 'background: #fff2f0; color: #cf1322; border: 1px solid #ffa39e;';
+      case 'warning':
+        return 'background: #fffbe6; color: #d4b106; border: 1px solid #ffe58f;';
+      case 'success':
+        return 'background: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f;';
+      case 'info':
+        return 'background: #e6f4ff; color: #1677ff; border: 1px solid #91caff;';
+    }
+  }}
+
+  .metadata {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #f0f0f0;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 12px;
+    color: #595959;
+    white-space: nowrap;
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  &:hover .metadata {
+    display: block;
+  }
+`;
+
+const ValidationPanel = styled.div<{ $isVisible: boolean }>`
+  max-height: ${props => props.$isVisible ? '500px' : '0'};
+  opacity: ${props => props.$isVisible ? '1' : '0'};
+  transition: all 0.3s ease;
+  overflow: hidden;
   background: #fff;
-  border-top: 1px solid ${props => props.$hasValidationIssues ? '#faad14' : '#f0f0f0'};
+  border-bottom: ${props => props.$isVisible ? '1px solid #f0f0f0' : 'none'};
 `;
 
 const StatusRow = styled.div`
@@ -326,10 +401,15 @@ export const QuestionStatusHeader: React.FC<QuestionStatusHeaderProps> = ({
     warnings: [] 
   });
   
+  const [showValidation, setShowValidation] = useState(false);
+  
   useEffect(() => {
     const validateCurrentQuestion = async () => {
       const result = await validateQuestion(question.data);
       setValidationResult(result);
+      if (result.errors.length > 0) {
+        setShowValidation(true);
+      }
     };
     validateCurrentQuestion();
   }, [question.data]);
@@ -337,6 +417,7 @@ export const QuestionStatusHeader: React.FC<QuestionStatusHeaderProps> = ({
   const hasErrors = validationResult.errors.length > 0;
   const hasWarnings = validationResult.warnings.length > 0;
   const hasValidationIssues = hasErrors || hasWarnings;
+  const isApproved = question.review_status === ReviewStatusEnum.APPROVED;
 
   return (
     <QuestionStatusManager
@@ -344,201 +425,160 @@ export const QuestionStatusHeader: React.FC<QuestionStatusHeaderProps> = ({
       onQuestionUpdated={onQuestionUpdated}
       hasUnsavedChanges={hasUnsavedChanges}
     >
-      {({ canPublish, canApprove, onApprove, onPublish, isPendingReview, isDraft }: {
-        canPublish: boolean;
-        canApprove: boolean;
-        onApprove: () => Promise<void>;
-        onPublish: () => Promise<void>;
-        isPendingReview: boolean;
-        isDraft: boolean;
-      }): React.ReactElement => {
-        return (
-          <HeaderContainer>
-            <NavigationBar>
-              <NavigationButton className="home-button" icon={<HomeOutlined />} onClick={onBack}>
-                חזרה לספרייה
-              </NavigationButton>
-              <NavigationControls>
-                <div className="nav-group">
-                  <NavigationButton 
-                    icon={<RightOutlined />} 
-                    disabled={!hasPrevious}
-                    onClick={onPrevious}
-                  />
-                  <Text className="counter">
-                    {currentPosition.current} / {currentPosition.filteredTotal}
-                  </Text>
-                  <NavigationButton 
-                    icon={<LeftOutlined />} 
-                    disabled={!hasNext}
-                    onClick={onNext}
-                  />
-                </div>
-              </NavigationControls>
-            </NavigationBar>
+      {({ canPublish, canApprove, onApprove, onPublish, isPendingReview, isDraft }) => (
+        <HeaderContainer>
+          <NavigationBar>
+            <NavigationButton className="home-button" icon={<HomeOutlined />} onClick={onBack}>
+              חזרה לספרייה
+            </NavigationButton>
+            <NavigationControls>
+              <div className="nav-group">
+                <NavigationButton 
+                  icon={<RightOutlined />} 
+                  disabled={!hasPrevious}
+                  onClick={onPrevious}
+                />
+                <Text className="counter">
+                  {currentPosition.current} / {currentPosition.filteredTotal}
+                </Text>
+                <NavigationButton 
+                  icon={<LeftOutlined />} 
+                  disabled={!hasNext}
+                  onClick={onNext}
+                />
+              </div>
+            </NavigationControls>
+          </NavigationBar>
 
-            <StatusBar $hasValidationIssues={hasValidationIssues}>
-              <StatusRow>
-                <StatusColumn>
-                  <StatusItem>
-                    <div className="status-header">
-                      <span className="label">סטטוס סקירה:</span>
-                      <CompactTag color={isPendingReview ? 'warning' : 'success'}>
-                        {isPendingReview ? 'ממתין לבדיקה' : 'מאושר'}
-                      </CompactTag>
-                      <ActionButton 
-                        className="review-button"
-                        onClick={onApprove}
-                        disabled={!canApprove}
-                        icon={isPendingReview ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
-                        $isPendingReview={isPendingReview}
-                      >
-                        {isPendingReview ? 'אישור' : 'העבר לבדיקה'}
-                      </ActionButton>
-                    </div>
-                    <div className="status-content">
-                      {!isPendingReview && question.review_metadata?.reviewedAt && (
-                        <MetadataItem>
-                          נבדק על ידי {question.review_metadata.reviewedBy}{' '}
-                          ב-{dayjs(question.review_metadata.reviewedAt).locale('he').format('DD/MM/YYYY HH:mm')}
-                          {question.review_metadata?.comments && (
-                            <Tooltip title={question.review_metadata.comments}>
-                              <ExclamationCircleOutlined style={{ color: '#1677ff' }} />
-                            </Tooltip>
-                          )}
-                        </MetadataItem>
-                      )}
-                    </div>
-                  </StatusItem>
-                </StatusColumn>
-
-                <StatusColumn>
-                  <StatusItem>
-                    <div className="status-header">
-                      <span className="label">סטטוס פרסום:</span>
-                      <CompactTag color={isDraft ? 'warning' : 'success'}>
-                        {isDraft ? 'טיוטה' : 'מפורסם'}
-                      </CompactTag>
-                      <ActionButton
-                        className="publish-button"
-                        onClick={onPublish}
-                        disabled={!canPublish}
-                        icon={isDraft ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
-                        $isDraft={isDraft}
-                      >
-                        {isDraft ? 'פרסום' : 'העבר לטיוטה'}
-                      </ActionButton>
-                    </div>
-                    <div className="status-content">
-                      {!isDraft && question.publication_metadata?.publishedAt && (
-                        <MetadataItem>
-                          פורסם על ידי {question.publication_metadata.publishedBy}{' '}
-                          ב-{dayjs(question.publication_metadata.publishedAt).locale('he').format('DD/MM/YYYY HH:mm')}
-                        </MetadataItem>
-                      )}
-                    </div>
-                  </StatusItem>
-                </StatusColumn>
-
-                <StatusColumn>
-                  <StatusItem>
-                    <div className="status-header">
-                      <span className="label">סטטוס אימות:</span>
-                      {hasValidationIssues ? (
-                        <Space>
-                          {hasErrors && (
-                            <CompactTag 
-                              color="error"
-                              icon={<ExclamationCircleOutlined />}
-                            >
-                              {validationResult.errors.length} שגיאות
-                            </CompactTag>
-                          )}
-                          {hasWarnings && (
-                            <CompactTag 
-                              color="warning"
-                              icon={<WarningOutlined />}
-                            >
-                              {validationResult.warnings.length} אזהרות
-                            </CompactTag>
-                          )}
-                        </Space>
-                      ) : (
-                        <CompactTag 
-                          color="success"
-                          icon={<CheckCircleOutlined />}
-                        >
-                          תקין
-                        </CompactTag>
-                      )}
-                    </div>
-                    <div className="status-content">
-                      {hasValidationIssues && (
-                        <MetadataItem>
-                          יש לתקן את השגיאות לפני המשך העריכה
-                        </MetadataItem>
-                      )}
-                    </div>
-                  </StatusItem>
-                </StatusColumn>
-
-                <StatusColumn>
-                  <StatusItem>
-                    <div className="status-header">
-                      <span className="label">סטטוס עדכון:</span>
-                      <CompactTag color="default" className="update-status">
-                        {question.update_metadata ? 'מעודכן' : 'לא נשמר'}
-                      </CompactTag>
-                    </div>
-                    <div className="status-content">
-                      {question.update_metadata?.lastUpdatedAt && (
-                        <MetadataItem>
-                          עודכן על ידי {question.update_metadata.lastUpdatedBy}{' '}
-                          ב-{dayjs(question.update_metadata.lastUpdatedAt).locale('he').format('DD/MM/YYYY HH:mm')}
-                        </MetadataItem>
-                      )}
-                    </div>
-                  </StatusItem>
-                </StatusColumn>
-              </StatusRow>
-            </StatusBar>
-
-            {hasValidationIssues && (
-              <ValidationInfo>
-                {hasErrors && (
-                  <ValidationSection $type={ValidationStatus.ERROR}>
-                    <ValidationItem>
-                      <CompactTag color="error" icon={<ExclamationCircleOutlined />}>
-                        שגיאות ({validationResult.errors.length})
-                      </CompactTag>
-                    </ValidationItem>
-                    <ValidationList $type={ValidationStatus.ERROR}>
-                      {validationResult.errors.map((error, index) => (
-                        <li key={`error-${index}`}>{error.message}</li>
-                      ))}
-                    </ValidationList>
-                  </ValidationSection>
+          <StatusBar $hasValidationIssues={hasValidationIssues} $isDraft={isDraft}>
+            <StatusInfo>
+              {/* Review Status */}
+              <StatusBadge $type={isPendingReview ? 'warning' : 'success'}>
+                <span>{isPendingReview ? 'ממתין לבדיקה' : 'מאושר'}</span>
+                {!isPendingReview && question.review_metadata?.reviewedAt && (
+                  <div className="metadata">
+                    נבדק על ידי {question.review_metadata.reviewedBy}{' '}
+                    ב-{dayjs(question.review_metadata.reviewedAt).locale('he').format('DD/MM/YYYY HH:mm')}
+                    {question.review_metadata?.comments && (
+                      <Tooltip title={question.review_metadata.comments}>
+                        <ExclamationCircleOutlined style={{ color: '#1677ff', marginRight: '4px' }} />
+                      </Tooltip>
+                    )}
+                  </div>
                 )}
-                
-                {hasWarnings && (
-                  <ValidationSection $type={ValidationStatus.WARNING}>
-                    <ValidationItem>
-                      <CompactTag color="warning" icon={<WarningOutlined />}>
-                        אזהרות ({validationResult.warnings.length})
-                      </CompactTag>
-                    </ValidationItem>
-                    <ValidationList $type={ValidationStatus.WARNING}>
-                      {validationResult.warnings.map((warning, index) => (
-                        <li key={`warning-${index}`}>{warning.message}</li>
-                      ))}
-                    </ValidationList>
-                  </ValidationSection>
+              </StatusBadge>
+
+              {/* Publication Status */}
+              <StatusBadge $type={isDraft ? 'warning' : 'success'}>
+                <span>{isDraft ? 'טיוטה' : 'מפורסם'}</span>
+                {!isDraft && question.publication_metadata?.publishedAt && (
+                  <div className="metadata">
+                    פורסם על ידי {question.publication_metadata.publishedBy}{' '}
+                    ב-{dayjs(question.publication_metadata.publishedAt).locale('he').format('DD/MM/YYYY HH:mm')}
+                  </div>
                 )}
-              </ValidationInfo>
-            )}
-          </HeaderContainer>
-        );
-      }}
+              </StatusBadge>
+
+              {/* Validation Status */}
+              {hasValidationIssues ? (
+                <Button 
+                  type="text"
+                  danger={hasErrors}
+                  icon={hasErrors ? <ExclamationCircleOutlined /> : <WarningOutlined />}
+                  onClick={() => setShowValidation(!showValidation)}
+                >
+                  {hasErrors ? `${validationResult.errors.length} שגיאות` : ''}
+                  {hasErrors && hasWarnings ? ' | ' : ''}
+                  {hasWarnings ? `${validationResult.warnings.length} אזהרות` : ''}
+                </Button>
+              ) : (
+                <StatusBadge $type="success">
+                  <CheckCircleOutlined />
+                  <span>תקין</span>
+                </StatusBadge>
+              )}
+
+              {/* Update Status */}
+              <StatusBadge $type="info">
+                <span>{question.update_metadata ? 'מעודכן' : 'לא נשמר'}</span>
+                {question.update_metadata?.lastUpdatedAt && (
+                  <div className="metadata">
+                    עודכן על ידי {question.update_metadata.lastUpdatedBy}{' '}
+                    ב-{dayjs(question.update_metadata.lastUpdatedAt).locale('he').format('DD/MM/YYYY HH:mm')}
+                  </div>
+                )}
+              </StatusBadge>
+            </StatusInfo>
+
+            <StatusActions>
+              {/* Review Action */}
+              <Tooltip title={!canApprove && hasUnsavedChanges ? 'יש לשמור את השינויים תחילה' : ''}>
+                <ActionButton 
+                  className="review-button"
+                  onClick={onApprove}
+                  disabled={!canApprove}
+                  icon={isPendingReview ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
+                  $isPendingReview={isPendingReview}
+                >
+                  {isPendingReview ? 'אישור' : 'העבר לבדיקה'}
+                </ActionButton>
+              </Tooltip>
+
+              {/* Publish Action */}
+              <Tooltip title={
+                !canPublish ? (
+                  hasUnsavedChanges ? 'יש לשמור את השינויים תחילה' :
+                  !isApproved ? 'לא ניתן לפרסם שאלה שלא אושרה' : ''
+                ) : ''
+              }>
+                <ActionButton
+                  className="publish-button"
+                  onClick={onPublish}
+                  disabled={!canPublish}
+                  icon={isDraft ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
+                  $isDraft={isDraft}
+                >
+                  {isDraft ? 'פרסום' : 'העבר לטיוטה'}
+                </ActionButton>
+              </Tooltip>
+            </StatusActions>
+          </StatusBar>
+
+          <ValidationPanel $isVisible={showValidation && hasValidationIssues}>
+            <ValidationInfo>
+              {hasErrors && (
+                <ValidationSection $type={ValidationStatus.ERROR}>
+                  <ValidationItem>
+                    <CompactTag color="error" icon={<ExclamationCircleOutlined />}>
+                      שגיאות ({validationResult.errors.length})
+                    </CompactTag>
+                  </ValidationItem>
+                  <ValidationList $type={ValidationStatus.ERROR}>
+                    {validationResult.errors.map((error, index) => (
+                      <li key={`error-${index}`}>{error.message}</li>
+                    ))}
+                  </ValidationList>
+                </ValidationSection>
+              )}
+              
+              {hasWarnings && (
+                <ValidationSection $type={ValidationStatus.WARNING}>
+                  <ValidationItem>
+                    <CompactTag color="warning" icon={<WarningOutlined />}>
+                      אזהרות ({validationResult.warnings.length})
+                    </CompactTag>
+                  </ValidationItem>
+                  <ValidationList $type={ValidationStatus.WARNING}>
+                    {validationResult.warnings.map((warning, index) => (
+                      <li key={`warning-${index}`}>{warning.message}</li>
+                    ))}
+                  </ValidationList>
+                </ValidationSection>
+              )}
+            </ValidationInfo>
+          </ValidationPanel>
+        </HeaderContainer>
+      )}
     </QuestionStatusManager>
   );
 }; 

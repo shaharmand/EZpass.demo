@@ -16,6 +16,7 @@ import 'dayjs/locale/he';
 import LexicalEditor from '../../../../../../components/editor/LexicalEditor';
 import { EditableWrapper } from '../../../../../../components/shared/EditableWrapper';
 import { EditorWrapper } from '../../../../../../styles/adminEditStyles';
+import { MarkdownRenderer } from '../../../../../../components/MarkdownRenderer';
 
 const { Title, Text } = Typography;
 
@@ -607,17 +608,22 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
           setEditableFields(prev => ({ ...prev, content: false }));
         }}
         renderEditMode={(value, onChange) => (
-          <EditorWrapper>
-            <LexicalEditor
-              initialValue={value || ''}
-              onChange={onChange}
-              editable={true}
-              placeholder="הזן את תוכן השאלה..."
-            />
-          </EditorWrapper>
+          <LexicalEditor
+            initialValue={value}
+            onChange={onChange}
+            placeholder="הזן את תוכן השאלה..."
+          />
         )}
         renderDisplayMode={(value) => (
-          <ContentDisplay>{value}</ContentDisplay>
+          <div className="markdown-content" style={{ 
+            padding: '16px',
+            border: '1px solid #d9d9d9',
+            borderRadius: '6px',
+            backgroundColor: '#ffffff',
+            cursor: 'pointer'
+          }}>
+            <MarkdownRenderer content={value || ''} />
+          </div>
         )}
       />
 

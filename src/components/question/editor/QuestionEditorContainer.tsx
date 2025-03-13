@@ -2,9 +2,8 @@ import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } f
 import styled from 'styled-components';
 import { DatabaseQuestion, SaveQuestion, ValidationStatus, SourceType } from '../../../types/question';
 import { validateQuestion, ValidationResult } from '../../../utils/questionValidator';
-import { QuestionEditorHeader } from './QuestionEditorHeader';
-import { QuestionContentSection, QuestionContentSectionHandle } from '../../../pages/admin/components/questions/editor/content/Content';
 import { QuestionStatusHeader } from '../../../pages/admin/components/questions/editor/content/QuestionStatusHeader';
+import { QuestionContentSection, QuestionContentSectionHandle } from '../../../pages/admin/components/questions/editor/content/Content';
 import { Space, Typography, Button, Input, Select, Rate } from 'antd';
 import { EditableWrapper } from '../../../components/shared/EditableWrapper';
 import LexicalEditor from '../../../components/editor/LexicalEditor';
@@ -17,6 +16,8 @@ import { getQuestionSourceDisplay } from '../../../utils/translations';
 import { MetadataSection, MetadataSectionHandle } from '../../../pages/admin/components/questions/editor/content/MetadataSection';
 import { SchoolAnswerSection, SchoolAnswerSectionHandle } from '../../../pages/admin/components/questions/editor/solution/SchoolAnswer';
 import { EvaluationSection, EvaluationSectionHandle } from '../../../pages/admin/components/questions/editor/evaluation/Evaluation';
+import { QuestionEditorActionBar } from '../../../pages/admin/components/questions/editor/toolbar/QuestionEditorActionBar';
+import { MenuUnfoldOutlined, MenuFoldOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
@@ -57,6 +58,7 @@ const ContentContainer = styled.div`
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  position: relative;
 `;
 
 const MainPanel = styled.div`
@@ -64,7 +66,25 @@ const MainPanel = styled.div`
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
+  position: relative;
+  z-index: 1;
+
+  > * {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+
+  > *:not(:last-child)::after {
+    content: '';
+    display: block;
+    height: 1px;
+    margin: 0 24px;
+    background: #e5e7eb;
+  }
 `;
 
 const EditorPanel = styled.div`
@@ -94,6 +114,21 @@ const PropertiesSidebar = styled.div`
   align-self: flex-start;
   position: sticky;
   top: 24px;
+  overflow: hidden;
+  z-index: 2;
+`;
+
+const PropertiesHeader = styled.div`
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+`;
+
+const PropertiesTitle = styled.div`
+  font-weight: 500;
+  color: #374151;
 `;
 
 const PropertiesContent = styled.div`
@@ -135,6 +170,29 @@ const MainContent = styled.div`
     margin-bottom: 1.25em;
     color: #000000;
   }
+`;
+
+const SectionHeader = styled.div`
+  padding: 20px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const SectionTitle = styled.h2`
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const SectionContent = styled.div`
+  padding: 24px;
 `;
 
 const getDifficultyLabel = (difficulty: number): string => {
@@ -209,6 +267,7 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
       metadataSectionRef.current?.resetChanges();
       schoolAnswerSectionRef.current?.resetChanges();
       evaluationSectionRef.current?.resetChanges();
+      setIsModified(false);
     } catch (error) {
       console.error('Failed to save question:', error);
       throw error;
@@ -217,11 +276,15 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
 
   const handleCancel = () => {
     // Reset to original question
-    handleQuestionChange(initialQuestion);
+    setEditedQuestion(initialQuestion);
+    setIsModified(false);
+    // Reset all section states
     contentSectionRef.current?.resetChanges();
     metadataSectionRef.current?.resetChanges();
     schoolAnswerSectionRef.current?.resetChanges();
     evaluationSectionRef.current?.resetChanges();
+    // Force QuestionProvider to re-mount with initial question
+    setProviderKey(prev => prev + 1);
   };
 
   return (
@@ -239,53 +302,68 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
             hasUnsavedChanges={isModified}
             onQuestionUpdated={onQuestionUpdated}
           />
-
-          <QuestionEditorHeader
-            isModified={isModified}
-            onSave={handleSave}
-            onCancel={handleCancel}
-          />
         </HeaderContainer>
 
         <ContentContainer>
           <MainPanel>
-            <EditorPanel>
-              <MainContent>
+            <div>
+              <SectionHeader>
+                <SectionTitle>תוכן השאלה</SectionTitle>
+              </SectionHeader>
+              <SectionContent>
                 <QuestionContentSection
                   ref={contentSectionRef}
                   question={editedQuestion}
                   onContentChange={handleQuestionChange}
-                  onFieldBlur={() => {}}
                 />
+              </SectionContent>
+            </div>
 
+            <div>
+              <SectionHeader>
+                <SectionTitle>פתרון מלא</SectionTitle>
+              </SectionHeader>
+              <SectionContent>
                 <SchoolAnswerSection
                   ref={schoolAnswerSectionRef}
                   question={editedQuestion}
                   onContentChange={handleQuestionChange}
-                  onFieldBlur={() => {}}
                 />
+              </SectionContent>
+            </div>
 
+            <div>
+              <SectionHeader>
+                <SectionTitle>קריטריוני הערכה</SectionTitle>
+              </SectionHeader>
+              <SectionContent>
                 <EvaluationSection
                   ref={evaluationSectionRef}
                   question={editedQuestion}
                   onContentChange={handleQuestionChange}
-                  onFieldBlur={() => {}}
                 />
-              </MainContent>
-            </EditorPanel>
+              </SectionContent>
+            </div>
           </MainPanel>
-
           <PropertiesSidebar>
+            <PropertiesHeader>
+              <PropertiesTitle>מטא-דאטה</PropertiesTitle>
+            </PropertiesHeader>
             <PropertiesContent>
               <MetadataSection
                 ref={metadataSectionRef}
                 question={editedQuestion}
                 onContentChange={handleQuestionChange}
-                onFieldBlur={() => {}}
               />
             </PropertiesContent>
           </PropertiesSidebar>
         </ContentContainer>
+
+        <QuestionEditorActionBar
+          hasUnsavedChanges={isModified}
+          onSave={handleSave}
+          onCancel={handleCancel}
+        />
       </EditorContainer>
     </QuestionProvider>
   );

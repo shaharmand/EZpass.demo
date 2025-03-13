@@ -3,6 +3,7 @@ import { Form, Input } from 'antd';
 import { DatabaseQuestion } from '../../../types/question';
 import styled from 'styled-components';
 import LexicalEditor from '../../../components/editor/LexicalEditor';
+import MarkdownRenderer from '../../../components/MarkdownRenderer';
 
 const EditorContainer = styled.div`
   padding: 24px;
@@ -76,11 +77,23 @@ export const BasicQuestionEditor: React.FC<BasicQuestionEditorProps> = ({
           required
         >
           <div onClick={handleContentClick}>
-            <LexicalEditor
-              initialValue={question.data.content.text}
-              onChange={(value) => onContentChange('content.text', value)}
-              editable={isEditing}
-            />
+            {isEditing ? (
+              <LexicalEditor
+                initialValue={question.data.content.text}
+                onChange={(value) => onContentChange('content.text', value)}
+                editable={true}
+              />
+            ) : (
+              <div className="markdown-content" style={{ 
+                padding: '16px',
+                border: '1px solid #d9d9d9',
+                borderRadius: '6px',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer'
+              }}>
+                <MarkdownRenderer content={question.data.content.text || ''} />
+              </div>
+            )}
           </div>
         </Form.Item>
       </Form>

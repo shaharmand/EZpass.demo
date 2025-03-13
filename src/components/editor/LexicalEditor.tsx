@@ -25,7 +25,31 @@ import { ImageNode } from './nodes/ImageNode';
 import { LexicalEditorToolbar } from './LexicalEditorToolbar';
 import { supabase } from '../../lib/supabase';
 import { $convertFromMarkdownString, $convertToMarkdownString } from '@lexical/markdown';
-import { MarkdownRenderer } from '../MarkdownRenderer';
+import 'katex/dist/katex.min.css';
+
+// Test component to verify markdown rendering
+const MarkdownTest = ({ content }: { content: string }) => {
+  return (
+    <div style={{ 
+      marginBottom: '20px',
+      padding: '16px',
+      border: '1px solid #d9d9d9',
+      borderRadius: '4px',
+      backgroundColor: '#ffffff'
+    }}>
+      <div style={{ 
+        borderBottom: '1px solid #f0f0f0',
+        marginBottom: '16px',
+        paddingBottom: '8px',
+        fontWeight: 500,
+        color: '#666'
+      }}>
+        Raw Markdown View
+      </div>
+      <MarkdownRenderer content={content} />
+    </div>
+  );
+};
 
 interface ContainerProps {
   editable?: boolean;
@@ -266,15 +290,6 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
     reset: handleReset
   }), [handleReset]);
 
-  // If not editable, render markdown directly
-  if (!editable) {
-    return (
-      <div style={{ padding: '16px' }}>
-        <MarkdownRenderer content={initialValue} />
-      </div>
-    );
-  }
-
   const initialConfig = {
     namespace: 'MyEditor',
     theme: {},
@@ -333,24 +348,6 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
             originalValue={currentValueRef.current} 
           />
         </Content>
-        <div style={{ 
-          marginTop: '20px', 
-          padding: '16px',
-          border: '1px solid #d9d9d9',
-          borderRadius: '4px',
-          backgroundColor: '#ffffff'
-        }}>
-          <div style={{ 
-            borderBottom: '1px solid #f0f0f0',
-            marginBottom: '16px',
-            paddingBottom: '8px',
-            fontWeight: 500,
-            color: '#666'
-          }}>
-            תצוגה מקדימה
-          </div>
-          <MarkdownRenderer content={currentValueRef.current || ''} />
-        </div>
       </Container>
     </LexicalComposer>
   );

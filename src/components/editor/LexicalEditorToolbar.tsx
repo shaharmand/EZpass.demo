@@ -1,23 +1,18 @@
 import React from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { Button, Space, Tooltip, Select } from 'antd';
+import { Button, Space, Tooltip } from 'antd';
 import {
   BoldOutlined,
   ItalicOutlined,
-  UnderlineOutlined,
   OrderedListOutlined,
   UnorderedListOutlined,
   UndoOutlined,
   RedoOutlined,
-  AlignLeftOutlined,
-  AlignCenterOutlined,
-  AlignRightOutlined,
 } from '@ant-design/icons';
-import { FORMAT_TEXT_COMMAND, UNDO_COMMAND, REDO_COMMAND, ElementFormatType } from 'lexical';
+import { FORMAT_TEXT_COMMAND, UNDO_COMMAND, REDO_COMMAND } from 'lexical';
 import { ListNode } from '@lexical/list';
 import { $isListNode, INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
-import { $getSelection, $isRangeSelection, $createParagraphNode, $isRootNode } from 'lexical';
-import { $createHeadingNode, $isHeadingNode, HeadingTagType } from '@lexical/rich-text';
+import { $getSelection, $isRangeSelection } from 'lexical';
 import styled from 'styled-components';
 
 const ToolbarContainer = styled.div`
@@ -66,17 +61,12 @@ const ToolbarButton = styled(Button)`
   }
 `;
 
-const { Option } = Select;
-
 export function LexicalEditorToolbar() {
   const [editor] = useLexicalComposerContext();
   const [isBold, setIsBold] = React.useState(false);
   const [isItalic, setIsItalic] = React.useState(false);
-  const [isUnderline, setIsUnderline] = React.useState(false);
   const [isOrderedList, setIsOrderedList] = React.useState(false);
   const [isUnorderedList, setIsUnorderedList] = React.useState(false);
-  const [currentHeading, setCurrentHeading] = React.useState<HeadingTagType | 'paragraph'>('paragraph');
-  const [alignment, setAlignment] = React.useState<ElementFormatType>('right');
 
   React.useEffect(() => {
     editor.registerUpdateListener(({ editorState }) => {
@@ -85,7 +75,6 @@ export function LexicalEditorToolbar() {
         if ($isRangeSelection(selection)) {
           setIsBold(selection.hasFormat('bold'));
           setIsItalic(selection.hasFormat('italic'));
-          setIsUnderline(selection.hasFormat('underline'));
 
           const anchorNode = selection.anchor.getNode();
           const element = anchorNode.getKey() === 'root' ? anchorNode : anchorNode.getTopLevelElement();
@@ -105,102 +94,15 @@ export function LexicalEditorToolbar() {
               setIsOrderedList(false);
               setIsUnorderedList(false);
             }
-
-            // Check heading
-            if ($isHeadingNode(element)) {
-              setCurrentHeading(element.getTag());
-            } else {
-              setCurrentHeading('paragraph');
-            }
-
-            // Check alignment
-            const format = element.getFormat();
-            if (format === 1) setAlignment('left');
-            else if (format === 2) setAlignment('center');
-            else setAlignment('right');
           }
         }
       });
     });
   }, [editor]);
 
-  const formatHeading = (tag: HeadingTagType | 'paragraph') => {
-    editor.update(() => {
-      const selection = $getSelection();
-      if ($isRangeSelection(selection)) {
-        const nodes = selection.getNodes();
-        nodes.forEach((node) => {
-          const parent = node.getParent();
-          if (parent && !$isRootNode(parent)) {
-            if (tag === 'paragraph') {
-              const paragraph = $createParagraphNode();
-              parent.replace(paragraph);
-            } else {
-              const heading = $createHeadingNode(tag);
-              parent.replace(heading);
-            }
-          }
-        });
-      }
-    });
-  };
-
-  const formatAlignment = (align: ElementFormatType) => {
-    editor.update(() => {
-      const selection = $getSelection();
-      if ($isRangeSelection(selection)) {
-        const nodes = selection.getNodes();
-        nodes.forEach((node) => {
-          const parent = node.getParent();
-          if (parent) {
-            parent.setFormat(align);
-          }
-        });
-      }
-    });
-  };
-
   return (
     <ToolbarContainer>
       <Space>
-        {/* Heading selector */}
-        <Select 
-          value={currentHeading} 
-          style={{ width: 120 }}
-          onChange={formatHeading}
-        >
-          <Option value="paragraph">פסקה רגילה</Option>
-          <Option value="h1">כותרת 1</Option>
-          <Option value="h2">כותרת 2</Option>
-          <Option value="h3">כותרת 3</Option>
-        </Select>
-
-        <Space.Compact>
-          {/* Text alignment */}
-          <Tooltip title="יישור לשמאל">
-            <ToolbarButton
-              icon={<AlignLeftOutlined />}
-              onClick={() => formatAlignment('left')}
-              className={alignment === 'left' ? 'active' : ''}
-            />
-          </Tooltip>
-          <Tooltip title="מרכוז">
-            <ToolbarButton
-              icon={<AlignCenterOutlined />}
-              onClick={() => formatAlignment('center')}
-              className={alignment === 'center' ? 'active' : ''}
-            />
-          </Tooltip>
-          <Tooltip title="יישור לימין">
-            <ToolbarButton
-              icon={<AlignRightOutlined />}
-              onClick={() => formatAlignment('right')}
-              className={alignment === 'right' ? 'active' : ''}
-            />
-          </Tooltip>
-        </Space.Compact>
-
-        {/* Existing formatting buttons */}
         <Space.Compact>
           <Tooltip title="מודגש">
             <ToolbarButton
@@ -218,15 +120,6 @@ export function LexicalEditorToolbar() {
                 editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
               }}
               className={isItalic ? 'active' : ''}
-            />
-          </Tooltip>
-          <Tooltip title="קו תחתון">
-            <ToolbarButton
-              icon={<UnderlineOutlined />}
-              onClick={() => {
-                editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
-              }}
-              className={isUnderline ? 'active' : ''}
             />
           </Tooltip>
         </Space.Compact>

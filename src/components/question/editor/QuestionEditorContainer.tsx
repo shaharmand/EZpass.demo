@@ -15,6 +15,8 @@ import { useQuestion } from '../../../contexts/QuestionContext';
 import { universalTopicsV2 } from '../../../services/universalTopics';
 import { getQuestionSourceDisplay } from '../../../utils/translations';
 import { MetadataSection, MetadataSectionHandle } from '../../../pages/admin/components/questions/editor/content/MetadataSection';
+import { SchoolAnswerSection, SchoolAnswerSectionHandle } from '../../../pages/admin/components/questions/editor/solution/SchoolAnswer';
+import { EvaluationSection, EvaluationSectionHandle } from '../../../pages/admin/components/questions/editor/evaluation/Evaluation';
 
 const { Text } = Typography;
 
@@ -178,6 +180,8 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
   const [providerKey, setProviderKey] = useState(0);
   const contentSectionRef = useRef<QuestionContentSectionHandle>(null);
   const metadataSectionRef = useRef<MetadataSectionHandle>(null);
+  const schoolAnswerSectionRef = useRef<SchoolAnswerSectionHandle>(null);
+  const evaluationSectionRef = useRef<EvaluationSectionHandle>(null);
 
   const handleQuestionChange = (updated: Partial<DatabaseQuestion>) => {
     // Ensure we have a complete question by merging with current
@@ -203,6 +207,8 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
       // Reset form state
       contentSectionRef.current?.resetChanges();
       metadataSectionRef.current?.resetChanges();
+      schoolAnswerSectionRef.current?.resetChanges();
+      evaluationSectionRef.current?.resetChanges();
     } catch (error) {
       console.error('Failed to save question:', error);
       throw error;
@@ -214,6 +220,8 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
     handleQuestionChange(initialQuestion);
     contentSectionRef.current?.resetChanges();
     metadataSectionRef.current?.resetChanges();
+    schoolAnswerSectionRef.current?.resetChanges();
+    evaluationSectionRef.current?.resetChanges();
   };
 
   return (
@@ -245,6 +253,20 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
               <MainContent>
                 <QuestionContentSection
                   ref={contentSectionRef}
+                  question={editedQuestion}
+                  onContentChange={handleQuestionChange}
+                  onFieldBlur={() => {}}
+                />
+
+                <SchoolAnswerSection
+                  ref={schoolAnswerSectionRef}
+                  question={editedQuestion}
+                  onContentChange={handleQuestionChange}
+                  onFieldBlur={() => {}}
+                />
+
+                <EvaluationSection
+                  ref={evaluationSectionRef}
                   question={editedQuestion}
                   onContentChange={handleQuestionChange}
                   onFieldBlur={() => {}}

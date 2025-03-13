@@ -284,6 +284,22 @@ interface FormattedOption {
 
 type QuestionOption = string | FormattedOption;
 
+interface QuestionContent {
+  text: string;
+  format: "markdown";
+  options?: FormattedOption[];
+  answer?: {
+    correctOption: number;
+  };
+}
+
+interface MultipleChoiceContent extends QuestionContent {
+  options: FormattedOption[];
+  answer?: {
+    correctOption: number;
+  };
+}
+
 export interface QuestionContentSectionHandle {
   resetChanges: () => void;
 }
@@ -362,6 +378,124 @@ const EditFieldStatus = styled.div`
   color: #8c8c8c;
 `;
 
+const OptionInput = styled.input`
+  width: 100%;
+  font-size: 15px;
+  color: #000000;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  
+  &:focus {
+    outline: none;
+    border-color: #40a9ff;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  }
+`;
+
+const OptionDisplayWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 8px;
+  
+  &:hover {
+    background: #f0f0f0;
+  }
+`;
+
+const OptionItem = styled.div<{ isSelected?: boolean; isCorrect?: boolean; index: number }>`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: ${props => props.isCorrect ? '#f6ffed' : '#ffffff'};
+  border: 1px solid ${props => props.isCorrect ? '#b7eb8f' : '#d9d9d9'};
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: ${props => props.isCorrect ? '#b7eb8f' : '#40a9ff'};
+    background: ${props => props.isCorrect ? '#f6ffed' : '#f6f6f6'};
+  }
+`;
+
+const CorrectAnswerBadge = styled.div`
+  background: #52c41a;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-right: auto;
+`;
+
+const RadioButton = styled.div<{ isSelected: boolean }>`
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid ${props => props.isSelected ? '#52c41a' : '#d9d9d9'};
+  background: ${props => props.isSelected ? '#52c41a' : '#ffffff'};
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: auto;
+  position: relative;
+
+  &:hover {
+    border-color: #52c41a;
+  }
+
+  &:after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: white;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: ${props => props.isSelected ? 1 : 0};
+  }
+`;
+
+const OptionLabel = styled.div<{ index: number; isCorrect?: boolean }>`
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${props => props.isCorrect ? '#52c41a' : '#f5f5f5'};
+  color: ${props => props.isCorrect ? '#ffffff' : '#262626'};
+  border-radius: 4px;
+  font-weight: bold;
+`;
+
+const OptionText = styled.div`
+  flex: 1;
+  font-size: 15px;
+  color: #262626;
+`;
+
+const EditModeOptionItem = styled.div<{ isSelected?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: ${props => props.isSelected ? '#f6ffed' : '#ffffff'};
+  border: 1px solid ${props => props.isSelected ? '#b7eb8f' : '#d9d9d9'};
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: ${props => props.isSelected ? '#b7eb8f' : '#40a9ff'};
+    background: ${props => props.isSelected ? '#f6ffed' : '#f6f6f6'};
+  }
+`;
+
 export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, QuestionContentSectionProps>(({
   question,
   onContentChange,
@@ -369,7 +503,8 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
 }, ref) => {
   const [editableFields, setEditableFields] = useState({
     title: false,
-    content: false
+    content: false,
+    options: false
   });
 
   // Expose reset method that just exits edit mode
@@ -378,7 +513,8 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
       console.log('[Content] Header cancel - resetChanges called');
       setEditableFields({
         title: false,
-        content: false
+        content: false,
+        options: false
       });
     }
   }));
@@ -484,6 +620,102 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
           <ContentDisplay>{value}</ContentDisplay>
         )}
       />
+
+      {question.data.metadata.type === QuestionType.MULTIPLE_CHOICE && (
+        <EditableWrapper
+          label={<span />}
+          fieldPath="content.options"
+          placeholder="הוסף אפשרויות תשובה..."
+          onValueChange={(options) => {
+            onContentChange({
+              data: {
+                ...question.data,
+                content: {
+                  ...question.data.content,
+                  options
+                }
+              }
+            });
+          }}
+          onBlur={onFieldBlur}
+          validate={(options) => Array.isArray(options) && options.length === 4}
+          isEditing={editableFields.options}
+          onStartEdit={() => {
+            console.log('[Content] Starting options edit');
+            setEditableFields(prev => ({ ...prev, options: true }));
+          }}
+          onCancelEdit={() => {
+            console.log('[Content] Canceling options edit');
+            setEditableFields(prev => ({ ...prev, options: false }));
+          }}
+          renderEditMode={(value, onChange) => (
+            <Space direction="vertical" style={{ width: '100%', marginTop: 8 }}>
+              {[0, 1, 2, 3].map((index) => {
+                const isSelected = (question.data.content as MultipleChoiceContent).answer?.correctOption === index;
+                return (
+                  <EditModeOptionItem key={index} isSelected={isSelected}>
+                    <OptionLabel 
+                      index={index}
+                      isCorrect={isSelected}
+                    >
+                      {['א', 'ב', 'ג', 'ד'][index]}
+                    </OptionLabel>
+                    <OptionInput
+                      value={value?.[index]?.text || ''}
+                      onChange={(e) => {
+                        const newOptions = [...(value || [])];
+                        newOptions[index] = { text: e.target.value, format: 'markdown' };
+                        onChange(newOptions);
+                      }}
+                      placeholder={`הזן את אפשרות ${['א', 'ב', 'ג', 'ד'][index]}...`}
+                      style={{ direction: 'rtl' }}
+                    />
+                    <RadioButton
+                      isSelected={isSelected}
+                      onClick={() => {
+                        const content = question.data.content as MultipleChoiceContent;
+                        onContentChange({
+                          data: {
+                            ...question.data,
+                            content: {
+                              ...content,
+                              answer: {
+                                correctOption: index
+                              }
+                            } as MultipleChoiceContent
+                          }
+                        });
+                      }}
+                    />
+                  </EditModeOptionItem>
+                );
+              })}
+            </Space>
+          )}
+          renderDisplayMode={(value: FormattedOption[]) => (
+            <OptionDisplayWrapper>
+              {(value || []).map((option: FormattedOption, index: number) => {
+                const isCorrect = (question.data.content as MultipleChoiceContent).answer?.correctOption === index;
+                return (
+                  <OptionItem 
+                    key={index}
+                    index={index}
+                    isCorrect={isCorrect}
+                  >
+                    <OptionLabel 
+                      index={index}
+                      isCorrect={isCorrect}
+                    >
+                      {['א', 'ב', 'ג', 'ד'][index]}
+                    </OptionLabel>
+                    <OptionText>{option.text}</OptionText>
+                  </OptionItem>
+                );
+              })}
+            </OptionDisplayWrapper>
+          )}
+        />
+      )}
     </Space>
   );
 }); 

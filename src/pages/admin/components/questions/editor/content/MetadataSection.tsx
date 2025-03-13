@@ -300,40 +300,22 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
     }
   }));
 
-  const handleMetadataChange = (property: string, value: any) => {
-    console.log(`[Metadata] ${property} changed:`, value);
-    onContentChange({
+  // Remove specific handlers and use a general field change function
+  const handleFieldChange = (path: string, value: any) => {
+    console.log(`[Metadata] Field changed at path ${path}:`, value);
+    
+    // Announce changes in the same format as content fields
+    const changes: Partial<DatabaseQuestion> = {
+      id: question.id,
       data: {
         ...question.data,
         metadata: {
           ...question.data.metadata,
-          [property]: value
+          [path]: value
         }
       }
-    });
-  };
-
-  const handleTopicChange = (topicValue: TopicValue) => {
-    console.log('[Metadata] Topic/Subtopic changed:', topicValue);
-    
-    // Only include defined values in the update
-    const updates: Partial<typeof question.data.metadata> = {};
-    if (topicValue.topicId !== undefined) {
-      updates.topicId = topicValue.topicId;
-    }
-    if (topicValue.subtopicId !== undefined) {
-      updates.subtopicId = topicValue.subtopicId;
-    }
-    
-    onContentChange({
-      data: {
-        ...question.data,
-        metadata: {
-          ...question.data.metadata,
-          ...updates
-        }
-      }
-    });
+    };
+    onContentChange(changes);
   };
 
   const domain = universalTopicsV2.getDomainSafe(
@@ -383,13 +365,13 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
             </MetadataValue>
           </MetadataRow>
           <MetadataRow>
-            <MetadataKey>תחום:</MetadataKey>
+            <MetadataKey>מקצוע:</MetadataKey>
             <MetadataValue>
               {subject?.name || 'לא מוגדר'}
             </MetadataValue>
           </MetadataRow>
           <MetadataRow>
-            <MetadataKey>נושא:</MetadataKey>
+            <MetadataKey>תחום:</MetadataKey>
             <MetadataValue>
               {domain?.name || 'לא מוגדר'}
             </MetadataValue>
@@ -407,7 +389,14 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
             label={<MetadataLabel>נושא ותת-נושא</MetadataLabel>}
             fieldPath="metadata"
             placeholder="בחר נושא..."
-            onValueChange={(value: TopicValue) => handleTopicChange(value)}
+            onValueChange={(value: TopicValue) => {
+              if (value.topicId !== undefined) {
+                handleFieldChange('topicId', value.topicId);
+              }
+              if (value.subtopicId !== undefined) {
+                handleFieldChange('subtopicId', value.subtopicId);
+              }
+            }}
             onBlur={onFieldBlur}
             validate={validateTopic}
             isEditing={editableFields.topic}
@@ -487,7 +476,7 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
               label={<span />}
               fieldPath="metadata.difficulty"
               placeholder="בחר רמת קושי..."
-              onValueChange={(value) => handleMetadataChange('difficulty', value)}
+              onValueChange={(value) => handleFieldChange('difficulty', value)}
               onBlur={onFieldBlur}
               validate={validateDifficulty}
               isEditing={editableFields.difficulty}
@@ -524,7 +513,7 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
               label={<span />}
               fieldPath="metadata.estimatedTime"
               placeholder="הזן זמן מוערך..."
-              onValueChange={(value) => handleMetadataChange('estimatedTime', value)}
+              onValueChange={(value) => handleFieldChange('estimatedTime', value)}
               onBlur={onFieldBlur}
               validate={validateEstimatedTime}
               isEditing={editableFields.estimatedTime}
@@ -561,7 +550,7 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
             label={<span />}
             fieldPath="metadata.source"
             placeholder="בחר מקור..."
-            onValueChange={(value) => handleMetadataChange('source', value)}
+            onValueChange={(value) => handleFieldChange('source', value)}
             onBlur={onFieldBlur}
             validate={validateSource}
             isEditing={editableFields.source}

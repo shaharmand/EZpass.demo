@@ -22,7 +22,7 @@ const { Title, Text } = Typography;
 
 const ContentCard = styled(Card)`
   .ant-card-body {
-    padding: 24px;
+    padding: 12px;
     background: #ffffff;
   }
 `;
@@ -30,24 +30,24 @@ const ContentCard = styled(Card)`
 const SectionDivider = styled.div`
   height: 1px;
   background: linear-gradient(to right, #f0f0f0 0%, #e6e6e6 50%, #f0f0f0 100%);
-  margin: 32px 0;
+  margin: 16px 0;
   width: 100%;
 `;
 
 const SectionHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 6px;
+  margin-bottom: 8px;
   
   .icon {
     color: #8c8c8c;
-    font-size: 16px;
+    font-size: 14px;
   }
   
   .title {
     color: #262626;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 500;
   }
 `;
@@ -230,12 +230,14 @@ const ContentInput = styled(Input.TextArea)`
 `;
 
 const ContentDisplay = styled.div`
-  padding: 16px;
+  padding: 8px 12px;
   background: #fafafa;
   border: 1px solid #f0f0f0;
   border-radius: 4px;
-  min-height: 120px;
+  min-height: 80px;
   transition: all 0.2s;
+  font-size: 15px;
+  line-height: 1.5;
   
   &:hover {
     background: #f5f5f5;
@@ -246,6 +248,13 @@ const ContentDisplay = styled.div`
     content: attr(data-placeholder);
     color: #bfbfbf;
     font-style: italic;
+  }
+
+  p {
+    margin-bottom: 8px;
+    &:last-child {
+      margin-bottom: 0;
+    }
   }
 `;
 
@@ -405,83 +414,111 @@ const CorrectAnswerBadge = styled.div`
   margin-right: auto;
 `;
 
-const RadioButton = styled.div<{ isSelected: boolean }>`
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid ${props => props.isSelected ? '#52c41a' : '#d9d9d9'};
-  background: ${props => props.isSelected ? '#52c41a' : '#ffffff'};
-  cursor: pointer;
+const OptionDisplayItem = styled.div<{ isSelected?: boolean; hasUnsavedChanges?: boolean }>`
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: ${props => props.hasUnsavedChanges ? '#fffbe6' : props.isSelected ? '#eff6ff' : '#ffffff'};
+  border: 2px solid ${props => props.hasUnsavedChanges ? '#faad14' : props.isSelected ? '#3b82f6' : '#e5e7eb'};
+  border-radius: 8px;
   transition: all 0.2s;
-  margin-right: auto;
   position: relative;
-
+  
   &:hover {
-    border-color: #52c41a;
+    border-color: ${props => props.hasUnsavedChanges ? '#faad14' : props.isSelected ? '#3b82f6' : '#3b82f6'};
+    background: ${props => props.hasUnsavedChanges ? '#fff8e6' : props.isSelected ? '#eff6ff' : '#f8fafc'};
+    transform: translateX(-2px);
   }
 
-  &:after {
-    content: '';
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: white;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    opacity: ${props => props.isSelected ? 1 : 0};
-  }
+  ${props => props.isSelected && `
+    &::before {
+      content: '';
+      position: absolute;
+      right: -2px;
+      top: -2px;
+      bottom: -2px;
+      width: 4px;
+      background: ${props.hasUnsavedChanges ? '#faad14' : '#3b82f6'};
+      border-radius: 0 8px 8px 0;
+    }
+  `}
 `;
 
 const OptionLabel = styled.div<{ index: number; isCorrect?: boolean }>`
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: ${props => props.isCorrect ? '#52c41a' : '#f5f5f5'};
-  color: ${props => props.isCorrect ? '#ffffff' : '#262626'};
-  border-radius: 4px;
-  font-weight: bold;
+  border-radius: 50%;
+  background: ${props => props.isCorrect ? '#3b82f6' : '#f3f4f6'};
+  border: 2px solid ${props => props.isCorrect ? '#3b82f6' : '#e5e7eb'};
+  color: ${props => props.isCorrect ? '#ffffff' : '#4b5563'};
+  font-weight: 600;
+  transition: all 0.2s;
+  flex-shrink: 0;
 `;
 
-const OptionText = styled.div`
-  flex: 1;
-  font-size: 15px;
-  color: #262626;
-`;
-
-const EditModeOptionItem = styled.div<{ isSelected?: boolean }>`
+const EditModeOptionItem = styled.div<{ isSelected?: boolean; hasUnsavedChanges?: boolean }>`
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
   border-radius: 8px;
-  background: ${props => props.isSelected ? '#f6ffed' : '#ffffff'};
-  border: 1px solid ${props => props.isSelected ? '#b7eb8f' : '#d9d9d9'};
+  background: ${props => props.hasUnsavedChanges ? '#fffbe6' : props.isSelected ? '#eff6ff' : '#ffffff'};
+  border: 2px solid ${props => props.hasUnsavedChanges ? '#faad14' : props.isSelected ? '#3b82f6' : '#e5e7eb'};
   transition: all 0.2s ease;
+  position: relative;
 
   &:hover {
-    border-color: ${props => props.isSelected ? '#b7eb8f' : '#40a9ff'};
-    background: ${props => props.isSelected ? '#f6ffed' : '#f6f6f6'};
+    border-color: ${props => props.hasUnsavedChanges ? '#faad14' : props.isSelected ? '#3b82f6' : '#3b82f6'};
+    background: ${props => props.hasUnsavedChanges ? '#fff8e6' : props.isSelected ? '#eff6ff' : '#f8fafc'};
+    transform: translateX(-2px);
   }
+
+  ${props => props.isSelected && `
+    &::before {
+      content: '';
+      position: absolute;
+      right: -2px;
+      top: -2px;
+      bottom: -2px;
+      width: 4px;
+      background: ${props.hasUnsavedChanges ? '#faad14' : '#3b82f6'};
+      border-radius: 0 8px 8px 0;
+    }
+  `}
 `;
 
-const OptionDisplayItem = styled.div<{ isSelected?: boolean }>`
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #ffffff;
-  border: 1px solid ${props => props.isSelected ? '#52c41a' : '#f0f0f0'};
-  border-radius: 4px;
+const RadioButton = styled.div<{ isSelected: boolean }>`
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid ${props => props.isSelected ? '#3b82f6' : '#e5e7eb'};
+  background: ${props => props.isSelected ? '#3b82f6' : '#ffffff'};
+  cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  
+  margin-right: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
   &:hover {
-    border-color: ${props => props.isSelected ? '#73d13d' : '#d9d9d9'};
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+    border-color: #3b82f6;
+    background: ${props => props.isSelected ? '#3b82f6' : '#eff6ff'};
+  }
+
+  &:after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: white;
+    opacity: ${props => props.isSelected ? 1 : 0};
   }
 `;
 
@@ -494,17 +531,18 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
     content: false,
     options: false
   });
+  
+  const [optionsTextChanges, setOptionsTextChanges] = useState(false);
 
-  // Expose reset method that just exits edit mode
-  useImperativeHandle(ref, () => ({
-    resetChanges: () => {
-      console.log('[Content] Header cancel - resetChanges called');
-      setEditableFields({
-        content: false,
-        options: false
-      });
-    }
-  }));
+  useEffect(() => {
+    // Reset changes when question changes
+    setOptionsTextChanges(false);
+  }, [question.id]);
+
+  const getCorrectOption = () => {
+    const finalAnswer = question.data.schoolAnswer?.finalAnswer;
+    return finalAnswer?.type === 'multiple_choice' ? finalAnswer.value : undefined;
+  };
 
   const handleContentChange = (text: string) => {
     console.log('[Content] Content changed:', text.slice(0, 50) + '...');
@@ -528,7 +566,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
 
   return (
     <ContentCard>
-      <Space direction="vertical" style={{ width: '100%' }} size={24}>
+      <Space direction="vertical" style={{ width: '100%' }} size={12}>
         {/* Question Content Section */}
         <div>
           <SectionHeader>
@@ -554,6 +592,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
                 initialValue={value}
                 onChange={onChange}
                 placeholder="הזן את תוכן השאלה..."
+                style={{ minHeight: '80px' }}
               />
             )}
             renderDisplayMode={(value) => (
@@ -578,6 +617,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
                 fieldPath="content.options"
                 placeholder="הזן אפשרויות..."
                 onValueChange={(value) => {
+                  setOptionsTextChanges(true);
                   onContentChange({
                     data: {
                       ...question.data,
@@ -588,21 +628,29 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
                     }
                   });
                 }}
-                onBlur={onFieldBlur}
+                onBlur={() => {
+                  setOptionsTextChanges(false);
+                  onFieldBlur?.();
+                }}
                 validate={(value) => Array.isArray(value) && value.length > 0}
                 isEditing={editableFields.options}
                 onStartEdit={() => {
                   setEditableFields(prev => ({ ...prev, options: true }));
                 }}
                 onCancelEdit={() => {
+                  setOptionsTextChanges(false);
                   setEditableFields(prev => ({ ...prev, options: false }));
                 }}
                 renderEditMode={(value, onChange) => (
-                  <Space direction="vertical" style={{ width: '100%' }}>
+                  <Space direction="vertical" style={{ width: '100%' }} size={6}>
                     {[0, 1, 2, 3].map((index) => {
-                      const isSelected = (question.data.content as MultipleChoiceContent).answer?.correctOption === index;
+                      const isSelected = getCorrectOption() === index + 1;
                       return (
-                        <EditModeOptionItem key={index} isSelected={isSelected}>
+                        <EditModeOptionItem 
+                          key={index} 
+                          isSelected={isSelected}
+                          hasUnsavedChanges={optionsTextChanges}
+                        >
                           <OptionLabel 
                             index={index}
                             isCorrect={isSelected}
@@ -612,6 +660,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
                           <OptionInput
                             value={value?.[index]?.text || ''}
                             onChange={(e) => {
+                              setOptionsTextChanges(true);
                               const newOptions = [...(value || [])];
                               newOptions[index] = { text: e.target.value, format: 'markdown' };
                               onChange(newOptions);
@@ -622,16 +671,16 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
                           <RadioButton
                             isSelected={isSelected}
                             onClick={() => {
-                              const content = question.data.content as MultipleChoiceContent;
                               onContentChange({
                                 data: {
                                   ...question.data,
-                                  content: {
-                                    ...content,
-                                    answer: {
-                                      correctOption: index
+                                  schoolAnswer: {
+                                    ...question.data.schoolAnswer,
+                                    finalAnswer: {
+                                      type: 'multiple_choice',
+                                      value: index + 1 as 1 | 2 | 3 | 4
                                     }
-                                  } as MultipleChoiceContent
+                                  }
                                 }
                               });
                             }}
@@ -642,18 +691,22 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
                   </Space>
                 )}
                 renderDisplayMode={(value) => (
-                  <Space direction="vertical" style={{ width: '100%' }}>
+                  <Space direction="vertical" style={{ width: '100%' }} size={6}>
                     {value?.map((option: FormattedOption, index: number) => {
-                      const isSelected = (question.data.content as MultipleChoiceContent).answer?.correctOption === index;
+                      const isSelected = getCorrectOption() === index + 1;
                       return (
-                        <OptionDisplayItem key={index} isSelected={isSelected}>
+                        <OptionDisplayItem 
+                          key={index} 
+                          isSelected={isSelected}
+                          hasUnsavedChanges={optionsTextChanges}
+                        >
                           <OptionLabel
                             index={index}
                             isCorrect={isSelected}
                           >
                             {['א', 'ב', 'ג', 'ד'][index]}
                           </OptionLabel>
-                          <div style={{ flex: 1 }}>
+                          <div style={{ flex: 1, fontSize: '14px', lineHeight: '1.4' }}>
                             <MarkdownRenderer content={option.text} />
                           </div>
                         </OptionDisplayItem>

@@ -75,8 +75,20 @@ const MetadataSidebar = styled.div`
 const MetadataGroup = styled.div`
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
   font-size: 13px;
+`;
+
+const MetadataItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const MetadataLabel = styled(Text)`
+  color: #8c8c8c;
+  font-size: 13px;
+  font-weight: 400;
 `;
 
 const DomainItem = styled(Text)`
@@ -145,15 +157,9 @@ export const AdminPageHeader: React.FC = () => {
       </MainContent>
       <MetadataSidebar>
         <MetadataGroup>
-          {domain && <DomainItem>{domain}</DomainItem>}
           {subject && <SubjectText>{subject}</SubjectText>}
+          {domain && <DomainItem>{domain}</DomainItem>}
         </MetadataGroup>
-        {type && (
-          <TypeGroup>
-            <TypeLabel>סוג שאלה:</TypeLabel>
-            <TypeItem>{type}</TypeItem>
-          </TypeGroup>
-        )}
       </MetadataSidebar>
     </Container>
   );

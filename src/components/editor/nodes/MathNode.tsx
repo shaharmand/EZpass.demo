@@ -421,6 +421,16 @@ function MathComponent({ node }: { node: MathNode }): JSX.Element {
   const [isDisplay, setIsDisplay] = useState(node.__isDisplay);
   const [renderedMath, setRenderedMath] = useState<string>('');
   const mathFieldRef = useRef<MathfieldElement | null>(null);
+  const latexValueRef = useRef<string>('');
+
+  // Add effect to preserve latex value during display mode changes
+  useEffect(() => {
+    if (mathFieldRef.current && latexValueRef.current) {
+      const preservedValue = latexValueRef.current;
+      mathFieldRef.current.value = preservedValue;
+      setCurrentLatex(preservedValue);
+    }
+  }, [isDisplay]);
 
   // Sync display state with node
   useEffect(() => {
@@ -498,9 +508,8 @@ function MathComponent({ node }: { node: MathNode }): JSX.Element {
   const handleInsert = (latex: string) => {
     if (mathFieldRef.current) {
       const mathField = mathFieldRef.current;
-      const currentValue = mathField.value;
       
-      console.log('DEBUG - Initial latex string:', currentValue);
+      console.log('DEBUG - Initial latex string:', mathField.value);
       
       // Get selection from mathfield directly
       console.log('DEBUG - Selection info:');
@@ -512,8 +521,14 @@ function MathComponent({ node }: { node: MathNode }): JSX.Element {
       if (latex === '\\sqrt{}') {
         mathField.insert('\\sqrt{#@}');  // #@ is MathLive's placeholder for selection
       } else if (latex === '\\frac{}{}') {
-        mathField.insert('\\frac{#@}{}');
-        mathField.executeCommand('moveToPreviousChar');  // Move cursor back into denominator
+        const hasSelection = typeof mathField.selection === 'string' && mathField.selection.length > 0;
+        if (hasSelection) {
+          mathField.insert('\\frac{#@}{#@}');  // Use MathLive's placeholder
+        } else {
+          mathField.insert('\\frac{#@}{#@}');  // Use MathLive's placeholder
+        }
+        mathField.executeCommand('moveToNextChar');
+        mathField.executeCommand('moveToPreviousChar');  // Position cursor in denominator
       } else if (latex === '^2') {
         mathField.insert('#@^2');
       } else {
@@ -548,10 +563,12 @@ function MathComponent({ node }: { node: MathNode }): JSX.Element {
         if (mathField) {
           mathFieldRef.current = mathField;
           
-          // Set initial value based on whether it's a new or existing node
-          const initialValue = node.__latex || '';
-          mathField.value = initialValue;
-          setCurrentLatex(initialValue);
+          // Only set initial value if it's a new modal opening
+          if (!mathFieldRef.current.value) {
+            const initialValue = node.__latex || '';
+            mathField.value = initialValue;
+            setCurrentLatex(initialValue);
+          }
           mathField.focus();
 
           const handleKeyDown = (evt: Event) => {
@@ -573,7 +590,7 @@ function MathComponent({ node }: { node: MathNode }): JSX.Element {
         }
       }, 100);
     }
-  }, [isModalVisible, handleOk, handleCancel, node.__latex]);  // Add node.__latex back to deps
+  }, [isModalVisible, handleOk, handleCancel, node.__latex]);
 
   return (
     <>
@@ -608,20 +625,16 @@ function MathComponent({ node }: { node: MathNode }): JSX.Element {
           <Tooltip title="הנוסחה תשתלב בתוך הטקסט">
             <DisplayModeButton
               onClick={() => {
-                setIsDisplay(false);
                 if (mathFieldRef.current) {
-                  const latex = mathFieldRef.current.value;
-                  try {
-                    const html = katex.renderToString(latex, {
-                      throwOnError: false,
-                      displayMode: false,
-                      output: 'html'
-                    });
-                    setRenderedMath(html);
-                  } catch (error) {
-                    console.error('KaTeX rendering error:', error);
-                  }
+                  let value = mathFieldRef.current.value;
+                  // Remove any existing $$ or $ wrapping
+                  value = value.replace(/^\$\$(.*)\$\$$/, '$1').replace(/^\$(.*)\$$/, '$1');
+                  // Add single $ for inline
+                  const newValue = `$${value}$`;
+                  mathFieldRef.current.value = newValue;
+                  setCurrentLatex(newValue);
                 }
+                setIsDisplay(false);
               }}
               $active={!isDisplay}
             >
@@ -631,20 +644,16 @@ function MathComponent({ node }: { node: MathNode }): JSX.Element {
           <Tooltip title="הנוסחה תופיע במרכז בשורה משלה">
             <DisplayModeButton
               onClick={() => {
-                setIsDisplay(true);
                 if (mathFieldRef.current) {
-                  const latex = mathFieldRef.current.value;
-                  try {
-                    const html = katex.renderToString(latex, {
-                      throwOnError: false,
-                      displayMode: true,
-                      output: 'html'
-                    });
-                    setRenderedMath(html);
-                  } catch (error) {
-                    console.error('KaTeX rendering error:', error);
-                  }
+                  let value = mathFieldRef.current.value;
+                  // Remove any existing $$ or $ wrapping
+                  value = value.replace(/^\$\$(.*)\$\$$/, '$1').replace(/^\$(.*)\$$/, '$1');
+                  // Add double $$ for display
+                  const newValue = `$$${value}$$`;
+                  mathFieldRef.current.value = newValue;
+                  setCurrentLatex(newValue);
                 }
+                setIsDisplay(true);
               }}
               $active={isDisplay}
             >
@@ -656,7 +665,7 @@ function MathComponent({ node }: { node: MathNode }): JSX.Element {
         <MathToolbar>
           <OperationsToolbar>
             {MATH_OPERATIONS.map((op) => (
-              <Tooltip key={typeof op.label === 'string' ? op.label : op.insert} title={op.tooltip}>
+              <Tooltip key={typeof op.label === 'string' ? op.label : op.insert} title={op.tooltip} placement="bottom">
                 <MathButton 
                   onClick={() => handleInsert(op.insert)}
                 >

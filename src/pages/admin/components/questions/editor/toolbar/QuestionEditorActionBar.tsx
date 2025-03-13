@@ -14,8 +14,10 @@ const ActionBar = styled.div<{ $hasChanges: boolean }>`
   background: #ffffff;
   padding: 16px 24px;
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05), 0 -2px 4px -1px rgba(0, 0, 0, 0.03);
+  border: ${props => props.$hasChanges ? '2px solid #faad14' : '1px solid #e5e7eb'};
+  box-shadow: ${props => props.$hasChanges ? 
+    '0 -4px 12px -1px rgba(250, 173, 20, 0.1), 0 -2px 6px -1px rgba(250, 173, 20, 0.06)' : 
+    '0 -4px 6px -1px rgba(0, 0, 0, 0.05), 0 -2px 4px -1px rgba(0, 0, 0, 0.03)'};
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: fixed;
   bottom: 24px;
@@ -29,8 +31,10 @@ const ActionBar = styled.div<{ $hasChanges: boolean }>`
   pointer-events: ${props => props.$hasChanges ? 'auto' : 'none'};
 
   &:hover {
-    border-color: #d1d5db;
-    box-shadow: 0 -6px 8px -1px rgba(0, 0, 0, 0.06), 0 -4px 6px -1px rgba(0, 0, 0, 0.04);
+    border-color: ${props => props.$hasChanges ? '#d48806' : '#d1d5db'};
+    box-shadow: ${props => props.$hasChanges ? 
+      '0 -6px 16px -1px rgba(250, 173, 20, 0.15), 0 -4px 8px -1px rgba(250, 173, 20, 0.08)' : 
+      '0 -6px 8px -1px rgba(0, 0, 0, 0.06), 0 -4px 6px -1px rgba(0, 0, 0, 0.04)'};
     transform: translate(-50%, -2px);
   }
 
@@ -57,15 +61,20 @@ const ActionButtonsContainer = styled.div`
 `;
 
 const UnsavedChangesText = styled.div`
-  font-size: 14px;
-  font-weight: 500;
-  color: #faad14;
+  font-size: 15px;
+  font-weight: 600;
+  color: #d48806;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 8px 16px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
 
   .warning-icon {
     font-size: 18px;
+    color: #faad14;
   }
 `;
 

@@ -8,9 +8,8 @@ import { Space, Typography, Button, Input, Select, Rate } from 'antd';
 import { EditableWrapper } from '../../../components/shared/EditableWrapper';
 import LexicalEditor from '../../../components/editor/LexicalEditor';
 import { questionStorage } from '../../../services/admin/questionStorage';
-import { QuestionProvider } from '../../../contexts/QuestionContext';
+import { QuestionProvider, useQuestion } from '../../../contexts/QuestionContext';
 import { PropertiesPanel } from './layout/PropertiesPanel';
-import { useQuestion } from '../../../contexts/QuestionContext';
 import { universalTopicsV2 } from '../../../services/universalTopics';
 import { getQuestionSourceDisplay } from '../../../utils/translations';
 import { MetadataSection, MetadataSectionHandle } from '../../../pages/admin/components/questions/editor/content/MetadataSection';
@@ -41,6 +40,12 @@ const EditorContainer = styled.div`
   gap: 24px;
   padding: 24px;
   width: 100%;
+  position: relative;
+
+  // Ensure tooltips are visible globally
+  .ant-tooltip {
+    z-index: 1500 !important;
+  }
 `;
 
 const HeaderContainer = styled.div`
@@ -50,6 +55,8 @@ const HeaderContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 24px;
+  position: relative;
+  z-index: 100;
 `;
 
 const ContentContainer = styled.div`
@@ -59,6 +66,8 @@ const ContentContainer = styled.div`
   margin: 0 auto;
   width: 100%;
   position: relative;
+  z-index: 1;
+  overflow: visible;
 `;
 
 const MainPanel = styled.div`
@@ -69,13 +78,14 @@ const MainPanel = styled.div`
   gap: 32px;
   position: relative;
   z-index: 1;
+  overflow: visible;
 
   > * {
     background: white;
     border-radius: 16px;
     border: 1px solid #e5e7eb;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    overflow: hidden;
+    overflow: visible;
   }
 
   > *:not(:last-child)::after {
@@ -278,6 +288,44 @@ const getDifficultyLabel = (difficulty: number): string => {
   }
 };
 
+// Add metadata field definitions
+const METADATA_FIELDS = {
+  // Basic info
+  type: { path: 'data.metadata.type' },
+  subjectId: { path: 'data.metadata.subjectId' },
+  domainId: { path: 'data.metadata.domainId' },
+  
+  // Topic classification
+  topicId: { path: 'data.metadata.topicId' },
+  subtopicId: { path: 'data.metadata.subtopicId' },
+  
+  // Characteristics
+  difficulty: { path: 'data.metadata.difficulty' },
+  estimatedTime: { path: 'data.metadata.estimatedTime' },
+  
+  // Source
+  source: { path: 'data.metadata.source' },
+} as const;
+
+// Add type for metadata field keys
+type MetadataField = keyof typeof METADATA_FIELDS;
+
+// Helper functions
+const getValueByPath = (obj: any, path: string) => {
+  return path.split('.').reduce((acc, part) => acc?.[part], obj);
+};
+
+const setValueByPath = (obj: any, path: string, value: any) => {
+  const parts = path.split('.');
+  const lastPart = parts.pop()!;
+  const target = parts.reduce((acc, part) => {
+    if (!acc[part]) acc[part] = {};
+    return acc[part];
+  }, obj);
+  target[lastPart] = value;
+  return obj;
+};
+
 interface QuestionEditorContainerProps {
   question: DatabaseQuestion;
   onSave: (data: SaveQuestion) => Promise<DatabaseQuestion>;
@@ -293,6 +341,281 @@ interface QuestionEditorContainerProps {
   };
 }
 
+const QuestionEditorInner: React.FC<{
+  editedQuestion: DatabaseQuestion;
+  onQuestionChange: (changes: Partial<DatabaseQuestion>) => void;
+  contentSectionRef: React.RefObject<QuestionContentSectionHandle>;
+  metadataSectionRef: React.RefObject<MetadataSectionHandle>;
+  schoolAnswerSectionRef: React.RefObject<SchoolAnswerSectionHandle>;
+  evaluationSectionRef: React.RefObject<EvaluationSectionHandle>;
+  editableFields: {
+    title: boolean;
+    content: boolean;
+    options: boolean;
+  };
+  setEditableFields: React.Dispatch<React.SetStateAction<{
+    title: boolean;
+    content: boolean;
+    options: boolean;
+  }>>;
+  onSave: () => Promise<void>;
+  onCancel: () => void;
+  onBack: () => void;
+  onPrevious?: () => void;
+  onNext?: () => void;
+  hasPrevious?: boolean;
+  hasNext?: boolean;
+  currentPosition?: {
+    current: number;
+    filteredTotal: number;
+  };
+  onQuestionUpdated: (updated: DatabaseQuestion) => void;
+}> = ({
+  editedQuestion,
+  onQuestionChange,
+  contentSectionRef,
+  metadataSectionRef,
+  schoolAnswerSectionRef,
+  evaluationSectionRef,
+  editableFields,
+  setEditableFields,
+  onSave,
+  onCancel,
+  onBack,
+  onPrevious,
+  onNext,
+  hasPrevious,
+  hasNext,
+  currentPosition,
+  onQuestionUpdated
+}) => {
+  const { originalQuestion } = useQuestion();
+
+  const hasUnsavedChanges = () => {
+    if (!originalQuestion?.current || !editedQuestion) {
+      console.log('Missing original or edited question');
+      return false;
+    }
+
+    const original = originalQuestion.current;
+    
+    // Define paths to compare
+    const pathsToCompare = [
+      // Basic fields
+      'data.name',
+      'data.content.text',
+      // Metadata fields - use our field definitions
+      ...Object.values(METADATA_FIELDS).map(field => field.path),
+      // School answer fields
+      'data.schoolAnswer.finalAnswer',
+      'data.schoolAnswer.solution',
+      'data.schoolAnswer.explanation',
+      // Content fields
+      'data.content.options'
+    ];
+
+    // Compare each path
+    for (const path of pathsToCompare) {
+      const originalValue = getValueByPath(original, path);
+      const currentValue = getValueByPath(editedQuestion, path);
+
+      // Log the comparison
+      console.log(`Comparing ${path}:`, {
+        original: originalValue,
+        current: currentValue
+      });
+
+      // Special handling for arrays (topics, tags, options)
+      if (Array.isArray(originalValue) || Array.isArray(currentValue)) {
+        const origStr = JSON.stringify(originalValue || []);
+        const currStr = JSON.stringify(currentValue || []);
+        if (origStr !== currStr) {
+          console.log(`Change detected in ${path}:`, {
+            original: originalValue,
+            current: currentValue
+          });
+          return true;
+        }
+        continue;
+      }
+
+      // Special handling for final answer
+      if (path === 'data.schoolAnswer.finalAnswer' && originalValue && currentValue) {
+        if (originalValue.type !== currentValue.type) {
+          console.log('Final answer type changed');
+          return true;
+        }
+        if (originalValue.type === 'multiple_choice' && currentValue.type === 'multiple_choice') {
+          if (originalValue.value !== currentValue.value) {
+            console.log('Multiple choice value changed');
+            return true;
+          }
+        }
+        if (originalValue.type === 'numerical' && currentValue.type === 'numerical') {
+          if (originalValue.value !== currentValue.value || 
+              originalValue.tolerance !== currentValue.tolerance) {
+            console.log('Numerical value or tolerance changed');
+            return true;
+          }
+        }
+        continue;
+      }
+
+      // Regular value comparison
+      if (JSON.stringify(originalValue) !== JSON.stringify(currentValue)) {
+        console.log(`Change detected in ${path}:`, {
+          original: originalValue,
+          current: currentValue
+        });
+        return true;
+      }
+    }
+
+    console.log('No changes detected');
+    return false;
+  };
+
+  const validateTitle = (value: string) => {
+    if (!value || value.trim().length === 0) {
+      return false;
+    }
+    if (value.length > 100) {
+      return false;
+    }
+    return true;
+  };
+
+  return (
+    <EditorContainer>
+      <HeaderContainer>
+        <QuestionStatusHeader
+          question={editedQuestion}
+          onBack={onBack}
+          onPrevious={onPrevious}
+          onNext={onNext}
+          hasPrevious={hasPrevious}
+          hasNext={hasNext}
+          currentPosition={currentPosition}
+          hasUnsavedChanges={hasUnsavedChanges()}
+          onQuestionUpdated={onQuestionUpdated}
+        />
+      </HeaderContainer>
+
+      <ContentContainer>
+        <MainPanel>
+          {/* Title Section */}
+          <div>
+            <SectionHeader>
+              <SectionTitle>שם השאלה</SectionTitle>
+            </SectionHeader>
+            <SectionContent>
+              <EditableWrapper
+                label={<span />}
+                fieldPath="name"
+                placeholder="הזן שם לשאלה..."
+                onValueChange={(value) => {
+                  onQuestionChange({
+                    data: {
+                      ...editedQuestion.data,
+                      name: value
+                    }
+                  });
+                }}
+                validate={validateTitle}
+                isEditing={editableFields.title}
+                onStartEdit={() => {
+                  console.log('[QuestionEditor] Starting title edit');
+                  setEditableFields(prev => ({ ...prev, title: true }));
+                }}
+                onCancelEdit={() => {
+                  console.log('[QuestionEditor] Canceling title edit');
+                  setEditableFields(prev => ({ ...prev, title: false }));
+                }}
+                renderEditMode={(value, onChange) => (
+                  <TitleInput
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder="הזן שם לשאלה..."
+                    style={{ direction: 'rtl' }}
+                    maxLength={100}
+                  />
+                )}
+                renderDisplayMode={(value) => (
+                  <TitleDisplay data-placeholder="לא הוזן שם">{value}</TitleDisplay>
+                )}
+              />
+            </SectionContent>
+          </div>
+
+          {/* Content Section */}
+          <div>
+            <SectionHeader>
+              <SectionTitle>תוכן השאלה</SectionTitle>
+            </SectionHeader>
+            <SectionContent>
+              <QuestionContentSection
+                ref={contentSectionRef}
+                question={editedQuestion}
+                onContentChange={onQuestionChange}
+              />
+            </SectionContent>
+          </div>
+
+          <div>
+            <SectionHeader>
+              <SectionTitle>פתרון בית ספר</SectionTitle>
+            </SectionHeader>
+            <SectionContent>
+              <SchoolAnswerSection
+                ref={schoolAnswerSectionRef}
+                question={editedQuestion}
+                onContentChange={onQuestionChange}
+              />
+            </SectionContent>
+          </div>
+
+          <div>
+            <SectionHeader>
+              <SectionTitle>קריטריוני הערכה</SectionTitle>
+            </SectionHeader>
+            <SectionContent>
+              <EvaluationSection
+                ref={evaluationSectionRef}
+                question={editedQuestion}
+                onContentChange={onQuestionChange}
+              />
+            </SectionContent>
+          </div>
+        </MainPanel>
+        <PropertiesSidebar>
+          <PropertiesHeader>
+            <PropertiesTitle>
+              <DatabaseOutlined />
+              פרטי השאלה
+            </PropertiesTitle>
+          </PropertiesHeader>
+          <PropertiesContent>
+            <MetadataSection
+              ref={metadataSectionRef}
+              question={editedQuestion}
+              onContentChange={(changes: Partial<DatabaseQuestion>) => {
+                console.log('Metadata changes:', changes);
+                onQuestionChange(changes);
+              }}
+            />
+          </PropertiesContent>
+        </PropertiesSidebar>
+      </ContentContainer>
+
+      <QuestionEditorActionBar
+        hasUnsavedChanges={hasUnsavedChanges()}
+        onSave={onSave}
+        onCancel={onCancel}
+      />
+    </EditorContainer>
+  );
+};
+
 export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = ({
   question,
   onSave,
@@ -305,7 +628,6 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
   currentPosition
 }) => {
   const [editedQuestion, setEditedQuestion] = useState<DatabaseQuestion>(question);
-  const [isModified, setIsModified] = useState(false);
   const [providerKey, setProviderKey] = useState(0);
   const [editableFields, setEditableFields] = useState({
     title: false,
@@ -317,18 +639,52 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
   const schoolAnswerSectionRef = useRef<SchoolAnswerSectionHandle>(null);
   const evaluationSectionRef = useRef<EvaluationSectionHandle>(null);
 
-  const handleQuestionChange = (changes: Partial<DatabaseQuestion>) => {
-    setEditedQuestion(prev => ({
-      ...prev,
-      ...changes
-    }));
-    setIsModified(true);
-  };
-
-  // Reset modified state when we get a new question
   useEffect(() => {
     setEditedQuestion(question);
-    setIsModified(false);
+  }, [question]);
+
+  const handleQuestionChange = (changes: Partial<DatabaseQuestion>) => {
+    console.log('[QuestionEditorContainer] Handling question change:', changes);
+    
+    setEditedQuestion(prev => {
+      if (!prev) return prev;
+      
+      // Deep merge all sections
+      return {
+        ...prev,
+        ...changes,
+        data: {
+          ...prev.data,
+          ...changes.data,
+          // Preserve and merge content section
+          content: {
+            ...prev.data?.content,
+            ...changes.data?.content
+          },
+          // Preserve and merge metadata section
+          metadata: {
+            ...prev.data?.metadata,
+            ...changes.data?.metadata
+          },
+          // Preserve and merge school answer section
+          schoolAnswer: {
+            ...prev.data?.schoolAnswer,
+            ...changes.data?.schoolAnswer
+          },
+          // Preserve and merge evaluation section
+          evaluationGuidelines: {
+            ...prev.data?.evaluationGuidelines,
+            ...changes.data?.evaluationGuidelines
+          }
+        }
+      };
+    });
+  };
+
+  // Reset state when we get a new question
+  useEffect(() => {
+    console.log('Question prop changed:', question);
+    setEditedQuestion(question);
     // Force QuestionProvider to re-mount with new question
     setProviderKey(prev => prev + 1);
   }, [question]);
@@ -343,7 +699,6 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
       metadataSectionRef.current?.resetChanges();
       schoolAnswerSectionRef.current?.resetChanges();
       evaluationSectionRef.current?.resetChanges();
-      setIsModified(false);
     } catch (error) {
       console.error('Failed to save question:', error);
       throw error;
@@ -352,7 +707,6 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
 
   const handleCancel = () => {
     setEditedQuestion(question);
-    setIsModified(false);
     setEditableFields({
       title: false,
       content: false,
@@ -365,142 +719,27 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
     setProviderKey(prev => prev + 1);
   };
 
-  const validateTitle = (value: string) => {
-    if (!value || value.trim().length === 0) {
-      return false;
-    }
-    if (value.length > 100) {
-      return false;
-    }
-    return true;
-  };
-
   return (
     <QuestionProvider key={providerKey} question={question}>
-      <EditorContainer>
-        <HeaderContainer>
-          <QuestionStatusHeader
-            question={editedQuestion}
-            onBack={onNavigateBack}
-            onPrevious={onPrevious}
-            onNext={onNext}
-            hasPrevious={hasPrevious}
-            hasNext={hasNext}
-            currentPosition={currentPosition}
-            hasUnsavedChanges={isModified}
-            onQuestionUpdated={onQuestionUpdated}
-          />
-        </HeaderContainer>
-
-        <ContentContainer>
-          <MainPanel>
-            {/* Title Section */}
-            <div>
-              <SectionHeader>
-                <SectionTitle>שם השאלה</SectionTitle>
-              </SectionHeader>
-              <SectionContent>
-                <EditableWrapper
-                  label={<span />}
-                  fieldPath="name"
-                  placeholder="הזן שם לשאלה..."
-                  onValueChange={(value) => {
-                    handleQuestionChange({
-                      data: {
-                        ...editedQuestion.data,
-                        name: value
-                      }
-                    });
-                  }}
-                  validate={validateTitle}
-                  isEditing={editableFields.title}
-                  onStartEdit={() => {
-                    console.log('[QuestionEditor] Starting title edit');
-                    setEditableFields(prev => ({ ...prev, title: true }));
-                  }}
-                  onCancelEdit={() => {
-                    console.log('[QuestionEditor] Canceling title edit');
-                    setEditableFields(prev => ({ ...prev, title: false }));
-                  }}
-                  renderEditMode={(value, onChange) => (
-                    <TitleInput
-                      value={value}
-                      onChange={(e) => onChange(e.target.value)}
-                      placeholder="הזן שם לשאלה..."
-                      style={{ direction: 'rtl' }}
-                      maxLength={100}
-                    />
-                  )}
-                  renderDisplayMode={(value) => (
-                    <TitleDisplay data-placeholder="לא הוזן שם">{value}</TitleDisplay>
-                  )}
-                />
-              </SectionContent>
-            </div>
-
-            {/* Content Section */}
-            <div>
-              <SectionHeader>
-                <SectionTitle>תוכן השאלה</SectionTitle>
-              </SectionHeader>
-              <SectionContent>
-                <QuestionContentSection
-                  ref={contentSectionRef}
-                  question={editedQuestion}
-                  onContentChange={handleQuestionChange}
-                />
-              </SectionContent>
-            </div>
-
-            <div>
-              <SectionHeader>
-                <SectionTitle>פתרון מלא</SectionTitle>
-              </SectionHeader>
-              <SectionContent>
-                <SchoolAnswerSection
-                  ref={schoolAnswerSectionRef}
-                  question={editedQuestion}
-                  onContentChange={handleQuestionChange}
-                />
-              </SectionContent>
-            </div>
-
-            <div>
-              <SectionHeader>
-                <SectionTitle>קריטריוני הערכה</SectionTitle>
-              </SectionHeader>
-              <SectionContent>
-                <EvaluationSection
-                  ref={evaluationSectionRef}
-                  question={editedQuestion}
-                  onContentChange={handleQuestionChange}
-                />
-              </SectionContent>
-            </div>
-          </MainPanel>
-          <PropertiesSidebar>
-            <PropertiesHeader>
-              <PropertiesTitle>
-                <DatabaseOutlined />
-                פרטי השאלה
-              </PropertiesTitle>
-            </PropertiesHeader>
-            <PropertiesContent>
-              <MetadataSection
-                ref={metadataSectionRef}
-                question={editedQuestion}
-                onContentChange={handleQuestionChange}
-              />
-            </PropertiesContent>
-          </PropertiesSidebar>
-        </ContentContainer>
-
-        <QuestionEditorActionBar
-          hasUnsavedChanges={isModified}
-          onSave={handleSave}
-          onCancel={handleCancel}
-        />
-      </EditorContainer>
+      <QuestionEditorInner
+        editedQuestion={editedQuestion}
+        onQuestionChange={handleQuestionChange}
+        contentSectionRef={contentSectionRef}
+        metadataSectionRef={metadataSectionRef}
+        schoolAnswerSectionRef={schoolAnswerSectionRef}
+        evaluationSectionRef={evaluationSectionRef}
+        editableFields={editableFields}
+        setEditableFields={setEditableFields}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        onBack={onNavigateBack}
+        onPrevious={onPrevious}
+        onNext={onNext}
+        hasPrevious={hasPrevious}
+        hasNext={hasNext}
+        currentPosition={currentPosition}
+        onQuestionUpdated={onQuestionUpdated}
+      />
     </QuestionProvider>
   );
 }; 

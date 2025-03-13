@@ -375,6 +375,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
   // Expose reset method that just exits edit mode
   useImperativeHandle(ref, () => ({
     resetChanges: () => {
+      console.log('[Content] Header cancel - resetChanges called');
       setEditableFields({
         title: false,
         content: false
@@ -383,6 +384,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
   }));
 
   const handleTitleChange = (value: string) => {
+    console.log('[Content] Title changed:', value);
     onContentChange({
       data: {
         ...question.data,
@@ -392,6 +394,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
   };
 
   const handleContentChange = (text: string) => {
+    console.log('[Content] Content changed:', text.slice(0, 50) + '...');
     onContentChange({
       data: {
         ...question.data,
@@ -405,34 +408,39 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
 
   const validateTitle = (value: string) => {
     if (!value || value.trim().length === 0) {
-      return { isValid: false, message: 'כותרת השאלה היא שדה חובה' };
+      return false;
     }
     if (value.length > 100) {
-      return { isValid: false, message: 'כותרת השאלה לא יכולה להיות ארוכה מ-100 תווים' };
+      return false;
     }
-    return { isValid: true };
+    return true;
   };
 
   const validateContent = (value: string) => {
     if (!value || value.trim().length === 0) {
-      return { isValid: false, message: 'תוכן השאלה הוא שדה חובה' };
+      return false;
     }
-    return { isValid: true };
+    return true;
   };
 
   return (
     <Space direction="vertical" style={{ width: '100%' }}>
       <EditableWrapper
         label="כותרת השאלה"
-        initialValue={question.data.name || ''}
         fieldPath="name"
         placeholder="הזן כותרת..."
         onValueChange={handleTitleChange}
         onBlur={onFieldBlur}
         validate={validateTitle}
         isEditing={editableFields.title}
-        onStartEdit={() => setEditableFields(prev => ({ ...prev, title: true }))}
-        onCancelEdit={() => setEditableFields(prev => ({ ...prev, title: false }))}
+        onStartEdit={() => {
+          console.log('[Content] Starting title edit');
+          setEditableFields(prev => ({ ...prev, title: true }));
+        }}
+        onCancelEdit={() => {
+          console.log('[Content] Canceling title edit');
+          setEditableFields(prev => ({ ...prev, title: false }));
+        }}
         renderEditMode={(value, onChange) => (
           <input
             value={value}
@@ -443,7 +451,8 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
               fontSize: '16px',
               padding: '8px',
               border: '1px solid #d9d9d9',
-              borderRadius: '4px'
+              borderRadius: '4px',
+              direction: 'rtl'
             }}
           />
         )}
@@ -451,19 +460,24 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
 
       <EditableWrapper
         label="תוכן השאלה"
-        initialValue={question.data.content?.text || ''}
         fieldPath="content.text"
         placeholder="הזן את תוכן השאלה..."
         onValueChange={handleContentChange}
         onBlur={onFieldBlur}
         validate={validateContent}
         isEditing={editableFields.content}
-        onStartEdit={() => setEditableFields(prev => ({ ...prev, content: true }))}
-        onCancelEdit={() => setEditableFields(prev => ({ ...prev, content: false }))}
+        onStartEdit={() => {
+          console.log('[Content] Starting content edit');
+          setEditableFields(prev => ({ ...prev, content: true }));
+        }}
+        onCancelEdit={() => {
+          console.log('[Content] Canceling content edit');
+          setEditableFields(prev => ({ ...prev, content: false }));
+        }}
         renderEditMode={(value, onChange) => (
           <EditorWrapper>
             <LexicalEditor
-              initialValue={value}
+              initialValue={value || ''}
               onChange={onChange}
               editable={true}
               placeholder="הזן את תוכן השאלה..."

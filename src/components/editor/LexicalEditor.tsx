@@ -238,8 +238,14 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
   editable = true 
 }, ref) => {
   const editorRef = React.useRef<LexicalEditorType | null>(null);
-  const isFirstMount = React.useRef(true);
+  const currentValueRef = React.useRef(initialValue);
   
+  console.log('[LexicalEditor] Component props:', { initialValue, currentValueRef: currentValueRef.current });
+  
+  useEffect(() => {
+    console.log('[LexicalEditor] Mount effect:', { initialValue, currentValue: currentValueRef.current });
+  }, [initialValue]);
+
   // Reset method
   const handleReset = useCallback((newText: string) => {
     if (!editorRef.current) return;
@@ -247,8 +253,12 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
     editorRef.current.update(() => {
       const root = $getRoot();
       root.clear();
-      $convertFromMarkdownString(newText, [...TRANSFORMERS, ...MATH_TRANSFORMERS, ...IMAGE_TRANSFORMERS]);
+      const paragraph = $createParagraphNode();
+      const text = $createTextNode(newText);
+      paragraph.append(text);
+      root.append(paragraph);
     });
+    currentValueRef.current = newText;
   }, []);
 
   // Expose reset method through ref
@@ -284,13 +294,18 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
     ],
     editorState: (editor: LexicalEditorType) => {
       editorRef.current = editor;
-      
-      if (isFirstMount.current) {
-        const root = $getRoot();
-        root.clear();
+      console.log('[LexicalEditor] Initializing with value:', initialValue);
+      const root = $getRoot();
+      root.clear();
+      if (initialValue) {
         $convertFromMarkdownString(initialValue, [...TRANSFORMERS, ...MATH_TRANSFORMERS, ...IMAGE_TRANSFORMERS]);
-        isFirstMount.current = false;
+      } else {
+        const paragraph = $createParagraphNode();
+        const text = $createTextNode('');
+        paragraph.append(text);
+        root.append(paragraph);
       }
+      console.log('[LexicalEditor] Root content after init:', root.getTextContent());
     }
   };
 
@@ -309,7 +324,14 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
           <LinkPlugin />
           <ListPlugin />
           <MarkdownShortcutPlugin transformers={[...TRANSFORMERS, ...MATH_TRANSFORMERS, ...IMAGE_TRANSFORMERS]} />
-          <OnChangePlugin onChange={onChange} />
+          <OnChangePlugin 
+            onChange={(value) => {
+              currentValueRef.current = value;
+              onChange?.(value);
+            }} 
+            onRef={(editor: LexicalEditorType | null) => editorRef.current = editor} 
+            originalValue={currentValueRef.current} 
+          />
         </Content>
         <div style={{ 
           marginTop: '20px', 
@@ -327,7 +349,7 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
           }}>
             תצוגה מקדימה
           </div>
-          <MarkdownRenderer content={initialValue || ''} />
+          <MarkdownRenderer content={currentValueRef.current || ''} />
         </div>
       </Container>
     </LexicalComposer>
@@ -336,18 +358,36 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
 
 export default LexicalEditor;
 
-// Simple OnChangePlugin
-function OnChangePlugin({ onChange }: { onChange?: (text: string) => void }) {
+// Simple OnChangePlugin that just reports changes
+function OnChangePlugin({ 
+  onChange, 
+  onRef,
+  originalValue
+}: { 
+  onChange?: (text: string) => void, 
+  onRef?: (editor: LexicalEditorType | null) => void,
+  originalValue: string
+}) {
   const [editor] = useLexicalComposerContext();
   
   useEffect(() => {
+    onRef?.(editor);
+    return () => onRef?.(null);
+  }, [editor, onRef]);
+
+  useEffect(() => {
     return editor.registerUpdateListener(({ editorState }) => {
       editorState.read(() => {
+        const root = $getRoot();
         const markdown = $convertToMarkdownString([...TRANSFORMERS, ...MATH_TRANSFORMERS, ...IMAGE_TRANSFORMERS]);
-        onChange?.(markdown);
+        console.log('[LexicalEditor] Content changed:', markdown);
+        // Only emit changes if they differ from the original value
+        if (markdown !== originalValue) {
+          onChange?.(markdown);
+        }
       });
     });
-  }, [editor, onChange]);
+  }, [editor, onChange, originalValue]);
 
   return null;
 } 

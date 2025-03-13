@@ -30,7 +30,7 @@ const ContentContainer = styled.div`
 
 interface QuestionEditorContainerProps {
   question: DatabaseQuestion;
-  onSave: (data: SaveQuestion) => Promise<void>;
+  onSave: (data: SaveQuestion) => Promise<DatabaseQuestion>;
   onQuestionUpdated: (updated: DatabaseQuestion) => void;
   onNavigateBack: () => void;
   onPrevious?: () => void;
@@ -51,6 +51,7 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
 }) => {
   const [editedQuestion, setEditedQuestion] = useState(initialQuestion);
   const [isModified, setIsModified] = useState(false);
+  const [providerKey, setProviderKey] = useState(0);
 
   const handleQuestionChange = (updated: Partial<DatabaseQuestion>) => {
     // Ensure we have a complete question by merging with current
@@ -64,10 +65,12 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
   useEffect(() => {
     setEditedQuestion(initialQuestion);
     setIsModified(false);
+    // Force QuestionProvider to re-mount with new question
+    setProviderKey(prev => prev + 1);
   }, [initialQuestion]);
 
   return (
-    <QuestionProvider question={initialQuestion}>
+    <QuestionProvider key={providerKey} question={initialQuestion}>
       <QuestionEditorContent
         question={editedQuestion}
         onQuestionChange={handleQuestionChange}
@@ -84,7 +87,7 @@ interface QuestionEditorContentProps {
   question: DatabaseQuestion;
   onQuestionChange: (updated: Partial<DatabaseQuestion>) => void;
   isModified: boolean;
-  onSave: (data: SaveQuestion) => Promise<void>;
+  onSave: (data: SaveQuestion) => Promise<DatabaseQuestion>;
   onQuestionUpdated: (updated: DatabaseQuestion) => void;
   onNavigateBack: () => void;
   onPrevious?: () => void;
@@ -118,7 +121,16 @@ const QuestionEditorContent: React.FC<QuestionEditorContentProps> = ({
   };
 
   const handleSave = async () => {
-    await onSave(question);
+    try {
+      const savedQuestion = await onSave(question);
+      // Update parent with saved question data
+      onQuestionUpdated(savedQuestion);
+      // Reset form state
+      setResetKey(Date.now());
+    } catch (error) {
+      console.error('Failed to save question:', error);
+      throw error;
+    }
   };
 
   const handleCancel = () => {

@@ -245,13 +245,11 @@ const EditableContent = styled.div`
 
 interface QuestionEditPageProps {
   question: DatabaseQuestion;
-  onSave: (data: SaveQuestion) => Promise<void>;
   onCancel: () => void;
 }
 
 export const QuestionEditPage: React.FC<QuestionEditPageProps> = ({
   question,
-  onSave,
   onCancel
 }) => {
   const [isModified, setIsModified] = useState(false);
@@ -315,14 +313,24 @@ export const QuestionEditPage: React.FC<QuestionEditPageProps> = ({
     return () => setPageIdentity(null);
   }, [question, setPageIdentity]);
 
-  const handleSave = async (data: SaveQuestion) => {
+  const handleSave = async (data: SaveQuestion): Promise<DatabaseQuestion> => {
     try {
-      await onSave(data);
+      await questionStorage.saveQuestion(data);
+      // Fetch the latest version of the question after save
+      const savedQuestion = await questionStorage.getQuestion(data.id);
+      if (!savedQuestion) {
+        throw new Error('Failed to fetch saved question');
+      }
+      
+      // Update the question state with the saved data
+      setUpdatedQuestion(savedQuestion);
       setIsModified(false);
       message.success('השאלה נשמרה בהצלחה');
+      return savedQuestion;
     } catch (error) {
       console.error('Failed to save question:', error);
       message.error('שגיאה בשמירת השאלה');
+      throw error;
     }
   };
 
@@ -333,6 +341,7 @@ export const QuestionEditPage: React.FC<QuestionEditPageProps> = ({
 
   const handleQuestionUpdated = (updated: DatabaseQuestion) => {
     setUpdatedQuestion(updated);
+    setIsModified(false);  // Reset modified state when question is updated
   };
 
   return (

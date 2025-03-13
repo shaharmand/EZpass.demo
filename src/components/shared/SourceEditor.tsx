@@ -82,6 +82,17 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({
       ...localValue,
       [field]: fieldValue
     };
+
+    // Clear period, moed, and order when selecting a government exam
+    if (field === 'examTemplateId') {
+      const selectedExam = examTemplates.find(exam => exam.id === fieldValue);
+      if (selectedExam?.examType === ExamType.GOVERNMENT_EXAM) {
+        newValue.period = undefined;
+        newValue.moed = undefined;
+        newValue.order = undefined;
+      }
+    }
+
     setLocalValue(newValue);
     onChange?.(newValue);
   };
@@ -273,89 +284,104 @@ export const SourceEditor: React.FC<SourceEditorProps> = ({
             </div>
           </div>
 
-          <div style={{ 
-            marginBottom: 16, 
-            padding: 0,
-            marginLeft: 0, 
-            marginRight: 0
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              gap: 12, 
-              padding: '8px',
-              borderRadius: '6px'
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', padding: 0 }}>
-                <div style={{ fontSize: 14, marginBottom: 4, color: 'rgba(0, 0, 0, 0.88)' }}>
-                  שנה:
-                </div>
-                <Select
-                  value={localValue.year}
-                  onChange={(year) => handleExamChange('year', year)}
-                  style={{ width: 70, minWidth: 70, padding: 0 }}
-                  options={Array.from({ length: 11 }, (_, i) => {
-                    const year = new Date().getFullYear() - i;
-                    return {
-                      label: year.toString(),
-                      value: year
-                    };
-                  })}
-                  dropdownMatchSelectWidth={false}
-                  size="small"
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ fontSize: 14, marginBottom: 4, color: 'rgba(0, 0, 0, 0.88)' }}>
-                  תקופה:
-                </div>
-                <Select
-                  labelInValue
-                  value={{
-                    value: localValue.period,
-                    label: getDisplayLabel(periodOptions, localValue.period)
-                  }}
-                  onChange={(selected) => handleExamChange('period', selected.value)}
-                  style={{ width: 80, minWidth: 80, padding: 0 }}
-                  options={periodOptions}
-                  dropdownMatchSelectWidth={false}
-                  size="small"
-                  placeholder="תקופה"
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ fontSize: 14, marginBottom: 4, color: 'rgba(0, 0, 0, 0.88)' }}>
-                  מועד:
-                </div>
-                <Select
-                  labelInValue
-                  value={{
-                    value: localValue.moed,
-                    label: getDisplayLabel(moedOptions, localValue.moed)
-                  }}
-                  onChange={(selected) => handleExamChange('moed', selected.value)}
-                  style={{ width: 55, minWidth: 55, padding: 0 }}
-                  options={moedOptions}
-                  dropdownMatchSelectWidth={false}
-                  size="small"
-                  placeholder="מועד"
-                />
-              </div>
-            </div>
-          </div>
+          {localValue.examTemplateId && (() => {
+            const selectedExam = examTemplates.find(exam => exam.id === localValue.examTemplateId);
+            const isGovernmentExam = selectedExam?.examType === ExamType.GOVERNMENT_EXAM;
 
-          <Form.Item 
-            label={<span style={{ fontSize: 14, color: 'rgba(0, 0, 0, 0.88)' }}>מספר שאלה:</span>}
-            style={{ marginBottom: 0 }}
-          >
-            <Input
-              value={localValue.order}
-              onChange={(e) => handleExamChange('order', parseInt(e.target.value))}
-              placeholder="מספר שאלה"
-              type="number"
-              min={1}
-              style={{ width: '100px' }}
-            />
-          </Form.Item>
+            return (
+              <>
+                <div style={{ 
+                  marginBottom: 16, 
+                  padding: 0,
+                  marginLeft: 0, 
+                  marginRight: 0
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: 12, 
+                    padding: '8px',
+                    borderRadius: '6px'
+                  }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', padding: 0 }}>
+                      <div style={{ fontSize: 14, marginBottom: 4, color: 'rgba(0, 0, 0, 0.88)' }}>
+                        שנה:
+                      </div>
+                      <Select
+                        value={localValue.year}
+                        onChange={(year) => handleExamChange('year', year)}
+                        style={{ width: 70, minWidth: 70, padding: 0 }}
+                        options={Array.from({ length: 11 }, (_, i) => {
+                          const year = new Date().getFullYear() - i;
+                          return {
+                            label: year.toString(),
+                            value: year
+                          };
+                        })}
+                        dropdownMatchSelectWidth={false}
+                        size="small"
+                      />
+                    </div>
+                    {!isGovernmentExam && (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <div style={{ fontSize: 14, marginBottom: 4, color: 'rgba(0, 0, 0, 0.88)' }}>
+                            תקופה:
+                          </div>
+                          <Select
+                            labelInValue
+                            value={{
+                              value: localValue.period,
+                              label: getDisplayLabel(periodOptions, localValue.period)
+                            }}
+                            onChange={(selected) => handleExamChange('period', selected.value)}
+                            style={{ width: 80, minWidth: 80, padding: 0 }}
+                            options={periodOptions}
+                            dropdownMatchSelectWidth={false}
+                            size="small"
+                            placeholder="תקופה"
+                          />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <div style={{ fontSize: 14, marginBottom: 4, color: 'rgba(0, 0, 0, 0.88)' }}>
+                            מועד:
+                          </div>
+                          <Select
+                            labelInValue
+                            value={{
+                              value: localValue.moed,
+                              label: getDisplayLabel(moedOptions, localValue.moed)
+                            }}
+                            onChange={(selected) => handleExamChange('moed', selected.value)}
+                            style={{ width: 55, minWidth: 55, padding: 0 }}
+                            options={moedOptions}
+                            dropdownMatchSelectWidth={false}
+                            size="small"
+                            placeholder="מועד"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {!isGovernmentExam && (
+                  <Form.Item 
+                    label={<span style={{ fontSize: 14, color: 'rgba(0, 0, 0, 0.88)' }}>מספר שאלה:</span>}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Input
+                      value={localValue.order}
+                      onChange={(e) => handleExamChange('order', parseInt(e.target.value))}
+                      placeholder="מספר שאלה"
+                      type="number"
+                      min={1}
+                      style={{ width: '100px' }}
+                    />
+                  </Form.Item>
+                )}
+              </>
+            );
+          })()}
         </>
       )}
 

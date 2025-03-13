@@ -63,22 +63,50 @@ const EditableFieldWrapper = styled.div`
   }
 `;
 
+const TopicSelectGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const SubtopicSelect = styled(Select)`
+  margin-top: 4px;
+`;
+
+interface TopicValue {
+  topicId: string | undefined;
+  subtopicId: string | undefined;
+}
+
+interface TopicMetadata {
+  topicId: string | null;
+  subtopicId: string | null;
+}
+
 const getDifficultyLabel = (difficulty: number): string => {
   switch (difficulty) {
     case 1:
-      return 'קל מאוד';
+      return `קל מאוד (${difficulty})`;
     case 2:
-      return 'קל';
+      return `קל (${difficulty})`;
     case 3:
-      return 'בינוני';
+      return `בינוני (${difficulty})`;
     case 4:
-      return 'קשה';
+      return `קשה (${difficulty})`;
     case 5:
-      return 'קשה מאוד';
+      return `קשה מאוד (${difficulty})`;
     default:
       return 'לא מוגדר';
   }
 };
+
+const difficultyOptions = [
+  { value: 1, label: 'קל מאוד (1)' },
+  { value: 2, label: 'קל (2)' },
+  { value: 3, label: 'בינוני (3)' },
+  { value: 4, label: 'קשה (4)' },
+  { value: 5, label: 'קשה מאוד (5)' }
+];
 
 export interface MetadataSectionHandle {
   resetChanges: () => void;
@@ -96,8 +124,7 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
   onFieldBlur
 }, ref) => {
   const [editableFields, setEditableFields] = useState({
-    topicId: false,
-    subtopicId: false,
+    topic: false,
     difficulty: false,
     estimatedTime: false,
     source: false
@@ -108,8 +135,7 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
     resetChanges: () => {
       console.log('[Metadata] Reset changes called');
       setEditableFields({
-        topicId: false,
-        subtopicId: false,
+        topic: false,
         difficulty: false,
         estimatedTime: false,
         source: false
@@ -130,6 +156,29 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
     });
   };
 
+  const handleTopicChange = (topicValue: TopicValue) => {
+    console.log('[Metadata] Topic/Subtopic changed:', topicValue);
+    
+    // Only include defined values in the update
+    const updates: Partial<typeof question.data.metadata> = {};
+    if (topicValue.topicId !== undefined) {
+      updates.topicId = topicValue.topicId;
+    }
+    if (topicValue.subtopicId !== undefined) {
+      updates.subtopicId = topicValue.subtopicId;
+    }
+    
+    onContentChange({
+      data: {
+        ...question.data,
+        metadata: {
+          ...question.data.metadata,
+          ...updates
+        }
+      }
+    });
+  };
+
   const domain = universalTopicsV2.getDomainSafe(
     question.data.metadata.subjectId,
     question.data.metadata.domainId
@@ -145,12 +194,8 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
       .find(st => st.id === subtopicId)?.name;
   };
 
-  const validateTopic = (value: string) => {
-    return !!value;
-  };
-
-  const validateSubtopic = (value: string) => {
-    return !!value;
+  const validateTopic = (value: TopicValue) => {
+    return !!value.topicId;
   };
 
   const validateDifficulty = (value: number) => {
@@ -168,69 +213,84 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
   return (
     <Space direction="vertical" style={{ width: '100%' }}>
       <EditableWrapper
-        label={<MetadataLabel>נושא</MetadataLabel>}
-        fieldPath="metadata.topicId"
+        label={<MetadataLabel>נושא ותת-נושא</MetadataLabel>}
+        fieldPath="metadata"
         placeholder="בחר נושא..."
-        onValueChange={(value) => handleMetadataChange('topicId', value)}
+        onValueChange={(value: TopicValue) => handleTopicChange(value)}
         onBlur={onFieldBlur}
         validate={validateTopic}
-        isEditing={editableFields.topicId}
+        isEditing={editableFields.topic}
         onStartEdit={() => {
-          console.log('[Metadata] Starting topic edit');
-          setEditableFields(prev => ({ ...prev, topicId: true }));
+          console.log('[Metadata] Starting topic/subtopic edit');
+          setEditableFields(prev => ({ ...prev, topic: true }));
         }}
         onCancelEdit={() => {
-          console.log('[Metadata] Canceling topic edit');
-          setEditableFields(prev => ({ ...prev, topicId: false }));
+          console.log('[Metadata] Canceling topic/subtopic edit');
+          setEditableFields(prev => ({ ...prev, topic: false }));
         }}
-        renderEditMode={(value, onChange) => (
-          <Select
-            value={value}
-            onChange={onChange}
-            style={{ width: '100%' }}
-            options={domain?.topics.map(t => ({
-              label: t.name,
-              value: t.id
-            }))}
-          />
-        )}
-        renderDisplayMode={(value) => (
-          <MetadataValue>{topic?.name || value}</MetadataValue>
-        )}
-      />
-
-      <EditableWrapper
-        label={<MetadataLabel>תת-נושא</MetadataLabel>}
-        fieldPath="metadata.subtopicId"
-        placeholder="בחר תת-נושא..."
-        onValueChange={(value) => handleMetadataChange('subtopicId', value)}
-        onBlur={onFieldBlur}
-        validate={validateSubtopic}
-        isEditing={editableFields.subtopicId}
-        onStartEdit={() => {
-          console.log('[Metadata] Starting subtopic edit');
-          setEditableFields(prev => ({ ...prev, subtopicId: true }));
+        renderEditMode={(value: any, onChange) => {
+          // Extract current values from metadata
+          const currentValue: TopicValue = {
+            topicId: value?.topicId,
+            subtopicId: value?.subtopicId
+          };
+          
+          return (
+            <TopicSelectGroup>
+              <Select
+                value={currentValue.topicId}
+                onChange={(topicId) => {
+                  // When topic changes, select the first subtopic if available
+                  const newTopic = domain?.topics.find(t => t.id === topicId);
+                  const firstSubtopic = newTopic?.subTopics?.[0];
+                  
+                  onChange({
+                    ...value,
+                    topicId,
+                    subtopicId: firstSubtopic?.id
+                  });
+                }}
+                style={{ width: '100%' }}
+                placeholder="בחר נושא..."
+                options={domain?.topics.map(t => ({
+                  label: t.name,
+                  value: t.id
+                }))}
+              />
+              <SubtopicSelect
+                value={currentValue.subtopicId}
+                onChange={(subtopicId) => {
+                  onChange({ ...value, subtopicId });
+                }}
+                style={{ width: '100%' }}
+                options={subtopics.map(st => ({
+                  label: st.name,
+                  value: st.id
+                }))}
+                disabled={!currentValue.topicId || subtopics.length === 0}
+                placeholder={!currentValue.topicId ? 'יש לבחור נושא תחילה' : 'בחר תת-נושא'}
+              />
+            </TopicSelectGroup>
+          );
         }}
-        onCancelEdit={() => {
-          console.log('[Metadata] Canceling subtopic edit');
-          setEditableFields(prev => ({ ...prev, subtopicId: false }));
-        }}
-        renderEditMode={(value, onChange) => (
-          <Select
-            value={value}
-            onChange={onChange}
-            style={{ width: '100%' }}
-            options={subtopics.map(st => ({
-              label: st.name,
-              value: st.id
-            }))}
-            disabled={!topic || subtopics.length === 0}
-            placeholder={!topic ? 'יש לבחור נושא תחילה' : 'בחר תת-נושא'}
-          />
-        )}
-        renderDisplayMode={(value) => {
-          const subtopicName = value ? getSubtopicName(value) : null;
-          return <MetadataValue>{subtopicName || 'לא נבחר תת-נושא'}</MetadataValue>;
+        renderDisplayMode={(value: any) => {
+          const topicName = domain?.topics.find(t => t.id === value?.topicId)?.name;
+          const subtopicName = value?.subtopicId ? getSubtopicName(value.subtopicId) : undefined;
+          
+          if (!topicName) return <MetadataValue>לא נבחר נושא</MetadataValue>;
+          
+          return (
+            <MetadataValue>
+              {subtopicName ? (
+                <>
+                  {subtopicName}
+                  {` (${topicName})`}
+                </>
+              ) : (
+                topicName
+              )}
+            </MetadataValue>
+          );
         }}
       />
 
@@ -251,24 +311,18 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
           setEditableFields(prev => ({ ...prev, difficulty: false }));
         }}
         renderEditMode={(value, onChange) => (
-          <div style={{ 
-            background: 'white',
-            border: '1px solid #d9d9d9',
-            borderRadius: '6px',
-            padding: '4px 11px'
-          }}>
-            <Rate
-              value={value}
-              onChange={onChange}
-              style={{ width: '100%' }}
-            />
-          </div>
+          <Select
+            value={value}
+            onChange={onChange}
+            style={{ width: '100%' }}
+            options={difficultyOptions}
+            placeholder="בחר רמת קושי..."
+          />
         )}
         renderDisplayMode={(value) => (
-          <Space size={8} align="center">
-            <Rate value={value} disabled />
-            <Text>{getDifficultyLabel(value)}</Text>
-          </Space>
+          <MetadataValue>
+            {getDifficultyLabel(value)}
+          </MetadataValue>
         )}
       />
 
@@ -293,7 +347,7 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
             type="number"
             value={value}
             onChange={(e) => onChange(Number(e.target.value))}
-            style={{ width: '100%' }}
+            style={{ width: '100px' }}
             suffix="דקות"
           />
         )}
@@ -335,7 +389,7 @@ export const MetadataSection = forwardRef<MetadataSectionHandle, MetadataSection
               ...(value.type === 'exam' ? {
                 examTemplateId: value.examTemplateId,
                 year: value.year,
-                season: value.period,
+                period: value.period,
                 moed: value.moed,
                 order: value.order
               } : {

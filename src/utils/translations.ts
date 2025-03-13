@@ -1,4 +1,5 @@
 import { QuestionType, DifficultyLevel, SourceType, QuestionStatus, ValidationStatus, PublicationStatusEnum, ExamPeriod, MoedType } from '../types/question';
+import { ExamType } from '../types/examTemplate';
 import { examService } from '../services/examService';
 import styled from 'styled-components';
 import { Card, Typography } from 'antd';
@@ -481,7 +482,7 @@ export const getQuestionSourceDisplay = (source: {
   sourceType: SourceType;
   examTemplateId?: string;
   year?: string | number;
-  season?: string;
+  period?: string;
   moed?: string;
   order?: string | number;
 }): string => {
@@ -494,9 +495,15 @@ export const getQuestionSourceDisplay = (source: {
       // Get exam name from exam service
       const exam = examService.getExamById(source.examTemplateId);
       const examName = exam?.names.short || source.examTemplateId;
-      
       const year = source.year?.toString() || '';
-      const season = source.season ? getEnumTranslation('period', source.season) : '';
+      
+      // For government exams, only show exam name and year
+      if (exam?.examType === ExamType.GOVERNMENT_EXAM) {
+        return [examName, year].filter(Boolean).join(' • ');
+      }
+      
+      // For other exams, show all fields
+      const period = source.period ? getEnumTranslation('period', source.period) : '';
       const moed = source.moed ? getEnumTranslation('moed', source.moed) : '';
       const order = source.order ? `שאלה ${source.order}` : '';
       
@@ -504,7 +511,7 @@ export const getQuestionSourceDisplay = (source: {
       const parts = [
         examName,
         year,
-        season,
+        period,
         moed,
         order
       ].filter(Boolean);

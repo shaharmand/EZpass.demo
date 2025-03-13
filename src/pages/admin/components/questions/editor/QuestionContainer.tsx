@@ -60,7 +60,6 @@ export const QuestionContainer: React.FC<QuestionContainerProps> = ({
       <QuestionContentSection
         key="content"
         question={question}
-        isEditing={editingSection === 'content'}
         onEdit={() => handleSectionEdit('content')}
         onSave={(data) => handleSectionSave('content', data)}
       />

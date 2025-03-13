@@ -96,7 +96,7 @@ export const EditableWrapper: React.FC<EditableWrapperProps> = ({
   return (
     <EditableContainer 
       onClick={() => !isEditing && onStartEdit?.()}
-      data-editing={isEditing}
+      $isEditing={isEditing}
       className={className}
       $hasChanges={hasChanges}
     >

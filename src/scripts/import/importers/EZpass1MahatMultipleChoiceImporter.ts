@@ -357,14 +357,11 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
         const cleanedRow = row as CleanedRow;
         
         // Map category to topic structure only if category exists
-        let topicId: string | undefined;
-        let subtopicId: string | undefined;
+        let topicMapping: { topicId: string; subtopicId: string } | undefined;
         
         if (cleanedRow.category) {
             try {
-                const mapping = CategoryMapper.mapCategoryToTopic(cleanedRow.category);
-                topicId = mapping.topicId;
-                subtopicId = mapping.subtopicId;
+                topicMapping = CategoryMapper.mapCategoryToTopic(cleanedRow.category);
             } catch (error) {
                 console.error(`Failed to map category "${cleanedRow.category}" to topic structure:`, error);
                 // Leave topic/subtopic undefined
@@ -383,7 +380,7 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
             examInfoYear: examInfo?.year,
             examInfoPeriod: examInfo?.period,
             category: cleanedRow.category,
-            hasTopicMapping: !!topicId
+            hasTopicMapping: !!topicMapping
         });
 
         const transformed: Omit<Question, 'id'> = {
@@ -411,22 +408,14 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
             metadata: {
                 subjectId: 'civil_engineering',
                 domainId: 'construction_safety',
-                topicId: topicId || '',
-                subtopicId: subtopicId || '',
+                topicId: topicMapping?.topicId || '',
+                subtopicId: topicMapping?.subtopicId || '',
                 type: QuestionType.MULTIPLE_CHOICE,
                 difficulty: 3,
                 answerFormat: {
-                    type: QuestionType.MULTIPLE_CHOICE,
                     hasFinalAnswer: true,
                     finalAnswerType: 'multiple_choice',
-                    requiresSolution: false,
-                    format: {
-                        type: 'multiple_choice',
-                        numOptions: 4,
-                        hasFinalAnswer: true,
-                        finalAnswerType: 'multiple_choice',
-                        requiresSolution: false
-                    }
+                    requiresSolution: false
                 },
                 estimatedTime: 3,
                 source: examInfo ? {

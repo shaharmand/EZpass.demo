@@ -10,6 +10,8 @@ import { QuestionGenerator } from '../pages/admin/questions/generate';
 import { CreateQuestionWizard } from '../pages/admin/components/questions/create/CreateQuestionWizard';
 import { DatabaseQuestion, SaveQuestion } from '../types/question';
 import { questionStorage } from '../services/admin/questionStorage';
+import { questionLibrary } from '../services/questionLibrary';
+import { useSearchResults } from '../contexts/SearchResultsContext';
 
 // Wrapper component to handle loading question data and state management
 const QuestionEditPageWrapper: React.FC = () => {
@@ -17,22 +19,63 @@ const QuestionEditPageWrapper: React.FC = () => {
   const navigate = useNavigate();
   const [question, setQuestion] = useState<DatabaseQuestion | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingLibrary, setLoadingLibrary] = useState(false);
+  const { setSearchResults, searchResults } = useSearchResults();
 
+  console.log('[QuestionEditPageWrapper] Component mounted, id:', id);
+
+  // Load the question list only once when component mounts
+  useEffect(() => {
+    const loadQuestionList = async () => {
+      if (searchResults) {
+        console.log('[QuestionEditPageWrapper] Using existing question list:', searchResults.length);
+        return;
+      }
+      
+      try {
+        console.log('[QuestionEditPageWrapper] Loading initial question list...');
+        setLoadingLibrary(true);
+        
+        // First ensure we have a current list in questionLibrary
+        await questionLibrary.updateCurrentList({});
+        
+        // Get the full list of questions for navigation
+        const questions = await questionStorage.getFilteredQuestions({});
+        setSearchResults(questions);
+        
+        console.log('[QuestionEditPageWrapper] Library list loaded, total questions:', questions.length);
+      } catch (error) {
+        console.error('[QuestionEditPageWrapper] Failed to load question list:', error);
+        message.error('Failed to load question list');
+      } finally {
+        setLoadingLibrary(false);
+      }
+    };
+
+    loadQuestionList();
+  }, [setSearchResults, searchResults]);
+
+  // Load specific question when ID changes
   useEffect(() => {
     const loadQuestion = async () => {
       if (!id) return;
       
       try {
+        console.log('[QuestionEditPageWrapper] Loading question:', id);
         setLoading(true);
+        
         const questionData = await questionStorage.getQuestion(id);
+        console.log('[QuestionEditPageWrapper] Question loaded:', questionData?.id);
+        
         if (questionData) {
           setQuestion(questionData);
         } else {
+          console.log('[QuestionEditPageWrapper] Question not found');
           message.error('Question not found');
           navigate('/admin/questions');
         }
       } catch (error) {
-        console.error('Failed to load question:', error);
+        console.error('[QuestionEditPageWrapper] Failed to load question:', error);
         message.error('Failed to load question');
         navigate('/admin/questions');
       } finally {
@@ -48,14 +91,33 @@ const QuestionEditPageWrapper: React.FC = () => {
   };
 
   if (loading || !question) {
-    return <div>Loading...</div>;
+    console.log('[QuestionEditPageWrapper] Still loading:', { loading, hasQuestion: !!question });
+    return <div>Loading question...</div>;
   }
 
+  console.log('[QuestionEditPageWrapper] Rendering QuestionEditPage');
   return (
-    <QuestionEditPage
-      question={question}
-      onCancel={handleCancel}
-    />
+    <>
+      {loadingLibrary && (
+        <div style={{ 
+          position: 'fixed', 
+          top: '16px', 
+          right: '16px', 
+          padding: '8px 16px',
+          background: '#1677ff',
+          color: 'white',
+          borderRadius: '4px',
+          zIndex: 1000,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+        }}>
+          Loading question list...
+        </div>
+      )}
+      <QuestionEditPage
+        question={question}
+        onCancel={handleCancel}
+      />
+    </>
   );
 };
 

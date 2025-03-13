@@ -17,6 +17,7 @@ CREATE TABLE questions (
   review_status review_status_enum NOT NULL DEFAULT 'pending_review',
   review_metadata JSONB NOT NULL DEFAULT '{"reviewedAt": null, "reviewedBy": "system", "comments": null}'::jsonb,
   update_metadata JSONB NOT NULL DEFAULT '{"lastUpdatedAt": null, "lastUpdatedBy": null}'::jsonb,
+  creation_metadata JSONB NOT NULL DEFAULT jsonb_build_object('createdAt', CURRENT_TIMESTAMP, 'createdBy', 'system'),
   ai_generated_fields JSONB NOT NULL DEFAULT '{"fields": [], "confidence": {}, "generatedAt": null}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -105,6 +106,13 @@ CREATE TABLE questions (
   CONSTRAINT valid_publication_review_state CHECK (
     (publication_status = 'published' AND review_status = 'approved')
     OR (publication_status IN ('draft', 'archived'))
+  ),
+
+  -- Add constraint for creation metadata
+  CONSTRAINT valid_creation_metadata CHECK (
+    jsonb_typeof(creation_metadata) = 'object'
+    AND creation_metadata->>'createdAt' IS NOT NULL
+    AND creation_metadata->>'createdBy' IS NOT NULL
   )
 );
 
@@ -127,6 +135,7 @@ COMMENT ON COLUMN questions.review_status IS 'Status of the question review proc
 COMMENT ON COLUMN questions.review_metadata IS 'Metadata about the review process including who reviewed and when';
 COMMENT ON COLUMN questions.ai_generated_fields IS 'Tracks which fields were AI-generated, with confidence scores and generation time';
 COMMENT ON COLUMN questions.update_metadata IS 'Tracks who last updated the question and when';
+COMMENT ON COLUMN questions.creation_metadata IS 'Metadata about question creation including who created it and when';
 
 -- Create a function to handle review status changes
 CREATE OR REPLACE FUNCTION handle_review_status_change()
@@ -355,4 +364,45 @@ CREATE TRIGGER update_question_metadata_trigger
   BEFORE UPDATE ON questions
   FOR EACH ROW
   WHEN (OLD.* IS DISTINCT FROM NEW.*)
-  EXECUTE FUNCTION update_question_metadata(); 
+  EXECUTE FUNCTION update_question_metadata();
+
+-- Add creation metadata handling function
+CREATE OR REPLACE FUNCTION handle_question_creation()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_user_id uuid;
+  v_user_name text;
+BEGIN
+  -- Get the current user's ID
+  v_user_id := auth.uid();
+  
+  -- Get the user's first and last name from profiles
+  SELECT 
+    CASE 
+      WHEN first_name IS NOT NULL AND last_name IS NOT NULL THEN first_name || ' ' || last_name
+      WHEN first_name IS NOT NULL THEN first_name
+      WHEN last_name IS NOT NULL THEN last_name
+      ELSE v_user_id::text
+    END INTO v_user_name
+  FROM profiles
+  WHERE id = v_user_id;
+
+  -- Set creation metadata for new questions
+  NEW.creation_metadata = jsonb_build_object(
+    'createdAt', NEW.created_at,
+    'createdBy', COALESCE(v_user_name, 'system')
+  );
+
+  RETURN NEW;
+END;
+$$ language 'plpgsql' SECURITY DEFINER;
+
+-- Create a trigger to handle question creation
+DROP TRIGGER IF EXISTS handle_question_creation_trigger ON questions;
+CREATE TRIGGER handle_question_creation_trigger
+  BEFORE INSERT ON questions
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_question_creation();
+
+-- Add comment explaining the function
+COMMENT ON FUNCTION handle_question_creation() IS 'Automatically sets creation metadata when a new question is created'; 

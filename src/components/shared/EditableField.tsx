@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Button } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
 
-const EditableFieldContainer = styled.div`
+const EditableFieldContainer = styled.div<{ $isEditing?: boolean }>`
   position: relative;
   width: 100%;
   background: #fff;
@@ -19,11 +19,11 @@ const EditableFieldContainer = styled.div`
     background: #fafafa;
   }
 
-  &[data-editing="true"] {
+  ${props => props.$isEditing && `
     border-color: #40a9ff;
     background: #fff;
     box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
-  }
+  `}
 
   .edit-field-header {
     display: flex;
@@ -133,7 +133,7 @@ export const EditableField: React.FC<EditableFieldProps> = ({
   return (
     <EditableFieldContainer 
       onClick={() => !isEditing && onEdit()}
-      data-editing={isEditing}
+      $isEditing={isEditing}
       className={className}
     >
       <div className="edit-field-header">

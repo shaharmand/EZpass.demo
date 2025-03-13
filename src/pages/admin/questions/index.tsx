@@ -17,7 +17,7 @@ export default function QuestionsPage() {
   const handleCreateNewQuestion = async () => {
     try {
       // Create a new question template with the selected values
-      const newQuestionTemplate = createEmptyQuestion();
+      const newQuestionTemplate = createEmptyQuestion(selectedType);
       
       // Set the core identity fields
       newQuestionTemplate.data.metadata.subjectId = selectedSubject;

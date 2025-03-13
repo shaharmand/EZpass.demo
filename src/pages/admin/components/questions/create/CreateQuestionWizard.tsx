@@ -76,7 +76,7 @@ export const CreateQuestionWizard: React.FC<CreateQuestionWizardProps> = ({
     setIsLoading(true);
     try {
       // Create a new question template
-      const newQuestionTemplate = createEmptyQuestion();
+      const newQuestionTemplate = createEmptyQuestion(values.type);
       
       // Set the core identity fields
       newQuestionTemplate.data.metadata.subjectId = values.subjectId;

@@ -288,6 +288,19 @@ export const DEFAULT_UPDATE_METADATA: UpdateMetadata = {
   lastUpdatedBy: 'system'
 };
 
+export interface CreateMetadata {
+  createdAt: string;
+  createdBy?: string;
+}
+
+/**
+ * Default empty create metadata
+ */
+export const DEFAULT_CREATE_METADATA: CreateMetadata = {
+  createdAt: new Date().toISOString(),
+  createdBy: 'system'
+};
+
 // Question as stored in DB - includes server-managed fields
 export interface DatabaseQuestion {
   id: string;
@@ -300,9 +313,11 @@ export interface DatabaseQuestion {
   validation_status: ValidationStatus;
   review_status: ReviewStatusEnum;
   review_metadata: ReviewMetadata;
-  update_metadata?: UpdateMetadata;
   
   // Metadata fields
+  update_metadata?: UpdateMetadata;
+  creation_metadata?: CreateMetadata;
+  // Additional fields
   ai_generated_fields: AIGeneratedFields;
   import_info?: ImportInfo;
   
@@ -322,7 +337,12 @@ export function createDatabaseQuestion(question: Question): DatabaseQuestion {
     review_status: ReviewStatusEnum.PENDING_REVIEW,
     review_metadata: DEFAULT_REVIEW_METADATA,
     update_metadata: DEFAULT_UPDATE_METADATA,
+    creation_metadata: {
+      createdAt: new Date().toISOString(),
+      createdBy: 'system'
+    },
     ai_generated_fields: DEFAULT_AI_GENERATED_FIELDS,
+    import_info: undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
@@ -640,7 +660,12 @@ export const createEmptyQuestion = (type: QuestionType): DatabaseQuestion => {
     review_status: ReviewStatusEnum.PENDING_REVIEW,
     review_metadata: DEFAULT_REVIEW_METADATA,
     update_metadata: DEFAULT_UPDATE_METADATA,
+    creation_metadata: {
+      createdAt: new Date().toISOString(),
+      createdBy: 'system'
+    },
     ai_generated_fields: DEFAULT_AI_GENERATED_FIELDS,
+    import_info: undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };

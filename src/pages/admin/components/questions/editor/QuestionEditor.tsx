@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { message } from 'antd';
-import { Question, QuestionType, QuestionAnswerFormat, EMPTY_EVALUATION_GUIDELINES } from '../../../../../types/question';
+import { Question, QuestionType, AnswerFormatRequirements, EMPTY_EVALUATION_GUIDELINES } from '../../../../../types/question';
 import styled from 'styled-components';
 
 const EditorContainer = styled.div`
@@ -20,34 +20,26 @@ interface NewQuestionState {
   type: QuestionType;
 }
 
-const getAnswerFormatForType = (type: QuestionType): QuestionAnswerFormat => {
+const getAnswerFormatForType = (type: QuestionType): AnswerFormatRequirements => {
   switch (type) {
     case QuestionType.MULTIPLE_CHOICE:
       return {
-        type: 'multiple_choice',
-        numOptions: 4,
         hasFinalAnswer: true,
         finalAnswerType: 'multiple_choice',
         requiresSolution: true
       };
     case QuestionType.NUMERICAL:
       return {
-        type: 'numerical',
         hasFinalAnswer: true,
         finalAnswerType: 'numerical',
-        requiresSolution: true,
-        precision: 2, // Default 2 decimal places
-        unit: undefined // Optional unit can be set later
+        requiresSolution: true
       };
     case QuestionType.OPEN:
     default:
       return {
-        type: 'open',
         hasFinalAnswer: false,
         finalAnswerType: 'none',
-        requiresSolution: true,
-        minWords: 0,
-        maxWords: 1000
+        requiresSolution: true
       };
   }
 };
@@ -84,13 +76,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({ onSave }) => {
             topicId: '', // Will be selected in editor
             type: initialData.type,
             difficulty: 1,
-            answerFormat: {
-              type: initialData.type,
-              hasFinalAnswer: initialData.type === QuestionType.MULTIPLE_CHOICE,
-              finalAnswerType: initialData.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' : 'none',
-              requiresSolution: true,
-              format: getAnswerFormatForType(initialData.type)
-            }
+            answerFormat: getAnswerFormatForType(initialData.type)
           },
           schoolAnswer: {
             solution: {

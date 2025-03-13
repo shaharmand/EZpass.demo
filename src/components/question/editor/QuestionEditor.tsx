@@ -99,6 +99,26 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
     onModified?.(true);
   };
 
+  const handleMetadataChange = (changes: Partial<DatabaseQuestion>) => {
+    // Extract and apply metadata changes
+    if (changes.data?.metadata) {
+      // Update the question's metadata
+      question.data.metadata = {
+        ...question.data.metadata,
+        ...changes.data.metadata
+      };
+      
+      // Mark metadata as modified
+      setChangedFields(prev => {
+        const next = new Set(prev);
+        next.add('metadata');
+        return next;
+      });
+      setIsModified(true);
+      onModified?.(true);
+    }
+  };
+
   const handleSave = async () => {
     if (!question) return;
 
@@ -117,8 +137,12 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
             ...updatedData.content,
             text: question.data.content.text
           };
+        } else if (field === 'metadata') {
+          updatedData.metadata = {
+            ...updatedData.metadata,
+            ...question.data.metadata
+          };
         }
-        // Add other field updates as needed
       });
 
       // Prepare the save operation with all required fields
@@ -153,6 +177,8 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
             domainId={question.data.metadata.domainId}
             isEditing={isEditing}
             onPropertyChange={handlePropertyChange}
+            question={question}
+            onContentChange={handleMetadataChange}
           />
         </PropertiesPanelContainer>
         

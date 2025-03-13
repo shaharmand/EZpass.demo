@@ -64,6 +64,17 @@ export const NewQuestionEditor: React.FC<NewQuestionEditorProps> = ({
       onBack={handleBack}
       sidebarContent={
         <PropertiesPanel
+          question={question}
+          onContentChange={(changes) => {
+            setIsModified(true);
+            // Transform Partial<DatabaseQuestion> to SaveQuestion
+            const saveData: SaveQuestion = {
+              id: question.id,
+              data: changes.data,
+              publication_status: question.publication_status
+            };
+            handleSave(saveData);
+          }}
           type={question.data.metadata.type}
           topicId={question.data.metadata.topicId}
           subtopicId={question.data.metadata.subtopicId}

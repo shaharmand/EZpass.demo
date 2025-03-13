@@ -4,6 +4,7 @@ import { Space, Typography, Collapse, Affix, Button, Tooltip, Badge } from 'antd
 import { DatabaseOutlined, BookOutlined, CheckOutlined, StarOutlined, MenuFoldOutlined } from '@ant-design/icons';
 import { DatabaseQuestion } from '../../../../types/question';
 import { MetadataSection } from '../../../../pages/admin/components/questions/editor/content/MetadataSection';
+import { QuestionType, DifficultyLevel } from '../../../../types/question';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -139,6 +140,16 @@ const SectionTitle = styled.div`
 `;
 
 interface PropertiesPanelProps {
+  type: QuestionType;
+  topicId: string;
+  subtopicId: string | undefined;
+  difficulty: DifficultyLevel;
+  estimatedTime: number | undefined;
+  source: { type: "exam"; examTemplateId: string; year: number; period?: string; moed?: string; order?: number } | { type: "ezpass"; creatorType: string } | undefined;
+  subjectId: string;
+  domainId: string;
+  isEditing: boolean;
+  onPropertyChange: (property: string, value: any) => void;
   question: DatabaseQuestion;
   onContentChange: (changes: Partial<DatabaseQuestion>) => void;
   onFieldBlur?: () => void;
@@ -147,7 +158,17 @@ interface PropertiesPanelProps {
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   question,
   onContentChange,
-  onFieldBlur
+  onFieldBlur,
+  type,
+  topicId,
+  subtopicId,
+  difficulty,
+  estimatedTime,
+  source,
+  subjectId,
+  domainId,
+  isEditing,
+  onPropertyChange
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState('metadata');
@@ -241,43 +262,14 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       </NavigationTabs>
 
       <PanelContent>
-        <Space direction="vertical" size={32} style={{ width: '100%' }}>
-          <div id="metadata">
-            <SectionTitle>
-              <DatabaseOutlined />
-              מטא-דאטה
-            </SectionTitle>
-            <MetadataSection
-              question={question}
-              onContentChange={onContentChange}
-              onFieldBlur={onFieldBlur}
-            />
-          </div>
-
-          <div id="classification">
-            <SectionTitle>
-              <BookOutlined />
-              סיווג
-            </SectionTitle>
-            {/* Classification content */}
-          </div>
-
-          <div id="evaluation">
-            <SectionTitle>
-              <StarOutlined />
-              הערכה
-            </SectionTitle>
-            {/* Evaluation content */}
-          </div>
-
-          <div id="validation">
-            <SectionTitle>
-              <CheckOutlined />
-              תיקוף
-            </SectionTitle>
-            {/* Validation content */}
-          </div>
-        </Space>
+        {activeSection === 'metadata' && (
+          <MetadataSection
+            question={question}
+            onContentChange={onContentChange}
+            onFieldBlur={onFieldBlur}
+          />
+        )}
+        {/* Add other sections here when they are implemented */}
       </PanelContent>
     </PanelContainer>
   );

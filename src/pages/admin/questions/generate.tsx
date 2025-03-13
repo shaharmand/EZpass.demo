@@ -236,7 +236,6 @@ export const QuestionGenerator: React.FC = () => {
               <Panel header="תוכן השאלה" key="content">
                 <QuestionContentSection
                   question={result.question}
-                  isEditing={false}
                   onEdit={() => {}}
                   onSave={handleSave}
                 />

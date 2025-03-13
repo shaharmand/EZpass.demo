@@ -556,7 +556,14 @@ const QuestionEditorInner: React.FC<{
               <QuestionContentSection
                 ref={contentSectionRef}
                 question={editedQuestion}
-                onContentChange={onQuestionChange}
+                onEdit={() => {
+                  // This is called when editing starts/ends
+                  setEditableFields(prev => ({ ...prev, content: !prev.content }));
+                }}
+                onSave={async (changes) => {
+                  // This is called when content changes
+                  onQuestionChange(changes);
+                }}
               />
             </SectionContent>
           </div>

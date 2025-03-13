@@ -20,6 +20,11 @@ import { MarkdownRenderer } from '../../../../../../components/MarkdownRenderer'
 
 const { Title, Text } = Typography;
 
+const LexicalEditorWrapper = styled.div`
+  min-height: 80px;
+  width: 100%;
+`;
+
 const ContentCard = styled(Card)`
   .ant-card-body {
     padding: 12px;
@@ -287,8 +292,8 @@ export interface QuestionContentSectionHandle {
 
 export interface QuestionContentSectionProps {
   question: DatabaseQuestion;
-  onContentChange: (changes: Partial<DatabaseQuestion>) => void;
-  onFieldBlur?: () => void;
+  onEdit: () => void;
+  onSave: (data: any) => Promise<void>;
 }
 
 const EditableFieldContainer = styled.div`
@@ -524,8 +529,8 @@ const RadioButton = styled.div<{ isSelected: boolean }>`
 
 export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, QuestionContentSectionProps>(({
   question,
-  onContentChange,
-  onFieldBlur
+  onEdit,
+  onSave
 }, ref) => {
   const [editableFields, setEditableFields] = useState({
     content: false,
@@ -546,7 +551,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
 
   const handleContentChange = (text: string) => {
     console.log('[Content] Content changed:', text.slice(0, 50) + '...');
-    onContentChange({
+    onSave({
       data: {
         ...question.data,
         content: {
@@ -578,7 +583,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
             fieldPath="content.text"
             placeholder="הזן את תוכן השאלה..."
             onValueChange={handleContentChange}
-            onBlur={onFieldBlur}
+            onBlur={onEdit}
             validate={validateContent}
             isEditing={editableFields.content}
             onStartEdit={() => {
@@ -588,12 +593,13 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
               setEditableFields(prev => ({ ...prev, content: false }));
             }}
             renderEditMode={(value, onChange) => (
-              <LexicalEditor
-                initialValue={value}
-                onChange={onChange}
-                placeholder="הזן את תוכן השאלה..."
-                style={{ minHeight: '80px' }}
-              />
+              <LexicalEditorWrapper>
+                <LexicalEditor
+                  initialValue={value}
+                  onChange={onChange}
+                  placeholder="הזן את תוכן השאלה..."
+                />
+              </LexicalEditorWrapper>
             )}
             renderDisplayMode={(value) => (
               <ContentDisplay data-placeholder="לא הוזן תוכן">
@@ -618,7 +624,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
                 placeholder="הזן אפשרויות..."
                 onValueChange={(value) => {
                   setOptionsTextChanges(true);
-                  onContentChange({
+                  onSave({
                     data: {
                       ...question.data,
                       content: {
@@ -630,7 +636,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
                 }}
                 onBlur={() => {
                   setOptionsTextChanges(false);
-                  onFieldBlur?.();
+                  onEdit();
                 }}
                 validate={(value) => Array.isArray(value) && value.length > 0}
                 isEditing={editableFields.options}
@@ -671,7 +677,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
                           <RadioButton
                             isSelected={isSelected}
                             onClick={() => {
-                              onContentChange({
+                              onSave({
                                 data: {
                                   ...question.data,
                                   schoolAnswer: {

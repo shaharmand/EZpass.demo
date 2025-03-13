@@ -9,6 +9,7 @@ import { QuestionStorage } from '../../../services/admin/questionStorage';
 import { TitleGenerator } from '../utils/TitleGenerator';
 import xlsx from 'xlsx';
 import { logger } from '../../../utils/logger';
+import { TopicMapping } from '../utils/CategoryMapper';
 
 // Raw source row - all fields needed throughout the pipeline
 interface RawSourceRow {
@@ -136,7 +137,7 @@ export class EZpass1ConstructionCommiteeOpenImporter extends BaseImporter {
         const cleanedRow = row as CleanedRow;
         
         // Map category to topic structure
-        const { topicId, subtopicId } = CategoryMapper.mapCategoryToTopic(cleanedRow.category);
+        const topicMapping = CategoryMapper.mapCategoryToTopic(cleanedRow.category);
 
         const transformed: Omit<Question, 'id'> = {
             name: cleanedRow.title,
@@ -153,21 +154,14 @@ export class EZpass1ConstructionCommiteeOpenImporter extends BaseImporter {
             metadata: {
                 subjectId: 'civil_engineering',
                 domainId: 'construction_safety',
-                topicId,
-                subtopicId,
+                topicId: topicMapping.topicId,
+                subtopicId: topicMapping.subtopicId,
                 type: QuestionType.OPEN,
                 difficulty: 3,
                 answerFormat: {
-                    type: QuestionType.OPEN,
                     hasFinalAnswer: false,
-                    requiresSolution: true,
                     finalAnswerType: 'none',
-                    format: {
-                        type: 'open',
-                        hasFinalAnswer: false,
-                        finalAnswerType: 'none',
-                        requiresSolution: true
-                    }
+                    requiresSolution: true
                 },
                 estimatedTime: 10,
                 source: {

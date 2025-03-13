@@ -70,16 +70,19 @@ export const SolutionSection = forwardRef<SolutionSectionHandle, SolutionSection
     onContentChange({
       data: {
         ...question.data,
-        solution: {
-          text,
-          format: 'markdown'
+        schoolAnswer: {
+          ...question.data.schoolAnswer,
+          solution: {
+            text,
+            format: 'markdown'
+          }
         }
       }
     });
   };
 
-  const validateSolution = (value: string) => {
-    return value && value.trim().length > 0;
+  const validateSolution = (value: string): boolean => {
+    return Boolean(value && value.trim().length > 0);
   };
 
   return (

@@ -1,44 +1,27 @@
 import styled from 'styled-components';
 import { Button, Input } from 'antd';
 
-export const EditableContainer = styled.div<{ $hasChanges?: boolean; $hasError?: boolean }>`
-  position: relative;
-  width: 100%;
-  padding: 16px;
-  background: ${props => props.$hasError ? '#fff2f0' : props.$hasChanges ? '#fffbe6' : '#fff'};
-  border-radius: 8px;
+interface EditableContainerProps {
+  $hasError?: boolean;
+  $hasChanges?: boolean;
+  $isEditing?: boolean;
+}
+
+export const EditableContainer = styled.div<EditableContainerProps>`
+  padding: 12px;
+  border-radius: 4px;
+  background: #fff;
   border: 1px solid ${props => props.$hasError ? '#ff4d4f' : props.$hasChanges ? '#faad14' : '#f0f0f0'};
   transition: all 0.2s ease;
-  cursor: ${props => props['data-editing'] ? 'default' : 'pointer'};
+  cursor: ${props => props.$isEditing ? 'default' : 'pointer'};
 
   &:hover {
     border-color: ${props => props.$hasError ? '#ff7875' : props.$hasChanges ? '#d48806' : '#40a9ff'};
-    background: ${props => props.$hasError ? '#fff2f0' : props.$hasChanges ? '#fffbe6' : '#fafafa'};
-    
-    &:before {
-      content: "ערוך";
-      position: absolute;
-      top: -10px;
-      right: 10px;
-      background: #fff;
-      padding: 0 8px;
-      font-size: 12px;
-      color: #8c8c8c;
-      border-radius: 4px;
-      box-shadow: 0 2px 0 rgba(0,0,0,0.015);
-      opacity: 1;
-      transform: translateY(0);
-      transition: all 0.2s ease;
-    }
   }
 
-  &[data-editing="true"] {
-    border-color: ${props => props.$hasChanges ? '#faad14' : '#40a9ff'};
-    box-shadow: 0 0 0 2px ${props => props.$hasChanges ? 'rgba(250, 173, 20, 0.2)' : 'rgba(24, 144, 255, 0.2)'};
-    
-    &:before {
-      display: none;
-    }
+  &:focus-within {
+    border-color: #40a9ff;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
   }
 `;
 

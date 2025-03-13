@@ -502,7 +502,7 @@ const PaginationSection = styled.div`
 `;
 
 export function QuestionLibraryPage() {
-  const [questions, setQuestions] = useState<QuestionListItem[]>([]);
+  const [questions, setQuestions] = useState<DatabaseQuestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -552,58 +552,9 @@ export function QuestionLibraryPage() {
       // Update the questionLibrary's current list with the current filters
       await questionLibrary.updateCurrentList(filters);
       const loadedQuestions = await questionStorage.getFilteredQuestions(filters);
-      const filteredQuestions = loadedQuestions
-        .filter(question => question && typeof question.id === 'string' && !question.id.startsWith('test_'))
-        .map(question => {
-          let mappedSource: QuestionListItem['metadata']['source'] = undefined;
-          if (question.data.metadata.source) {
-            if (question.data.metadata.source.type === 'exam') {
-              mappedSource = {
-                type: SourceType.EXAM,
-                examTemplateId: question.data.metadata.source.examTemplateId,
-                year: question.data.metadata.source.year,
-                period: question.data.metadata.source.period,
-                moed: question.data.metadata.source.moed
-              };
-            } else if (question.data.metadata.source.type === 'ezpass') {
-              mappedSource = {
-                type: SourceType.EZPASS,
-                creatorType: question.data.metadata.source.creatorType
-              };
-            }
-          }
-
-          return {
-            id: question.id,
-            name: question.data.name || 'Untitled',
-            content: {
-              text: typeof question.data.content === 'string' ? question.data.content : 
-                    typeof question.data.content === 'object' && 'text' in question.data.content ? question.data.content.text :
-                    JSON.stringify(question.data.content),
-              format: 'markdown' as const
-            },
-            metadata: {
-              subjectId: question.data.metadata.subjectId,
-              domainId: question.data.metadata.domainId,
-              topicId: question.data.metadata.topicId,
-              subtopicId: question.data.metadata.subtopicId || '',
-              type: question.data.metadata.type,
-              difficulty: question.data.metadata.difficulty,
-              estimatedTime: question.data.metadata.estimatedTime || 0,
-              answerFormat: question.data.metadata.answerFormat,
-              source: mappedSource
-            },
-            validation_status: question.validation_status,
-            publication_status: question.publication_status,
-            review_status: question.review_status,
-            review_metadata: question.review_metadata,
-            ai_generated_fields: question.ai_generated_fields,
-            import_info: question.import_info,
-            created_at: question.created_at,
-            updated_at: question.updated_at
-          };
-        });
-      setQuestions(filteredQuestions);
+      setQuestions(loadedQuestions.filter(question => 
+        question && typeof question.id === 'string' && !question.id.startsWith('test_')
+      ));
     } catch (error) {
       message.error('Failed to load questions');
       console.error('Load error:', error);
@@ -627,29 +578,24 @@ export function QuestionLibraryPage() {
       const question = questions.find(q => q.id === questionId);
       if (!question) return;
 
-      const updatedQuestion: QuestionListItem = {
-        ...question,
-        metadata: {
-          ...question.metadata,
-        }
-      };
+      const updatedQuestion = { ...question };
       
       switch (field) {
         case 'topic':
-          updatedQuestion.metadata.topicId = value.topicId;
-          updatedQuestion.metadata.subtopicId = value.subtopicId;
+          updatedQuestion.data.metadata.topicId = value.topicId;
+          updatedQuestion.data.metadata.subtopicId = value.subtopicId;
           break;
         case 'difficulty':
-          updatedQuestion.metadata.difficulty = value as DifficultyLevel;
+          updatedQuestion.data.metadata.difficulty = value as DifficultyLevel;
           break;
         case 'estimatedTime':
-          updatedQuestion.metadata.estimatedTime = value as number;
+          updatedQuestion.data.metadata.estimatedTime = value as number;
           break;
         case 'type':
-          updatedQuestion.metadata.type = value as QuestionType;
+          updatedQuestion.data.metadata.type = value as QuestionType;
           break;
         case 'name':
-          updatedQuestion.name = value;
+          updatedQuestion.data.name = value;
           break;
       }
 
@@ -663,7 +609,7 @@ export function QuestionLibraryPage() {
     }
   };
 
-  const columns = useMemo<ColumnDef<QuestionListItem>[]>(
+  const columns = useMemo<ColumnDef<DatabaseQuestion>[]>(
     () => [
       {
         id: 'actions',
@@ -691,6 +637,19 @@ export function QuestionLibraryPage() {
         }
       },
       {
+        id: 'number',
+        header: 'מספר',
+        size: 80,
+        cell: ({ row }) => {
+          const index = row.index + 1;
+          return (
+            <Text style={{ color: '#8c8c8c', fontWeight: 500 }}>
+              {index}
+            </Text>
+          );
+        },
+      },
+      {
         id: 'id',
         header: 'ID',
         accessorKey: 'id',
@@ -703,11 +662,11 @@ export function QuestionLibraryPage() {
       {
         id: 'type',
         header: 'סוג',
-        accessorKey: 'metadata.type',
+        accessorKey: 'data.metadata.type',
         size: 100,
         cell: ({ row }) => {
           const isEditing = editingCell?.id === row.original.id && editingCell?.field === 'type';
-          const type = row.original.metadata.type;
+          const type = row.original.data.metadata.type;
 
           if (isEditing) {
             return (
@@ -760,14 +719,14 @@ export function QuestionLibraryPage() {
       {
         id: 'content',
         header: 'תוכן',
-        accessorKey: 'content',
+        accessorKey: 'data.name',
         size: 400,
         cell: ({ row }) => {
           const isEditing = editingCell?.id === row.original.id && editingCell?.field === 'name';
           
           if (isEditing) {
             return (
-              <Form form={form} initialValues={{ name: row.original.name }}>
+              <Form form={form} initialValues={{ name: row.original.data.name }}>
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Form.Item name="name">
                     <Input
@@ -805,10 +764,10 @@ export function QuestionLibraryPage() {
                   setEditingCell({ id: row.original.id, field: 'name' });
                 }}
               >
-                <div className="content-title">{row.original.name || 'Untitled'}</div>
+                <div className="content-title">{row.original.data.name || 'Untitled'}</div>
               </EditableCell>
               <div className="content-text" style={{ WebkitLineClamp: 1 }}>
-                {row.original.content.text}
+                {row.original.data.content.text}
               </div>
             </div>
           );
@@ -817,15 +776,15 @@ export function QuestionLibraryPage() {
       {
         id: 'topic',
         header: 'נושא',
-        accessorKey: 'metadata.topicId',
+        accessorKey: 'data.metadata.topicId',
         size: 200,
         cell: ({ row }) => {
-          const topicId = row.original.metadata.topicId;
-          const subtopicId = row.original.metadata.subtopicId;
+          const topicId = row.original.data.metadata.topicId;
+          const subtopicId = row.original.data.metadata.subtopicId;
           const subject = universalTopics.getSubjectForTopic(topicId);
           const domain = subject?.domains.find(d => d.topics.some(t => t.id === topicId));
           const topic = domain?.topics.find(t => t.id === topicId);
-          const subtopic = universalTopics.getSubtopicInfo(topicId, subtopicId);
+          const subtopic = subtopicId ? universalTopics.getSubtopicInfo(topicId, subtopicId) : undefined;
 
           return (
             <div>
@@ -838,7 +797,7 @@ export function QuestionLibraryPage() {
       {
         id: 'source',
         header: 'מקור',
-        accessorKey: 'metadata.source',
+        accessorKey: 'data.metadata.source',
         size: 150,
         cell: ({ getValue }) => {
           const source = getValue() as QuestionListItem['metadata']['source'];
@@ -873,11 +832,11 @@ export function QuestionLibraryPage() {
       {
         id: 'difficulty',
         header: 'רמת קושי',
-        accessorKey: 'metadata.difficulty',
+        accessorKey: 'data.metadata.difficulty',
         size: 100,
         cell: ({ row }) => {
           const isEditing = editingCell?.id === row.original.id && editingCell?.field === 'difficulty';
-          const difficulty = row.original.metadata.difficulty;
+          const difficulty = row.original.data.metadata.difficulty;
 
           if (isEditing) {
             return (
@@ -932,11 +891,11 @@ export function QuestionLibraryPage() {
       {
         id: 'estimatedTime',
         header: 'זמן מוערך',
-        accessorKey: 'metadata.estimatedTime',
+        accessorKey: 'data.metadata.estimatedTime',
         size: 120,
         cell: ({ row }) => {
           const isEditing = editingCell?.id === row.original.id && editingCell?.field === 'estimatedTime';
-          const estimatedTime = row.original.metadata.estimatedTime || 0;
+          const estimatedTime = row.original.data.metadata.estimatedTime || 0;
 
           if (isEditing) {
             return (

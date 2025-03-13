@@ -71,6 +71,7 @@ import { examService } from '../../../services/examService';
 import { supabase } from '../../../lib/supabase';
 import { UserRole } from '../../../types/userTypes';
 import { ExamType } from '../../../types/examTemplate';
+import { useSearchResults } from '../../../contexts/SearchResultsContext';
 
 dayjs.extend(relativeTime);
 dayjs.locale('he');
@@ -513,6 +514,7 @@ export function QuestionLibraryPage() {
   const [form] = Form.useForm();
 
   const navigate = useNavigate();
+  const { setSearchResults } = useSearchResults();
 
   // Get unique subjects and their domains
   const subjects = universalTopics.getAllSubjects();
@@ -614,6 +616,11 @@ export function QuestionLibraryPage() {
   useEffect(() => {
     loadQuestions();
   }, [loadQuestions]);
+
+  // Update search results whenever questions change
+  useEffect(() => {
+    setSearchResults(questions);
+  }, [questions, setSearchResults]);
 
   const handleSaveEdit = async (questionId: string, field: string, value: any) => {
     try {

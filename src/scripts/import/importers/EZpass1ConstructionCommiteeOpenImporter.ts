@@ -158,9 +158,16 @@ export class EZpass1ConstructionCommiteeOpenImporter extends BaseImporter {
                 type: QuestionType.OPEN,
                 difficulty: 3,
                 answerFormat: {
+                    type: QuestionType.OPEN,
                     hasFinalAnswer: false,
                     requiresSolution: true,
-                    finalAnswerType: 'none'
+                    finalAnswerType: 'none',
+                    format: {
+                        type: 'open',
+                        hasFinalAnswer: false,
+                        finalAnswerType: 'none',
+                        requiresSolution: true
+                    }
                 },
                 estimatedTime: 10,
                 source: {

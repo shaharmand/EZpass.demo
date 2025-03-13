@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card, Space, Typography, Button, Row, Col, Tag, Select } from 'antd';
 import { 
   EditOutlined, 
@@ -19,15 +19,15 @@ import {
   SaveQuestion,
   MoedType,
   ExamPeriod
-} from '../../../types/question';
-import { ValidationDisplay } from '../../validation/ValidationDisplay';
-import { getEnumTranslation, getFieldTranslation, formatValidationDetails, fieldNameMapping, getQuestionSourceDisplay, enumMappings } from '../../../utils/translations';
-import { getExamTemplateName, getExamSourceDisplayText } from '../../../utils/examTranslations';
-import { ValidationError, ValidationWarning, ValidationResult } from '../../../types/validation';
-import { universalTopicsV2 } from '../../../services/universalTopics';
-import { examService } from '../../../services/examService';
-import { ExamTemplate } from '../../../types/examTemplate';
-import { validateQuestion } from '../../../utils/questionValidator';
+} from '../../../../../../types/question';
+import { ValidationDisplay } from '../../../../../../components/validation/ValidationDisplay';
+import { getEnumTranslation, getFieldTranslation, formatValidationDetails, fieldNameMapping, getQuestionSourceDisplay, enumMappings } from '../../../../../../utils/translations';
+import { getExamTemplateName, getExamSourceDisplayText } from '../../../../../../utils/examTranslations';
+import { ValidationError, ValidationWarning, ValidationResult } from '../../../../../../types/validation';
+import { universalTopicsV2 } from '../../../../../../services/universalTopics';
+import { examService } from '../../../../../../services/examService';
+import { ExamTemplate } from '../../../../../../types/examTemplate';
+import { validateQuestion } from '../../../../../../utils/questionValidator';
 import styled from 'styled-components';
 
 const { Text } = Typography;
@@ -103,17 +103,24 @@ const ValidationSection = styled.div`
   }
 `;
 
-export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = ({
+export interface QuestionMetadataSectionHandle {
+  collectChanges: () => Promise<{ metadata: Partial<Question['metadata']> }>;
+  resetChanges: () => void;
+}
+
+export const QuestionMetadataSection = forwardRef<QuestionMetadataSectionHandle, QuestionMetadataSectionProps>(({
   question,
   isEditing,
   onEdit,
   onSave,
   onModified
-}) => {
+}, ref) => {
   const [examTemplate, setExamTemplate] = useState<ExamTemplate | null>(null);
   const [validationState, setValidationState] = useState<MetadataValidationResult | null>(null);
   const [sourceDisplay, setSourceDisplay] = useState<string>('');
   const [isModified, setIsModified] = useState(false);
+  const [changedFields, setChangedFields] = useState<Set<string>>(new Set());
+  const [metadata, setMetadata] = useState<Partial<Question['metadata']>>(question.data.metadata || {});
 
   useEffect(() => {
     onModified?.(isModified);
@@ -123,9 +130,11 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
   useEffect(() => {
     if (!isEditing) {
       setIsModified(false);
+      setMetadata(question.data.metadata || {});
+      setChangedFields(new Set());
       // Reset any other section-specific state here
     }
-  }, [isEditing]);
+  }, [isEditing, question.data.metadata]);
 
   if (!question?.data?.metadata) {
     return (
@@ -436,8 +445,32 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
 
   const handleMetadataChange = (field: string, value: any) => {
     setIsModified(true);
-    // ... rest of the handler
+    setMetadata(prevMetadata => ({
+      ...prevMetadata,
+      [field]: value
+    }));
+    setChangedFields(prevFields => {
+      const newFields = new Set(prevFields);
+      newFields.add(field);
+      return newFields;
+    });
   };
+
+  // Expose methods through ref
+  useImperativeHandle(ref, () => ({
+    collectChanges: async () => {
+      // Return only changed metadata fields
+      if (changedFields.size > 0) {
+        return { metadata: metadata };
+      }
+      return { metadata: {} };
+    },
+    resetChanges: () => {
+      setMetadata(question.data.metadata || {});
+      setChangedFields(new Set());
+      setIsModified(false);
+    }
+  }));
 
   return (
     <div style={{ direction: 'rtl' }} className="metadata-section-container">
@@ -668,4 +701,4 @@ export const QuestionMetadataSection: React.FC<QuestionMetadataSectionProps> = (
       </Space>
     </div>
   );
-}; 
+}); 

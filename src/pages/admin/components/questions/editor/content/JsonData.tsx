@@ -1,6 +1,6 @@
 import React from 'react';
-import { DatabaseQuestion } from '../../types/question';
-import { JsonDataContainer, JsonDataHeader, JsonDataTitle, JsonDataContent } from '../../utils/translations';
+import { DatabaseQuestion } from '../../../../../../types/question';
+import { JsonDataContainer, JsonDataHeader, JsonDataTitle, JsonDataContent } from '../../../../../../utils/translations';
 import { Button } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 

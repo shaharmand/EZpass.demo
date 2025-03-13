@@ -1,6 +1,5 @@
-import { DifficultyLevel, QuestionType, Question, SourceType, FullAnswer } from './question';
+import { DifficultyLevel, QuestionType, Question, SourceType, FullAnswer, AnswerFormatRequirements } from './question';
 import { Subject, Domain, Topic, SubTopic } from './subject';
-import { AnswerFormat } from './question';
 
 /**
  * Base parameters for generating any type of question
@@ -59,7 +58,7 @@ export interface QuestionGenerationParams {
   subtopicId?: string;
   difficulty: DifficultyLevel;
   estimatedTime?: number;
-  answerFormat: AnswerFormat;
+  answerFormat: AnswerFormatRequirements;
   source?: {
     type: 'ezpass';
     creatorType: 'ai' | 'human';

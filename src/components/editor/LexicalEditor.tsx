@@ -9,6 +9,7 @@ import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { TRANSFORMERS } from '@lexical/markdown';
 import { MATH_TRANSFORMERS } from '../../utils/mathTransformers';
+import { IMAGE_TRANSFORMERS } from '../../utils/imageTransformers';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { LinkNode } from '@lexical/link';
 import { ListItemNode, ListNode } from '@lexical/list';
@@ -21,13 +22,12 @@ import { $getRoot, $createParagraphNode, $createTextNode, $getSelection } from '
 import type { LexicalEditor as LexicalEditorType } from 'lexical';
 import { MathNode, $createMathNode } from './nodes/MathNode';
 import { ImageNode } from './nodes/ImageNode';
-import { EditorToolbar } from './EditorToolbar';
+import { LexicalEditorToolbar } from './LexicalEditorToolbar';
 import { supabase } from '../../lib/supabase';
 import { $convertFromMarkdownString, $convertToMarkdownString } from '@lexical/markdown';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 
 interface ContainerProps {
-  $hasChanges?: boolean;
   editable?: boolean;
 }
 
@@ -42,50 +42,17 @@ const Container = styled.div<ContainerProps>`
     border: 1px solid #d9d9d9;
     
     &:hover {
-      border-color: ${props.$hasChanges ? '#FFD666' : '#1890ff'};
+      border-color: #1890ff;
     }
 
     &:focus-within {
-      border-color: ${props.$hasChanges ? '#FFD666' : '#1890ff'};
-      box-shadow: 0 0 0 2px ${props.$hasChanges ? 'rgba(255, 214, 102, 0.2)' : 'rgba(24, 144, 255, 0.2)'};
+      border-color: #1890ff;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
     }
   ` : ``}
-
-  ${props => props.editable && props.$hasChanges ? `
-    border-color: #FFD666;
-    background: #FFFBE6;
-  ` : ''}
 `;
 
-const CloseButton = styled.button`
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: rgba(0, 0, 0, 0.45);
-  font-size: 12px;
-  z-index: 1;
-  border-radius: 4px;
-
-  &:hover {
-    background: rgba(0, 0, 0, 0.04);
-    color: rgba(0, 0, 0, 0.85);
-  }
-`;
-
-interface ContentProps {
-  $hasChanges?: boolean;
-  editable?: boolean;
-}
-
-const Content = styled.div<ContentProps>`
+const Content = styled.div<{ editable?: boolean }>`
   position: relative;
   min-height: 150px;
   padding: 16px;
@@ -150,29 +117,18 @@ const EditorToolbarContainer = styled.div`
   }
 `;
 
-interface ToolbarProps {
-  hasChanges?: boolean;
-}
-
 // Toolbar component with math and image buttons
-function Toolbar({ hasChanges }: ToolbarProps) {
+function Toolbar() {
   const [editor] = useLexicalComposerContext();
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   const insertMath = useCallback(() => {
     editor.update(() => {
-      // Get current selection
       const selection = $getSelection();
-      
       if (selection) {
-        // Create a math node with empty latex
         const mathNode = $createMathNode('');
-        
-        // Insert at selection
         selection.insertNodes([mathNode]);
-        
-        // Immediately open the math editor modal
         setIsModalVisible(true);
       }
     });
@@ -224,22 +180,14 @@ function Toolbar({ hasChanges }: ToolbarProps) {
 
   return (
     <EditorToolbarContainer className="editor-toolbar">
-      <EditorToolbar />
+      <LexicalEditorToolbar />
       <Space style={{ marginTop: '8px' }}>
-        <Tooltip 
-          title="הוספת נוסחה מתמטית - לחץ כדי להוסיף נוסחה חדשה" 
-          mouseEnterDelay={0.3}
-          placement="bottom"
-        >
+        <Tooltip title="הוספת נוסחה מתמטית" mouseEnterDelay={0.3} placement="bottom">
           <Button onClick={insertMath} icon={<FunctionOutlined />}>
             נוסחה
           </Button>
         </Tooltip>
-        <Tooltip 
-          title="הוספת תמונה - לחץ כדי להעלות תמונה חדשה" 
-          mouseEnterDelay={0.3}
-          placement="bottom"
-        >
+        <Tooltip title="הוספת תמונה" mouseEnterDelay={0.3} placement="bottom">
           <Button onClick={insertImage} icon={<PictureOutlined />}>
             תמונה
           </Button>
@@ -276,7 +224,6 @@ interface LexicalEditorProps {
   initialValue?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
-  hasChanges?: boolean;
   editable?: boolean;
 }
 
@@ -284,85 +231,39 @@ interface LexicalEditorHandle {
   reset: (text: string) => void;
 }
 
-// Debug helper
-const debugLog = (section: string, data: any) => {
-  console.log(`=== ${section} ===`);
-  console.log(JSON.stringify(data, null, 2));
-};
-
 const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(({ 
   initialValue = '', 
   onChange, 
   placeholder = 'Enter some text...', 
-  hasChanges: externalHasChanges = false,
   editable = true 
 }, ref) => {
-  const [internalHasChanges, setInternalHasChanges] = useState(false);
-  const originalText = React.useRef(initialValue); // Store the very first initial value
-  const currentText = React.useRef(initialValue);
-  const isFirstMount = React.useRef(true);
-  const wasExternalChange = React.useRef(false);
   const editorRef = React.useRef<LexicalEditorType | null>(null);
-  const [previewKey, setPreviewKey] = useState(0);
+  const isFirstMount = React.useRef(true);
   
-  // Shared cancel logic
-  const handleCancel = useCallback((newText: string, isLocalCancel: boolean = false) => {
-    console.log('=== LexicalEditor - Cancel Chain ===');
-    console.log('LexicalEditor - handleCancel called with:', { 
-      newText, 
-      isLocalCancel,
-      currentText: currentText.current,
-      originalText: originalText.current,
-      wasExternalChange: wasExternalChange.current
-    });
+  // Reset method
+  const handleReset = useCallback((newText: string) => {
+    if (!editorRef.current) return;
     
-    if (!editorRef.current) {
-      console.log('LexicalEditor - ERROR: editorRef.current is null');
-      console.log('=== LexicalEditor - Cancel Chain End ===');
-      return;
-    }
-    
-    // For local cancels, use the original text. For external cancels, use the new text
-    const textToRestore = isLocalCancel ? originalText.current : newText;
-    console.log('LexicalEditor - Will restore text:', textToRestore);
-    
-    // Prevent external change handling during reset
-    wasExternalChange.current = true;
-    
-    // Reset the editor state
-    console.log('LexicalEditor - About to update editor state');
     editorRef.current.update(() => {
-      console.log('LexicalEditor - Inside update callback');
       const root = $getRoot();
       root.clear();
-      $convertFromMarkdownString(textToRestore, [...TRANSFORMERS, ...MATH_TRANSFORMERS]);
-      console.log('LexicalEditor - Editor state updated');
+      $convertFromMarkdownString(newText, [...TRANSFORMERS, ...MATH_TRANSFORMERS, ...IMAGE_TRANSFORMERS]);
     });
-    
-    // Update refs and state
-    if (!isLocalCancel) {
-      console.log('LexicalEditor - Updating originalText ref:', textToRestore);
-      originalText.current = textToRestore;
-    }
-    currentText.current = textToRestore;
-    setInternalHasChanges(false);
-    console.log('LexicalEditor - Updated refs and state');
-    
-    // Reset external change flag after everything is done
-    setTimeout(() => {
-      wasExternalChange.current = false;
-      console.log('LexicalEditor - Reset external change flag');
-      console.log('=== LexicalEditor - Cancel Chain End ===');
-    }, 0);
   }, []);
 
   // Expose reset method through ref
   useImperativeHandle(ref, () => ({
-    reset: (text: string) => {
-      console.log('LexicalEditor - reset() called with text:', text);
-      handleCancel(text);
-    }
-  }), [handleCancel]);
+    reset: handleReset
+  }), [handleReset]);
+
+  // If not editable, render markdown directly
+  if (!editable) {
+    return (
+      <div style={{ padding: '16px' }}>
+        <MarkdownRenderer content={initialValue} />
+      </div>
+    );
+  }
 
   const initialConfig = {
     namespace: 'MyEditor',
@@ -384,64 +285,31 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
     editorState: (editor: LexicalEditorType) => {
       editorRef.current = editor;
       
-      // Initial setup - only happens once
       if (isFirstMount.current) {
         const root = $getRoot();
         root.clear();
-        $convertFromMarkdownString(initialValue, [...TRANSFORMERS, ...MATH_TRANSFORMERS]);
-        wasExternalChange.current = false;
+        $convertFromMarkdownString(initialValue, [...TRANSFORMERS, ...MATH_TRANSFORMERS, ...IMAGE_TRANSFORMERS]);
         isFirstMount.current = false;
-        originalText.current = initialValue;
-        currentText.current = initialValue;
-        
-        debugLog('EDITOR INITIALIZED', {
-          content: initialValue,
-          initialText: originalText.current,
-          currentText: currentText.current,
-          wasExternalChange: false
-        });
       }
     }
   };
 
   return (
     <LexicalComposer initialConfig={initialConfig}>
-      <Container $hasChanges={internalHasChanges} editable={editable}>
-        {editable && <Toolbar hasChanges={internalHasChanges} />}
-        <Content $hasChanges={internalHasChanges} editable={editable}>
+      <Container editable={editable}>
+        <Toolbar />
+        <Content editable={editable}>
           <RichTextPlugin
             contentEditable={<StyledContentEditable editable={editable} />}
-            placeholder={editable ? <PlaceholderText>{placeholder}</PlaceholderText> : null}
+            placeholder={<PlaceholderText>{placeholder}</PlaceholderText>}
             ErrorBoundary={LexicalErrorBoundary}
           />
           <HistoryPlugin />
           <AutoFocusPlugin />
           <LinkPlugin />
           <ListPlugin />
-          <MarkdownShortcutPlugin transformers={[...TRANSFORMERS, ...MATH_TRANSFORMERS]} />
-          <OnChangePlugin 
-            onChange={(text) => {
-              // Only update state if this wasn't triggered by an external change
-              if (!wasExternalChange.current) {
-                currentText.current = text;
-                const hasChanged = text.trim() !== originalText.current.trim();
-                
-                debugLog('CONTENT CHANGED', {
-                  currentText: text.trim(),
-                  initialText: originalText.current.trim(),
-                  hasChanged,
-                  wasExternalChange: false,
-                  hasMath: text.includes('$')
-                });
-
-                setInternalHasChanges(hasChanged);
-                // Force re-render of preview
-                setPreviewKey(prev => prev + 1);
-              }
-              
-              onChange?.(text);
-            }} 
-          />
+          <MarkdownShortcutPlugin transformers={[...TRANSFORMERS, ...MATH_TRANSFORMERS, ...IMAGE_TRANSFORMERS]} />
+          <OnChangePlugin onChange={onChange} />
         </Content>
         <div style={{ 
           marginTop: '20px', 
@@ -459,7 +327,7 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
           }}>
             תצוגה מקדימה
           </div>
-          <MarkdownRenderer key={previewKey} content={currentText.current || ''} />
+          <MarkdownRenderer content={initialValue || ''} />
         </div>
       </Container>
     </LexicalComposer>
@@ -468,27 +336,15 @@ const LexicalEditor = React.forwardRef<LexicalEditorHandle, LexicalEditorProps>(
 
 export default LexicalEditor;
 
-// OnChangePlugin with debug
-function OnChangePlugin({ onChange }: { onChange: (text: string) => void }) {
+// Simple OnChangePlugin
+function OnChangePlugin({ onChange }: { onChange?: (text: string) => void }) {
   const [editor] = useLexicalComposerContext();
-  const updateCount = React.useRef(0);
   
   useEffect(() => {
     return editor.registerUpdateListener(({ editorState }) => {
-      updateCount.current++;
-      
       editorState.read(() => {
-        const markdown = $convertToMarkdownString([...TRANSFORMERS, ...MATH_TRANSFORMERS]);
-        debugLog('MARKDOWN CONVERSION', {
-          updateCount: updateCount.current,
-          content: markdown,
-          stats: {
-            length: markdown.length,
-            newlines: (markdown.match(/\n/g) || []).length,
-            paragraphs: markdown.split('\n\n').length
-          }
-        });
-        onChange(markdown);
+        const markdown = $convertToMarkdownString([...TRANSFORMERS, ...MATH_TRANSFORMERS, ...IMAGE_TRANSFORMERS]);
+        onChange?.(markdown);
       });
     });
   }, [editor, onChange]);

@@ -454,9 +454,27 @@ Return EXACTLY this structure:
     "difficulty": 2,
     "estimatedTime": 10,
     "answerFormat": {
+      "type": "${params.type}",
       "hasFinalAnswer": ${params.type !== QuestionType.OPEN},
       "finalAnswerType": "${params.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' : params.type === QuestionType.NUMERICAL ? 'numerical' : 'none'}",
-      "requiresSolution": true
+      "requiresSolution": true,
+      "format": ${params.type === QuestionType.MULTIPLE_CHOICE ? `{
+        "type": "multiple_choice",
+        "numOptions": 4,
+        "hasFinalAnswer": true,
+        "finalAnswerType": "multiple_choice",
+        "requiresSolution": true
+      }` : params.type === QuestionType.NUMERICAL ? `{
+        "type": "numerical",
+        "hasFinalAnswer": true,
+        "finalAnswerType": "numerical",
+        "requiresSolution": true
+      }` : `{
+        "type": "open",
+        "hasFinalAnswer": false,
+        "finalAnswerType": "none",
+        "requiresSolution": true
+      }`}
     },
     "source": {
       "type": "ezpass",
@@ -862,10 +880,28 @@ EXAMPLE OF CORRECT OPEN QUESTION:
         metadata: {
           ...parsedQuestion.metadata,
           answerFormat: {
+            type: params.type,
             hasFinalAnswer: params.type !== QuestionType.OPEN,
-            finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? ('multiple_choice' as const) : 
+            finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? ('multiple_choice' as const) :
                            params.type === QuestionType.NUMERICAL ? ('numerical' as const) : ('none' as const),
-            requiresSolution: true
+            requiresSolution: true,
+            format: params.type === QuestionType.MULTIPLE_CHOICE ? ({
+              type: 'multiple_choice' as const,
+              numOptions: 4,
+              hasFinalAnswer: true as const,
+              finalAnswerType: 'multiple_choice' as const,
+              requiresSolution: true
+            }) : params.type === QuestionType.NUMERICAL ? ({
+              type: 'numerical' as const,
+              hasFinalAnswer: true as const,
+              finalAnswerType: 'numerical' as const,
+              requiresSolution: true
+            }) : ({
+              type: 'open' as const,
+              hasFinalAnswer: false as const,
+              finalAnswerType: 'none' as const,
+              requiresSolution: true
+            })
           },
           source: {
             type: 'ezpass' as const,

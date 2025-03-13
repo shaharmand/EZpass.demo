@@ -68,7 +68,7 @@ const ToolbarButton = styled(Button)`
 
 const { Option } = Select;
 
-export function EditorToolbar() {
+export function LexicalEditorToolbar() {
   const [editor] = useLexicalComposerContext();
   const [isBold, setIsBold] = React.useState(false);
   const [isItalic, setIsItalic] = React.useState(false);

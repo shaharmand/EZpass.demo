@@ -171,8 +171,22 @@ function ImageComponent({ node }: { node: ImageNode }) {
   const alignment = node.__alignment;
 
   const onDelete = useCallback(() => {
-    node.remove();
-  }, [node]);
+    editor.update(() => {
+      node.remove();
+    });
+  }, [editor, node]);
+
+  const onWidthChange = useCallback((value: number) => {
+    editor.update(() => {
+      node.setWidth(value);
+    });
+  }, [editor, node]);
+
+  const onAlignmentChange = useCallback((value: 'left' | 'center' | 'right') => {
+    editor.update(() => {
+      node.setAlignment(value);
+    });
+  }, [editor, node]);
 
   return (
     <ImageContainer $align={alignment}>
@@ -193,22 +207,15 @@ function ImageComponent({ node }: { node: ImageNode }) {
                       min={10}
                       max={100}
                       value={width}
-                      onChange={(value) => {
-                        editor.update(() => {
-                          node.setWidth(value);
-                        });
-                      }}
+                      onChange={onWidthChange}
                     />
                   </div>
                   <div>
                     <div style={{ marginBottom: '8px' }}>יישור</div>
-                    <Radio.Group
-                      value={alignment}
-                      onChange={(e) => {
-                        editor.update(() => {
-                          node.setAlignment(e.target.value);
-                        });
-                      }}
+                    <Radio.Group 
+                      value={alignment} 
+                      onChange={(e) => onAlignmentChange(e.target.value)}
+                      style={{ display: 'flex', justifyContent: 'space-between' }}
                     >
                       <Radio.Button value="left">שמאל</Radio.Button>
                       <Radio.Button value="center">מרכז</Radio.Button>
@@ -218,9 +225,9 @@ function ImageComponent({ node }: { node: ImageNode }) {
                 </div>
               }
               trigger="click"
+              placement="bottom"
               open={showSettings}
               onOpenChange={setShowSettings}
-              placement="bottom"
             >
               <Button 
                 type="text" 
@@ -231,8 +238,9 @@ function ImageComponent({ node }: { node: ImageNode }) {
             <Button 
               type="text" 
               icon={<DeleteOutlined />} 
-              size="small"
+              size="small" 
               onClick={onDelete}
+              danger
             />
           </Space>
         </ImageToolbar>

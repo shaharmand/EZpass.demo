@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Space, Typography } from 'antd';
-import { Question, QuestionStatus, DatabaseQuestion } from '../../types/question';
-import { QuestionMetadataSection } from './sections/QuestionMetadataSection';
-import { QuestionContentSection } from './sections/QuestionContentSection';
-import { SolutionAndEvaluationSection } from './sections/SolutionAndEvaluationSection';
+import { Question, QuestionStatus, DatabaseQuestion } from '../../../../../types/question';
+import { QuestionMetadataSection } from './content/Metadata';
+import { QuestionContentSection } from './content/Content';
+import { SolutionAndEvaluationSection } from './content/Solution';
 
-interface AdminQuestionContainerProps {
+interface QuestionContainerProps {
   question?: DatabaseQuestion;
   onSave?: (updatedQuestion: DatabaseQuestion) => Promise<void>;
 }
 
-export const AdminQuestionContainer: React.FC<AdminQuestionContainerProps> = ({
+export const QuestionContainer: React.FC<QuestionContainerProps> = ({
   question,
   onSave
 }) => {

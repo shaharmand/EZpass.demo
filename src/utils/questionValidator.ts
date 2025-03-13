@@ -142,6 +142,70 @@ export async function validateQuestion(question: Question): Promise<ValidationRe
   if (!question.schoolAnswer) {
     addError('schoolAnswer', 'תשובה חסרה');
   } else {
+    // Validate answer format requirements match the question type
+    if (!question.metadata?.answerFormat) {
+      addError('metadata.answerFormat', 'הגדרות תבנית תשובה חסרות');
+    } else {
+      const { type } = question.metadata;
+      const { answerFormat } = question.metadata;
+      
+      // Validate hasFinalAnswer matches question type
+      const shouldHaveFinalAnswer = type !== QuestionType.OPEN;
+      if (answerFormat.hasFinalAnswer !== shouldHaveFinalAnswer) {
+        addError('metadata.answerFormat.hasFinalAnswer', 
+          `hasFinalAnswer חייב להיות ${shouldHaveFinalAnswer} עבור שאלה מסוג ${type}`);
+      }
+
+      // Validate finalAnswerType matches question type
+      const expectedFinalAnswerType = type === QuestionType.OPEN ? 'none' :
+                                    type === QuestionType.NUMERICAL ? 'numerical' : 'multiple_choice';
+      if (answerFormat.finalAnswerType !== expectedFinalAnswerType) {
+        addError('metadata.answerFormat.finalAnswerType',
+          `finalAnswerType חייב להיות ${expectedFinalAnswerType} עבור שאלה מסוג ${type}`);
+      }
+
+      // Validate requiresSolution matches question type
+      const shouldRequireSolution = type !== QuestionType.MULTIPLE_CHOICE;
+      if (answerFormat.requiresSolution !== shouldRequireSolution) {
+        addError('metadata.answerFormat.requiresSolution',
+          `requiresSolution חייב להיות ${shouldRequireSolution} עבור שאלה מסוג ${type}`);
+      }
+    }
+
+    // Validate final answer based on question type
+    if (question.metadata?.type !== QuestionType.OPEN) {
+      if (!question.schoolAnswer.finalAnswer) {
+        addError('schoolAnswer.finalAnswer', 'תשובה סופית חסרה');
+      } else {
+        const { finalAnswer } = question.schoolAnswer;
+        
+        if (question.metadata.type === QuestionType.MULTIPLE_CHOICE) {
+          if (finalAnswer.type !== 'multiple_choice') {
+            addError('schoolAnswer.finalAnswer.type', 'סוג תשובה סופית חייב להיות multiple_choice');
+          } else {
+            // Now TypeScript knows this is MultipleChoiceAnswer
+            if (!finalAnswer.value || ![1, 2, 3, 4].includes(finalAnswer.value)) {
+              addError('schoolAnswer.finalAnswer.value', 'ערך תשובה סופית חייב להיות מספר בין 1 ל-4');
+            }
+          }
+        } else if (question.metadata.type === QuestionType.NUMERICAL) {
+          if (finalAnswer.type !== 'numerical') {
+            addError('schoolAnswer.finalAnswer.type', 'סוג תשובה סופית חייב להיות numerical');
+          } else {
+            // Now TypeScript knows this is NumericalAnswer
+            if (finalAnswer.value === undefined || finalAnswer.value === null) {
+              addError('schoolAnswer.finalAnswer.value', 'ערך תשובה סופית חסר');
+            }
+            if (finalAnswer.tolerance === undefined || finalAnswer.tolerance === null) {
+              addError('schoolAnswer.finalAnswer.tolerance', 'טווח סטייה חסר');
+            }
+          }
+        }
+      }
+    } else if (question.schoolAnswer.finalAnswer) {
+      addError('schoolAnswer.finalAnswer', 'שאלה פתוחה לא יכולה לכלול תשובה סופית');
+    }
+
     // Validate solution
     if (!question.schoolAnswer.solution) {
       addError('schoolAnswer.solution', 'פתרון חסר');

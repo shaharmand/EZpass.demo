@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { Card, Space, Typography, Button } from 'antd';
 import { EditOutlined, CheckOutlined, SolutionOutlined } from '@ant-design/icons';
-import { Question, DatabaseQuestion, SaveQuestion } from '../../../types/question';
-import { QuestionSolution } from '../../question/QuestionSolution';
-import { QuestionEvaluation } from '../../question/QuestionEvaluation';
-import { validateQuestion, ValidationError, ValidationResult } from '../../../utils/questionValidator';
-import { ValidationDisplay } from '../../validation/ValidationDisplay';
-import { QuestionType } from '../../../types/question';
+import { Question, DatabaseQuestion, SaveQuestion, QuestionType } from '../../../../../../types/question';
+import { QuestionSolution } from '../../../../../../components/question/QuestionSolution';
+import { QuestionEvaluation } from '../../../../../../components/question/QuestionEvaluation';
+import { validateQuestion, ValidationError, ValidationResult } from '../../../../../../utils/questionValidator';
+import { ValidationDisplay } from '../../../../../../components/validation/ValidationDisplay';
 
 const { Text } = Typography;
 
@@ -18,16 +17,45 @@ interface SolutionAndEvaluationSectionProps {
   onModified?: (modified: boolean) => void;
 }
 
-export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSectionProps> = ({
+export interface SolutionAndEvaluationSectionHandle {
+  collectChanges: () => Promise<{ schoolAnswer?: Partial<Question['schoolAnswer']> }>;
+  resetChanges: () => void;
+}
+
+export const SolutionAndEvaluationSection = forwardRef<SolutionAndEvaluationSectionHandle, SolutionAndEvaluationSectionProps>(({
   question,
   isEditing,
   onEdit,
   onSave,
   onModified
-}) => {
+}, ref) => {
   const [solutionValidationErrors, setSolutionValidationErrors] = useState<ValidationError[]>([]);
   const [evaluationValidationErrors, setEvaluationValidationErrors] = useState<ValidationError[]>([]);
   const [isModified, setIsModified] = useState(false);
+  const [solution, setSolution] = useState(question.data.schoolAnswer?.solution?.text || '');
+  const [changedFields, setChangedFields] = useState<Set<string>>(new Set());
+
+  // Expose methods through ref
+  useImperativeHandle(ref, () => ({
+    collectChanges: async () => {
+      if (changedFields.size === 0) return { schoolAnswer: {} };
+
+      return {
+        schoolAnswer: {
+          ...question.data.schoolAnswer,
+          solution: {
+            text: solution,
+            format: 'markdown'
+          }
+        }
+      };
+    },
+    resetChanges: () => {
+      setSolution(question.data.schoolAnswer?.solution?.text || '');
+      setChangedFields(new Set());
+      setIsModified(false);
+    }
+  }));
 
   useEffect(() => {
     onModified?.(isModified);
@@ -36,14 +64,24 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
   // Add effect to reset state when editing is cancelled
   useEffect(() => {
     if (!isEditing) {
+      setSolution(question.data.schoolAnswer?.solution?.text || '');
+      setChangedFields(new Set());
       setIsModified(false);
-      // Reset any other section-specific state here
     }
-  }, [isEditing]);
+  }, [isEditing, question.data.schoolAnswer?.solution?.text]);
 
   const handleSolutionChange = (value: string) => {
+    setSolution(value);
     setIsModified(true);
-    // ... rest of the handler
+    setChangedFields(prev => {
+      const next = new Set(prev);
+      if (value !== question.data.schoolAnswer?.solution?.text) {
+        next.add('solution');
+      } else {
+        next.delete('solution');
+      }
+      return next;
+    });
   };
 
   const validateSolutionAndEvaluation = async () => {
@@ -147,4 +185,4 @@ export const SolutionAndEvaluationSection: React.FC<SolutionAndEvaluationSection
       )}
     </Space>
   );
-}; 
+}); 

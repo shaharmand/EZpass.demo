@@ -21,18 +21,35 @@ export enum QuestionType {
 }
 
 /**
- * Common interface for answer format requirements
+ * Type of final answer expected for a question
  */
-export interface AnswerFormat {
+export type FinalAnswerType = 
+  | 'multiple_choice'
+  | 'numerical'
+  | 'none';
+
+
+/**
+ * Interface for the answer format requirements in metadata
+ */
+export interface AnswerFormatRequirements {
   hasFinalAnswer: boolean;
   finalAnswerType: FinalAnswerType;
   requiresSolution: boolean;
 }
 
+export enum EzpassCreatorType {
+  AI = 'ai',
+  HUMAN = 'human'
+}
+
 /**
- * Requirements for the format/structure of an answer
+ * Source type for questions - where they originated from
  */
-export interface AnswerFormatRequirements extends AnswerFormat {}
+export enum SourceType {
+  EXAM = 'exam',
+  EZPASS = 'ezpass'
+}
 
 /**
  * Requirements for the content of an answer
@@ -50,42 +67,13 @@ export interface AnswerContentGuidelines {
   }>;
 }
 
-export enum EzpassCreatorType {
-  AI = 'ai',
-  HUMAN = 'human'
-}
-
-/**
- * Source type for questions - where they originated from
- */
-export enum SourceType {
-  EXAM = 'exam',
-  EZPASS = 'ezpass'
-}
-
-/** 
- * Multiple choice option - just content, no answer information
- */
-export interface MultipleChoiceOption {
-  id: number;  // 1-4 for standard
-  text: string;
-  format: 'markdown';
-}
-
-/**
- * Type of final answer expected for a question
- */
-export type FinalAnswerType = 
-  | 'multiple_choice'
-  | 'numerical'
-  | 'none';
 
 /**
  * Multiple choice answer structure
  */
 export interface MultipleChoiceAnswer {
   type: 'multiple_choice';
-  value: 1 | 2 | 3 | 4;
+  value: 1 | 2 | 3 | 4;  // The selected correct option number
 }
 
 /**
@@ -135,7 +123,8 @@ export enum ValidationStatus {
 export enum PublicationStatusEnum {
   DRAFT = 'draft',
   PUBLISHED = 'published',
-  ARCHIVED = 'archived'
+  ARCHIVED = 'archived',
+  IN_CREATION = 'in_creation'
 }
 
 /**
@@ -498,7 +487,8 @@ export const DEFAULT_PUBLICATION_STATUS = PublicationStatusEnum.DRAFT;
 export const PUBLICATION_STATUS_DESCRIPTIONS: Record<PublicationStatusEnum, string> = {
   [PublicationStatusEnum.DRAFT]: 'טיוטה',
   [PublicationStatusEnum.PUBLISHED]: 'פורסם',
-  [PublicationStatusEnum.ARCHIVED]: 'בארכיון'
+  [PublicationStatusEnum.ARCHIVED]: 'בארכיון',
+  [PublicationStatusEnum.IN_CREATION]: 'בהכנה'
 };
 
 /**
@@ -524,7 +514,7 @@ export interface QuestionMetadata {
   type: QuestionType;
   difficulty: DifficultyLevel;
   estimatedTime?: number;
-  answerFormat: AnswerFormat;  // Using the common interface
+  answerFormat: AnswerFormatRequirements;  // Using the requirements interface
   source?: {
     name: string;
     year?: number;
@@ -598,51 +588,60 @@ export const ReviewStatusTranslations: Record<ReviewStatusEnum, string> = {
   [ReviewStatusEnum.APPROVED]: 'מאושר'
 };
 
-export const createEmptyQuestion = (): DatabaseQuestion => ({
-  id: '',  // Will be assigned by the backend
-  data: {
+export const createEmptyQuestion = (type: QuestionType): DatabaseQuestion => {
+  // First determine the answer format requirements
+  const answerFormat: AnswerFormatRequirements = {
+    hasFinalAnswer: type !== QuestionType.OPEN,
+    finalAnswerType: type === QuestionType.OPEN ? 'none' :
+                    type === QuestionType.NUMERICAL ? 'numerical' : 'multiple_choice',
+    requiresSolution: type !== QuestionType.MULTIPLE_CHOICE
+  };
+
+  // Then create the appropriate final answer based on the determined format
+  const finalAnswer = answerFormat.hasFinalAnswer ? 
+    (answerFormat.finalAnswerType === 'multiple_choice' ?
+      { type: 'multiple_choice' as const, value: undefined as unknown as (1 | 2 | 3 | 4) } :
+      { type: 'numerical' as const, value: undefined as unknown as number, tolerance: undefined as unknown as number }
+    ) : undefined;
+
+  return {
     id: '',  // Will be assigned by the backend
-    name: '',
-    content: {
-      text: '',
-      format: 'markdown',
-      options: [
-        { text: '', format: 'markdown' },
-        { text: '', format: 'markdown' },
-        { text: '', format: 'markdown' },
-        { text: '', format: 'markdown' }
-      ]
-    },
-    metadata: {
-      subjectId: 'civil_engineering',
-      domainId: 'construction_safety',
-      topicId: '',  // Will need to be set by user
-      subtopicId: '',  // Will need to be set by user
-      type: QuestionType.MULTIPLE_CHOICE,
-      difficulty: 3,
-      estimatedTime: 5,
-      answerFormat: {
-        hasFinalAnswer: true,
-        finalAnswerType: 'multiple_choice',
-        requiresSolution: true
-      }
-    },
-    schoolAnswer: {
-      finalAnswer: {
-        type: 'multiple_choice',
-        value: 1  // Default to first option, can be changed by user
+    data: {
+      id: '',  // Will be assigned by the backend
+      content: {
+        text: '',
+        format: 'markdown',
+        ...(type === QuestionType.MULTIPLE_CHOICE ? {
+          options: Array(4).fill({ text: '', format: 'markdown' })
+        } : {})
       },
-      solution: { text: '', format: 'markdown' }  // Empty solution text with required format
+      metadata: {
+        subjectId: '',  // Required: Must be set during initialization
+        domainId: '',   // Required: Must be set during initialization
+        topicId: '',    // Required: Must be set during initialization
+        subtopicId: '', // Optional: Can be set during initialization
+        type,  // Set from parameter
+        difficulty: undefined as unknown as DifficultyLevel, // Required: Must be set explicitly
+        estimatedTime: undefined, // Optional: Can be set later
+        answerFormat
+      },
+      schoolAnswer: {
+        ...(finalAnswer ? { finalAnswer } : {}),
+        solution: { 
+          text: '', 
+          format: 'markdown' 
+        }
+      },
+      evaluationGuidelines: EMPTY_EVALUATION_GUIDELINES
     },
-    evaluationGuidelines: EMPTY_EVALUATION_GUIDELINES
-  },
-  publication_status: PublicationStatusEnum.DRAFT,
-  publication_metadata: DEFAULT_PUBLICATION_METADATA,
-  validation_status: ValidationStatus.WARNING,
-  review_status: ReviewStatusEnum.PENDING_REVIEW,
-  review_metadata: DEFAULT_REVIEW_METADATA,
-  update_metadata: DEFAULT_UPDATE_METADATA,
-  ai_generated_fields: DEFAULT_AI_GENERATED_FIELDS,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
-}); 
+    publication_status: PublicationStatusEnum.IN_CREATION,
+    publication_metadata: DEFAULT_PUBLICATION_METADATA,
+    validation_status: ValidationStatus.ERROR, // Start with ERROR to force validation
+    review_status: ReviewStatusEnum.PENDING_REVIEW,
+    review_metadata: DEFAULT_REVIEW_METADATA,
+    update_metadata: DEFAULT_UPDATE_METADATA,
+    ai_generated_fields: DEFAULT_AI_GENERATED_FIELDS,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+}; 

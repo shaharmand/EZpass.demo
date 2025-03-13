@@ -60,7 +60,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   className = ''
 }) => {
-  // Pre-process content to ensure display math is on its own line
+  // Pre-process content to ensure display math is on its own line and clean up image attributes
   const processedContent = React.useMemo(() => {
     if (!content) return '';
 
@@ -74,8 +74,28 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     });
     
     try {
+      // Store image attributes for later use
+      const imageAttributes = new Map();
+      let lineNumber = 0;
+      
+      // First pass: collect image attributes and clean up the content
+      const cleanedContent = content.split('\n').map(line => {
+        lineNumber++;
+        const imgMatch = line.match(/^(!\[.*?\]\(.*?\))\{width=(\d+)\s+align=(left|center|right)\}/);
+        if (imgMatch) {
+          // Store the attributes with the line number as key
+          imageAttributes.set(lineNumber, {
+            width: parseInt(imgMatch[2]),
+            alignment: imgMatch[3]
+          });
+          // Return only the image markdown without attributes
+          return imgMatch[1];
+        }
+        return line;
+      }).join('\n');
+
       // Only process display math (exactly two $ signs), leave inline math alone
-      const withDisplayMath = content.replace(/\$\$([^$]+?)\$\$/g, (match, full) => {
+      const withDisplayMath = cleanedContent.replace(/\$\$([^$]+?)\$\$/g, (match, full) => {
         // If it's already properly formatted (has newlines around $$), leave it as is
         if (/\n\s*\$\$[\s\S]*?\$\$\s*\n/.test(match)) {
           return match;
@@ -88,37 +108,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         return `\n\n$$\n${mathContent}\n$$\n\n`;
       });
 
-      // Log any remaining improperly formatted display math
-      const displayMathMatches = withDisplayMath.match(/\$\$([^$]+?)\$\$/g) || [];
-      displayMathMatches.forEach(match => {
-        const hasNewlines = /\n/.test(match);
-        const isInParagraph = /\S\$\$|\$\$\S/.test(match);
-        
-        if (!hasNewlines || isInParagraph) {
-          console.warn('⚠️ Display math might not be properly formatted:', {
-            math: match,
-            hasNewlines,
-            isInParagraph,
-            tip: 'Display math should be on its own lines:\n$$\nformula\n$$'
-          });
-        }
-      });
+      // Store the attributes in a ref so the img component can access them
+      (window as any).__imageAttributes = imageAttributes;
 
-      // Log the content structure
-      console.log('📏 Content structure:', {
-        paragraphs: withDisplayMath.split(/\n\s*\n/).filter(Boolean).map(p => ({
-          content: p,
-          hasDisplayMath: p.includes('$$'),
-          isDisplayMath: /^\$\$[\s\S]*\$\$$/.test(p),
-          lines: p.split('\n'),
-          lineCount: p.split('\n').length
-        }))
-      });
-
-      return withDisplayMath; // Return the properly formatted content
-
-    } catch (error: any) {
-      console.error('❌ Error processing content:', error);
+      return withDisplayMath;
+    } catch (error) {
+      console.error('Error processing content:', error);
       return content;
     }
   }, [content]);
@@ -260,6 +255,50 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               );
             }
             return <code className={className} {...props}>{children}</code>;
+          },
+          img({node, src, alt, ...props}) {
+            // Get the line number from the node position
+            const lineNumber = (node as any)?.position?.start?.line;
+            
+            // Get the stored attributes for this image
+            const attributes = (window as any).__imageAttributes?.get(lineNumber) || {
+              width: 100,
+              alignment: 'center'
+            };
+
+            // Don't show alt text if it looks like a filename
+            const isFilename = /\.(jpg|jpeg|png|gif|webp)$/i.test(alt || '');
+            const shouldShowAlt = !isFilename && alt;
+
+            return (
+              <div style={{ textAlign: attributes.alignment, margin: '1em 0' }}>
+                <div style={{ 
+                  display: 'inline-block',
+                  width: `${attributes.width}%`,
+                }}>
+                  <img 
+                    src={src} 
+                    alt={shouldShowAlt ? alt : ''} 
+                    style={{ 
+                      width: '100%', 
+                      height: 'auto',
+                      borderRadius: '4px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }} 
+                    {...props} 
+                  />
+                  {shouldShowAlt && (
+                    <div style={{ 
+                      marginTop: '0.5em', 
+                      color: '#666',
+                      fontSize: '0.9em'
+                    }}>
+                      {alt}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
           },
           span({node, className, children, ...props}) {
             if (className?.includes('math')) {

@@ -2,7 +2,7 @@ import React from 'react';
 import { Space, Button, Tooltip } from 'antd';
 import { CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { Question, PublicationStatusEnum, ReviewStatusEnum } from '../../../types/question';
+import { Question, PublicationStatusEnum, ReviewStatusEnum } from '../../../../../../types/question';
 
 const ToolbarContainer = styled.div`
   display: flex;

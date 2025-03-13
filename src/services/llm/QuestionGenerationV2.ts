@@ -67,10 +67,28 @@ export class QuestionGenerationServiceV2 {
         metadata: {
           ...parsedOutput.metadata,
           answerFormat: {
+            type: params.type,
             hasFinalAnswer: params.type !== QuestionType.OPEN,
             finalAnswerType: params.type === QuestionType.MULTIPLE_CHOICE ? 'multiple_choice' :
                            params.type === QuestionType.NUMERICAL ? 'numerical' : 'none',
-            requiresSolution: true
+            requiresSolution: true,
+            format: params.type === QuestionType.MULTIPLE_CHOICE ? {
+              type: 'multiple_choice',
+              numOptions: 4,
+              hasFinalAnswer: true,
+              finalAnswerType: 'multiple_choice',
+              requiresSolution: true
+            } : params.type === QuestionType.NUMERICAL ? {
+              type: 'numerical',
+              hasFinalAnswer: true,
+              finalAnswerType: 'numerical',
+              requiresSolution: true
+            } : {
+              type: 'open',
+              hasFinalAnswer: false,
+              finalAnswerType: 'none',
+              requiresSolution: true
+            }
           },
           source: {
             type: 'ezpass' as const,

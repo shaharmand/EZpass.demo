@@ -3,9 +3,9 @@ import { Card, Form, Input, Button, Select, InputNumber, Space, Typography, Divi
 import { useNavigate } from 'react-router-dom';
 import { QuestionStorage } from '../../../services/admin/questionStorage';
 import { Question, QuestionType, SourceType, EzpassCreatorType, PublicationStatusEnum, DatabaseQuestion, EMPTY_EVALUATION_GUIDELINES, ValidationStatus, ReviewStatusEnum, DifficultyLevel, createDatabaseQuestion } from '../../../types/question';
-import { QuestionContentSection } from '../../../components/admin/sections/QuestionContentSection';
-import { QuestionMetadataSection } from '../../../components/admin/sections/QuestionMetadataSection';
-import { SolutionAndEvaluationSection } from '../../../components/admin/sections/SolutionAndEvaluationSection';
+import { QuestionContentSection } from '../components/questions/editor/content/Content';
+import { QuestionMetadataSection } from '../components/questions/editor/content/Metadata';
+import { SolutionAndEvaluationSection } from '../components/questions/editor/content/Solution';
 import { EditOutlined } from '@ant-design/icons';
 import { universalTopics } from '../../../services/universalTopics';
 import { Topic, SubTopic } from '../../../types/subject';

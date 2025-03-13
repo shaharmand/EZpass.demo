@@ -32,6 +32,7 @@ const validationStatusTranslations: Record<ValidationStatus, string> = {
 };
 
 const publicationStatusTranslations: Record<PublicationStatusEnum, string> = {
+  [PublicationStatusEnum.IN_CREATION]: 'בתהליך יצירה',
   [PublicationStatusEnum.DRAFT]: 'טיוטה',
   [PublicationStatusEnum.PUBLISHED]: 'מפורסם',
   [PublicationStatusEnum.ARCHIVED]: 'בארכיון'
@@ -130,6 +131,7 @@ const enumMappings: EnumMappings = {
   },
 
   publication_status: {
+    'in_creation': 'בתהליך יצירה',
     'draft': 'טיוטה',
     'published': 'מפורסם',
     'archived': 'בארכיון'

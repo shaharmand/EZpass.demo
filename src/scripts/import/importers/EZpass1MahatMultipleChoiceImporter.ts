@@ -416,9 +416,17 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
                 type: QuestionType.MULTIPLE_CHOICE,
                 difficulty: 3,
                 answerFormat: {
+                    type: QuestionType.MULTIPLE_CHOICE,
                     hasFinalAnswer: true,
                     finalAnswerType: 'multiple_choice',
-                    requiresSolution: false
+                    requiresSolution: false,
+                    format: {
+                        type: 'multiple_choice',
+                        numOptions: 4,
+                        hasFinalAnswer: true,
+                        finalAnswerType: 'multiple_choice',
+                        requiresSolution: false
+                    }
                 },
                 estimatedTime: 3,
                 source: examInfo ? {

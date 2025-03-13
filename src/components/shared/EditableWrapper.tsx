@@ -11,7 +11,7 @@ import {
 } from '../../styles/adminEditStyles';
 
 interface EditableWrapperProps {
-  label: string;
+  label: ReactNode;
   placeholder?: string;
   onValueChange: (value: any) => void;
   onBlur?: () => void;

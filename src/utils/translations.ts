@@ -491,19 +491,22 @@ export const getQuestionSourceDisplay = (source: {
     case SourceType.EXAM:
       if (!source.examTemplateId) return sourceTypeText;
       
-      // Use static exam template translations
-      const examName = examTemplateTranslations[source.examTemplateId] || source.examTemplateId;
+      // Get exam name from exam service
+      const exam = examService.getExamById(source.examTemplateId);
+      const examName = exam?.names.short || source.examTemplateId;
       
       const year = source.year?.toString() || '';
       const season = source.season ? getEnumTranslation('period', source.season) : '';
       const moed = source.moed ? getEnumTranslation('moed', source.moed) : '';
+      const order = source.order ? `שאלה ${source.order}` : '';
       
       // Build parts array, filtering out empty values
       const parts = [
         examName,
         year,
         season,
-        moed
+        moed,
+        order
       ].filter(Boolean);
       
       return parts.join(' • ');

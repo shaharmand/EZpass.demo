@@ -26,9 +26,9 @@ const ContentCard = styled(Card)`
 `;
 
 const SectionLabel = styled(Text)`
-  font-weight: 400;
-  color: #666;
-  margin-bottom: 8px;
+  font-size: 13px;
+  color: #9ca3af;
+  margin-bottom: 4px;
   display: block;
 `;
 
@@ -153,6 +153,8 @@ const ButtonGroup = styled(Space)`
 const TitleInput = styled.input`
   width: 100%;
   font-size: 16px;
+  font-weight: 500;
+  color: #000000;
   padding: 8px;
   border: 1px solid #d9d9d9;
   border-radius: 4px;
@@ -175,7 +177,8 @@ const UnsavedChangesText = styled(Text)`
 const QuestionText = styled.div`
   font-size: 16px;
   line-height: 1.6;
-  color: #595959;
+  color: #000000;
+  font-weight: 500;
   margin: 16px 0 24px;
   padding: 16px;
   background: #fff;
@@ -212,7 +215,7 @@ const ContentInput = styled(Input.TextArea)`
   min-height: 100px;
   
   &.view-mode {
-    color: #262626;
+    color: #000000;
     background: #fafafa;
     border: none;
     cursor: pointer;
@@ -233,6 +236,7 @@ const ContentInput = styled(Input.TextArea)`
     background: #fff;
     padding: 12px;
     cursor: text;
+    color: #000000;
     font-weight: 500;
     
     &:hover {
@@ -248,18 +252,14 @@ const ContentInput = styled(Input.TextArea)`
   &.has-changes {
     background: #fffbe6;
     border-color: #faad14;
-    
-    &:hover, &:focus {
-      border-color: #d48806;
-      box-shadow: 0 0 0 2px rgba(250, 173, 20, 0.2);
-    }
   }
 `;
 
 const ContentDisplay = styled.div`
   font-size: 16px;
   line-height: 1.6;
-  color: #595959;
+  color: #000000;
+  font-weight: 500;
   padding: 12px;
   background: #fafafa;
   border-radius: 6px;
@@ -349,8 +349,8 @@ const EditFieldCancelButton = styled(Button)`
 `;
 
 const EditFieldLabel = styled.div`
-  font-size: 14px;
-  color: #262626;
+  font-size: 13px;
+  color: #9ca3af;
   margin-bottom: 4px;
 `;
 
@@ -426,7 +426,7 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
   return (
     <Space direction="vertical" style={{ width: '100%' }}>
       <EditableWrapper
-        label="כותרת השאלה"
+        label={<SectionLabel>כותרת השאלה</SectionLabel>}
         fieldPath="name"
         placeholder="הזן כותרת..."
         onValueChange={handleTitleChange}
@@ -442,24 +442,20 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
           setEditableFields(prev => ({ ...prev, title: false }));
         }}
         renderEditMode={(value, onChange) => (
-          <input
+          <TitleInput
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder="הזן כותרת..."
-            style={{
-              width: '100%',
-              fontSize: '16px',
-              padding: '8px',
-              border: '1px solid #d9d9d9',
-              borderRadius: '4px',
-              direction: 'rtl'
-            }}
+            style={{ direction: 'rtl' }}
           />
+        )}
+        renderDisplayMode={(value) => (
+          <ContentDisplay>{value}</ContentDisplay>
         )}
       />
 
       <EditableWrapper
-        label="תוכן השאלה"
+        label={<SectionLabel>תוכן השאלה</SectionLabel>}
         fieldPath="content.text"
         placeholder="הזן את תוכן השאלה..."
         onValueChange={handleContentChange}
@@ -483,6 +479,9 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
               placeholder="הזן את תוכן השאלה..."
             />
           </EditorWrapper>
+        )}
+        renderDisplayMode={(value) => (
+          <ContentDisplay>{value}</ContentDisplay>
         )}
       />
     </Space>

@@ -1,15 +1,36 @@
 import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import styled from 'styled-components';
-import { DatabaseQuestion, SaveQuestion, ValidationStatus } from '../../../types/question';
+import { DatabaseQuestion, SaveQuestion, ValidationStatus, SourceType } from '../../../types/question';
 import { validateQuestion, ValidationResult } from '../../../utils/questionValidator';
 import { QuestionEditorHeader } from './QuestionEditorHeader';
 import { QuestionContentSection, QuestionContentSectionHandle } from '../../../pages/admin/components/questions/editor/content/Content';
 import { QuestionStatusHeader } from '../../../pages/admin/components/questions/editor/content/QuestionStatusHeader';
-import { Space } from 'antd';
+import { Space, Typography, Button, Input, Select, Rate } from 'antd';
 import { EditableWrapper } from '../../../components/shared/EditableWrapper';
 import LexicalEditor from '../../../components/editor/LexicalEditor';
 import { questionStorage } from '../../../services/admin/questionStorage';
 import { QuestionProvider } from '../../../contexts/QuestionContext';
+import { PropertiesPanel } from './layout/PropertiesPanel';
+import { useQuestion } from '../../../contexts/QuestionContext';
+import { universalTopicsV2 } from '../../../services/universalTopics';
+import { getQuestionSourceDisplay } from '../../../utils/translations';
+import { MetadataSection, MetadataSectionHandle } from '../../../pages/admin/components/questions/editor/content/MetadataSection';
+
+const { Text } = Typography;
+
+const MetadataLabel = styled(Text)`
+  font-size: 13px;
+  color: #9ca3af;
+  display: block;
+  margin-bottom: 4px;
+`;
+
+const MetadataValue = styled(Text)`
+  font-size: 15px;
+  color: #000000;
+  display: block;
+  font-weight: 500;
+`;
 
 const EditorContainer = styled.div`
   display: flex;
@@ -17,16 +38,119 @@ const EditorContainer = styled.div`
   gap: 24px;
   padding: 24px;
   width: 100%;
-  max-width: 1200px;
+`;
+
+const HeaderContainer = styled.div`
+  width: 100%;
+  max-width: 1400px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 `;
 
 const ContentContainer = styled.div`
+  display: flex;
+  gap: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+`;
+
+const MainPanel = styled.div`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+`;
+
+const EditorPanel = styled.div`
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border: 1px solid #e5e7eb;
   overflow: hidden;
 `;
+
+const QuestionHeader = styled.div`
+  padding: 24px 32px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+const PropertiesSidebar = styled.div`
+  width: 320px;
+  flex-shrink: 0;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  align-self: flex-start;
+  position: sticky;
+  top: 24px;
+`;
+
+const PropertiesContent = styled.div`
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+`;
+
+const MetadataItem = styled.div`
+  &:not(:last-child) {
+    margin-bottom: 24px;
+  }
+`;
+
+const MainContent = styled.div`
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+
+  .question-content-wrapper {
+    font-size: 18px;
+    line-height: 1.8;
+    color: #000000;
+  }
+
+  .question-content-wrapper h1,
+  .question-content-wrapper h2,
+  .question-content-wrapper h3 {
+    margin-top: 1.5em;
+    margin-bottom: 0.75em;
+    color: #000000;
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .question-content-wrapper p {
+    margin-bottom: 1.25em;
+    color: #000000;
+  }
+`;
+
+const getDifficultyLabel = (difficulty: number): string => {
+  switch (difficulty) {
+    case 1:
+      return 'קל מאוד';
+    case 2:
+      return 'קל';
+    case 3:
+      return 'בינוני';
+    case 4:
+      return 'קשה';
+    case 5:
+      return 'קשה מאוד';
+    default:
+      return 'לא מוגדר';
+  }
+};
 
 interface QuestionEditorContainerProps {
   question: DatabaseQuestion;
@@ -52,6 +176,8 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
   const [editedQuestion, setEditedQuestion] = useState(initialQuestion);
   const [isModified, setIsModified] = useState(false);
   const [providerKey, setProviderKey] = useState(0);
+  const contentSectionRef = useRef<QuestionContentSectionHandle>(null);
+  const metadataSectionRef = useRef<MetadataSectionHandle>(null);
 
   const handleQuestionChange = (updated: Partial<DatabaseQuestion>) => {
     // Ensure we have a complete question by merging with current
@@ -69,64 +195,14 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
     setProviderKey(prev => prev + 1);
   }, [initialQuestion]);
 
-  return (
-    <QuestionProvider key={providerKey} question={initialQuestion}>
-      <QuestionEditorContent
-        question={editedQuestion}
-        onQuestionChange={handleQuestionChange}
-        isModified={isModified}
-        onSave={onSave}
-        onQuestionUpdated={onQuestionUpdated}
-        {...props}
-      />
-    </QuestionProvider>
-  );
-};
-
-interface QuestionEditorContentProps {
-  question: DatabaseQuestion;
-  onQuestionChange: (updated: Partial<DatabaseQuestion>) => void;
-  isModified: boolean;
-  onSave: (data: SaveQuestion) => Promise<DatabaseQuestion>;
-  onQuestionUpdated: (updated: DatabaseQuestion) => void;
-  onNavigateBack: () => void;
-  onPrevious?: () => void;
-  onNext?: () => void;
-  hasPrevious?: boolean;
-  hasNext?: boolean;
-  currentPosition?: {
-    current: number;
-    filteredTotal: number;
-  };
-}
-
-const QuestionEditorContent: React.FC<QuestionEditorContentProps> = ({
-  question,
-  onQuestionChange,
-  isModified,
-  onSave,
-  onQuestionUpdated,
-  ...props
-}) => {
-  const contentSectionRef = useRef<QuestionContentSectionHandle>(null);
-  const [resetKey, setResetKey] = useState(Date.now());
-
-  const handleContentChange = async (changes: Partial<DatabaseQuestion>) => {
-    if (!changes.data) return;
-    onQuestionChange(changes);
-  };
-
-  const handleFieldBlur = async () => {
-    // No need to do anything on blur - validation comes from DB
-  };
-
   const handleSave = async () => {
     try {
-      const savedQuestion = await onSave(question);
+      const savedQuestion = await onSave(editedQuestion);
       // Update parent with saved question data
       onQuestionUpdated(savedQuestion);
       // Reset form state
-      setResetKey(Date.now());
+      contentSectionRef.current?.resetChanges();
+      metadataSectionRef.current?.resetChanges();
     } catch (error) {
       console.error('Failed to save question:', error);
       throw error;
@@ -134,45 +210,61 @@ const QuestionEditorContent: React.FC<QuestionEditorContentProps> = ({
   };
 
   const handleCancel = () => {
-    // Just exit edit mode - EditableWrapper will handle resetting values
-    if (contentSectionRef.current) {
-      contentSectionRef.current.resetChanges();
-    }
-    
     // Reset to original question
-    onQuestionChange(question);
-    setResetKey(Date.now());
+    handleQuestionChange(initialQuestion);
+    contentSectionRef.current?.resetChanges();
+    metadataSectionRef.current?.resetChanges();
   };
 
   return (
-    <EditorContainer>
-      <QuestionStatusHeader
-        question={question}
-        onBack={props.onNavigateBack}
-        onPrevious={props.onPrevious}
-        onNext={props.onNext}
-        hasPrevious={props.hasPrevious}
-        hasNext={props.hasNext}
-        currentPosition={props.currentPosition}
-        hasUnsavedChanges={isModified}
-        onQuestionUpdated={onQuestionUpdated}
-      />
+    <QuestionProvider key={providerKey} question={initialQuestion}>
+      <EditorContainer>
+        <HeaderContainer>
+          <QuestionStatusHeader
+            question={editedQuestion}
+            onBack={props.onNavigateBack}
+            onPrevious={props.onPrevious}
+            onNext={props.onNext}
+            hasPrevious={props.hasPrevious}
+            hasNext={props.hasNext}
+            currentPosition={props.currentPosition}
+            hasUnsavedChanges={isModified}
+            onQuestionUpdated={onQuestionUpdated}
+          />
 
-      <ContentContainer>
-        <QuestionEditorHeader
-          isModified={isModified}
-          onSave={handleSave}
-          onCancel={handleCancel}
-        />
+          <QuestionEditorHeader
+            isModified={isModified}
+            onSave={handleSave}
+            onCancel={handleCancel}
+          />
+        </HeaderContainer>
 
-        <QuestionContentSection
-          key={resetKey}
-          ref={contentSectionRef}
-          question={question}
-          onContentChange={handleContentChange}
-          onFieldBlur={handleFieldBlur}
-        />
-      </ContentContainer>
-    </EditorContainer>
+        <ContentContainer>
+          <MainPanel>
+            <EditorPanel>
+              <MainContent>
+                <QuestionContentSection
+                  ref={contentSectionRef}
+                  question={editedQuestion}
+                  onContentChange={handleQuestionChange}
+                  onFieldBlur={() => {}}
+                />
+              </MainContent>
+            </EditorPanel>
+          </MainPanel>
+
+          <PropertiesSidebar>
+            <PropertiesContent>
+              <MetadataSection
+                ref={metadataSectionRef}
+                question={editedQuestion}
+                onContentChange={handleQuestionChange}
+                onFieldBlur={() => {}}
+              />
+            </PropertiesContent>
+          </PropertiesSidebar>
+        </ContentContainer>
+      </EditorContainer>
+    </QuestionProvider>
   );
 }; 

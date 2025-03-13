@@ -501,7 +501,7 @@ export const QuestionMetadataSection = forwardRef<QuestionMetadataSectionHandle,
             justify-content: flex-end;
             gap: 4px;
             text-align: right;
-            color: rgba(0, 0, 0, 0.85);
+            color: #9ca3af;
             font-size: 13px;
           }
 
@@ -603,7 +603,7 @@ export const QuestionMetadataSection = forwardRef<QuestionMetadataSectionHandle,
 
           .topic-level .field-label {
             font-size: 13px;
-            color: rgba(0, 0, 0, 0.85);
+            color: #9ca3af;
             padding: 8px 0;
             display: flex;
             align-items: center;
@@ -644,7 +644,7 @@ export const QuestionMetadataSection = forwardRef<QuestionMetadataSectionHandle,
           }
 
           .topic-level:first-child .field-label {
-            color: rgba(0, 0, 0, 0.85);
+            color: #9ca3af;
             font-weight: normal;
           }
 

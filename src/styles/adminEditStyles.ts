@@ -64,9 +64,9 @@ export const EditFooter = styled.div`
 `;
 
 export const EditLabel = styled.div`
-  font-size: 14px;
-  color: #262626;
-  font-weight: 500;
+  font-size: 13px;
+  color: #9ca3af;
+  font-weight: normal;
 `;
 
 export const CancelButton = styled(Button)`

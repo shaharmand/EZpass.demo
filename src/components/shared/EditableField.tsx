@@ -76,8 +76,8 @@ const EditFieldCancelButton = styled(Button)`
 `;
 
 const EditFieldLabel = styled.div`
-  font-size: 14px;
-  color: #262626;
+  font-size: 13px;
+  color: #9ca3af;
   margin-bottom: 4px;
 `;
 

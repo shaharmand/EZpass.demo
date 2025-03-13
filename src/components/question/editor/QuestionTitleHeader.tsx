@@ -91,10 +91,11 @@ const DomainItem = styled(Text)`
   line-height: 18px;
 `;
 
-const SubjectText = styled(Text)`
+const SubjectText = styled(DomainItem)`
   color: #595959;
   font-weight: 400;
-  white-space: nowrap;
+  background: #fafafa;
+  border-color: #f0f0f0;
 `;
 
 const TypeGroup = styled.div`
@@ -143,7 +144,7 @@ export const QuestionEditHeader: React.FC = () => {
       <MetadataSidebar>
         <MetadataGroup>
           {domain && <DomainItem>{domain}</DomainItem>}
-          {subject && <SubjectText>(‎{subject})</SubjectText>}
+          {subject && <SubjectText>{subject}</SubjectText>}
         </MetadataGroup>
         {type && (
           <TypeGroup>

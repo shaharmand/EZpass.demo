@@ -1,181 +1,284 @@
-import React, { useMemo } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Typography, Space, Rate, InputNumber, Select } from 'antd';
-import { QuestionType } from '../../../../types/question';
-import { universalTopicsV2 } from '../../../../services/universalTopics';
+import { Space, Typography, Collapse, Affix, Button, Tooltip, Badge } from 'antd';
+import { DatabaseOutlined, BookOutlined, CheckOutlined, StarOutlined, MenuFoldOutlined } from '@ant-design/icons';
+import { DatabaseQuestion } from '../../../../types/question';
+import { MetadataSection } from '../../../../pages/admin/components/questions/editor/content/MetadataSection';
 
 const { Text } = Typography;
+const { Panel } = Collapse;
 
-const PanelSection = styled.div`
-  margin-bottom: 24px;
-  
-  &:last-child {
-    margin-bottom: 0;
-  }
+const PanelContainer = styled.div<{ $isCollapsed?: boolean }>`
+  width: ${props => props.$isCollapsed ? '48px' : '300px'};
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  height: fit-content;
+  position: sticky;
+  top: 88px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+`;
 
-  .ant-rate {
+const PanelHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+`;
+
+const PanelTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
+
+  .anticon {
     font-size: 16px;
-    direction: ltr;
-    
-    .ant-rate-star:not(:last-child) {
-      margin-inline-end: 4px;
-    }
-  }
-
-  .time-input {
-    width: 100%;
-  }
-
-  .source-select {
-    width: 100%;
+    color: #6b7280;
   }
 `;
 
-const SectionTitle = styled(Text)`
-  display: block;
-  font-weight: 500;
-  margin-bottom: 12px;
-  color: #262626;
+const CollapseButton = styled(Button)`
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  
+  &:hover {
+    color: #1677ff;
+    border-color: #1677ff;
+  }
+
+  .anticon {
+    font-size: 14px;
+  }
 `;
 
-const SectionDescription = styled(Text)`
-  display: block;
+const NavigationTabs = styled.div`
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d9d9d9;
+    border-radius: 2px;
+  }
+`;
+
+const NavigationTab = styled.button<{ $active?: boolean }>`
+  all: unset;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
   font-size: 13px;
-  color: #595959;
-  margin-bottom: 8px;
+  font-weight: 500;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  background: ${props => props.$active ? '#e6f4ff' : 'transparent'};
+  color: ${props => props.$active ? '#1677ff' : '#6b7280'};
+
+  &:hover {
+    background: ${props => props.$active ? '#e6f4ff' : '#f3f4f6'};
+    color: ${props => props.$active ? '#1677ff' : '#374151'};
+  }
+
+  .anticon {
+    font-size: 14px;
+  }
+
+  .badge {
+    margin-left: 4px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: ${props => props.$active ? '#1677ff' : '#f3f4f6'};
+    color: ${props => props.$active ? '#fff' : '#6b7280'};
+  }
+`;
+
+const PanelContent = styled.div`
+  padding: 16px;
+`;
+
+const SectionTitle = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .anticon {
+    font-size: 16px;
+    color: #6b7280;
+  }
 `;
 
 interface PropertiesPanelProps {
-  type: QuestionType;
-  topicId?: string;
-  subtopicId?: string;
-  difficulty?: number;
-  estimatedTime?: number;
-  source?: {
-    type: string;
-    period?: string;
-    moed?: string;
-  };
-  subjectId: string;
-  domainId: string;
-  isEditing: boolean;
-  onPropertyChange: (property: string, value: any) => void;
+  question: DatabaseQuestion;
+  onContentChange: (changes: Partial<DatabaseQuestion>) => void;
+  onFieldBlur?: () => void;
 }
 
-const SOURCE_TYPES = [
-  { value: 'bagrut', label: 'בגרות' },
-  { value: 'meitzav', label: 'מיצב' },
-  { value: 'practice', label: 'תרגול' },
-  { value: 'exam', label: 'מבחן' },
-  { value: 'other', label: 'אחר' }
-];
-
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
-  type,
-  topicId,
-  subtopicId,
-  difficulty = 1,
-  estimatedTime = 5,
-  source,
-  subjectId,
-  domainId,
-  isEditing,
-  onPropertyChange
+  question,
+  onContentChange,
+  onFieldBlur
 }) => {
-  const domain = universalTopicsV2.getDomainSafe(subjectId, domainId);
-  
-  const topics = useMemo(() => {
-    if (!domain) return [];
-    return domain.topics.map(topic => ({
-      label: topic.name,
-      value: topic.id
-    }));
-  }, [domain]);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [activeSection, setActiveSection] = useState('metadata');
 
-  const subtopics = useMemo(() => {
-    if (!domain || !topicId) return [];
-    const topic = domain.topics.find(t => t.id === topicId);
-    return topic?.subTopics.map(subtopic => ({
-      label: subtopic.name,
-      value: subtopic.id
-    })) || [];
-  }, [domain, topicId]);
+  const sections = [
+    { 
+      id: 'metadata', 
+      title: 'מטא-דאטה', 
+      icon: <DatabaseOutlined />,
+      badge: '6'
+    },
+    { 
+      id: 'classification', 
+      title: 'סיווג', 
+      icon: <BookOutlined />,
+      badge: '2'
+    },
+    { 
+      id: 'evaluation', 
+      title: 'הערכה', 
+      icon: <StarOutlined />,
+      badge: '3'
+    },
+    { 
+      id: 'validation', 
+      title: 'תיקוף', 
+      icon: <CheckOutlined />,
+      badge: '4'
+    }
+  ];
 
-  const handleTopicChange = (newTopicId: string | null) => {
-    onPropertyChange('topicId', newTopicId);
-    onPropertyChange('subtopicId', null); // Clear subtopic when topic changes
+  const handleSectionChange = (sectionId: string) => {
+    setActiveSection(sectionId);
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
-  return (
-    <Space direction="vertical" style={{ width: '100%' }}>
-      <PanelSection>
-        <SectionTitle>נושא</SectionTitle>
-        <Space direction="vertical" style={{ width: '100%' }} size={8}>
-          <Select
-            className="topic-select"
-            value={topicId}
-            onChange={handleTopicChange}
-            disabled={!isEditing}
-            options={topics}
-            placeholder="בחר נושא"
-            style={{ width: '100%' }}
-            allowClear
-            showSearch
-            optionFilterProp="label"
+  if (isCollapsed) {
+    return (
+      <PanelContainer $isCollapsed>
+        <PanelHeader>
+          <CollapseButton 
+            icon={<MenuFoldOutlined />} 
+            onClick={() => setIsCollapsed(false)}
           />
-          {topicId && (
-            <Select
-              className="subtopic-select"
-              value={subtopicId}
-              onChange={value => onPropertyChange('subtopicId', value)}
-              disabled={!isEditing}
-              options={subtopics}
-              placeholder="בחר תת-נושא"
-              style={{ width: '100%' }}
-              allowClear
-              showSearch
-              optionFilterProp="label"
-            />
-          )}
+        </PanelHeader>
+        <Space direction="vertical" style={{ padding: '8px' }}>
+          {sections.map(section => (
+            <Tooltip key={section.id} title={section.title} placement="right">
+              <CollapseButton
+                icon={section.icon}
+                onClick={() => {
+                  setIsCollapsed(false);
+                  handleSectionChange(section.id);
+                }}
+              />
+            </Tooltip>
+          ))}
         </Space>
-      </PanelSection>
+      </PanelContainer>
+    );
+  }
 
-      <PanelSection>
-        <SectionTitle>רמת קושי</SectionTitle>
-        <SectionDescription>דרג את רמת הקושי של השאלה מ-1 עד 5</SectionDescription>
-        <Rate 
-          value={difficulty} 
-          onChange={value => onPropertyChange('difficulty', value)}
-          disabled={!isEditing}
+  return (
+    <PanelContainer>
+      <PanelHeader>
+        <PanelTitle>
+          <DatabaseOutlined />
+          פרטי השאלה
+        </PanelTitle>
+        <CollapseButton 
+          icon={<MenuFoldOutlined />} 
+          onClick={() => setIsCollapsed(true)}
         />
-      </PanelSection>
+      </PanelHeader>
 
-      <PanelSection>
-        <SectionTitle>זמן מוערך (דקות)</SectionTitle>
-        <SectionDescription>הערך את הזמן הדרוש לפתרון השאלה</SectionDescription>
-        <InputNumber
-          className="time-input"
-          min={1}
-          max={60}
-          value={estimatedTime}
-          onChange={value => onPropertyChange('estimatedTime', value)}
-          disabled={!isEditing}
-          addonAfter="דקות"
-        />
-      </PanelSection>
+      <NavigationTabs>
+        {sections.map(section => (
+          <NavigationTab
+            key={section.id}
+            $active={activeSection === section.id}
+            onClick={() => handleSectionChange(section.id)}
+          >
+            {section.icon}
+            {section.title}
+            <span className="badge">{section.badge}</span>
+          </NavigationTab>
+        ))}
+      </NavigationTabs>
 
-      <PanelSection>
-        <SectionTitle>מקור</SectionTitle>
-        <SectionDescription>בחר את מקור השאלה</SectionDescription>
-        <Select
-          className="source-select"
-          value={source?.type}
-          onChange={value => onPropertyChange('source', { ...source, type: value })}
-          disabled={!isEditing}
-          options={SOURCE_TYPES}
-          placeholder="בחר מקור"
-        />
-      </PanelSection>
-    </Space>
+      <PanelContent>
+        <Space direction="vertical" size={32} style={{ width: '100%' }}>
+          <div id="metadata">
+            <SectionTitle>
+              <DatabaseOutlined />
+              מטא-דאטה
+            </SectionTitle>
+            <MetadataSection
+              question={question}
+              onContentChange={onContentChange}
+              onFieldBlur={onFieldBlur}
+            />
+          </div>
+
+          <div id="classification">
+            <SectionTitle>
+              <BookOutlined />
+              סיווג
+            </SectionTitle>
+            {/* Classification content */}
+          </div>
+
+          <div id="evaluation">
+            <SectionTitle>
+              <StarOutlined />
+              הערכה
+            </SectionTitle>
+            {/* Evaluation content */}
+          </div>
+
+          <div id="validation">
+            <SectionTitle>
+              <CheckOutlined />
+              תיקוף
+            </SectionTitle>
+            {/* Validation content */}
+          </div>
+        </Space>
+      </PanelContent>
+    </PanelContainer>
   );
 }; 

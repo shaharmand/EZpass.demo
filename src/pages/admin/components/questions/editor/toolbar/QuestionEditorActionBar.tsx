@@ -1,6 +1,11 @@
-import React from 'react';
-import { SaveOutlined, CloseOutlined, WarningOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { SaveOutlined, CloseOutlined, WarningOutlined, LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+import { Tooltip, Space, Typography } from 'antd';
+import { formatDistanceToNow } from 'date-fns';
+import { he } from 'date-fns/locale';
+
+const { Text } = Typography;
 
 const ActionBar = styled.div<{ $hasChanges: boolean }>`
   width: 100%;
@@ -26,6 +31,7 @@ const ActionBar = styled.div<{ $hasChanges: boolean }>`
   &:hover {
     border-color: #d1d5db;
     box-shadow: 0 -6px 8px -1px rgba(0, 0, 0, 0.06), 0 -4px 6px -1px rgba(0, 0, 0, 0.04);
+    transform: translate(-50%, -2px);
   }
 
   @media (max-width: 1448px) {
@@ -63,9 +69,9 @@ const UnsavedChangesText = styled.div`
   }
 `;
 
-const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
+const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary'; $isLoading?: boolean }>`
   all: unset;
-  cursor: pointer;
+  cursor: ${props => props.$isLoading ? 'wait' : 'pointer'};
   height: 40px;
   padding: 0 24px;
   border-radius: 8px;
@@ -76,6 +82,7 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
   gap: 8px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  pointer-events: ${props => props.$isLoading ? 'none' : 'auto'};
 
   ${props => props.$variant === 'primary' ? `
     background: #2563eb;
@@ -92,6 +99,15 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
       transform: translateY(0);
       box-shadow: 0 2px 4px -1px rgba(37, 99, 235, 0.1);
     }
+
+    ${props.$isLoading && `
+      background: #3b82f6;
+      &:hover {
+        background: #3b82f6;
+        transform: none;
+        box-shadow: 0 1px 2px rgba(37, 99, 235, 0.05);
+      }
+    `}
   ` : `
     color: #374151;
     background: #ffffff;
@@ -110,6 +126,18 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
       background: #f1f5f9;
       border-color: #60a5fa;
     }
+
+    ${props.$isLoading && `
+      color: #9ca3af;
+      background: #f3f4f6;
+      border-color: #e5e7eb;
+      &:hover {
+        color: #9ca3af;
+        background: #f3f4f6;
+        border-color: #e5e7eb;
+        transform: none;
+      }
+    `}
   `}
 
   .action-button-icon {
@@ -120,6 +148,16 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
     padding: 0 16px;
     font-size: 14px;
   }
+`;
+
+const KeyboardShortcut = styled.span`
+  font-size: 12px;
+  color: #6b7280;
+  padding: 2px 6px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  margin-left: 8px;
 `;
 
 interface QuestionEditorActionBarProps {
@@ -133,24 +171,78 @@ export const QuestionEditorActionBar: React.FC<QuestionEditorActionBarProps> = (
   onSave,
   onCancel
 }) => {
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 's') {
+        event.preventDefault();
+        if (hasUnsavedChanges && !isSaving) {
+          handleSave();
+        }
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        if (hasUnsavedChanges) {
+          onCancel();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hasUnsavedChanges, isSaving, onCancel]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSave();
+      setLastSaved(new Date());
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!hasUnsavedChanges) return null;
 
   return (
     <ActionBar $hasChanges={hasUnsavedChanges}>
       <ActionBarContent>
-        <UnsavedChangesText>
-          <WarningOutlined className="warning-icon" />
-          יש שינויים שלא נשמרו
-        </UnsavedChangesText>
+        <Space align="center">
+          <UnsavedChangesText>
+            <WarningOutlined className="warning-icon" />
+            יש שינויים שלא נשמרו
+          </UnsavedChangesText>
+          {lastSaved && (
+            <Text type="secondary" style={{ fontSize: '13px' }}>
+              נשמר לאחרונה: {formatDistanceToNow(lastSaved, { addSuffix: true, locale: he })}
+            </Text>
+          )}
+        </Space>
         <ActionButtonsContainer>
-          <ActionButton onClick={onCancel}>
-            <CloseOutlined className="action-button-icon" />
-            ביטול
-          </ActionButton>
-          <ActionButton $variant="primary" onClick={onSave}>
-            <SaveOutlined className="action-button-icon" />
-            שמירה
-          </ActionButton>
+          <Tooltip title="ESC">
+            <ActionButton onClick={onCancel} $isLoading={isSaving}>
+              <CloseOutlined className="action-button-icon" />
+              ביטול
+              <KeyboardShortcut>ESC</KeyboardShortcut>
+            </ActionButton>
+          </Tooltip>
+          <Tooltip title="⌘ + S">
+            <ActionButton $variant="primary" onClick={handleSave} $isLoading={isSaving}>
+              {isSaving ? (
+                <>
+                  <LoadingOutlined className="action-button-icon" />
+                  שומר...
+                </>
+              ) : (
+                <>
+                  <SaveOutlined className="action-button-icon" />
+                  שמירה
+                  <KeyboardShortcut>⌘S</KeyboardShortcut>
+                </>
+              )}
+            </ActionButton>
+          </Tooltip>
         </ActionButtonsContainer>
       </ActionBarContent>
     </ActionBar>

@@ -17,9 +17,9 @@ import { MetadataSection, MetadataSectionHandle } from '../../../pages/admin/com
 import { SchoolAnswerSection, SchoolAnswerSectionHandle } from '../../../pages/admin/components/questions/editor/solution/SchoolAnswer';
 import { EvaluationSection, EvaluationSectionHandle } from '../../../pages/admin/components/questions/editor/evaluation/Evaluation';
 import { QuestionEditorActionBar } from '../../../pages/admin/components/questions/editor/toolbar/QuestionEditorActionBar';
-import { MenuUnfoldOutlined, MenuFoldOutlined } from '@ant-design/icons';
+import { MenuUnfoldOutlined, MenuFoldOutlined, DatabaseOutlined } from '@ant-design/icons';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 const MetadataLabel = styled(Text)`
   font-size: 13px;
@@ -116,26 +116,54 @@ const PropertiesSidebar = styled.div`
   top: 24px;
   overflow: hidden;
   z-index: 2;
+  height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
 `;
 
 const PropertiesHeader = styled.div`
-  padding: 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   background: #f8fafc;
+  flex-shrink: 0;
+  gap: 8px;
 `;
 
 const PropertiesTitle = styled.div`
   font-weight: 500;
   color: #374151;
+  font-size: 15px;
+  
+  .anticon {
+    margin-left: 8px;
+    color: #6b7280;
+  }
 `;
 
 const PropertiesContent = styled.div`
   padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  flex: 1;
+  overflow-y: auto;
+  
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+    
+    &:hover {
+      background: #a8a8a8;
+    }
+  }
 `;
 
 const MetadataItem = styled.div`
@@ -195,6 +223,44 @@ const SectionContent = styled.div`
   padding: 24px;
 `;
 
+const TitleInput = styled.input`
+  width: 100%;
+  font-size: 16px;
+  font-weight: 500;
+  color: #000000;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  
+  &:focus {
+    outline: none;
+    border-color: #40a9ff;
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  }
+`;
+
+const TitleDisplay = styled.div`
+  font-size: 16px;
+  line-height: 1.6;
+  color: #000000;
+  font-weight: 500;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 6px;
+  min-height: 40px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #f0f0f0;
+  }
+
+  &:empty:before {
+    content: attr(data-placeholder);
+    color: #bfbfbf;
+  }
+`;
+
 const getDifficultyLabel = (difficulty: number): string => {
   switch (difficulty) {
     case 1:
@@ -228,34 +294,44 @@ interface QuestionEditorContainerProps {
 }
 
 export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = ({
-  question: initialQuestion,
+  question,
   onSave,
   onQuestionUpdated,
-  ...props
+  onNavigateBack,
+  onPrevious,
+  onNext,
+  hasPrevious,
+  hasNext,
+  currentPosition
 }) => {
-  const [editedQuestion, setEditedQuestion] = useState(initialQuestion);
+  const [editedQuestion, setEditedQuestion] = useState<DatabaseQuestion>(question);
   const [isModified, setIsModified] = useState(false);
   const [providerKey, setProviderKey] = useState(0);
+  const [editableFields, setEditableFields] = useState({
+    title: false,
+    content: false,
+    options: false
+  });
   const contentSectionRef = useRef<QuestionContentSectionHandle>(null);
   const metadataSectionRef = useRef<MetadataSectionHandle>(null);
   const schoolAnswerSectionRef = useRef<SchoolAnswerSectionHandle>(null);
   const evaluationSectionRef = useRef<EvaluationSectionHandle>(null);
 
-  const handleQuestionChange = (updated: Partial<DatabaseQuestion>) => {
-    // Ensure we have a complete question by merging with current
-    const fullQuestion = { ...editedQuestion, ...updated };
-    setEditedQuestion(fullQuestion);
-    // Check if question has changed from initial
-    setIsModified(JSON.stringify(fullQuestion.data) !== JSON.stringify(initialQuestion.data));
+  const handleQuestionChange = (changes: Partial<DatabaseQuestion>) => {
+    setEditedQuestion(prev => ({
+      ...prev,
+      ...changes
+    }));
+    setIsModified(true);
   };
 
   // Reset modified state when we get a new question
   useEffect(() => {
-    setEditedQuestion(initialQuestion);
+    setEditedQuestion(question);
     setIsModified(false);
     // Force QuestionProvider to re-mount with new question
     setProviderKey(prev => prev + 1);
-  }, [initialQuestion]);
+  }, [question]);
 
   const handleSave = async () => {
     try {
@@ -275,30 +351,42 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
   };
 
   const handleCancel = () => {
-    // Reset to original question
-    setEditedQuestion(initialQuestion);
+    setEditedQuestion(question);
     setIsModified(false);
-    // Reset all section states
+    setEditableFields({
+      title: false,
+      content: false,
+      options: false
+    });
     contentSectionRef.current?.resetChanges();
     metadataSectionRef.current?.resetChanges();
     schoolAnswerSectionRef.current?.resetChanges();
     evaluationSectionRef.current?.resetChanges();
-    // Force QuestionProvider to re-mount with initial question
     setProviderKey(prev => prev + 1);
   };
 
+  const validateTitle = (value: string) => {
+    if (!value || value.trim().length === 0) {
+      return false;
+    }
+    if (value.length > 100) {
+      return false;
+    }
+    return true;
+  };
+
   return (
-    <QuestionProvider key={providerKey} question={initialQuestion}>
+    <QuestionProvider key={providerKey} question={question}>
       <EditorContainer>
         <HeaderContainer>
           <QuestionStatusHeader
             question={editedQuestion}
-            onBack={props.onNavigateBack}
-            onPrevious={props.onPrevious}
-            onNext={props.onNext}
-            hasPrevious={props.hasPrevious}
-            hasNext={props.hasNext}
-            currentPosition={props.currentPosition}
+            onBack={onNavigateBack}
+            onPrevious={onPrevious}
+            onNext={onNext}
+            hasPrevious={hasPrevious}
+            hasNext={hasNext}
+            currentPosition={currentPosition}
             hasUnsavedChanges={isModified}
             onQuestionUpdated={onQuestionUpdated}
           />
@@ -306,6 +394,51 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
 
         <ContentContainer>
           <MainPanel>
+            {/* Title Section */}
+            <div>
+              <SectionHeader>
+                <SectionTitle>שם השאלה</SectionTitle>
+              </SectionHeader>
+              <SectionContent>
+                <EditableWrapper
+                  label={<span />}
+                  fieldPath="name"
+                  placeholder="הזן שם לשאלה..."
+                  onValueChange={(value) => {
+                    handleQuestionChange({
+                      data: {
+                        ...editedQuestion.data,
+                        name: value
+                      }
+                    });
+                  }}
+                  validate={validateTitle}
+                  isEditing={editableFields.title}
+                  onStartEdit={() => {
+                    console.log('[QuestionEditor] Starting title edit');
+                    setEditableFields(prev => ({ ...prev, title: true }));
+                  }}
+                  onCancelEdit={() => {
+                    console.log('[QuestionEditor] Canceling title edit');
+                    setEditableFields(prev => ({ ...prev, title: false }));
+                  }}
+                  renderEditMode={(value, onChange) => (
+                    <TitleInput
+                      value={value}
+                      onChange={(e) => onChange(e.target.value)}
+                      placeholder="הזן שם לשאלה..."
+                      style={{ direction: 'rtl' }}
+                      maxLength={100}
+                    />
+                  )}
+                  renderDisplayMode={(value) => (
+                    <TitleDisplay data-placeholder="לא הוזן שם">{value}</TitleDisplay>
+                  )}
+                />
+              </SectionContent>
+            </div>
+
+            {/* Content Section */}
             <div>
               <SectionHeader>
                 <SectionTitle>תוכן השאלה</SectionTitle>
@@ -347,7 +480,10 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
           </MainPanel>
           <PropertiesSidebar>
             <PropertiesHeader>
-              <PropertiesTitle>מטא-דאטה</PropertiesTitle>
+              <PropertiesTitle>
+                <DatabaseOutlined />
+                פרטי השאלה
+              </PropertiesTitle>
             </PropertiesHeader>
             <PropertiesContent>
               <MetadataSection

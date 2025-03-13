@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Card, Space, Typography, Button, Input, Row, Col, Tag, Select, message } from 'antd';
 import type { InputRef } from 'antd/lib/input';
-import { EditOutlined, FileTextOutlined, SaveOutlined, WarningOutlined, CloseOutlined } from '@ant-design/icons';
+import { EditOutlined, FileTextOutlined, SaveOutlined, WarningOutlined, CloseOutlined, FormOutlined } from '@ant-design/icons';
 import { Question, DatabaseQuestion, SaveQuestion, ValidationStatus, PublicationStatusEnum, QuestionType, NumericalAnswer, FinalAnswerType } from '../../../../../../types/question';
 import { universalTopics } from '../../../../../../services/universalTopics';
 import { Topic, SubTopic } from '../../../../../../types/subject';
@@ -23,47 +23,32 @@ const { Title, Text } = Typography;
 const ContentCard = styled(Card)`
   .ant-card-body {
     padding: 24px;
+    background: #ffffff;
   }
 `;
 
-const SectionLabel = styled(Text)`
-  font-size: 13px;
-  color: #9ca3af;
-  margin-bottom: 4px;
-  display: block;
+const SectionDivider = styled.div`
+  height: 1px;
+  background: linear-gradient(to right, #f0f0f0 0%, #e6e6e6 50%, #f0f0f0 100%);
+  margin: 32px 0;
+  width: 100%;
 `;
 
-interface TitleSectionProps {
-  isEditable?: boolean;
-}
-
-const ContentSection = styled.div<{ isEditable: boolean }>`
-  margin-bottom: 24px;
-  padding: 16px;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: ${props => props.isEditable ? '#40a9ff' : '#f0f0f0'};
-    cursor: ${props => props.isEditable ? 'pointer' : 'default'};
-    background: ${props => props.isEditable ? '#fafafa' : '#fff'};
+const SectionHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  
+  .icon {
+    color: #8c8c8c;
+    font-size: 16px;
   }
-`;
-
-const TitleSection = styled.div<{ isEditable: boolean }>`
-  margin-bottom: 24px;
-  padding: 16px;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: ${props => props.isEditable ? '#40a9ff' : '#f0f0f0'};
-    cursor: ${props => props.isEditable ? 'pointer' : 'default'};
-    background: ${props => props.isEditable ? '#fafafa' : '#fff'};
+  
+  .title {
+    color: #262626;
+    font-size: 16px;
+    font-weight: 500;
   }
 `;
 
@@ -124,18 +109,6 @@ const TitleStatusRow = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-`;
-
-interface CharacterCountProps {
-  count: number;
-}
-
-const CharacterCount = styled.span<CharacterCountProps>`
-  font-size: 12px;
-  color: ${props => props.count >= 50 ? '#ff4d4f' : '#8c8c8c'};
-  margin-right: 8px;
-  min-width: 40px;
-  text-align: left;
 `;
 
 const EditModeButtons = styled(Space)`
@@ -257,24 +230,22 @@ const ContentInput = styled(Input.TextArea)`
 `;
 
 const ContentDisplay = styled.div`
-  font-size: 16px;
-  line-height: 1.6;
-  color: #000000;
-  font-weight: 500;
-  padding: 12px;
+  padding: 16px;
   background: #fafafa;
-  border-radius: 6px;
-  min-height: 40px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  min-height: 120px;
+  transition: all 0.2s;
+  
   &:hover {
-    background: #f0f0f0;
+    background: #f5f5f5;
+    border-color: #d9d9d9;
   }
-
-  &:empty:before {
+  
+  &[data-placeholder]:empty:before {
     content: attr(data-placeholder);
     color: #bfbfbf;
+    font-style: italic;
   }
 `;
 
@@ -497,13 +468,29 @@ const EditModeOptionItem = styled.div<{ isSelected?: boolean }>`
   }
 `;
 
+const OptionDisplayItem = styled.div<{ isSelected?: boolean }>`
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid ${props => props.isSelected ? '#52c41a' : '#f0f0f0'};
+  border-radius: 4px;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  
+  &:hover {
+    border-color: ${props => props.isSelected ? '#73d13d' : '#d9d9d9'};
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  }
+`;
+
 export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, QuestionContentSectionProps>(({
   question,
   onContentChange,
   onFieldBlur
 }, ref) => {
   const [editableFields, setEditableFields] = useState({
-    title: false,
     content: false,
     options: false
   });
@@ -513,22 +500,11 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
     resetChanges: () => {
       console.log('[Content] Header cancel - resetChanges called');
       setEditableFields({
-        title: false,
         content: false,
         options: false
       });
     }
   }));
-
-  const handleTitleChange = (value: string) => {
-    console.log('[Content] Title changed:', value);
-    onContentChange({
-      data: {
-        ...question.data,
-        name: value
-      }
-    });
-  };
 
   const handleContentChange = (text: string) => {
     console.log('[Content] Content changed:', text.slice(0, 50) + '...');
@@ -543,16 +519,6 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
     });
   };
 
-  const validateTitle = (value: string) => {
-    if (!value || value.trim().length === 0) {
-      return false;
-    }
-    if (value.length > 100) {
-      return false;
-    }
-    return true;
-  };
-
   const validateContent = (value: string) => {
     if (!value || value.trim().length === 0) {
       return false;
@@ -561,167 +527,145 @@ export const QuestionContentSection = forwardRef<QuestionContentSectionHandle, Q
   };
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
-      <EditableWrapper
-        label={<SectionLabel>כותרת השאלה</SectionLabel>}
-        fieldPath="name"
-        placeholder="הזן כותרת..."
-        onValueChange={handleTitleChange}
-        onBlur={onFieldBlur}
-        validate={validateTitle}
-        isEditing={editableFields.title}
-        onStartEdit={() => {
-          console.log('[Content] Starting title edit');
-          setEditableFields(prev => ({ ...prev, title: true }));
-        }}
-        onCancelEdit={() => {
-          console.log('[Content] Canceling title edit');
-          setEditableFields(prev => ({ ...prev, title: false }));
-        }}
-        renderEditMode={(value, onChange) => (
-          <TitleInput
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="הזן כותרת..."
-            style={{ direction: 'rtl' }}
-          />
-        )}
-        renderDisplayMode={(value) => (
-          <ContentDisplay>{value}</ContentDisplay>
-        )}
-      />
-
-      <EditableWrapper
-        label={<SectionLabel>תוכן השאלה</SectionLabel>}
-        fieldPath="content.text"
-        placeholder="הזן את תוכן השאלה..."
-        onValueChange={handleContentChange}
-        onBlur={onFieldBlur}
-        validate={validateContent}
-        isEditing={editableFields.content}
-        onStartEdit={() => {
-          console.log('[Content] Starting content edit');
-          setEditableFields(prev => ({ ...prev, content: true }));
-        }}
-        onCancelEdit={() => {
-          console.log('[Content] Canceling content edit');
-          setEditableFields(prev => ({ ...prev, content: false }));
-        }}
-        renderEditMode={(value, onChange) => (
-          <LexicalEditor
-            initialValue={value}
-            onChange={onChange}
+    <ContentCard>
+      <Space direction="vertical" style={{ width: '100%' }} size={24}>
+        {/* Question Content Section */}
+        <div>
+          <SectionHeader>
+            <FileTextOutlined className="icon" />
+            <span className="title">שאלה</span>
+          </SectionHeader>
+          <EditableWrapper
+            label={<span />}
+            fieldPath="content.text"
             placeholder="הזן את תוכן השאלה..."
+            onValueChange={handleContentChange}
+            onBlur={onFieldBlur}
+            validate={validateContent}
+            isEditing={editableFields.content}
+            onStartEdit={() => {
+              setEditableFields(prev => ({ ...prev, content: true }));
+            }}
+            onCancelEdit={() => {
+              setEditableFields(prev => ({ ...prev, content: false }));
+            }}
+            renderEditMode={(value, onChange) => (
+              <LexicalEditor
+                initialValue={value}
+                onChange={onChange}
+                placeholder="הזן את תוכן השאלה..."
+              />
+            )}
+            renderDisplayMode={(value) => (
+              <ContentDisplay data-placeholder="לא הוזן תוכן">
+                <MarkdownRenderer content={value || ''} />
+              </ContentDisplay>
+            )}
           />
-        )}
-        renderDisplayMode={(value) => (
-          <div className="markdown-content" style={{ 
-            padding: '16px',
-            border: '1px solid #d9d9d9',
-            borderRadius: '6px',
-            backgroundColor: '#ffffff',
-            cursor: 'pointer'
-          }}>
-            <MarkdownRenderer content={value || ''} />
-          </div>
-        )}
-      />
+        </div>
 
-      {question.data.metadata.type === QuestionType.MULTIPLE_CHOICE && (
-        <EditableWrapper
-          label={<span />}
-          fieldPath="content.options"
-          placeholder="הוסף אפשרויות תשובה..."
-          onValueChange={(options) => {
-            onContentChange({
-              data: {
-                ...question.data,
-                content: {
-                  ...question.data.content,
-                  options
-                }
-              }
-            });
-          }}
-          onBlur={onFieldBlur}
-          validate={(options) => Array.isArray(options) && options.length === 4}
-          isEditing={editableFields.options}
-          onStartEdit={() => {
-            console.log('[Content] Starting options edit');
-            setEditableFields(prev => ({ ...prev, options: true }));
-          }}
-          onCancelEdit={() => {
-            console.log('[Content] Canceling options edit');
-            setEditableFields(prev => ({ ...prev, options: false }));
-          }}
-          renderEditMode={(value, onChange) => (
-            <Space direction="vertical" style={{ width: '100%', marginTop: 8 }}>
-              {[0, 1, 2, 3].map((index) => {
-                const isSelected = (question.data.content as MultipleChoiceContent).answer?.correctOption === index;
-                return (
-                  <EditModeOptionItem key={index} isSelected={isSelected}>
-                    <OptionLabel 
-                      index={index}
-                      isCorrect={isSelected}
-                    >
-                      {['א', 'ב', 'ג', 'ד'][index]}
-                    </OptionLabel>
-                    <OptionInput
-                      value={value?.[index]?.text || ''}
-                      onChange={(e) => {
-                        const newOptions = [...(value || [])];
-                        newOptions[index] = { text: e.target.value, format: 'markdown' };
-                        onChange(newOptions);
-                      }}
-                      placeholder={`הזן את אפשרות ${['א', 'ב', 'ג', 'ד'][index]}...`}
-                      style={{ direction: 'rtl' }}
-                    />
-                    <RadioButton
-                      isSelected={isSelected}
-                      onClick={() => {
-                        const content = question.data.content as MultipleChoiceContent;
-                        onContentChange({
-                          data: {
-                            ...question.data,
-                            content: {
-                              ...content,
-                              answer: {
-                                correctOption: index
-                              }
-                            } as MultipleChoiceContent
-                          }
-                        });
-                      }}
-                    />
-                  </EditModeOptionItem>
-                );
-              })}
-            </Space>
-          )}
-          renderDisplayMode={(value: FormattedOption[]) => (
-            <OptionDisplayWrapper>
-              {(value || []).map((option: FormattedOption, index: number) => {
-                const isCorrect = (question.data.content as MultipleChoiceContent).answer?.correctOption === index;
-                return (
-                  <OptionItem 
-                    key={index}
-                    index={index}
-                    isCorrect={isCorrect}
-                  >
-                    <OptionLabel 
-                      index={index}
-                      isCorrect={isCorrect}
-                    >
-                      {['א', 'ב', 'ג', 'ד'][index]}
-                    </OptionLabel>
-                    <OptionText>{option.text}</OptionText>
-                  </OptionItem>
-                );
-              })}
-            </OptionDisplayWrapper>
-          )}
-        />
-      )}
-    </Space>
+        {/* Options Section */}
+        {question.data.metadata.type === QuestionType.MULTIPLE_CHOICE && (
+          <>
+            <SectionDivider />
+            <div>
+              <SectionHeader>
+                <FormOutlined className="icon" />
+                <span className="title">תשובות אפשריות</span>
+              </SectionHeader>
+              <EditableWrapper
+                label={<span />}
+                fieldPath="content.options"
+                placeholder="הזן אפשרויות..."
+                onValueChange={(value) => {
+                  onContentChange({
+                    data: {
+                      ...question.data,
+                      content: {
+                        ...question.data.content,
+                        options: value
+                      }
+                    }
+                  });
+                }}
+                onBlur={onFieldBlur}
+                validate={(value) => Array.isArray(value) && value.length > 0}
+                isEditing={editableFields.options}
+                onStartEdit={() => {
+                  setEditableFields(prev => ({ ...prev, options: true }));
+                }}
+                onCancelEdit={() => {
+                  setEditableFields(prev => ({ ...prev, options: false }));
+                }}
+                renderEditMode={(value, onChange) => (
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    {[0, 1, 2, 3].map((index) => {
+                      const isSelected = (question.data.content as MultipleChoiceContent).answer?.correctOption === index;
+                      return (
+                        <EditModeOptionItem key={index} isSelected={isSelected}>
+                          <OptionLabel 
+                            index={index}
+                            isCorrect={isSelected}
+                          >
+                            {['א', 'ב', 'ג', 'ד'][index]}
+                          </OptionLabel>
+                          <OptionInput
+                            value={value?.[index]?.text || ''}
+                            onChange={(e) => {
+                              const newOptions = [...(value || [])];
+                              newOptions[index] = { text: e.target.value, format: 'markdown' };
+                              onChange(newOptions);
+                            }}
+                            placeholder={`הזן את אפשרות ${['א', 'ב', 'ג', 'ד'][index]}...`}
+                            style={{ direction: 'rtl' }}
+                          />
+                          <RadioButton
+                            isSelected={isSelected}
+                            onClick={() => {
+                              const content = question.data.content as MultipleChoiceContent;
+                              onContentChange({
+                                data: {
+                                  ...question.data,
+                                  content: {
+                                    ...content,
+                                    answer: {
+                                      correctOption: index
+                                    }
+                                  } as MultipleChoiceContent
+                                }
+                              });
+                            }}
+                          />
+                        </EditModeOptionItem>
+                      );
+                    })}
+                  </Space>
+                )}
+                renderDisplayMode={(value) => (
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    {value?.map((option: FormattedOption, index: number) => {
+                      const isSelected = (question.data.content as MultipleChoiceContent).answer?.correctOption === index;
+                      return (
+                        <OptionDisplayItem key={index} isSelected={isSelected}>
+                          <OptionLabel
+                            index={index}
+                            isCorrect={isSelected}
+                          >
+                            {['א', 'ב', 'ג', 'ד'][index]}
+                          </OptionLabel>
+                          <div style={{ flex: 1 }}>
+                            <MarkdownRenderer content={option.text} />
+                          </div>
+                        </OptionDisplayItem>
+                      );
+                    })}
+                  </Space>
+                )}
+              />
+            </div>
+          </>
+        )}
+      </Space>
+    </ContentCard>
   );
 }); 

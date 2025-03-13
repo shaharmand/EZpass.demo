@@ -8,12 +8,26 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   WarningOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  DownOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import 'dayjs/locale/he';
 import { Question, DatabaseQuestion, ValidationStatus, PublicationStatusEnum, ReviewStatusEnum } from '../../../../../../types/question';
 import { QuestionStatusManager } from './QuestionStatusManager';
 import { validateQuestion, ValidationResult, ValidationError, ValidationWarning } from '../../../../../../utils/questionValidator';
+import { formatDistanceToNow } from 'date-fns';
+import { he } from 'date-fns/locale';
+
+// Configure dayjs
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(relativeTime);
+dayjs.locale('he');
+dayjs.tz.setDefault('Asia/Jerusalem');
 
 const { Text } = Typography;
 
@@ -21,20 +35,21 @@ const HeaderContainer = styled.div`
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid #f0f0f0;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
   width: 100%;
   position: relative;
   z-index: 1;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 `;
 
 const NavigationBar = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
+  padding: 16px 24px;
   border-bottom: 1px solid #f0f0f0;
   background: #fafafa;
 `;
@@ -47,7 +62,11 @@ const NavigationControls = styled.div`
   .nav-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+    background: white;
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid #e6e6e6;
   }
 
   .counter {
@@ -67,15 +86,22 @@ const NavigationButton = styled(Button)`
     align-items: center;
     gap: 8px;
     border: 1px solid #e6e6e6;
-    padding: 4px 12px;
+    padding: 4px 16px;
     color: #262626;
     background: white;
-    height: 32px;
+    height: 36px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
     
     &:hover {
       background: #e6f4ff;
       color: #1677ff;
       border-color: #1677ff;
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
     }
 
     .anticon {
@@ -85,16 +111,28 @@ const NavigationButton = styled(Button)`
 
   &:not(.home-button) {
     color: #1677ff;
-    border-color: #1677ff;
+    border: none;
+    background: transparent;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
     
     &:hover:not(:disabled) {
       color: #4096ff;
-      border-color: #4096ff;
+      background: #e6f4ff;
+    }
+
+    &:active:not(:disabled) {
+      color: #0958d9;
+      background: #bae0ff;
     }
 
     &:disabled {
       color: #d9d9d9;
-      border-color: #d9d9d9;
+      background: transparent;
     }
   }
 `;
@@ -102,7 +140,7 @@ const NavigationButton = styled(Button)`
 const StatusBar = styled.div<{ $hasValidationIssues: boolean; $isDraft: boolean }>`
   display: flex;
   align-items: center;
-  padding: 12px 24px;
+  padding: 16px 24px;
   background: ${props => {
     if (props.$hasValidationIssues) return '#fff2e8';
     if (props.$isDraft) return '#fffbe6';
@@ -113,6 +151,7 @@ const StatusBar = styled.div<{ $hasValidationIssues: boolean; $isDraft: boolean 
     if (props.$isDraft) return '#ffe58f';
     return '#b7eb8f';
   }};
+  transition: all 0.3s ease;
 `;
 
 const StatusActions = styled.div`
@@ -132,12 +171,13 @@ const StatusBadge = styled.div<{ $type: 'error' | 'warning' | 'success' | 'info'
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
-  border-radius: 16px;
+  padding: 8px 16px;
+  border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
   position: relative;
   cursor: default;
+  transition: all 0.2s ease;
   
   ${props => {
     switch (props.$type) {
@@ -152,25 +192,67 @@ const StatusBadge = styled.div<{ $type: 'error' | 'warning' | 'success' | 'info'
     }
   }}
 
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
   .metadata {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 8px);
     right: 0;
-    margin-top: 4px;
     background: white;
     border: 1px solid #f0f0f0;
-    border-radius: 4px;
-    padding: 8px;
-    font-size: 12px;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 13px;
     color: #595959;
     white-space: nowrap;
     display: none;
     z-index: 1000;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    min-width: 200px;
   }
 
   &:hover .metadata {
     display: block;
+  }
+`;
+
+const ValidationButton = styled(Button)<{ $isExpanded?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 4px 12px;
+  
+  &.error-button {
+    background: #fff2f0;
+    border-color: #ff4d4f;
+    color: #ff4d4f;
+
+    &:hover {
+      background: #fff1f0;
+      border-color: #ff7875;
+      color: #ff7875;
+    }
+  }
+
+  &.warning-button {
+    background: #fffbe6;
+    border-color: #faad14;
+    color: #faad14;
+
+    &:hover {
+      background: #fff8c5;
+      border-color: #ffc53d;
+      color: #ffc53d;
+    }
+  }
+
+  .expand-icon {
+    transition: transform 0.3s;
+    transform: rotate(${props => props.$isExpanded ? '180deg' : '0deg'});
   }
 `;
 
@@ -181,6 +263,7 @@ const ValidationPanel = styled.div<{ $isVisible: boolean }>`
   overflow: hidden;
   background: #fff;
   border-bottom: ${props => props.$isVisible ? '1px solid #f0f0f0' : 'none'};
+  box-shadow: ${props => props.$isVisible ? '0 2px 8px rgba(0,0,0,0.1)' : 'none'};
 `;
 
 const StatusRow = styled.div`
@@ -289,17 +372,29 @@ const CompactTag = styled(Tag)`
 `;
 
 const ActionButton = styled(Button)<{ $isPendingReview?: boolean; $isDraft?: boolean }>`
-  height: 24px;
-  padding: 0 8px;
-  font-size: 12px;
+  height: 32px;
+  padding: 0 16px;
+  font-size: 13px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
   
   &.review-button {
     color: ${props => props.$isPendingReview ? '#52c41a' : '#1677ff'};
     border-color: ${props => props.$isPendingReview ? '#52c41a' : '#1677ff'};
+    background: white;
     
     &:hover:not(:disabled) {
       color: ${props => props.$isPendingReview ? '#73d13d' : '#4096ff'};
       border-color: ${props => props.$isPendingReview ? '#73d13d' : '#4096ff'};
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
     }
 
     &:disabled {
@@ -313,10 +408,17 @@ const ActionButton = styled(Button)<{ $isPendingReview?: boolean; $isDraft?: boo
   &.publish-button {
     color: ${props => props.$isDraft ? '#52c41a' : '#1677ff'};
     border-color: ${props => props.$isDraft ? '#52c41a' : '#1677ff'};
+    background: white;
     
     &:hover:not(:disabled) {
       color: ${props => props.$isDraft ? '#73d13d' : '#4096ff'};
       border-color: ${props => props.$isDraft ? '#73d13d' : '#4096ff'};
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
     }
 
     &:disabled {
@@ -365,7 +467,7 @@ const ValidationList = styled.ul<{ $type: ValidationStatus }>`
 `;
 
 const REVIEW_STATUS_DESCRIPTIONS = {
-  [ReviewStatusEnum.PENDING_REVIEW]: 'ממתין לבדיקה',
+  [ReviewStatusEnum.PENDING_REVIEW]: 'ממתין לסקירה',
   [ReviewStatusEnum.APPROVED]: 'מאושר'
 };
 
@@ -383,6 +485,12 @@ interface QuestionStatusHeaderProps {
   onQuestionUpdated: (updatedQuestion: DatabaseQuestion) => void;
   hasUnsavedChanges?: boolean;
 }
+
+// Helper function to properly handle UTC dates from the database
+const parseDbDate = (dateStr: string) => {
+  // Parse the date as UTC first, then convert to Israel time
+  return dayjs.utc(dateStr).tz('Asia/Jerusalem');
+};
 
 export const QuestionStatusHeader: React.FC<QuestionStatusHeaderProps> = ({
   question,
@@ -454,11 +562,11 @@ export const QuestionStatusHeader: React.FC<QuestionStatusHeaderProps> = ({
             <StatusInfo>
               {/* Review Status */}
               <StatusBadge $type={isPendingReview ? 'warning' : 'success'}>
-                <span>{isPendingReview ? 'ממתין לבדיקה' : 'מאושר'}</span>
+                <span>{isPendingReview ? 'ממתין לסקירה' : 'מאושר'}</span>
                 {!isPendingReview && question.review_metadata?.reviewedAt && (
                   <div className="metadata">
-                    נבדק על ידי {question.review_metadata.reviewedBy}{' '}
-                    ב-{dayjs(question.review_metadata.reviewedAt).locale('he').format('DD/MM/YYYY HH:mm')}
+                    אושר על ידי {question.review_metadata.reviewedBy}{' '}
+                    ב-{parseDbDate(question.review_metadata.reviewedAt).format('DD/MM/YYYY HH:mm')}
                     {question.review_metadata?.comments && (
                       <Tooltip title={question.review_metadata.comments}>
                         <ExclamationCircleOutlined style={{ color: '#1677ff', marginRight: '4px' }} />
@@ -474,23 +582,29 @@ export const QuestionStatusHeader: React.FC<QuestionStatusHeaderProps> = ({
                 {!isDraft && question.publication_metadata?.publishedAt && (
                   <div className="metadata">
                     פורסם על ידי {question.publication_metadata.publishedBy}{' '}
-                    ב-{dayjs(question.publication_metadata.publishedAt).locale('he').format('DD/MM/YYYY HH:mm')}
+                    ב-{parseDbDate(question.publication_metadata.publishedAt).format('DD/MM/YYYY HH:mm')}
                   </div>
                 )}
               </StatusBadge>
 
               {/* Validation Status */}
               {hasValidationIssues ? (
-                <Button 
-                  type="text"
-                  danger={hasErrors}
-                  icon={hasErrors ? <ExclamationCircleOutlined /> : <WarningOutlined />}
+                <ValidationButton 
+                  className={hasErrors ? 'error-button' : 'warning-button'}
                   onClick={() => setShowValidation(!showValidation)}
+                  icon={hasErrors ? <ExclamationCircleOutlined /> : <WarningOutlined />}
+                  $isExpanded={showValidation}
                 >
-                  {hasErrors ? `${validationResult.errors.length} שגיאות` : ''}
-                  {hasErrors && hasWarnings ? ' | ' : ''}
-                  {hasWarnings ? `${validationResult.warnings.length} אזהרות` : ''}
-                </Button>
+                  <Space>
+                    {hasErrors && <span>{validationResult.errors.length} שגיאות</span>}
+                    {hasErrors && hasWarnings && '|'}
+                    {hasWarnings && <span>{validationResult.warnings.length} אזהרות</span>}
+                    <span style={{ marginRight: '8px', borderRight: '1px solid currentColor', paddingRight: '8px' }}>
+                      {showValidation ? 'הסתר פרטים' : 'הצג פרטים'}
+                    </span>
+                    <DownOutlined className="expand-icon" style={{ fontSize: '12px' }} />
+                  </Space>
+                </ValidationButton>
               ) : (
                 <StatusBadge $type="success">
                   <CheckCircleOutlined />
@@ -498,16 +612,36 @@ export const QuestionStatusHeader: React.FC<QuestionStatusHeaderProps> = ({
                 </StatusBadge>
               )}
 
-              {/* Update Status */}
-              <StatusBadge $type="info">
-                <span>{question.update_metadata ? 'מעודכן' : 'לא נשמר'}</span>
-                {question.update_metadata?.lastUpdatedAt && (
+              {/* Update/Creation Status - Show at the end */}
+              {(question.update_metadata?.lastUpdatedAt || question.creation_metadata?.createdAt) && (
+                <StatusBadge $type="info">
+                  <ClockCircleOutlined />
+                  <span>
+                    {question.update_metadata?.lastUpdatedAt ? (
+                      `עודכן ${parseDbDate(question.update_metadata.lastUpdatedAt).fromNow()}`
+                    ) : question.creation_metadata?.createdAt ? (
+                      `נוצר ${parseDbDate(question.creation_metadata.createdAt).fromNow()}`
+                    ) : null}
+                  </span>
                   <div className="metadata">
-                    עודכן על ידי {question.update_metadata.lastUpdatedBy}{' '}
-                    ב-{dayjs(question.update_metadata.lastUpdatedAt).locale('he').format('DD/MM/YYYY HH:mm')}
+                    {question.update_metadata?.lastUpdatedAt ? (
+                      <>
+                        עודכן על ידי {question.update_metadata.lastUpdatedBy}{' '}
+                        <div>
+                          ב-{parseDbDate(question.update_metadata.lastUpdatedAt).format('DD/MM/YYYY HH:mm')}
+                        </div>
+                      </>
+                    ) : question.creation_metadata?.createdAt ? (
+                      <>
+                        נוצר על ידי {question.creation_metadata.createdBy}{' '}
+                        <div>
+                          ב-{parseDbDate(question.creation_metadata.createdAt).format('DD/MM/YYYY HH:mm')}
+                        </div>
+                      </>
+                    ) : null}
                   </div>
-                )}
-              </StatusBadge>
+                </StatusBadge>
+              )}
             </StatusInfo>
 
             <StatusActions>
@@ -520,7 +654,7 @@ export const QuestionStatusHeader: React.FC<QuestionStatusHeaderProps> = ({
                   icon={isPendingReview ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
                   $isPendingReview={isPendingReview}
                 >
-                  {isPendingReview ? 'אישור' : 'העבר לבדיקה'}
+                  {isPendingReview ? 'אישור' : 'העבר לסקירה'}
                 </ActionButton>
               </Tooltip>
 

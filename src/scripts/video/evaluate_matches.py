@@ -5,6 +5,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import sys
+from typing import Optional, Tuple, List, Dict, Any
 
 # Load environment variables
 load_dotenv()
@@ -136,42 +137,48 @@ def create_question_embedding_text(question_data: dict) -> str:
             print(f"פרטי השגיאה: {str(e)}")
             sys.exit(1)
             
-        # Rest of the function...
+        # Get the question text
         question_text = question_data.get('content', {}).get('text', '')
         
-        # Format options with Hebrew letters
+        # Format options with Hebrew letters if they exist
         hebrew_letters = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י']
         content_options = question_data.get('content', {}).get('options', [])
-        options_text = "\n".join(
-            f"{hebrew_letters[i]}. {opt['text'] if isinstance(opt, dict) else str(opt)}"
-            for i, opt in enumerate(content_options)
-        ) if content_options else ""
+        options_text = ""
+        if content_options:
+            options_text = "\n\n" + "\n".join(
+                f"{hebrew_letters[i]}. {opt['text'] if isinstance(opt, dict) else str(opt)}"
+                for i, opt in enumerate(content_options)
+            )
         
-        # Get solution and answer
+        # Get solution and answer if they exist
         school_answer = question_data.get('schoolAnswer', {})
         solution = school_answer.get('solution', '')
         solution_text = solution['text'] if isinstance(solution, dict) else solution
+        
+        # For multiple choice questions, add the correct answer
         final_answer = school_answer.get('finalAnswer', {})
-        final_answer_value = final_answer.get('value', 1) if isinstance(final_answer, dict) else final_answer
+        answer_text = ""
+        if content_options and final_answer:
+            final_answer_value = final_answer.get('value', 1) if isinstance(final_answer, dict) else final_answer
+            try:
+                final_answer_value = int(final_answer_value)
+                correct_letter = hebrew_letters[final_answer_value - 1]
+                correct_text = content_options[final_answer_value - 1]['text']
+                answer_text = f"\n\nהתשובה הנכונה היא {correct_letter}. {correct_text}"
+            except (ValueError, IndexError):
+                pass
         
-        if not content_options or not final_answer_value:
-            raise ValueError("Missing content_options or finalAnswer")
-        
-        # Get correct answer text
-        final_answer_value = int(final_answer_value)
-        correct_letter = hebrew_letters[final_answer_value - 1]
-        correct_text = content_options[final_answer_value - 1]['text']
-        
-        return f"""שיעור ב{subtopic_name}
+        # Build the final text
+        result = f"""שיעור ב{subtopic_name}
 המיקוד בשאלה:
-{question_text}
+{question_text}{options_text}{answer_text}"""
 
-{options_text}
-
-התשובה הנכונה היא {correct_letter}. {correct_text}
-
-הסבר:
-{solution_text}"""
+        # Add explanation if it exists
+        if solution_text:
+            result += f"\n\nהסבר:\n{solution_text}"
+            
+        return result
+        
     except Exception as e:
         print(f"\nשגיאה ביצירת טקסט לשאלה: {str(e)}")
         sys.exit(1)
@@ -179,6 +186,23 @@ def create_question_embedding_text(question_data: dict) -> str:
 def create_structured_question_text(question_data):
     """Create structured text from question data"""
     return create_question_embedding_text(question_data)
+
+def calculate_final_score(base_similarity: float, solution_similarity: float, title_similarity: float, subtopic_match: bool) -> float:
+    """Calculate final score with weighted components."""
+    # Base similarity is the main component
+    score = base_similarity
+    
+    # Small boost for matching subtopic (2.5% boost)
+    if subtopic_match:
+        score = score * 1.025
+    
+    # Add solution and title similarities if they exist
+    if solution_similarity > 0:
+        score = score + (solution_similarity * 0.1)  # 10% weight for solution match
+    if title_similarity > 0:
+        score = score + (title_similarity * 0.1)  # 10% weight for title match
+        
+    return score
 
 def find_matches(question_embedding: list[float], question_data: dict, top_k: int = 10):
     """Find top k matches using semantic similarity with small subtopic boost"""
@@ -198,9 +222,9 @@ def find_matches(question_embedding: list[float], question_data: dict, top_k: in
             # Calculate semantic similarity
             similarity = cosine_similarity(question_embedding, doc['embedding'])
             
-            # Small boost for same subtopic
-            subtopic_boost = 0.2 if doc.get('subtopic_id') == question_data.get('metadata', {}).get('subtopicId') else 0.0
-            final_score = similarity * (1 + subtopic_boost)
+            # Small boost for same subtopic (2.5%)
+            subtopic_boost = 0.025 if doc.get('subtopic_id') == question_data.get('metadata', {}).get('subtopicId') else 0.0
+            final_score = calculate_final_score(similarity, 0.0, 0.0, subtopic_boost > 0.0)
             
             # Store result with similarity and boost
             match = {
@@ -268,7 +292,14 @@ def get_word_doc_path(lesson_num: int, segment_num: int) -> str:
 
 def write_results(results_file: str, embedding_text: str, results: dict):
     """Write the results to a file."""
-    with open(results_file, 'w', encoding='utf-8') as f:
+    # Ensure results directory exists
+    results_dir = "data/evaluation_results"
+    os.makedirs(results_dir, exist_ok=True)
+    
+    # Create full path
+    full_path = os.path.join(results_dir, results_file)
+    
+    with open(full_path, 'w', encoding='utf-8') as f:
         # Write the embedding text first
         f.write(embedding_text)
         
@@ -352,7 +383,7 @@ def write_results(results_file: str, embedding_text: str, results: dict):
             f.write("\nContent Preview:\n")
             f.write(f"{manager.get('content', 'N/A')}\n")
             
-    print(f"\nResults written to {results_file}")
+    print(f"\nResults written to data/evaluation_results/{results_file}")
 
 def main():
     if len(sys.argv) != 2:
@@ -414,6 +445,7 @@ def main():
         # Write results to file with both embedding text and matches
         output_file = f"results_{question_id}.txt"
         write_results(output_file, embedding_text, results)
+        print(f"\nResults written to data/evaluation_results/{output_file}")
             
     except KeyError as e:
         print(f"Error: Missing required field: {e}")

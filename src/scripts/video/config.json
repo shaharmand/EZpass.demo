@@ -1,0 +1,25 @@
+{
+    "paths": {
+        "video_data": "public/data/courses/construction_safety_video_course/video_data.json",
+        "lesson_info": "public/data/lesson_info.json",
+        "subtopic_translations": "public/data/subtopic_translations.json",
+        "processed_summaries": "data/processed_summaries.json",
+        "debug_log": "process_summaries_debug.log",
+        "docs_dir": "data/Videos/Videos_summaries"
+    },
+    "openai": {
+        "model": "text-embedding-3-small",
+        "rate_limit_delay": 1
+    },
+    "templates": {
+        "content_format": {
+            "header": "שיעור ב{subtopic_name}",
+            "focus": "המיקוד בשאלה:",
+            "title": "{video_title}",
+            "content": "{content}"
+        },
+        "debug_format": {
+            "separator": "="
+        }
+    }
+} 

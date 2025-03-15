@@ -8,7 +8,7 @@
 // - Certification process
 
 import React, { useState } from 'react';
-import { Typography, Card, Space, Button, Alert } from 'antd';
+import { Typography, Card, Space, Button, Alert, Tabs } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -26,6 +26,7 @@ import { examService } from '../services/examService';
 import './SafetyCoursesPage.css';
 
 const { Title, Text, Paragraph } = Typography;
+const { TabPane } = Tabs;
 
 // Consistent color scheme
 const colors = {
@@ -272,131 +273,135 @@ const SafetyCoursesPage: React.FC = () => {
         maxWidth: '1400px',
         margin: '0 auto'
       }}>
+        <Tabs defaultActiveKey="1">
+          <TabPane tab="קורסים זמינים" key="1">
+            <div style={gridStyles}>
+              {courses.map((course, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ y: -5 }}
+                >
+                  <Card
+                    hoverable
+                    style={{
+                      height: '100%',
+                      borderRadius: '16px',
+                      border: '1px solid #e5e7eb',
+                      overflow: 'hidden',
+                      background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                    }}
+                  >
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ 
+                          fontSize: '32px',
+                          color: colors.icon.right,
+                          background: 'linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%)',
+                          width: '60px',
+                          height: '60px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          margin: '0 auto 12px',
+                          boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.1), 0 2px 4px -1px rgba(59, 130, 246, 0.06)',
+                          border: '1px solid rgba(59, 130, 246, 0.1)'
+                        }}>
+                          {course.icon}
+                        </div>
+                        <Title level={3} style={{ 
+                          fontSize: '20px',
+                          marginBottom: '12px',
+                          color: colors.text.primary,
+                          background: 'linear-gradient(90deg, #1e293b 0%, #334155 100%)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent'
+                        }}>
+                          {course.title}
+                        </Title>
+                        <Text style={{ 
+                          fontSize: '14px',
+                          color: colors.text.secondary,
+                          display: 'block',
+                          marginBottom: '16px',
+                          lineHeight: 1.5
+                        }}>
+                          {course.description}
+                        </Text>
+                      </div>
+
+                      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                        {course.features.map((feature, fIndex) => (
+                          <div key={fIndex} style={{ 
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '6px 10px',
+                            background: '#f8fafc',
+                            borderRadius: '6px',
+                            border: '1px solid #e5e7eb'
+                          }}>
+                            <SafetyCertificateOutlined style={{ 
+                              color: colors.icon.right,
+                              fontSize: '14px'
+                            }} />
+                            <Text style={{
+                              fontSize: '13px',
+                              color: colors.text.primary
+                            }}>{feature}</Text>
+                          </div>
+                        ))}
+                      </Space>
+
+                      <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <Button
+                          type="primary"
+                          size="large"
+                          block
+                          onClick={() => handleStartPractice(course.examId)}
+                          loading={loading === course.examId}
+                          style={{
+                            height: 'auto',
+                            padding: '12px',
+                            fontSize: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            background: colors.button.primary.background,
+                            borderColor: colors.button.primary.background,
+                            boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.2)',
+                            borderRadius: '10px'
+                          }}
+                        >
+                          התחל תרגול
+                          <ArrowLeftOutlined />
+                        </Button>
+                      </motion.div>
+                    </Space>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </TabPane>
+        </Tabs>
+        
         {error && (
           <Alert
             message="שגיאה"
             description={error}
             type="error"
             showIcon
-            style={{ marginBottom: '24px' }}
+            style={{ marginTop: '24px' }}
           />
         )}
-
-        <div className="courses-grid">
-          {courses.map((course, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ y: -5 }}
-            >
-              <Card
-                hoverable
-                style={{
-                  height: '100%',
-                  borderRadius: '16px',
-                  border: '1px solid #e5e7eb',
-                  overflow: 'hidden',
-                  background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                }}
-              >
-                <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ 
-                      fontSize: '32px',
-                      color: colors.icon.right,
-                      background: 'linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%)',
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 12px',
-                      boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.1), 0 2px 4px -1px rgba(59, 130, 246, 0.06)',
-                      border: '1px solid rgba(59, 130, 246, 0.1)'
-                    }}>
-                      {course.icon}
-                    </div>
-                    <Title level={3} style={{ 
-                      fontSize: '20px',
-                      marginBottom: '12px',
-                      color: colors.text.primary,
-                      background: 'linear-gradient(90deg, #1e293b 0%, #334155 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent'
-                    }}>
-                      {course.title}
-                    </Title>
-                    <Text style={{ 
-                      fontSize: '14px',
-                      color: colors.text.secondary,
-                      display: 'block',
-                      marginBottom: '16px',
-                      lineHeight: 1.5
-                    }}>
-                      {course.description}
-                    </Text>
-                  </div>
-
-                  <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                    {course.features.map((feature, fIndex) => (
-                      <div key={fIndex} style={{ 
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '6px 10px',
-                        background: '#f8fafc',
-                        borderRadius: '6px',
-                        border: '1px solid #e5e7eb'
-                      }}>
-                        <SafetyCertificateOutlined style={{ 
-                          color: colors.icon.right,
-                          fontSize: '14px'
-                        }} />
-                        <Text style={{
-                          fontSize: '13px',
-                          color: colors.text.primary
-                        }}>{feature}</Text>
-                      </div>
-                    ))}
-                  </Space>
-
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Button
-                      type="primary"
-                      size="large"
-                      block
-                      onClick={() => handleStartPractice(course.examId)}
-                      loading={loading === course.examId}
-                      style={{
-                        height: 'auto',
-                        padding: '12px',
-                        fontSize: '16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        background: colors.button.primary.background,
-                        borderColor: colors.button.primary.background,
-                        boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.2)',
-                        borderRadius: '10px'
-                      }}
-                    >
-                      התחל תרגול
-                      <ArrowLeftOutlined />
-                    </Button>
-                  </motion.div>
-                </Space>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
       </div>
     </motion.div>
   );

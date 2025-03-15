@@ -21,27 +21,48 @@ const AuthCallback: React.FC = () => {
 
           // Update profile with Google data if available
           if (userMetadata) {
-            // Split full name into first and last name
+            // Get the full name from metadata
             const fullName = userMetadata.full_name || userMetadata.name || '';
-            const [firstName = '', lastName = ''] = fullName.split(' ');
+            let firstName = '', lastName = '';
 
+            // Try to get first/last name directly first
+            if (userMetadata.given_name && userMetadata.family_name) {
+              firstName = userMetadata.given_name;
+              lastName = userMetadata.family_name;
+            } else if (fullName) {
+              // Split full name as fallback
+              const nameParts = fullName.split(' ');
+              firstName = nameParts[0] || '';
+              lastName = nameParts.slice(1).join(' ') || '';
+            }
+
+            // Get avatar URL from various possible sources
+            const avatarUrl = userMetadata.avatar_url || 
+                            userMetadata.picture ||
+                            userMetadata.avatar ||
+                            null;
+
+            // Update the profile
             const { error: profileError } = await supabase
               .from('profiles')
               .upsert({
                 id: user.id,
                 first_name: firstName,
                 last_name: lastName,
-                avatar_url: userMetadata.avatar_url || userMetadata.picture,
                 updated_at: new Date().toISOString()
+              }, {
+                // Only update if values are different
+                onConflict: 'id',
+                ignoreDuplicates: false
               })
               .select()
               .single();
 
             if (profileError) {
               console.error('Error updating profile:', profileError);
-              message.error('Failed to update profile');
+              message.error('שגיאה בעדכון הפרופיל');
             } else {
-              message.success('Successfully signed in!');
+              message.success('התחברת בהצלחה!');
             }
           }
 
@@ -56,7 +77,7 @@ const AuthCallback: React.FC = () => {
         }
       } catch (error) {
         console.error('Error in auth callback:', error);
-        message.error('An error occurred during sign in');
+        message.error('שגיאה בתהליך ההתחברות');
         navigate('/', { replace: true });
       }
     };

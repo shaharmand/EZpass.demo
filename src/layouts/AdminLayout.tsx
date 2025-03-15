@@ -12,7 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { AdminPageProvider } from '../contexts/AdminPageContext';
-import { AdminPageHeader } from '../components/admin/AdminPageHeader';
+import { AdminPageIdentity } from '../components/admin/AdminPageIdentity';
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -109,7 +109,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               }}
             />
             <PageIdentityArea>
-              <AdminPageHeader />
+              <AdminPageIdentity />
             </PageIdentityArea>
             <Space>
               <Button type="text" icon={<UserOutlined />}>

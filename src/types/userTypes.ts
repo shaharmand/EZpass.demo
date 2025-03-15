@@ -24,6 +24,8 @@ export enum SubscriptionTier {
  */
 export interface Profile {
   id: string;              // References auth.users(id)
+  first_name: string;      // Added from migration
+  last_name: string;       // Added from migration
   role: UserRole;
   subscription_tier: SubscriptionTier;
   updated_at?: string;
@@ -35,14 +37,14 @@ export interface Profile {
  * - Additional profile data (from our profiles table)
  */
 export interface UserProfile extends Pick<User, 'id' | 'email' | 'phone'> {
-  // From user_metadata
-  firstName: string;
-  lastName: string;
-  avatarUrl?: string;
-  
-  // From our profiles table
+  // From profiles table
+  first_name: string;
+  last_name: string;
   role: UserRole;
-  subscriptionTier: SubscriptionTier;
+  subscription_tier: SubscriptionTier;
+  
+  // From user_metadata
+  avatarUrl?: string;
   
   // Additional fields
   lastLoginAt?: string;
@@ -58,13 +60,16 @@ export function createUserProfile(user: User, profile: Profile): UserProfile {
     email: user.email ?? '',
     phone: user.phone ?? undefined,
     
+    // Profile data from our table
+    first_name: profile.first_name,
+    last_name: profile.last_name,
+    role: profile.role,
+    subscription_tier: profile.subscription_tier,
+    
     // Metadata from Supabase
-    firstName: user.user_metadata?.first_name ?? '',
-    lastName: user.user_metadata?.last_name ?? '',
     avatarUrl: user.user_metadata?.avatar_url,
     
-    // Profile data from our table
-    role: profile.role,
-    subscriptionTier: profile.subscription_tier
+    // Additional fields
+    lastLoginAt: user.last_sign_in_at
   };
 }

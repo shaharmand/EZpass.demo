@@ -16,12 +16,14 @@ interface PrepConfigDialogProps {
   prep: StudentPrep;
   open: boolean;
   onClose: () => void;
+  onUpdate?: (newName: string) => void;
 }
 
 export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
   prep,
   open,
   onClose,
+  onUpdate
 }) => {
   const [form] = Form.useForm();
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +155,11 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
       // Save updated prep
       PrepStateManager.updatePrep(updatedPrep);
       setCurrentPrep(updatedPrep);
+
+      // Call onUpdate if provided with the new name
+      if (onUpdate) {
+        onUpdate(values.prepName);
+      }
 
       onClose();
     } catch (error) {

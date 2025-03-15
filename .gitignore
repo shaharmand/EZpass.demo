@@ -10,6 +10,9 @@
 /build
 /dist
 
+# Downloaded Content
+/downloaded_videos/
+
 # Misc
 .DS_Store
 .env.local

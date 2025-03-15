@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Button, message, Select, Radio, Space, Typography, Form } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { QuestionType, createEmptyQuestion } from '../../../../../types/question';
-import { universalTopics } from '../../../../../services/universalTopics';
-import { questionStorage } from '../../../../../services/admin/questionStorage';
+import { QuestionType, createEmptyQuestion } from '../../../types/question';
+import { universalTopics } from '../../../services/universalTopics';
+import { questionStorage } from '../../../services/admin/questionStorage';
 
 const { Title, Text } = Typography;
 
@@ -31,13 +31,7 @@ const ActionBar = styled.div`
   gap: 8px;
 `;
 
-interface CreateQuestionWizardProps {
-  onCancel: () => void;
-}
-
-export const CreateQuestionWizard: React.FC<CreateQuestionWizardProps> = ({
-  onCancel
-}) => {
+export const QuestionCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [isLoading, setIsLoading] = useState(false);
@@ -190,7 +184,7 @@ export const CreateQuestionWizard: React.FC<CreateQuestionWizardProps> = ({
       </FormContainer>
 
       <ActionBar>
-        <Button onClick={onCancel}>
+        <Button onClick={() => navigate('/admin/questions')}>
           ביטול
         </Button>
         <Button 

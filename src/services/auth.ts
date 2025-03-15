@@ -36,9 +36,9 @@ export async function updateUserProfile(updates: Partial<UserProfile>): Promise<
     const { data: profile, error } = await supabase
       .from('profiles')
       .update({
-        first_name: updates.firstName,
-        last_name: updates.lastName,
-        last_login_at: updates.lastLoginAt
+        first_name: updates.first_name,
+        last_name: updates.last_name,
+        updated_at: new Date().toISOString()
       })
       .eq('id', updates.id)
       .select()
@@ -63,14 +63,14 @@ export async function updateUserProfile(updates: Partial<UserProfile>): Promise<
 /**
  * Sign up a new user with email/password
  */
-export async function signUp(email: string, password: string, firstName: string, lastName: string) {
+export async function signUp(email: string, password: string, first_name: string, last_name: string) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
-        first_name: firstName,
-        last_name: lastName
+        first_name,
+        last_name
       }
     }
   });

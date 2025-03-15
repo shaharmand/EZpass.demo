@@ -14,6 +14,7 @@ import { DetailedEvalLevel } from '../../types/feedback/levels';
 import { isSuccessfulAnswer } from '../../types/feedback/status';
 import { SkipReason, QuestionPracticeState } from '../../types/prepUI';
 import { StudentPrep } from '../../types/prepState';
+import { getQuestionTopicName } from '../../utils/questionUtils';
 import QuestionContent from '../QuestionContent';
 import { FeedbackContainer } from '../feedback/FeedbackContainer';
 import { QuestionHeader } from './QuestionHeader';
@@ -25,7 +26,11 @@ import { FeedbackActionBar } from './FeedbackActionBar';
 import { TopicSelectionDialog } from './TopicSelectionDialog';
 import QuestionSetProgress from './QuestionSetProgress';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SubtopicVideoBar } from './SubtopicVideoBar';
+import { VimeoPlayer } from './VimeoPlayer';
 import './QuestionInteractionContainer.css';
+import { videoContentService } from '../../services/videoContentService';
+import { VideoContent } from '../../types/videoContent';
 
 const { Text } = Typography;
 
@@ -75,7 +80,10 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   const progressSectionRef = useRef<HTMLDivElement>(null);
   const questionCounterRef = useRef<HTMLDivElement>(null);
   const [isAnswerSectionVisible, setIsAnswerSectionVisible] = useState(false);
-
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [subtopicVideos, setSubtopicVideos] = useState<VideoContent[]>([]);
+  const [isLoadingVideos, setIsLoadingVideos] = useState(false);
+  
   // Add effect to scroll to feedback when it appears
   useEffect(() => {
     if (state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data) {
@@ -155,6 +163,29 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
       }
     };
   }, [question.id]);
+
+  // Load videos when subtopic changes
+  useEffect(() => {
+    const loadSubtopicVideos = async () => {
+      if (!question.metadata.subtopicId) {
+        setSubtopicVideos([]);
+        return;
+      }
+
+      setIsLoadingVideos(true);
+      try {
+        const videos = await videoContentService.getSubtopicVideos(question.metadata.subtopicId);
+        setSubtopicVideos(videos);
+      } catch (error) {
+        console.error('Failed to load subtopic videos:', error);
+        setSubtopicVideos([]);
+      } finally {
+        setIsLoadingVideos(false);
+      }
+    };
+
+    loadSubtopicVideos();
+  }, [question.metadata.subtopicId]);
 
   const handleAnswerChange = useCallback((answer: FullAnswer) => {
     setAnswer(answer);
@@ -349,92 +380,115 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   }
 
   return (
-    <div className="daily-practice-wrapper" ref={containerRef}>
-      <div className="daily-practice-container">
-        <div className="daily-practice-content">
-          <div className="progress-section" ref={progressSectionRef}>
-            <div ref={questionCounterRef} className="question-counter-wrapper">
-              <QuestionSetProgress
-                questionId={question.id}
-                prepId={prep.id}
-                prep={prep}
-              />
-            </div>
-          </div>
-
-          <Card 
-            className={`question-card question-type-${question.metadata.type} ${
-              isQuestionEntering ? 'entering' : 'entered'
-            }`}
-            key={questionChangeKey}
-          >
-            <QuestionHeader
-              question={question}
-              onSkip={onSkip}
-            />
-            {renderQuestionContent()}
-          </Card>
-
-          {renderAnswerSection()}
-
-          {!state.submissions.length && renderActionBar()}
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`feedback-${question?.id}`}
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              ref={feedbackRef}
-            >
-              {state.status === 'submitted' && state.submissions.length === 0 && (
-                <div className="feedback-loading">
-                  <Space direction="vertical">
-                    <Spin size="large" />
-                    <Text>בודק את התשובה שלך...</Text>
-                  </Space>
-                </div>
-              )}
-
-              {state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data && (
-                <div className="feedback-container">
-                  <div className="feedback-section">
-                    {(() => {
-                      const feedbackData = state.submissions[state.submissions.length - 1]?.feedback?.data;
-                      if (!feedbackData) return null;
-                      return (
-                        <FeedbackContainer 
-                          question={question}
-                          submission={state.submissions[state.submissions.length - 1]}
-                          isLimitedFeedback={isAllowedFullFeedback()}
-                        />
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data && (
-          <div className="daily-practice-action-bar">
-            {(() => {
-              const feedbackData = state.submissions[state.submissions.length - 1]?.feedback?.data;
-              if (!feedbackData) return null;
-              return (
-                <FeedbackActionBar
-                  feedback={feedbackData}
-                  onRetry={handleRetry}
-                  onNext={handleNext}
-                  showRetry={!isSuccessfulAnswer(feedbackData.evalLevel)}
+    <div className={`question-interaction-container ${className || ''}`} style={style} ref={containerRef}>
+      <div className="daily-practice-wrapper" style={{ 
+        marginRight: question.metadata.subtopicId ? '320px' : '0',
+        transition: 'margin-right 0.3s ease'
+      }}>
+        <div className="daily-practice-container">
+          <div className="daily-practice-content">
+            <div className="progress-section" ref={progressSectionRef}>
+              <div ref={questionCounterRef} className="question-counter-wrapper">
+                <QuestionSetProgress
+                  questionId={question.id}
+                  prepId={prep.id}
+                  prep={prep}
                 />
-              );
-            })()}
+              </div>
+            </div>
+
+            <Card 
+              className={`question-card question-type-${question.metadata.type} ${
+                isQuestionEntering ? 'entering' : 'entered'
+              }`}
+              key={questionChangeKey}
+            >
+              <QuestionHeader
+                question={question}
+                onSkip={onSkip}
+              />
+              {renderQuestionContent()}
+            </Card>
+
+            {renderAnswerSection()}
+
+            {!state.submissions.length && renderActionBar()}
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`feedback-${question?.id}`}
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                ref={feedbackRef}
+              >
+                {state.status === 'submitted' && state.submissions.length === 0 && (
+                  <div className="feedback-loading">
+                    <Space direction="vertical">
+                      <Spin size="large" />
+                      <Text>בודק את התשובה שלך...</Text>
+                    </Space>
+                  </div>
+                )}
+
+                {state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data && (
+                  <div className="feedback-container">
+                    <div className="feedback-section">
+                      {(() => {
+                        const feedbackData = state.submissions[state.submissions.length - 1]?.feedback?.data;
+                        if (!feedbackData) return null;
+                        return (
+                          <FeedbackContainer 
+                            question={question}
+                            submission={state.submissions[state.submissions.length - 1]}
+                            isLimitedFeedback={isAllowedFullFeedback()}
+                          />
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
-        )}
+
+          {state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data && (
+            <div className="daily-practice-action-bar">
+              {(() => {
+                const feedbackData = state.submissions[state.submissions.length - 1]?.feedback?.data;
+                if (!feedbackData) return null;
+                return (
+                  <FeedbackActionBar
+                    feedback={feedbackData}
+                    onRetry={handleRetry}
+                    onNext={handleNext}
+                    showRetry={!isSuccessfulAnswer(feedbackData.evalLevel)}
+                  />
+                );
+              })()}
+            </div>
+          )}
+        </div>
       </div>
+
+      {question.metadata.subtopicId && (
+        <>
+          <SubtopicVideoBar
+            subtopicId={question.metadata.subtopicId}
+            subtopicName={getQuestionTopicName(question)}
+            videos={subtopicVideos}
+            onVideoSelect={(videoId) => setSelectedVideoId(videoId)}
+            isLoading={isLoadingVideos}
+          />
+          
+          <VimeoPlayer
+            videoId={selectedVideoId || ''}
+            isOpen={!!selectedVideoId}
+            onClose={() => setSelectedVideoId(null)}
+          />
+        </>
+      )}
 
       <TopicSelectionDialog
         exam={prep.exam}

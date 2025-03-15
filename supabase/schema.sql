@@ -263,6 +263,8 @@ CREATE TRIGGER update_questions_updated_at
 -- Create profiles table if not exists
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid references auth.users(id) on delete cascade primary key,
+  first_name text not null default '',
+  last_name text not null default '',
   role text not null default 'student' check (role in ('student', 'teacher', 'admin')),
   subscription_tier text not null default 'free' check (subscription_tier in ('free', 'plus', 'pro')),
   updated_at timestamp with time zone default timezone('utc'::text, now())
@@ -297,10 +299,41 @@ SECURITY DEFINER
 SET search_path = public
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    first_name text;
+    last_name text;
 BEGIN
-    INSERT INTO public.profiles (id, role, subscription_tier)
-    VALUES (
+    -- Extract first and last name from metadata
+    -- Try different metadata fields in order of preference
+    IF new.raw_user_meta_data->>'first_name' IS NOT NULL THEN
+        -- Direct first/last name fields (from our signup)
+        first_name := new.raw_user_meta_data->>'first_name';
+        last_name := new.raw_user_meta_data->>'last_name';
+    ELSIF new.raw_user_meta_data->>'full_name' IS NOT NULL THEN
+        -- Full name from Google (split it)
+        first_name := split_part(new.raw_user_meta_data->>'full_name', ' ', 1);
+        last_name := substr(new.raw_user_meta_data->>'full_name', length(split_part(new.raw_user_meta_data->>'full_name', ' ', 1)) + 2);
+    ELSIF new.raw_user_meta_data->>'name' IS NOT NULL THEN
+        -- Name from OAuth (split it)
+        first_name := split_part(new.raw_user_meta_data->>'name', ' ', 1);
+        last_name := substr(new.raw_user_meta_data->>'name', length(split_part(new.raw_user_meta_data->>'name', ' ', 1)) + 2);
+    ELSE
+        -- Fallback to empty strings
+        first_name := '';
+        last_name := '';
+    END IF;
+
+    -- Insert the new profile
+    INSERT INTO public.profiles (
+        id,
+        first_name,
+        last_name,
+        role,
+        subscription_tier
+    ) VALUES (
         new.id,
+        first_name,
+        last_name,
         'student',  -- Default role
         'free'      -- Default subscription tier
     );

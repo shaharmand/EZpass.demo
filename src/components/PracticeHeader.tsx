@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { PrepStateManager } from '../services/PrepStateManager';
 import { useAuth } from '../contexts/AuthContext';
 import type { ActivePracticeQuestion } from '../types/prepUI';
-import { BaseHeader } from './base/BaseHeader';
+import { UserHeader } from './layout/UserHeader';
 import { colors } from '../utils/feedbackStyles';
 import './PracticeHeader.css';
 import { JoinEZpassPlusDialog } from './dialogs/JoinEZpassPlusDialog';
@@ -410,15 +410,13 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
   const pageTitle = "תרגול שאלות";
 
   return (
-    <>
-      <BaseHeader
-        variant="practice"
-        pageTitle={pageTitle}
-        topRowContent={topRowContent}
-        showMetricsRow
-        metricsContent={metricsContent}
-      />
-      
+    <UserHeader
+      variant="practice"
+      pageTitle={pageTitle}
+      topRowContent={topRowContent}
+      showMetricsRow
+      metricsContent={metricsContent}
+    >
       <ExamContentDialog
         open={examContentOpen}
         onClose={handleExamContentClose}
@@ -430,12 +428,13 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
         open={configOpen}
         onClose={() => setConfigOpen(false)}
         prep={prep}
+        onUpdate={handleNameUpdate}
       />
 
       <JoinEZpassPlusDialog
         open={joinEZpassPlusOpen}
         onClose={() => setJoinEZpassPlusOpen(false)}
       />
-    </>
+    </UserHeader>
   );
 }; 

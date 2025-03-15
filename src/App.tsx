@@ -13,6 +13,8 @@ import { UserProfile } from './pages/UserProfile';
 import AuthCallback from './pages/AuthCallback';
 import { checkEnvironmentVariables } from './utils/envCheck';
 import { adminRoutes } from './routes/adminRoutes';
+import SafetyCoursePage from './pages/courses/SafetyCoursePage';
+import VideoPage from './components/courses/VideoPage';
 
 const App: React.FC = () => {
   useEffect(() => {
@@ -28,6 +30,25 @@ const App: React.FC = () => {
       children: [
         { index: true, element: <AuthForms /> },
         { path: 'callback', element: <AuthCallback /> }
+      ]
+    },
+    // Course routes
+    {
+      path: 'courses',
+      children: [
+        {
+          path: 'safety',
+          children: [
+            {
+              index: true,
+              element: <SafetyCoursePage />
+            },
+            {
+              path: 'video/:videoId',
+              element: <VideoPage />
+            }
+          ]
+        }
       ]
     },
     // Practice routes

@@ -1,15 +1,15 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { User, AuthError, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types/userTypes';
 import { useNavigate } from 'react-router-dom';
 import { PrepStateManager } from '../services/PrepStateManager';
 
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, first_name: string, last_name: string) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [dbProfile, setDbProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function loadProfile() {
       if (!user) {
-        setProfile(null);
+        setDbProfile(null);
         return;
       }
 
@@ -43,17 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Create UserProfile combining auth and profile data
-      setProfile({
-        id: user.id,
-        email: user.email ?? '',
-        phone: user.phone ?? undefined,
-        firstName: user.user_metadata?.first_name ?? '',
-        lastName: user.user_metadata?.last_name ?? '',
-        avatarUrl: user.user_metadata?.avatar_url,
-        role: profile.role,
-        subscriptionTier: profile.subscription_tier
-      });
+      setDbProfile(profile);
     }
 
     loadProfile();
@@ -87,55 +77,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const value = {
-    user,
-    profile,
-    loading,
-    signUp: async (email: string, password: string, firstName: string, lastName: string) => {
-      return supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName
+  const value = useMemo(() => {
+    const profile = user && dbProfile ? {
+      ...user,
+      first_name: dbProfile.first_name,
+      last_name: dbProfile.last_name,
+      role: dbProfile.role,
+      subscription_tier: dbProfile.subscription_tier,
+      avatarUrl: user.user_metadata?.avatar_url,
+      lastLoginAt: user.last_sign_in_at
+    } as UserProfile : null;
+
+    return {
+      user,
+      profile,
+      loading,
+      signUp: async (email: string, password: string, first_name: string, last_name: string) => {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              first_name,
+              last_name
+            }
           }
-        }
-      });
-    },
-    signIn: async (email: string, password: string) => {
-      return supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-    },
-    signInWithGoogle: async () => {
-      // Always use current domain for redirect URL
-      const currentDomain = window.location.origin;
-      const redirectUrl = `${currentDomain}/auth/callback`;
-      
-      // Get stored return URL from localStorage
-      const returnUrl = localStorage.getItem('returnUrl');
-      
-      return supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-            return_to: returnUrl || '/' // Pass return URL to auth callback
-          },
-          scopes: 'profile email',
-          skipBrowserRedirect: false
-        }
-      });
-    },
-    signOut: async () => {
-      await supabase.auth.signOut();
-      navigate('/');
-    },
-  };
+        });
+        return { error };
+      },
+      signIn: async (email: string, password: string) => {
+        return supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+      },
+      signInWithGoogle: async () => {
+        // Always use current domain for redirect URL
+        const currentDomain = window.location.origin;
+        const redirectUrl = `${currentDomain}/auth/callback`;
+        
+        // Get stored return URL from localStorage
+        const returnUrl = localStorage.getItem('returnUrl');
+        
+        return supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+              return_to: returnUrl || '/' // Pass return URL to auth callback
+            },
+            scopes: 'profile email',
+            skipBrowserRedirect: false
+          }
+        });
+      },
+      signOut: async () => {
+        await supabase.auth.signOut();
+        navigate('/');
+      },
+    };
+  }, [user, dbProfile, loading, navigate]);
 
   return (
     <AuthContext.Provider value={value}>

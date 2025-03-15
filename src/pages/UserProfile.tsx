@@ -53,8 +53,8 @@ export function UserProfile() {
           style={{ marginBottom: 16 }}
         />
         <Title level={2} style={{ marginBottom: 8 }}>
-          {profile.firstName && profile.lastName 
-            ? `${profile.firstName} ${profile.lastName}`
+          {profile.first_name && profile.last_name 
+            ? `${profile.first_name} ${profile.last_name}`
             : user.email?.split('@')[0]}
         </Title>
         <Text type="secondary" style={{ fontSize: '16px' }}>
@@ -76,11 +76,11 @@ export function UserProfile() {
         
         <Descriptions.Item label="Subscription">
           <Tag color={
-            profile.subscriptionTier === 'pro' ? 'gold' :
-            profile.subscriptionTier === 'plus' ? 'green' :
-            'default'
+            profile.subscription_tier === 'pro' ? 'gold' :
+            profile.subscription_tier === 'plus' ? 'green' :
+            'gray'
           }>
-            {profile.subscriptionTier.toUpperCase()}
+            {profile.subscription_tier.toUpperCase()}
           </Tag>
         </Descriptions.Item>
 

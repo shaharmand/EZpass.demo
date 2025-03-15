@@ -45,14 +45,16 @@ export function AuthForms({ returnUrl, googleOnly }: AuthFormsProps) {
 
   const handleSignUp = async (values: AuthFormData) => {
     try {
-      // Split full name into first and last name
-      const [firstName = '', lastName = ''] = (values.full_name || '').split(' ');
-      const { error } = await signUp(values.email, values.password, firstName, lastName);
+      const [first_name = '', last_name = ''] = (values.full_name || '').split(' ');
+      const { error } = await signUp(values.email, values.password, first_name, last_name);
+      
       if (error) throw error;
-      message.success('ההרשמה הצליחה! אנא בדוק את האימייל שלך לאימות.');
-      handleSuccessfulAuth();
+      
+      message.success('נרשמת בהצלחה! אנא אשר את המייל שנשלח אליך.');
+      setActiveTab('signin');
     } catch (error: any) {
-      message.error(error.message || 'ההרשמה נכשלה');
+      console.error('Error signing up:', error);
+      message.error(error.message);
     }
   };
 

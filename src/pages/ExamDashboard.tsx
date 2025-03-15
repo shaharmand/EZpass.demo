@@ -15,6 +15,7 @@ import Footer from '../components/Footer/Footer';
 import { ExamType, type ExamTemplate } from '../types/examTemplate';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
 import { examService } from '../services/examService';
+import { MinimalHeader } from '../components/layout/MinimalHeader';
 
 const { Title, Text } = Typography;
 
@@ -80,35 +81,43 @@ const ExamDashboard: React.FC = () => {
   // Add loading and error UI
   if (loading) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        flexDirection: 'column',
-        gap: '16px'
-      }}>
-        <Spin size="large" />
-        <Text>טוען בחינות...</Text>
-      </div>
+      <>
+        <MinimalHeader />
+        <div style={{ 
+          minHeight: '100vh', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: '16px',
+          paddingTop: '64px' // Account for header height
+        }}>
+          <Spin size="large" />
+          <Text>טוען בחינות...</Text>
+        </div>
+      </>
     );
   }
 
   if (error) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-      }}>
-        <Alert
-          message="שגיאה בטעינת הבחינות"
-          description={error}
-          type="error"
-          showIcon
-        />
-      </div>
+      <>
+        <MinimalHeader />
+        <div style={{ 
+          minHeight: '100vh', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          paddingTop: '64px' // Account for header height
+        }}>
+          <Alert
+            message="שגיאה בטעינת הבחינות"
+            description={error}
+            type="error"
+            showIcon
+          />
+        </div>
+      </>
     );
   }
 
@@ -138,8 +147,9 @@ const ExamDashboard: React.FC = () => {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <MinimalHeader />
       {/* Header */}
-      <div style={{ padding: '40px 24px', background: '#ffffff', borderBottom: '1px solid #e5e7eb' }}>
+      <div style={{ padding: '40px 24px', background: '#ffffff', borderBottom: '1px solid #e5e7eb', marginTop: '64px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
           <div style={{ 
             display: 'flex', 

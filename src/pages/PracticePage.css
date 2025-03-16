@@ -38,7 +38,7 @@ body {
 :root {
   --user-header-height: 56px;
   --practice-progress-height: 80px;
-  --total-header-height: calc(var(--user-header-height) + var(--practice-progress-height) + 16px);
+  --total-header-height: calc(var(--user-header-height) + var(--practice-progress-height));
 }
 
 .practice-page {
@@ -85,11 +85,11 @@ body {
 
 .practice-content {
   margin-top: var(--total-header-height);
-  padding-top: 16px;
+  padding-top: 0px;
   flex: 1;
   overflow-y: auto;
   background: linear-gradient(180deg, #f1f5f9 0%, #f8fafc 100%);
-  padding: 24px;
+  padding: 8px 24px 24px 24px;
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
@@ -176,12 +176,76 @@ body {
 
 .question-body {
   padding: 20px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #1e293b;
+  font-weight: 500;
 }
 
+.question-content {
+  margin-bottom: 24px;
+}
+
+.question-text {
+  font-size: 17px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.question-option {
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.question-option:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.question-option.selected {
+  background-color: #e0f2fe;
+  border-color: #2563eb;
+}
+
+.option-marker {
+  font-weight: 600;
+  color: #3b82f6;
+  min-width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: #f0f9ff;
+}
+
+.option-text {
+  font-size: 15px;
+  color: #334155;
+  flex: 1;
+}
+
+/* Improve answer section styling */
 .answer-section {
-  padding: 20px;
-  max-height: none !important;
-  overflow: visible !important;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-top: 16px;
+  overflow: hidden;
 }
 
 .answer-header {
@@ -415,4 +479,115 @@ body {
   padding-bottom: 0 !important;
   margin-bottom: 0 !important;
   position: relative !important;
+}
+
+/* Feedback section improvements */
+.feedback-container {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-top: 24px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.feedback-header {
+  padding: 16px 20px;
+  background-color: #f0f9ff;
+  border-bottom: 1px solid #bae6fd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.feedback-header h2 {
+  margin: 0;
+  color: #0c4a6e;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.feedback-content {
+  padding: 20px;
+}
+
+.feedback-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background-color: #f0fdf4;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid #22c55e;
+}
+
+.feedback-result.incorrect {
+  background-color: #fef2f2;
+  border-left-color: #ef4444;
+}
+
+.feedback-result-icon {
+  font-size: 24px;
+  color: #22c55e;
+}
+
+.feedback-result-icon.incorrect {
+  color: #ef4444;
+}
+
+.feedback-result-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #166534;
+}
+
+.feedback-result-text.incorrect {
+  color: #b91c1c;
+}
+
+.feedback-explanation {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.feedback-explanation-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 12px;
+}
+
+.feedback-explanation-content {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #475569;
+}
+
+.correct-answer {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: #f0fdf4;
+  border-radius: 8px;
+  border: 1px solid #dcfce7;
+}
+
+.correct-answer-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #166534;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.correct-answer-content {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #166534;
+  font-weight: 500;
 } 

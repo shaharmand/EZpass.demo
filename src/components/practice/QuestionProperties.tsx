@@ -312,13 +312,6 @@ export const QuestionProperties: React.FC<QuestionPropertiesProps> = ({
 
   return (
     <PropertiesContainer>
-      <MainTitle>
-        <Title level={1}>
-          <FileTextOutlined />
-          פרטי שאלה
-        </Title>
-      </MainTitle>
-      
       <ContentSection>
         <PropertySection>
           <PropertyRow>

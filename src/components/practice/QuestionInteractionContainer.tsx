@@ -150,8 +150,7 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
   onNext,
   onPrevious,
   prep,
-  isQuestionLoading,
-  showDetailedFeedback = true,
+  isQuestionLoading = false,
   state,
   setState,
   showSource = true,
@@ -416,7 +415,7 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
                     <FeedbackContainer 
                       question={question}
                       submission={state.submissions[state.submissions.length - 1]}
-                      isLimitedFeedback={!isAllowedFullFeedback && !showDetailedFeedback}
+                      isLimitedFeedback={!isAllowedFullFeedback()}
                     />
                   </div>
                 </div>

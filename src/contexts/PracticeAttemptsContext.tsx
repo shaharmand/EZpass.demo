@@ -55,12 +55,12 @@ export function PracticeAttemptsProvider({ children }: { children: React.ReactNo
     guestAttemptsCount >= MAX_GUEST_ATTEMPTS : 
     userAttemptsCount >= MAX_DETAILED_FEEDBACK_ATTEMPTS;
 
-  // Check if next attempt would exceed limit
+  // Check if user is allowed to see full feedback
   const isAllowedFullFeedback = () => {
     if (!user) {
-      return (guestAttemptsCount) > MAX_GUEST_ATTEMPTS;
+      return guestAttemptsCount <= MAX_GUEST_ATTEMPTS;
     }
-    return (userAttemptsCount) > MAX_DETAILED_FEEDBACK_ATTEMPTS;
+    return userAttemptsCount <= MAX_DETAILED_FEEDBACK_ATTEMPTS;
   };
 
   useEffect(() => {

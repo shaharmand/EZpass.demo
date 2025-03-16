@@ -113,7 +113,7 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
     return null;
   }
 
-  // If limited feedback is requested, show limited feedback
+  // If limited feedback is requested or user has exceeded their limit, show limited feedback
   if (isLimitedFeedback) {
     return (
       <LimitedFeedbackContainer

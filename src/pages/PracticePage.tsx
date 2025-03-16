@@ -81,12 +81,22 @@ const MainPanel = styled.div`
   flex-direction: column;
 `;
 
-const PanelTitle = styled(Typography.Title)`
+const PanelTitle = styled(Typography.Title)<{ collapsed?: boolean }>`
   font-size: 14px !important;
   margin-bottom: 12px !important;
   padding-bottom: 6px;
   border-bottom: 1px solid #e5e7eb;
-  color: #64748b;
+  color: #4b5563;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: ${props => props.onClick ? 'pointer' : 'default'};
+  
+  .collapse-icon {
+    font-size: 12px;
+    transition: transform 0.3s ease;
+    transform: ${props => props.collapsed ? 'rotate(-90deg)' : 'rotate(0)'};
+  }
 `;
 
 const PracticePage: React.FC = () => {
@@ -114,6 +124,8 @@ const PracticePage: React.FC = () => {
   });
   const hasInitialized = useRef(false);
   const [activeTab, setActiveTab] = useState('videos');
+  const [propertiesCollapsed, setPropertiesCollapsed] = useState(false);
+  const [helpCollapsed, setHelpCollapsed] = useState(false);
 
   const handleContentSelect = useCallback((topic: string) => {
     // Implementation of handleContentSelect
@@ -360,8 +372,17 @@ const PracticePage: React.FC = () => {
 
             <SidePanel $position="right">
               <div style={{ marginBottom: '24px' }}>
-                <PanelTitle level={4}>פרטים</PanelTitle>
-                {currentQuestion?.data && (
+                <PanelTitle 
+                  level={4}
+                  onClick={() => setPropertiesCollapsed(!propertiesCollapsed)}
+                  collapsed={propertiesCollapsed}
+                >
+                  פרטי שאלה
+                  <span className="collapse-icon">
+                    {propertiesCollapsed ? '▶' : '▼'}
+                  </span>
+                </PanelTitle>
+                {!propertiesCollapsed && currentQuestion?.data && (
                   <QuestionProperties
                     question={currentQuestion.data}
                     questionNumber={questionState.submissions.length + 1}
@@ -372,17 +393,28 @@ const PracticePage: React.FC = () => {
               </div>
               
               <div>
-                <PanelTitle level={4}>עזרה</PanelTitle>
-                <div style={{ 
-                  padding: '16px', 
-                  background: '#f8fafc', 
-                  borderRadius: '6px',
-                  border: '1px solid #e5e7eb'
-                }}>
-                  <Typography.Text style={{ color: '#64748b' }}>
-                    לחץ על כפתור העזרה בשאלה כדי לקבל הסבר מפורט
-                  </Typography.Text>
-                </div>
+                <PanelTitle 
+                  level={4}
+                  onClick={() => setHelpCollapsed(!helpCollapsed)}
+                  collapsed={helpCollapsed}
+                >
+                  עזרה
+                  <span className="collapse-icon">
+                    {helpCollapsed ? '▶' : '▼'}
+                  </span>
+                </PanelTitle>
+                {!helpCollapsed && (
+                  <div style={{ 
+                    padding: '16px', 
+                    background: '#f0f9ff', 
+                    borderRadius: '6px',
+                    border: '1px solid #bae6fd'
+                  }}>
+                    <Typography.Text style={{ color: '#1890ff', fontWeight: 500 }}>
+                      לחץ על כפתור העזרה בשאלה כדי לקבל הסבר מפורט
+                    </Typography.Text>
+                  </div>
+                )}
               </div>
             </SidePanel>
           </ContentContainer>

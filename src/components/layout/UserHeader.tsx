@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSubscriptionColor, getSubscriptionLabel } from '../../utils/subscriptionUtils';
 import { StyledTag } from '../styled/StyledTag';
+import { JoinEZpassPlusDialog } from '../dialogs/JoinEZpassPlusDialog';
 
 const { Text } = Typography;
 
@@ -145,6 +146,7 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
   
   // Only use practice attempts if we're in practice variant
   const practiceAttempts = variant === 'practice' ? usePracticeAttempts() : null;
@@ -162,7 +164,7 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
     return (
       <UpgradeButton 
         type="text"
-        onClick={() => navigate('/upgrade')}
+        onClick={() => setShowJoinDialog(true)}
       >
         שדרג
       </UpgradeButton>
@@ -170,38 +172,46 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
   };
 
   return (
-    <TopRow style={style}>
-      <BrandLogo />
-      <PageIdentityContainer>
-        <PageContent>{pageContent}</PageContent>
-        <PageType>{pageType}</PageType>
-      </PageIdentityContainer>
-      <Spacer />
-      {profile && (
-        <UserInfoSection>
-          <UserProfile />
-          <UserMetaContainer>
-            <StyledTag 
-              $type="subscription" 
-              color={getSubscriptionColor(profile.subscription_tier)}
-            >
-              {getSubscriptionLabel(profile.subscription_tier)}
-            </StyledTag>
-          </UserMetaContainer>
-          {variant === 'practice' && (
-            <DailyLimitContainer>
-              <DailyLimitIndicator
-                current={getCurrentAttempts()}
-                max={getMaxAttempts()}
-              />
-            </DailyLimitContainer>
-          )}
-          <ActionsContainer>
-            {getUpgradeButton(profile.subscription_tier)}
-          </ActionsContainer>
-        </UserInfoSection>
-      )}
-      {children}
-    </TopRow>
+    <>
+      <TopRow style={style}>
+        <BrandLogo />
+        <PageIdentityContainer>
+          <PageContent>{pageContent}</PageContent>
+          <PageType>{pageType}</PageType>
+        </PageIdentityContainer>
+        <Spacer />
+        {profile && (
+          <UserInfoSection>
+            <UserProfile />
+            <UserMetaContainer>
+              <StyledTag 
+                $type="subscription" 
+                color={getSubscriptionColor(profile.subscription_tier)}
+              >
+                {getSubscriptionLabel(profile.subscription_tier)}
+              </StyledTag>
+            </UserMetaContainer>
+            {variant === 'practice' && (
+              <DailyLimitContainer>
+                <DailyLimitIndicator
+                  current={getCurrentAttempts()}
+                  max={getMaxAttempts()}
+                />
+              </DailyLimitContainer>
+            )}
+            <ActionsContainer>
+              {getUpgradeButton(profile.subscription_tier)}
+            </ActionsContainer>
+          </UserInfoSection>
+        )}
+        {children}
+      </TopRow>
+      
+      {/* Join EZpass+ Dialog */}
+      <JoinEZpassPlusDialog 
+        open={showJoinDialog} 
+        onClose={() => setShowJoinDialog(false)} 
+      />
+    </>
   );
 }; 

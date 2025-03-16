@@ -1,288 +1,174 @@
-import React, { useEffect } from 'react';
-import { Card, Space, Typography, Divider, Button } from 'antd';
-import { CheckCircleFilled, CloseCircleFilled, StarOutlined, RedoOutlined } from '@ant-design/icons';
+import React from 'react';
+import { Typography, Space, Divider } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Question } from '../../types/question';
-import { 
-  QuestionFeedback,
-  BasicQuestionFeedback
-} from '../../types/feedback/types';
 import { QuestionSubmission } from '../../types/submissionTypes';
-import { BinaryEvalLevel } from '../../types/feedback/levels';
-import { FeedbackStatus, getFeedbackStatus } from '../../types/feedback/status';
 import { MarkdownRenderer } from '../MarkdownRenderer';
-import { logger } from '../../utils/logger';
-import { motion, AnimatePresence } from 'framer-motion';
-import { JoinEZPassPlusMessage } from './JoinEZPassPlusMessage';
-import { MultipleChoiceFeedbackHeader } from './MultipleChoiceFeedbackHeader';
-import { MultipleChoiceFeedbackExplanation } from './MultipleChoiceFeedbackExplanation';
-import styles from './MultipleChoiceFeedback.module.css';
+import { isSuccessfulAnswer } from '../../types/feedback/status';
 import styled from 'styled-components';
-import { CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined, BookOutlined } from '@ant-design/icons';
+import './Feedback.css';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Title } = Typography;
 
-// Styled components for enhanced feedback display
-const FeedbackContainer = styled.div`
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  margin-top: 24px;
-`;
-
-const FeedbackContent = styled.div`
-  padding: 24px;
-`;
-
-const AnswerSection = styled.div`
-  margin-top: 16px;
-`;
-
-const SectionTitle = styled(Title)`
+// Styled components for the options
+const OptionItem = styled.div<{ $correct?: boolean; $incorrect?: boolean }>`
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 18px !important;
-  margin-bottom: 16px !important;
-  color: #334155;
-  
-  svg {
-    color: #3b82f6;
-  }
-`;
-
-const AnswerList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-`;
-
-const AnswerItem = styled.div<{ $isSelected: boolean; $isCorrect: boolean }>`
-  display: flex;
-  align-items: flex-start;
-  padding: 16px;
-  border-radius: 8px;
-  background: ${props => 
-    props.$isSelected && props.$isCorrect ? '#f0fdf4' :
-    props.$isSelected && !props.$isCorrect ? '#fef2f2' :
-    props.$isCorrect ? '#f0fdf4' : '#ffffff'
-  };
+  padding: 12px;
+  border-radius: 6px;
   border: 1px solid ${props => 
-    props.$isSelected && props.$isCorrect ? '#86efac' :
-    props.$isSelected && !props.$isCorrect ? '#fecaca' :
-    props.$isCorrect ? '#86efac' : '#e2e8f0'
-  };
+    props.$correct ? '#10b981' : 
+    props.$incorrect ? '#ef4444' : '#e5e7eb'};
+  background-color: ${props => 
+    props.$correct ? 'rgba(16, 185, 129, 0.1)' : 
+    props.$incorrect ? 'rgba(239, 68, 68, 0.1)' : '#ffffff'};
   transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 8px;
   
-  &:hover {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    background-color: ${props => 
+      props.$correct ? '#10b981' : 
+      props.$incorrect ? '#ef4444' : 'transparent'};
   }
 `;
 
-const AnswerIcon = styled.div<{ $isCorrect: boolean }>`
+const OptionNumber = styled.div<{ $correct?: boolean; $incorrect?: boolean }>`
   display: flex;
-  align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  align-items: center;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: ${props => props.$isCorrect ? '#10b981' : '#ef4444'};
-  color: white;
   margin-left: 12px;
-  flex-shrink: 0;
+  font-weight: 600;
+  background-color: ${props => 
+    props.$correct ? '#10b981' : 
+    props.$incorrect ? '#ef4444' : '#f3f4f6'};
+  color: ${props => 
+    (props.$correct || props.$incorrect) ? '#ffffff' : '#4b5563'};
+  transition: all 0.2s ease;
 `;
 
-const AnswerContent = styled.div`
+const OptionContent = styled.div`
   flex: 1;
 `;
 
-const AnswerText = styled(Text)<{ $isSelected: boolean; $isCorrect: boolean }>`
-  font-weight: ${props => (props.$isSelected || props.$isCorrect) ? '600' : '400'};
-  color: ${props => 
-    props.$isSelected && props.$isCorrect ? '#059669' :
-    props.$isSelected && !props.$isCorrect ? '#dc2626' :
-    props.$isCorrect ? '#059669' : '#334155'
-  };
-  font-size: 16px;
-  display: block;
+const OptionLabel = styled.div`
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 4px;
 `;
-
-const ExplanationSection = styled.div`
-  background: #f8fafc;
-  border-radius: 8px;
-  padding: 20px;
-  margin-top: 16px;
-  border: 1px solid #e2e8f0;
-`;
-
-// Convert number to Hebrew letter (1 -> א, 2 -> ב, etc.)
-const numberToHebrewLetter = (num: number): string => {
-  const letters = ['א', 'ב', 'ג', 'ד'];
-  return letters[num - 1] || '';
-};
 
 interface MultipleChoiceFeedbackProps {
   question: Question;
   submission: QuestionSubmission;
-  showDetailedFeedback?: boolean;
-  onUpgradeClick?: () => void;
 }
 
 export const MultipleChoiceFeedback: React.FC<MultipleChoiceFeedbackProps> = ({
   question,
-  submission,
-  showDetailedFeedback = true,
-  onUpgradeClick
+  submission
 }) => {
-  const correctAnswerIndex = question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' ? 
-    question.schoolAnswer.finalAnswer.value - 1 : -1;
-
-  // Get selected answer from submission
-  const selectedAnswer = submission.answer.finalAnswer?.type === 'multiple_choice' ? 
-    submission.answer.finalAnswer.value : null;
-  const feedback = submission.feedback?.data as BasicQuestionFeedback;
-
-  useEffect(() => {
-    // Component mount/update log with more prominent message
-    console.log('🎯 MULTIPLE CHOICE FEEDBACK RECEIVED:', {
-      questionId: question.id,
-      feedbackData: {
-        evalLevel: feedback?.evalLevel,
-        score: feedback?.score,
-        allFeedbackKeys: Object.keys(feedback || {}),
-        fullFeedback: feedback
-      },
-      questionData: {
-        correctAnswerIndex,
-        totalOptions: question.content.options?.length,
-        options: question.content.options?.map((opt, idx) => `${idx + 1}: ${opt.text.substring(0, 30)}...`)
-      }
-    });
-
-    // Log raw incoming data with more detail
-    console.log('📝 RAW FEEDBACK DATA:', {
-      answer: {
-        value: selectedAnswer,
-        type: typeof selectedAnswer,
-        isValid: typeof selectedAnswer === 'number' ? 
-          selectedAnswer >= 1 && selectedAnswer <= 4 : false
-      },
-      correctAnswer: {
-        index: correctAnswerIndex,
-        value: correctAnswerIndex + 1
-      },
-      evalLevel: feedback?.evalLevel,
-      score: feedback?.score,
-      fullFeedbackObject: JSON.stringify(feedback, null, 2)
-    });
-
-    // Get the selected and correct answer texts
-    const selectedOptionIndex = selectedAnswer ? selectedAnswer - 1 : -1;
-
-    // Log option processing
-    logger.info('Processing options:', {
-      selectedOptionRaw: selectedAnswer,
-      selectedOptionIndex,
-      selectedOptionText: question.content.options?.[selectedOptionIndex]?.text,
-      correctAnswerIndex,
-      correctAnswerText: question.content.options?.[correctAnswerIndex]?.text
-    });
-
-    // Log the actual user choice for debugging
-    logger.info('User choice debug:', {
-      rawAnswer: selectedAnswer,
-      rawAnswerType: typeof selectedAnswer,
-      parsedAnswer: selectedAnswer || 'no answer provided',
-      isNumber: selectedAnswer ? typeof selectedAnswer === 'number' : false,
-      answerRange: selectedAnswer ? (selectedAnswer >= 1 && selectedAnswer <= 4) : false,
-      totalOptions: question.content.options?.length || 0,
-      evalLevel: feedback?.evalLevel
-    });
-  }, [question.id, feedback, question.content.options, correctAnswerIndex, selectedAnswer]);
-
-  // Get the selected and correct answer texts and numbers - with validation
-  const selectedOptionNumber = selectedAnswer;
-  const correctOptionNumber = question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' ? 
-    question.schoolAnswer.finalAnswer.value : null;
-
-  const selectedOption = selectedOptionNumber !== null && question.content.options && 
-    selectedOptionNumber > 0 && selectedOptionNumber <= question.content.options.length
-    ? question.content.options[selectedOptionNumber - 1]?.text || ''
-    : '';
-  const correctOption = question.content.options?.[correctAnswerIndex]?.text || '';
-
-  const feedbackStatus = getFeedbackStatus(feedback.evalLevel);
-  const isCorrect = feedbackStatus === FeedbackStatus.SUCCESS;
-
+  // Check if the answer is correct based on the feedback data
+  const isCorrect = submission.feedback?.data?.score === 100;
+  
+  // Find the correct option based on schoolAnswer
+  const correctOptionNumber = question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' 
+    ? question.schoolAnswer.finalAnswer.value 
+    : null;
+  
+  // Convert to zero-based index
+  const correctOptionIndex = correctOptionNumber !== null 
+    ? correctOptionNumber - 1 
+    : question.content.options?.findIndex((option: any) => option.isCorrect === true) || 0;
+  
+  // Get the user's selected option - adjust based on your actual data structure
+  const userSelectedIndex = submission.answer?.finalAnswer 
+    ? (typeof submission.answer.finalAnswer.value === 'number' 
+      ? submission.answer.finalAnswer.value - 1 
+      : -1)
+    : -1;
+  
+  // Hebrew option markers
+  const optionMarkers = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח'];
+  
   return (
-    <FeedbackContainer>
-      <MultipleChoiceFeedbackHeader
-        question={question}
-        submission={submission}
-        feedback={feedback}
-      />
-      <FeedbackContent>
-        <AnswerSection>
-          <SectionTitle level={4}>
-            <InfoCircleOutlined /> תשובות
-          </SectionTitle>
-          
-          <AnswerList>
-            {question.content.options?.map((option, index) => {
-              const isSelected = selectedAnswer === index + 1;
-              const isCorrect = correctAnswerIndex === index;
-              
-              return (
-                <AnswerItem 
-                  key={index} 
-                  $isSelected={isSelected} 
-                  $isCorrect={isCorrect}
-                >
-                  {(isSelected || isCorrect) && (
-                    <AnswerIcon $isCorrect={isCorrect}>
-                      {isCorrect ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-                    </AnswerIcon>
-                  )}
-                  <AnswerContent>
-                    <AnswerText $isSelected={isSelected} $isCorrect={isCorrect}>
-                      {option.text}
-                    </AnswerText>
-                    
-                    {isSelected && !isCorrect && (
-                      <Text type="danger" style={{ fontSize: '14px', marginTop: '4px', display: 'block' }}>
-                        התשובה שבחרת אינה נכונה
-                      </Text>
-                    )}
-                    
-                    {isCorrect && (
-                      <Text type="success" style={{ fontSize: '14px', marginTop: '4px', display: 'block' }}>
-                        התשובה הנכונה
-                      </Text>
-                    )}
-                  </AnswerContent>
-                </AnswerItem>
-              );
-            })}
-          </AnswerList>
-        </AnswerSection>
-        
-        <Divider />
-        
-        <SectionTitle level={4}>
-          <BookOutlined /> הסבר
-        </SectionTitle>
-        
-        <ExplanationSection>
-          {question.schoolAnswer?.solution ? (
-            <MarkdownRenderer content={question.schoolAnswer.solution.text} />
+    <div className="multiple-choice-feedback">
+      {/* Feedback Summary - Always visible */}
+      <div className={`feedback-summary ${isCorrect ? 'correct' : 'incorrect'}`}>
+        <div className="feedback-icon">
+          {isCorrect ? (
+            <CheckCircleOutlined style={{ color: '#10b981', fontSize: 24 }} />
           ) : (
-            <Paragraph>
-              {feedback.message || 'אין הסבר זמין לשאלה זו.'}
-            </Paragraph>
+            <CloseCircleOutlined style={{ color: '#ef4444', fontSize: 24 }} />
           )}
-        </ExplanationSection>
-      </FeedbackContent>
-    </FeedbackContainer>
+        </div>
+        <div className="feedback-text">
+          <Text strong style={{ fontSize: 16, color: isCorrect ? '#10b981' : '#ef4444' }}>
+            {isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה'}
+          </Text>
+        </div>
+      </div>
+      
+      <Divider style={{ margin: '12px 0' }} />
+      
+      {/* Only show the correct answer and user's answer if incorrect */}
+      <div className="feedback-answers">
+        {/* Correct Answer */}
+        <OptionLabel>התשובה הנכונה:</OptionLabel>
+        <OptionItem $correct>
+          <OptionNumber $correct>
+            {optionMarkers[correctOptionIndex]}
+          </OptionNumber>
+          <OptionContent>
+            <Text strong>
+              {question.content.options?.[correctOptionIndex]?.text}
+            </Text>
+          </OptionContent>
+        </OptionItem>
+        
+        {/* User's Answer - Only show if incorrect */}
+        {!isCorrect && userSelectedIndex >= 0 && userSelectedIndex !== correctOptionIndex && (
+          <>
+            <OptionLabel>התשובה שלך:</OptionLabel>
+            <OptionItem $incorrect>
+              <OptionNumber $incorrect>
+                {optionMarkers[userSelectedIndex]}
+              </OptionNumber>
+              <OptionContent>
+                <Text>
+                  {question.content.options?.[userSelectedIndex]?.text}
+                </Text>
+              </OptionContent>
+            </OptionItem>
+          </>
+        )}
+      </div>
+      
+      {/* Explanation - show schoolAnswer.solution if available */}
+      {(question.schoolAnswer?.solution || submission.feedback?.data?.message) && (
+        <div className="feedback-explanation">
+          <Divider style={{ margin: '12px 0' }} />
+          <Space align="start" style={{ marginBottom: '8px' }}>
+            <InfoCircleOutlined style={{ color: '#3b82f6', fontSize: 16 }} />
+            <Text strong style={{ fontSize: 15 }}>הסבר:</Text>
+          </Space>
+          <div className="explanation-content">
+            {question.schoolAnswer?.solution ? (
+              <MarkdownRenderer content={question.schoolAnswer.solution.text} />
+            ) : (
+              <MarkdownRenderer content={submission.feedback?.data?.message || ''} />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }; 

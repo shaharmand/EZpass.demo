@@ -559,4 +559,20 @@
 .core-feedback,
 .markdown-content {
   animation: fadeIn 0.3s ease-out;
+}
+
+.feedback-answers {
+  margin-top: 16px;
+}
+
+/* Explanation section */
+.feedback-explanation {
+  padding: 12px 0;
+}
+
+.explanation-content {
+  padding: 8px;
+  background-color: #f8fafc;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
 } 

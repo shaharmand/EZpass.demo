@@ -1,22 +1,69 @@
 import React from 'react';
-import { Typography } from 'antd';
+import { Typography, Progress } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
 import { Question } from '../../types/question';
 import { QuestionSubmission } from '../../types/submissionTypes';
-import { BasicQuestionFeedback, LimitedQuestionFeedback } from '../../types/feedback/types';
-import styles from './MultipleChoiceFeedbackHeader.module.css';
+import { QuestionFeedback } from '../../types/feedback/types';
+import { BinaryEvalLevel } from '../../types/feedback/levels';
+import { FeedbackStatus, getFeedbackStatus } from '../../types/feedback/status';
+import { getFeedbackColor, getFeedbackTitle } from '../../utils/feedbackStyles';
 
 const { Text, Title } = Typography;
 
-// Convert number to Hebrew letter (1 -> א, 2 -> ב, etc.)
-const numberToHebrewLetter = (num: number): string => {
-  const letters = ['א', 'ב', 'ג', 'ד'];
-  return letters[num - 1] || '';
-};
+// Styled components for enhanced header display
+const HeaderContainer = styled.div`
+  padding: 24px;
+  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+`;
+
+const ScoreCircle = styled.div`
+  position: relative;
+  
+  .ant-progress-text {
+    font-weight: 700 !important;
+    font-size: 18px !important;
+  }
+`;
+
+const HeaderContent = styled.div`
+  flex: 1;
+`;
+
+const FeedbackTitle = styled(Title)`
+  margin-bottom: 8px !important;
+  font-size: 24px !important;
+`;
+
+const FeedbackMessage = styled(Text)`
+  font-size: 16px !important;
+  display: block;
+  color: #475569;
+  max-width: 600px;
+`;
+
+const ResultIcon = styled.div<{ $isCorrect: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: ${props => props.$isCorrect ? '#10b981' : '#ef4444'};
+  color: white;
+  font-size: 20px;
+  margin-left: 16px;
+  flex-shrink: 0;
+`;
 
 interface MultipleChoiceFeedbackHeaderProps {
   question: Question;
   submission: QuestionSubmission;
-  feedback: BasicQuestionFeedback | LimitedQuestionFeedback;
+  feedback: QuestionFeedback;
 }
 
 export const MultipleChoiceFeedbackHeader: React.FC<MultipleChoiceFeedbackHeaderProps> = ({
@@ -24,63 +71,34 @@ export const MultipleChoiceFeedbackHeader: React.FC<MultipleChoiceFeedbackHeader
   submission,
   feedback
 }) => {
-  // Get selected answer from submission
-  const selectedAnswer = submission.answer.finalAnswer?.type === 'multiple_choice' ? 
-    String(submission.answer.finalAnswer.value) : '';
-
-  // Get the selected and correct answer texts and numbers
-  const selectedOptionNumber = !isNaN(parseInt(selectedAnswer)) ? parseInt(selectedAnswer) : null;
-  const correctAnswerIndex = question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' ? 
-    question.schoolAnswer.finalAnswer.value - 1 : -1;
-  const correctOptionNumber = question.schoolAnswer?.finalAnswer?.type === 'multiple_choice' ? 
-    question.schoolAnswer.finalAnswer.value : null;
-
-  const selectedOption = selectedOptionNumber !== null && question.content.options && 
-    selectedOptionNumber > 0 && selectedOptionNumber <= question.content.options.length
-    ? question.content.options[selectedOptionNumber - 1]?.text || ''
-    : '';
-  const correctOption = question.content.options?.[correctAnswerIndex]?.text || '';
-
-  const isCorrect = feedback.isCorrect;
-
+  const feedbackStatus = getFeedbackStatus(feedback.evalLevel);
+  const isCorrect = feedbackStatus === FeedbackStatus.SUCCESS;
+  
   return (
-    <div className={`${styles['feedback-section']} ${isCorrect ? styles.success : ''}`}>
-      <div className={styles['title-display']}>
-        <Title level={4} className={isCorrect ? styles.success : styles.error}>
-          {isCorrect ? 'תשובה נכונה!' : 'תשובה שגויה'}
-        </Title>
-      </div>
-
-      <div className={styles['answer-comparison']}>
-        {!isCorrect ? (
-          <div className={styles['answer-item']}>
-            <div className={styles['answer-box']}>
-              <div className={styles['answer-label']}>התשובה שלך</div>
-              <div className={`${styles['answer-content']} ${styles.incorrect}`}>
-                <span className={styles['option-number']}>{numberToHebrewLetter(selectedOptionNumber || 0)}</span>
-                <span className={styles['option-text']}>{selectedOption}</span>
-              </div>
-            </div>
-            <div className={styles['answer-box']}>
-              <div className={styles['answer-label']}>התשובה הנכונה</div>
-              <div className={`${styles['answer-content']} ${styles.correct}`}>
-                <span className={styles['option-number']}>{numberToHebrewLetter(correctOptionNumber || 0)}</span>
-                <span className={styles['option-text']}>{correctOption}</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className={`${styles['answer-item']} ${styles['single-answer']}`}>
-            <div className={styles['answer-box']}>
-              <div className={styles['answer-label']}>התשובה שלך</div>
-              <div className={`${styles['answer-content']} ${styles.correct}`}>
-                <span className={styles['option-number']}>{numberToHebrewLetter(selectedOptionNumber || 0)}</span>
-                <span className={styles['option-text']}>{selectedOption}</span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    <HeaderContainer>
+      <ResultIcon $isCorrect={isCorrect}>
+        {isCorrect ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+      </ResultIcon>
+      
+      <HeaderContent>
+        <FeedbackTitle level={3} style={{ color: getFeedbackColor(feedback.evalLevel) }}>
+          {getFeedbackTitle(feedback.score, feedback.evalLevel)}
+        </FeedbackTitle>
+        <FeedbackMessage>
+          {feedback.message}
+        </FeedbackMessage>
+      </HeaderContent>
+      
+      <ScoreCircle>
+        <Progress
+          type="circle"
+          percent={feedback.score}
+          format={(percent) => `${percent}%`}
+          width={70}
+          strokeColor={getFeedbackColor(feedback.evalLevel)}
+          strokeWidth={8}
+        />
+      </ScoreCircle>
+    </HeaderContainer>
   );
 }; 

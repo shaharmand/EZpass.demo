@@ -82,16 +82,10 @@ const VideoPage: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
       <UserHeader
-        pageTitle={`${lesson?.name || 'שיעור'} - ${video.title}`}
-        leftContent={
-          <Button
-            type="text"
-            icon={<ArrowRightOutlined />}
-            onClick={() => navigate(returnPath || '/courses/safety')}
-          >
-            חזרה לקורס
-          </Button>
-        }
+        variant="course"
+        pageType="צפיה בקורס"
+        pageContent={`${lesson?.name || 'שיעור'} - ${video.title}`}
+        style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100 }}
       />
       <VideoContainer>
         <VideoWrapper>

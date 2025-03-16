@@ -10,9 +10,10 @@ const LogoContainer = styled(motion.div)`
   align-items: center;
   gap: 16px;
   cursor: pointer;
-  padding: 8px 16px;
+  padding: 0;
   border-radius: 12px;
   transition: all 0.3s ease;
+  height: 100%;
 `;
 
 const Separator = styled(motion.div)`
@@ -43,9 +44,9 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   size = 'medium'
 }) => {
   const logoSizes = {
-    small: '28px',
-    medium: '36px',
-    large: '42px'
+    small: '24px',
+    medium: '32px',
+    large: '40px'
   };
 
   return (
@@ -61,7 +62,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         src="/EZpass_A6_cut.png"
         alt="איזיפס - פשוט להצליח"
         style={{
-          height: collapsed ? '28px' : logoSizes[size],
+          height: collapsed ? '24px' : logoSizes[size],
           width: 'auto',
           objectFit: 'contain'
         }}

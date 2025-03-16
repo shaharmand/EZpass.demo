@@ -1,0 +1,326 @@
+import React, { useCallback, useEffect, useState, memo, useRef } from 'react';
+import { Space, Spin, Typography, Card, Button } from 'antd';
+import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { 
+  Question, 
+  FullAnswer,
+  QuestionType
+} from '../../types/question';
+import { 
+  QuestionFeedback
+} from '../../types/feedback/types';
+import { DetailedEvalLevel } from '../../types/feedback/levels';
+import { isSuccessfulAnswer } from '../../types/feedback/status';
+import { SkipReason, QuestionPracticeState } from '../../types/prepUI';
+import { StudentPrep } from '../../types/prepState';
+import { getQuestionTopicName } from '../../utils/questionUtils';
+import QuestionContentDisplay from '../QuestionContent';
+import QuestionResponseInput from '../QuestionResponseInput';
+import { AnsweringActionBar } from './AnsweringActionBar';
+import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
+import { FeedbackActionBar } from './FeedbackActionBar';
+import { TopicSelectionDialog } from './TopicSelectionDialog';
+import QuestionSetProgress from './QuestionSetProgress';
+import { motion, AnimatePresence } from 'framer-motion';
+import './QuestionInteractionContainer.css';
+import styled from 'styled-components';
+import { FeedbackContainer } from '../feedback/FeedbackContainer';
+
+const { Text } = Typography;
+
+interface QuestionInteractionContainerProps {
+  question: Question;
+  onSubmit: (answer: FullAnswer) => void;
+  onSkip: (reason: SkipReason) => Promise<void>;
+  onNext: () => void;
+  onPrevious: () => void;
+  prep: StudentPrep;
+  isQuestionLoading?: boolean;
+  showDetailedFeedback?: boolean;
+  state: QuestionPracticeState;
+  setState: React.Dispatch<React.SetStateAction<QuestionPracticeState>>;
+  showDifficulty?: boolean;
+  showEstimatedTime?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+const StyledContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: white;
+`;
+
+const ProgressContainer = styled.div`
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: white;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  margin: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+`;
+
+const ScrollableContent = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  
+  /* Styling scrollbar */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #ccc;
+  }
+`;
+
+const QuestionContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+`;
+
+const QuestionContent = styled.div`
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+`;
+
+const AnswerSection = styled.div`
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 0;
+`;
+
+const QuestionCard = styled(Card)`
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 0;
+  
+  .ant-card-body {
+    padding: 12px !important;
+  }
+  
+  &.entering {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  
+  &.entered {
+    opacity: 1;
+    transform: translateY(0);
+    transition: all 0.3s ease;
+  }
+`;
+
+const ActionBarContainer = styled.div`
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: 8px 16px;
+  background: linear-gradient(to top, white 90%, transparent);
+  margin-top: auto;
+  border-top: 1px solid #e5e7eb;
+`;
+
+export const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> = ({
+  question,
+  onSubmit,
+  onSkip,
+  onNext,
+  onPrevious,
+  prep,
+  isQuestionLoading,
+  showDetailedFeedback = true,
+  state,
+  setState,
+  showDifficulty = true,
+  showEstimatedTime = true,
+  className,
+  style
+}) => {
+  const { isAllowedFullFeedback } = usePracticeAttempts();
+  const [answer, setAnswer] = useState<FullAnswer | null>(null);
+  const [isSubmitEnabled, setIsSubmitEnabled] = useState(false);
+  const [isTopicSelectionDialogOpen, setIsTopicSelectionDialogOpen] = useState(false);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isQuestionEntering, setIsQuestionEntering] = useState(true);
+  const [questionChangeKey, setQuestionChangeKey] = useState(0);
+  const progressSectionRef = useRef<HTMLDivElement>(null);
+  const questionCounterRef = useRef<HTMLDivElement>(null);
+  const [isAnswerSectionVisible, setIsAnswerSectionVisible] = useState(false);
+  const [questionIndex, setQuestionIndex] = useState(0);
+
+  // Animation and transition effects
+  useEffect(() => {
+    if (state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data) {
+      setTimeout(() => {
+        feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [state.submissions]);
+
+  useEffect(() => {
+    setIsQuestionEntering(true);
+    setQuestionChangeKey(prev => prev + 1);
+    setIsAnswerSectionVisible(false);
+    
+    const scrollToTopWithOffset = () => {
+      if (containerRef.current) {
+        containerRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+
+    setTimeout(scrollToTopWithOffset, 100);
+    
+    const timer = setTimeout(() => {
+      setIsQuestionEntering(false);
+      setIsAnswerSectionVisible(true);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [question.id]);
+
+  // Handlers
+  const handleAnswerChange = useCallback((answer: FullAnswer) => {
+    setAnswer(answer);
+    setIsSubmitEnabled(true);
+  }, []);
+
+  const handleSubmit = useCallback(() => {
+    if (isSubmitEnabled && answer) {
+      onSubmit(answer);
+      setIsSubmitEnabled(false);
+    }
+  }, [answer, isSubmitEnabled, onSubmit]);
+
+  const handleRetry = useCallback(() => {
+    setAnswer(null);
+    setIsSubmitEnabled(false);
+    setState(prev => ({
+      ...prev,
+      status: 'active',
+      currentAnswer: null,
+      error: undefined,
+      submissions: [],
+      helpRequests: [],
+      practiceStartedAt: Date.now()
+    }));
+  }, [setState]);
+
+  const handleHelp = useCallback((type: 'explain_question' | 'guide_solution' | 'hint' | 'show_solution' | 'learning_materials') => {
+    // TODO: Implement help functionality
+    console.log('Help requested:', type);
+  }, []);
+
+  // Render functions
+  const renderQuestionContent = () => (
+    <div className="question-content">
+      <QuestionContentDisplay
+        content={question.content.text}
+        isLoading={isQuestionLoading}
+      />
+    </div>
+  );
+
+  const renderAnswerSection = () => (
+    <div className="answer-section">
+      <AnswerSection>
+        <QuestionResponseInput
+          question={question}
+          onAnswer={handleAnswerChange}
+          disabled={state.status !== 'active' || isQuestionLoading}
+          feedback={state.submissions.length > 0 ? state.submissions[state.submissions.length - 1].feedback?.data : undefined}
+          selectedAnswer={answer}
+          onCanSubmitChange={setIsSubmitEnabled}
+        />
+      </AnswerSection>
+    </div>
+  );
+
+  return (
+    <StyledContainer className={className} style={style} ref={containerRef}>
+      <ProgressContainer ref={progressSectionRef}>
+        <QuestionSetProgress 
+          currentIndex={state.currentQuestionIndex}
+          totalQuestions={prep.questionIds.length}
+          questionId={question.id}
+        />
+      </ProgressContainer>
+      
+      <ScrollableContent>
+        <QuestionContainer>
+          <QuestionContent>
+            {renderQuestionContent()}
+          </QuestionContent>
+          
+          {isAnswerSectionVisible && renderAnswerSection()}
+          
+          {state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback && (
+            <div ref={feedbackRef}>
+              <FeedbackContainer
+                question={question}
+                submission={state.submissions[state.submissions.length - 1]}
+                isLimitedFeedback={!isAllowedFullFeedback && !showDetailedFeedback}
+              />
+            </div>
+          )}
+        </QuestionContainer>
+      </ScrollableContent>
+      
+      <ActionBarContainer>
+        {state.status === 'active' ? (
+          <AnsweringActionBar
+            onSubmit={handleSubmit}
+            onSkip={() => onSkip('too_hard')}
+            canSubmit={isSubmitEnabled}
+            isSubmitting={state.status === 'submitting'}
+            onPrevious={onPrevious}
+            hasPrevious={state.currentQuestionIndex > 0}
+          />
+        ) : (
+          <FeedbackActionBar
+            onNext={onNext}
+            onRetry={handleRetry}
+            onHelp={handleHelp}
+            hasNext={state.currentQuestionIndex < prep.questionIds.length - 1}
+            isCorrect={state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data ? 
+              isSuccessfulAnswer(state.submissions[state.submissions.length - 1].feedback.data.evalLevel) : false}
+          />
+        )}
+      </ActionBarContainer>
+      
+      <TopicSelectionDialog
+        isOpen={isTopicSelectionDialogOpen}
+        onClose={() => setIsTopicSelectionDialogOpen(false)}
+        onSkip={onSkip}
+      />
+    </StyledContainer>
+  );
+};

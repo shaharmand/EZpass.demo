@@ -104,7 +104,8 @@ const SafetyCoursePage: React.FC = () => {
   return (
     <div className="course-page-layout">
       <UserHeader
-        pageTitle="קורס בטיחות בעבודה"
+        pageType="קורס"
+        pageContent="קורס בטיחות בעבודה"
         variant="default"
       />
       {renderContent()}

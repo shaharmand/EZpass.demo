@@ -26,4 +26,13 @@ export const formatTimeUntilExam = (targetDate: Date): string => {
     const months = Math.floor(diffDays / 30.44); // More accurate month calculation
     return `בעוד ${months} חודשים`;
   }
+};
+
+export const formatDate = (date: string | Date): string => {
+  const d = new Date(date);
+  return d.toLocaleDateString('he-IL', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }; 

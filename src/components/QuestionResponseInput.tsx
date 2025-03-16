@@ -9,9 +9,90 @@ import { QuestionMultipleChoiceInput } from './QuestionMultipleChoiceInput';
 import { RedoOutlined } from '@ant-design/icons';
 import './QuestionResponseInput.css';
 import { getFeedbackStatus, FeedbackStatus } from '../types/feedback/status';
+import styled from 'styled-components';
+import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 const { Text } = Typography;
+
+const OptionsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  width: 100%;
+`;
+
+const OptionItem = styled.div<{ $selected: boolean; $correct?: boolean; $incorrect?: boolean; $isAnswered: boolean }>`
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid ${props => 
+    props.$correct ? '#10b981' : 
+    props.$incorrect ? '#ef4444' : 
+    props.$selected ? '#3b82f6' : '#e5e7eb'};
+  background-color: ${props => 
+    props.$correct ? 'rgba(16, 185, 129, 0.1)' : 
+    props.$incorrect ? 'rgba(239, 68, 68, 0.1)' : 
+    props.$selected ? 'rgba(59, 130, 246, 0.1)' : '#ffffff'};
+  cursor: ${props => props.$isAnswered ? 'default' : 'pointer'};
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  
+  &:hover {
+    border-color: ${props => 
+      props.$isAnswered ? 
+        (props.$correct ? '#10b981' : 
+         props.$incorrect ? '#ef4444' : 
+         props.$selected ? '#3b82f6' : '#e5e7eb') : 
+      '#3b82f6'};
+  }
+  
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background-color: ${props => 
+      props.$correct ? '#10b981' : 
+      props.$incorrect ? '#ef4444' : 
+      props.$selected ? '#3b82f6' : 'transparent'};
+  }
+`;
+
+const OptionNumber = styled.div<{ $selected: boolean; $correct?: boolean; $incorrect?: boolean }>`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  margin-right: 12px;
+  font-weight: 600;
+  background-color: ${props => 
+    props.$correct ? '#10b981' : 
+    props.$incorrect ? '#ef4444' : 
+    props.$selected ? '#3b82f6' : '#f3f4f6'};
+  color: ${props => 
+    (props.$correct || props.$incorrect || props.$selected) ? '#ffffff' : '#4b5563'};
+  transition: all 0.2s ease;
+`;
+
+const OptionContent = styled.div`
+  flex: 1;
+`;
+
+const FeedbackIndicator = styled.div<{ $correct: boolean }>`
+  display: flex;
+  align-items: center;
+  margin-left: 12px;
+  color: ${props => props.$correct ? '#10b981' : '#ef4444'};
+  font-weight: 500;
+`;
 
 interface QuestionResponseInputProps {
   question: Question;

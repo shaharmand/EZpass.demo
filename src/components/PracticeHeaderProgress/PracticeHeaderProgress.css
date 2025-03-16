@@ -1,33 +1,31 @@
 /* Progress section container */
 .progress-section {
   display: flex;
-  gap: 32px;
+  gap: 16px;
   width: 100%;
-  padding: 20px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  padding: 0 24px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   align-items: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  justify-content: center;
+  height: 100%;
 }
 
 /* Success metric special styling */
 .success-metric {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 20px 28px;
-  min-width: 200px;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 16px;
+  min-width: 160px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 12px;
-  transition: all 0.2s ease;
-  border: 1px solid #e5e7eb;
+  height: 48px;
 }
 
 .success-metric:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .success-metric .metric-header {
@@ -37,20 +35,21 @@
 }
 
 .success-metric .metric-icon {
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .success-metric .metric-label {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: #4b5563;
 }
 
 .success-metric .success-value {
-  font-size: 42px;
-  font-weight: 700;
-  line-height: 1;
-  margin: 4px 0;
-  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  margin-left: 12px;
+  color: #1f2937;
 }
 
 /* Success rate colors */
@@ -115,35 +114,34 @@
 .questions-group {
   display: flex;
   gap: 16px;
-  padding-right: 32px;
+  padding-right: 24px;
+  margin-right: 24px;
   border-right: 1px solid #e5e7eb;
+  align-items: center;
+  height: 48px;
 }
 
 /* Hours group */
 .hours-group {
   display: flex;
   gap: 16px;
-  padding-right: 32px;
+  padding-right: 24px;
+  margin-right: 24px;
   border-right: 1px solid #e5e7eb;
+  align-items: center;
+  height: 48px;
 }
 
 /* Regular metrics */
 .progress-metric {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 16px 20px;
-  min-width: 180px;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 16px;
+  min-width: 160px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  transition: all 0.2s ease;
-}
-
-.progress-metric:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  transform: translateY(-1px);
+  align-items: center;
+  gap: 12px;
+  height: 48px;
 }
 
 .metric-header {
@@ -153,53 +151,69 @@
 }
 
 .metric-icon {
+  font-size: 16px;
   color: #4b5563;
-  font-size: 18px;
 }
 
 .metric-label {
-  color: #4b5563;
   font-size: 14px;
   font-weight: 500;
+  color: #4b5563;
+  white-space: nowrap;
 }
 
 .metric-value {
-  color: #1f2937;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  margin-top: 2px;
+  color: #1f2937;
+  margin-left: 12px;
 }
 
 .progress-bar-container {
-  height: 4px;
+  height: 6px;
+  width: 80px;
   background: #e5e7eb;
-  border-radius: 2px;
+  border-radius: 3px;
   overflow: hidden;
-  margin-top: 8px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-  position: relative;
-  display: flex;
-  align-items: center;
+  margin-left: 12px;
+  flex-shrink: 0;
 }
 
 .progress-bar {
   height: 100%;
   border-radius: 3px;
   transition: width 0.5s ease-out;
-  position: relative;
-  display: flex;
-  align-items: center;
 }
 
 /* Progress bar colors */
 .progress-bar.questions {
-  background: linear-gradient(90deg, #6366f1, #818cf8);
-  box-shadow: 0 1px 2px rgba(99, 102, 241, 0.2);
+  background: #6366f1;
 }
 
 .progress-bar.hours {
-  background: linear-gradient(90deg, #0284c7, #0ea5e9);
-  box-shadow: 0 1px 2px rgba(14, 165, 233, 0.2);
+  background: #0ea5e9;
+}
+
+/* Time metric styles */
+.time-metric {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  height: 48px;
+  min-width: 140px;
+}
+
+.time-metric .metric-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.time-metric .metric-value {
+  font-size: 15px;
+  font-weight: 600;
+  margin-left: 12px;
 }
 
 /* RTL support */
@@ -398,54 +412,6 @@
   display: flex;
   gap: 24px;
   flex: 1;
-}
-
-.time-metric {
-  flex: 1;
-  background: white;
-  padding: 12px 16px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  min-width: 140px;
-}
-
-.time-metric .metric-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.time-metric .metric-icon {
-  font-size: 16px;
-  color: #6b7280;
-}
-
-.time-metric .metric-label {
-  font-size: 14px;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.time-metric .metric-value {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.time-metric .progress-bar-container {
-  height: 6px;
-  background: #f1f5f9;
-  border-radius: 3px;
-  overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.time-metric .progress-bar {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.5s ease-out;
 }
 
 .time-metric .progress-bar.total {

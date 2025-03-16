@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, memo, useRef } from 'react';
-import { Space, Spin, Typography, Card } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Space, Spin, Typography, Card, Button } from 'antd';
+import { ArrowLeftOutlined, ArrowRightOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { 
   Question, 
   FullAnswer,
@@ -15,9 +15,7 @@ import { isSuccessfulAnswer } from '../../types/feedback/status';
 import { SkipReason, QuestionPracticeState } from '../../types/prepUI';
 import { StudentPrep } from '../../types/prepState';
 import { getQuestionTopicName } from '../../utils/questionUtils';
-import QuestionContent from '../QuestionContent';
-import { FeedbackContainer } from '../feedback/FeedbackContainer';
-import { QuestionHeader } from './QuestionHeader';
+import QuestionContentDisplay from '../QuestionContent';
 import QuestionResponseInput from '../QuestionResponseInput';
 import { AnsweringActionBar } from './AnsweringActionBar';
 import { getQuestionSourceDisplay } from '../../utils/translations';
@@ -26,13 +24,38 @@ import { FeedbackActionBar } from './FeedbackActionBar';
 import { TopicSelectionDialog } from './TopicSelectionDialog';
 import QuestionSetProgress from './QuestionSetProgress';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SubtopicVideoBar } from './SubtopicVideoBar';
-import { VimeoPlayer } from './VimeoPlayer';
 import './QuestionInteractionContainer.css';
-import { videoContentService } from '../../services/videoContentService';
-import { VideoContent } from '../../types/videoContent';
+import styled from 'styled-components';
+import { FeedbackContainer } from '../feedback/FeedbackContainer';
+import { QuestionHeader } from './QuestionHeader';
 
 const { Text } = Typography;
+
+// Simple Answer Header component
+const AnswerHeader: React.FC = () => {
+  return (
+    <div className="question-header simplified">
+      <div className="title-row">
+        <h2 className="question-title">
+          <span>תשובה</span>
+        </h2>
+      </div>
+    </div>
+  );
+};
+
+// Simple Feedback Header component
+const FeedbackHeader: React.FC = () => {
+  return (
+    <div className="question-header simplified">
+      <div className="title-row">
+        <h2 className="question-title">
+          <span>משוב</span>
+        </h2>
+      </div>
+    </div>
+  );
+};
 
 interface QuestionInteractionContainerProps {
   question: Question;
@@ -52,7 +75,75 @@ interface QuestionInteractionContainerProps {
   style?: React.CSSProperties;
 }
 
-const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> = ({
+const StyledContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  padding-bottom: 0;
+  margin-bottom: 0;
+`;
+
+const ProgressContainer = styled.div`
+  padding: 4px 0;
+  margin-bottom: 4px;
+`;
+
+const ScrollableContent = styled.div`
+  overflow-y: auto;
+  max-height: calc(100vh - 140px);
+  padding-bottom: 50px; /* Add space for the fixed action bar */
+  margin-bottom: 0;
+`;
+
+const QuestionContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const QuestionCard = styled.div`
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  border-right: 4px solid #3b82f6; /* Consistent blue border for all question types */
+  overflow: hidden;
+  transition: all 0.3s ease;
+  margin-bottom: 4px;
+  max-height: calc(30vh - 60px); /* Reduced max-height to leave more space for answers and feedback */
+  overflow-y: auto;
+`;
+
+const ActionBarContainer = styled.div`
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  padding: 4px;
+  border-top: 1px solid #e5e7eb;
+  z-index: 100;
+  margin: 0;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+  width: 100%; /* Ensure it takes the width of its parent */
+`;
+
+const FixedActionBar = styled.div`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 2px solid #3b82f6;
+  width: 80%;
+  max-width: 600px;
+`;
+
+export const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> = ({
   question,
   onSubmit,
   onSkip,
@@ -80,11 +171,8 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   const progressSectionRef = useRef<HTMLDivElement>(null);
   const questionCounterRef = useRef<HTMLDivElement>(null);
   const [isAnswerSectionVisible, setIsAnswerSectionVisible] = useState(false);
-  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
-  const [subtopicVideos, setSubtopicVideos] = useState<VideoContent[]>([]);
-  const [isLoadingVideos, setIsLoadingVideos] = useState(false);
-  
-  // Add effect to scroll to feedback when it appears
+
+  // Animation and transition effects
   useEffect(() => {
     if (state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data) {
       setTimeout(() => {
@@ -93,7 +181,6 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     }
   }, [state.submissions]);
 
-  // Add effect to handle question transitions
   useEffect(() => {
     // Reset animations
     const options = document.querySelectorAll('.multiple-choice-option');
@@ -164,29 +251,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     };
   }, [question.id]);
 
-  // Load videos when subtopic changes
-  useEffect(() => {
-    const loadSubtopicVideos = async () => {
-      if (!question.metadata.subtopicId) {
-        setSubtopicVideos([]);
-        return;
-      }
-
-      setIsLoadingVideos(true);
-      try {
-        const videos = await videoContentService.getSubtopicVideos(question.metadata.subtopicId);
-        setSubtopicVideos(videos);
-      } catch (error) {
-        console.error('Failed to load subtopic videos:', error);
-        setSubtopicVideos([]);
-      } finally {
-        setIsLoadingVideos(false);
-      }
-    };
-
-    loadSubtopicVideos();
-  }, [question.metadata.subtopicId]);
-
+  // Handlers
   const handleAnswerChange = useCallback((answer: FullAnswer) => {
     setAnswer(answer);
     setIsSubmitEnabled(true);
@@ -248,88 +313,22 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
     });
   }, [setState, question.id, state.status, state.submissions.length]);
 
-  const handleNext = useCallback(() => {
-    console.log('=== Starting handleNext ===', {
-      questionId: question.id,
-      currentState: state.status,
-      hasSubmissions: state.submissions.length > 0
-    });
-    
-    // Reset answer state before moving to next question
-    setAnswer(null);
-    setIsSubmitEnabled(false);
-    
-    // Reset question state
-    setState(prev => ({
-      ...prev,
-      status: 'active',
-      currentAnswer: null,
-      error: undefined,
-      submissions: [],
-      helpRequests: [],
-      practiceStartedAt: Date.now()
-    }));
-    
-    onNext();
-    
-    console.log('=== Completed handleNext ===', {
-      questionId: question.id
-    });
-  }, [onNext, question.id, state.status, state.submissions.length, setState]);
-
-  const handleSkip = async (reason: SkipReason) => {
-    console.log('User skipping question', { reason });
-    await onSkip(reason);
-  };
-
-  const handleHelp = (type: 'explain_question' | 'guide_solution' | 'hint' | 'show_solution' | 'learning_materials') => {
+  const handleHelp = useCallback((type: 'explain_question' | 'guide_solution' | 'hint' | 'show_solution' | 'learning_materials') => {
     console.log('User requested help', { type });
     // TODO: Implement help functionality
-  };
+  }, []);
 
-  const getAnswerDisplayValue = (answer: FullAnswer | null): string | undefined => {
-    if (!answer?.finalAnswer) return undefined;
-    
-    // For multiple choice questions, use the selected option
-    if (question.metadata.type === QuestionType.MULTIPLE_CHOICE) {
-      return answer.finalAnswer.type === 'multiple_choice' ? 
-        answer.finalAnswer.value.toString() : undefined;
-    }
-    
-    // For numerical questions, use the value with unit
-    if (question.metadata.type === QuestionType.NUMERICAL) {
-      return answer.finalAnswer.type === 'numerical' ? 
-        `${answer.finalAnswer.value}${answer.finalAnswer.unit || ''}` : undefined;
-    }
-    
-    // For open questions, use the solution text (user's input)
-    return answer.solution.text;
-  };
-
+  // Render functions
   const renderQuestionContent = () => {
     return (
       <div className="question-content">
         <div className="question-body">
           <div className="question-content-wrapper">
-            <QuestionContent
+            <QuestionContentDisplay
               content={question.content.text}
               isLoading={false}
             />
           </div>
-          {showSource && question.metadata.source && (
-            <Text type="secondary" className="source-info">
-              {getQuestionSourceDisplay({
-                sourceType: question.metadata.source.type as SourceType,
-                ...(question.metadata.source.type === SourceType.EXAM ? {
-                  examTemplateId: question.metadata.source.examTemplateId,
-                  year: question.metadata.source.year,
-                  period: question.metadata.source.period,
-                  moed: question.metadata.source.moed,
-                  order: question.metadata.source.order
-                } : {})
-              })}
-            </Text>
-          )}
         </div>
       </div>
     );
@@ -338,9 +337,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   const renderAnswerSection = () => {
     return (
       <div className={`answer-section ${isAnswerSectionVisible ? 'animate-in' : ''}`}>
-        <div className="answer-header">
-          <Typography.Title level={3}>תשובה</Typography.Title>
-        </div>
+        <AnswerHeader />
         <QuestionResponseInput 
           question={question}
           onAnswer={handleAnswerChange}
@@ -349,21 +346,6 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
           selectedAnswer={answer}
           onCanSubmitChange={setIsSubmitEnabled}
         />
-      </div>
-    );
-  };
-
-  const renderActionBar = () => {
-    return (
-      <div className="daily-practice-action-bar">
-        <div className="action-bar-wrapper">
-          <AnsweringActionBar
-            onSubmit={handleSubmit}
-            onSkip={handleSkip}
-            onHelp={handleHelp}
-            disabled={!isSubmitEnabled}
-          />
-        </div>
       </div>
     );
   };
@@ -380,116 +362,92 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
   }
 
   return (
-    <div className={`question-interaction-container ${className || ''}`} style={style} ref={containerRef}>
-      <div className="daily-practice-wrapper" style={{ 
-        marginRight: question.metadata.subtopicId ? '320px' : '0',
-        transition: 'margin-right 0.3s ease'
-      }}>
-        <div className="daily-practice-container">
-          <div className="daily-practice-content">
-            <div className="progress-section" ref={progressSectionRef}>
-              <div ref={questionCounterRef} className="question-counter-wrapper">
-                <QuestionSetProgress
-                  questionId={question.id}
-                  prepId={prep.id}
-                  prep={prep}
-                />
-              </div>
-            </div>
-
-            <Card 
-              className={`question-card question-type-${question.metadata.type} ${
-                isQuestionEntering ? 'entering' : 'entered'
-              }`}
-              key={questionChangeKey}
-            >
-              <QuestionHeader
-                question={question}
-                onSkip={onSkip}
-              />
-              {renderQuestionContent()}
-            </Card>
-
-            {renderAnswerSection()}
-
-            {!state.submissions.length && renderActionBar()}
-
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`feedback-${question?.id}`}
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-                ref={feedbackRef}
-              >
-                {state.status === 'submitted' && state.submissions.length === 0 && (
-                  <div className="feedback-loading">
-                    <Space direction="vertical">
-                      <Spin size="large" />
-                      <Text>בודק את התשובה שלך...</Text>
-                    </Space>
-                  </div>
-                )}
-
-                {state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data && (
-                  <div className="feedback-container">
-                    <div className="feedback-section">
-                      {(() => {
-                        const feedbackData = state.submissions[state.submissions.length - 1]?.feedback?.data;
-                        if (!feedbackData) return null;
-                        return (
-                          <FeedbackContainer 
-                            question={question}
-                            submission={state.submissions[state.submissions.length - 1]}
-                            isLimitedFeedback={isAllowedFullFeedback()}
-                          />
-                        );
-                      })()}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data && (
-            <div className="daily-practice-action-bar">
-              {(() => {
-                const feedbackData = state.submissions[state.submissions.length - 1]?.feedback?.data;
-                if (!feedbackData) return null;
-                return (
-                  <FeedbackActionBar
-                    feedback={feedbackData}
-                    onRetry={handleRetry}
-                    onNext={handleNext}
-                    showRetry={!isSuccessfulAnswer(feedbackData.evalLevel)}
-                  />
-                );
-              })()}
-            </div>
-          )}
+    <StyledContainer className={className} style={style} ref={containerRef}>
+      <ProgressContainer ref={progressSectionRef}>
+        <div ref={questionCounterRef} className="question-counter-wrapper">
+          <QuestionSetProgress
+            questionId={question.id}
+            prepId={prep.id}
+            prep={prep}
+          />
         </div>
-      </div>
+      </ProgressContainer>
+      
+      <ScrollableContent>
+        <QuestionContainer>
+          <QuestionCard 
+            className={`question-card question-type-${question.metadata.type} ${
+              isQuestionEntering ? 'entering' : 'entered'
+            }`}
+            key={questionChangeKey}
+          >
+            <QuestionHeader
+              question={question}
+              onSkip={onSkip}
+            />
+            {renderQuestionContent()}
+          </QuestionCard>
 
-      {question.metadata.subtopicId && (
-        <>
-          <SubtopicVideoBar
-            subtopicId={question.metadata.subtopicId}
-            subtopicName={getQuestionTopicName(question)}
-            videos={subtopicVideos}
-            onVideoSelect={(videoId) => setSelectedVideoId(videoId)}
-            isLoading={isLoadingVideos}
-          />
+          {isAnswerSectionVisible && renderAnswerSection()}
           
-          <VimeoPlayer
-            videoId={selectedVideoId || ''}
-            isOpen={!!selectedVideoId}
-            onClose={() => setSelectedVideoId(null)}
-          />
-        </>
-      )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`feedback-${question?.id}`}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              ref={feedbackRef}
+              style={{ overflow: 'visible' }}
+            >
+              {state.status === 'submitted' && state.submissions.length === 0 && (
+                <div className="feedback-loading">
+                  <Space direction="vertical">
+                    <Spin size="large" />
+                    <Text>בודק את התשובה שלך...</Text>
+                  </Space>
+                </div>
+              )}
 
+              {state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data && (
+                <div className="feedback-container">
+                  <FeedbackHeader />
+                  <div className="feedback-section">
+                    <FeedbackContainer 
+                      question={question}
+                      submission={state.submissions[state.submissions.length - 1]}
+                      isLimitedFeedback={!isAllowedFullFeedback && !showDetailedFeedback}
+                    />
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </QuestionContainer>
+      </ScrollableContent>
+      
+      {(state.status === 'active' || state.status === 'idle') && (
+        <ActionBarContainer className="ActionBarContainer">
+          <AnsweringActionBar
+            onSubmit={handleSubmit}
+            onSkip={(reason) => onSkip(reason)}
+            onHelp={handleHelp}
+            disabled={!isSubmitEnabled || isQuestionLoading}
+          />
+        </ActionBarContainer>
+      )}
+      
+      {(state.status === 'submitted' || state.status === 'receivedFeedback') && state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data && (
+        <ActionBarContainer className="ActionBarContainer">
+          <FeedbackActionBar
+            feedback={state.submissions[state.submissions.length - 1].feedback!.data}
+            onNext={onNext}
+            onRetry={handleRetry}
+            showRetry={!isSuccessfulAnswer(state.submissions[state.submissions.length - 1].feedback!.data.evalLevel)}
+          />
+        </ActionBarContainer>
+      )}
+      
       <TopicSelectionDialog
         exam={prep.exam}
         open={isTopicSelectionDialogOpen}
@@ -497,7 +455,7 @@ const QuestionInteractionContainer: React.FC<QuestionInteractionContainerProps> 
         currentQuestion={question}
         onSkip={onSkip}
       />
-    </div>
+    </StyledContainer>
   );
 };
 

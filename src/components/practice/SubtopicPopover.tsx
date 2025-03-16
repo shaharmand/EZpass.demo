@@ -48,6 +48,22 @@ export const SubtopicPopoverContent: React.FC<SubtopicPopoverContentProps> = ({
     onClose();
   };
 
+  // Handle dialog close
+  const handleDialogClose = () => {
+    console.log('FORCE LOG - Closing topic dialog');
+    setIsTopicDialogOpen(false);
+    onClose();
+  };
+
+  console.log('FORCE LOG - SubtopicPopoverContent render:', {
+    isTopicDialogOpen,
+    hasPrep: !!prep,
+    hasExam: !!prep?.exam,
+    questionId: question.id,
+    subtopicId: question.metadata.subtopicId,
+    timestamp: new Date().toISOString()
+  });
+
   return (
     <>
       <div className="subtopic-popover-content">
@@ -82,8 +98,8 @@ export const SubtopicPopoverContent: React.FC<SubtopicPopoverContentProps> = ({
             type="default"
             icon={<AimOutlined />}
             onClick={() => {
+              console.log('FORCE LOG - Opening topic dialog');
               setIsTopicDialogOpen(true);
-              onClose();
             }}
             className="subtopic-action"
           >
@@ -104,11 +120,11 @@ export const SubtopicPopoverContent: React.FC<SubtopicPopoverContentProps> = ({
         </Space>
       </div>
 
-      {prep && (
+      {prep?.exam && (
         <TopicSelectionDialog
           exam={prep.exam}
           open={isTopicDialogOpen}
-          onClose={() => setIsTopicDialogOpen(false)}
+          onClose={handleDialogClose}
           currentQuestion={question}
           onSkip={onSkip}
         />

@@ -3,14 +3,30 @@ import { Typography, Tooltip, Progress, Button, Modal, Popover, DatePicker } fro
 import { TrophyOutlined, CheckCircleOutlined, ClockCircleOutlined, QuestionCircleOutlined, CrownOutlined, CalendarOutlined, BookOutlined } from '@ant-design/icons';
 import { StudentPrep } from '../../types/prepState';
 import { PrepStateManager } from '../../services/PrepStateManager';
-import { colors } from '../../utils/feedbackStyles';
 import { QuestionType } from '../../types/question';
 import ProgressDetailsDialog from '../ProgressDetailsDialog/ProgressDetailsDialog';
 import { ExamDatePicker } from '../practice/ExamDatePicker';
 import moment from 'moment';
 import { notification } from 'antd';
+import styled from 'styled-components';
 
 const { Text } = Typography;
+
+// Define UI colors since feedbackStyles doesn't have these
+const uiColors = {
+  background: {
+    header: '#ffffff',
+    metrics: '#f8fafc'
+  },
+  border: {
+    light: '#e5e7eb',
+    separator: '#f0f0f0'
+  },
+  text: {
+    primary: '#1e293b',
+    secondary: '#64748b'
+  }
+};
 
 interface PracticeHeaderProgressProps {
   prep: StudentPrep;
@@ -36,6 +52,80 @@ interface PracticeHeaderProgressProps {
     }>;
   };
 }
+
+const MetricsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  max-width: 1200px;
+  width: 100%;
+  height: 80px;
+  padding: 0 24px;
+  margin: 0 auto;
+  direction: rtl;
+  background: #f8fafc;
+`;
+
+const MetricGroup = styled.div<{ $hasBorder?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: ${props => props.$hasBorder ? '0 24px' : '0'};
+  border-left: ${props => props.$hasBorder ? `1px solid ${uiColors.border.light}` : 'none'};
+  height: 60px;
+`;
+
+const MetricSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+`;
+
+const MetricTitle = styled(Text)`
+  font-size: 13px;
+  color: ${uiColors.text.secondary};
+  font-weight: 500;
+`;
+
+const MetricValue = styled.div<{ $variant?: 'success' | 'progress' | 'default' | 'warning' | 'error' }>`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  background: ${props => 
+    props.$variant === 'success' ? '#f0fdf4' :
+    props.$variant === 'progress' ? '#f0f7ff' :
+    props.$variant === 'warning' ? '#fefce8' :
+    props.$variant === 'error' ? '#fef2f2' :
+    '#ffffff'};
+  border: 1px solid ${props =>
+    props.$variant === 'success' ? '#86efac' :
+    props.$variant === 'progress' ? '#93c5fd' :
+    props.$variant === 'warning' ? '#fde047' :
+    props.$variant === 'error' ? '#fca5a5' :
+    uiColors.border.light};
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+  }
+`;
+
+const ProgressBar = styled(Progress)`
+  width: 80px;
+  
+  .ant-progress-inner {
+    background-color: #e5e7eb !important;
+  }
+  
+  .ant-progress-bg {
+    transition: all 0.3s ease-out;
+  }
+`;
 
 const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({ 
   prep,
@@ -183,36 +273,35 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
     );
   };
 
-  // Get success rate styles
+  // Helper function to get success rate styles
   const getSuccessRateStyles = (rate: number, questionCount: number) => {
     if (questionCount === 0) {
       return {
-        icon: colors.gray,
-        text: colors.gray,
-        background: '#f5f5f5'
+        background: '#f1f5f9',
+        text: '#64748b',
+        border: '#cbd5e1'
       };
     }
     
-    // Use the same thresholds as the feedback system
     if (rate >= 80) {
       return {
-        icon: colors.success,
-        text: colors.success,
-        background: '#f0fdf4'  // Light green background
+        background: '#f0fdf4',
+        text: '#16a34a',
+        border: '#86efac'
       };
-    }
-    if (rate >= 55) {
+    } else if (rate >= 60) {
       return {
-        icon: colors.warning,
-        text: colors.warning,
-        background: '#fff7e6'  // Light yellow background
+        background: '#fefce8',
+        text: '#ca8a04',
+        border: '#fde047'
+      };
+    } else {
+      return {
+        background: '#fef2f2',
+        text: '#dc2626',
+        border: '#fca5a5'
       };
     }
-    return {
-      icon: colors.error,
-      text: colors.error,
-      background: '#fff1f0'  // Light red background
-    };
   };
 
   // Get question count and success rate
@@ -258,250 +347,95 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
   };
 
   return (
-    <>
-      <div style={{ 
-        padding: '16px 24px',
-        background: '#f8fafc',
-        borderBottom: '1px solid #e5e7eb',
-        display: 'flex',
-        alignItems: 'center',
-        direction: 'rtl',
-        gap: '0',
-        minHeight: '72px',
-      }}>
-        {/* Overall Progress - Main Metric */}
-        <div style={{ 
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
-          marginRight: 'auto',
-          borderLeft: '1px solid #e2e8f0',
-          padding: '0 32px',
-          height: '100%',
-          cursor: 'pointer'
-        }}
-        onClick={handleOpenDetailsDialog}>
-          <Tooltip title={getProgressTooltip()}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <TrophyOutlined style={{ 
-                fontSize: '28px', 
-                color: '#3b82f6',
-                marginTop: '4px'
-              }} />
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                gap: '2px',
-                width: '180px',
-                padding: '0 4px'
-              }}>
-                <Text style={{ 
-                  fontSize: '15px', 
-                  color: '#64748b',
-                  fontWeight: '500',
-                  marginBottom: '8px'
-                }}>התקדמות</Text>
-                <div style={{
-                  background: '#f0f9ff',
-                  border: '1px solid #bae6fd',
-                  borderRadius: '4px',
-                  padding: '8px 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  height: '36px'
-                }}>
-                  <Text style={{
-                    fontSize: '14px',
-                    color: '#0284c7',
-                    fontWeight: '500',
-                    minWidth: '45px',
-                    textAlign: 'left'
-                  }}>{questionCount === 0 ? '-' : `${Math.round(metrics.overallProgress)}/100`}</Text>
-                  <Progress 
-                    percent={metrics.overallProgress} 
-                    size="small"
-                    strokeColor="#0284c7"
-                    trailColor="#bae6fd"
-                    showInfo={false}
-                    style={{ flex: 1 }}
-                  />
-                </div>
-              </div>
-            </div>
-          </Tooltip>
-        </div>
+    <MetricsContainer>
+      {/* Progress Group */}
+      <MetricGroup $hasBorder>
+        {/* Progress Section */}
+        <MetricSection>
+          <MetricTitle>התקדמות</MetricTitle>
+          <MetricValue $variant="progress" onClick={handleOpenDetailsDialog}>
+            <TrophyOutlined style={{ fontSize: '18px', color: '#3b82f6' }} />
+            <Text style={{ fontSize: '15px', fontWeight: '600', color: '#0284c7' }}>
+              {questionCount === 0 ? '-' : `${Math.round(metrics.overallProgress)}/100`}
+            </Text>
+            <ProgressBar 
+              percent={metrics.overallProgress} 
+              size="small"
+              strokeColor="#0284c7"
+              trailColor="#bae6fd"
+              showInfo={false}
+            />
+          </MetricValue>
+        </MetricSection>
 
-        {/* Success Rate */}
-        <div style={{
-          width: '120px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          borderLeft: '1px solid #e2e8f0',
-          padding: '0 24px',
-          cursor: 'pointer'
-        }}
-        onClick={handleOpenDetailsDialog}>
-          <Tooltip title={getSuccessTooltip()}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <Text style={{
-                fontSize: '15px',
-                color: '#64748b',
-                fontWeight: '500',
-                marginBottom: '8px'
-              }}>ציון</Text>
-              <div style={{
-                background: successStyles.background,
-                border: `1px solid ${successStyles.text}`,
-                borderRadius: '4px',
-                padding: '8px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '36px'
-              }}>
-                <Text style={{
-                  fontSize: '16px',
-                  color: successStyles.text,
-                  fontWeight: '600',
-                  lineHeight: '1.2'
-                }}>
-                  {questionCount === 0 ? '-' : Math.round(successRate)}
-                </Text>
-              </div>
-            </div>
-          </Tooltip>
-        </div>
-
-        {/* Time and Questions Section */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '24px',
-          height: '100%',
-          marginRight: '40px',
-          position: 'relative',
-          borderLeft: '1px solid #e2e8f0',
-          padding: '0 24px'
-        }}>
-          {/* Hours Remaining */}
-          <Tooltip title={getTimeTooltip()}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
-                 onClick={handleOpenDetailsDialog}>
-              <Text style={{
-                fontSize: '15px',
-                color: '#64748b',
-                fontWeight: '500',
-                marginBottom: '8px'
-              }}>נותרו לתרגל</Text>
-              <div style={{
-                background: '#fff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '4px',
-                padding: '8px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '36px',
-                minWidth: '80px'
-              }}>
-                <ClockCircleOutlined style={{ fontSize: '16px', color: '#64748b', marginLeft: '8px' }} />
-                <Text style={{
-                  fontSize: '16px',
-                  color: '#64748b',
-                  fontWeight: '600',
-                  lineHeight: '1.2'
-                }}>
-                  {formatTime(metrics.remainingHours)}
-                </Text>
-              </div>
-            </div>
-          </Tooltip>
-
-          {/* Exam Date */}
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'flex-start'  // Changed from 'center' to 'flex-start'
-          }}>
+        {/* Score Section */}
+        <MetricSection>
+          <MetricTitle>ציון</MetricTitle>
+          <MetricValue 
+            $variant={
+              successRate >= 80 ? 'success' : 
+              successRate >= 60 ? 'warning' : 
+              'error'
+            }
+            onClick={handleOpenDetailsDialog}
+          >
             <Text style={{
-              fontSize: '15px',
-              color: '#64748b',
-              fontWeight: '500',
-              marginBottom: '8px'
-            }}>זמן למבחן</Text>
-            <div style={{
-              background: '#fff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '4px',
-              padding: '8px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-start',  // Changed from 'center' to 'flex-start'
-              height: '36px',
-              minWidth: '120px'
+              fontSize: '18px',
+              color: successStyles.text,
+              fontWeight: '600',
+              margin: '0 auto'
             }}>
-              <ExamDatePicker 
-                prep={prep}
-                onPrepUpdate={onPrepUpdate}
-              />
-            </div>
-          </div>
-        </div>
+              {questionCount === 0 ? '-' : Math.round(successRate)}
+            </Text>
+          </MetricValue>
+        </MetricSection>
+      </MetricGroup>
 
-        {/* Topics Section - Simple Button */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          height: '100%',
-          borderLeft: '1px solid #e2e8f0',
-          padding: '0 24px'
-        }}>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center'
-          }}>
-            <Text style={{
-              fontSize: '15px',
-              color: '#64748b',
-              fontWeight: '500',
-              marginBottom: '8px'
-            }}>תכולת מבחן</Text>
-            <Button
-              type="default"
-              icon={<BookOutlined />}
-              onClick={() => {
-                if (typeof onShowTopicDetails === 'function') {
-                  onShowTopicDetails();
-                }
-              }}
-              style={{
-                height: '36px',
-                minWidth: '120px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                background: '#f0f7ff',
-                border: '1px solid #e5e7eb',
-                color: '#3b82f6'
-              }}
-            >
+      {/* Time Group */}
+      <MetricGroup $hasBorder>
+        {/* Time Section */}
+        <MetricSection>
+          <MetricTitle>נותרו לתרגל</MetricTitle>
+          <MetricValue onClick={handleOpenDetailsDialog}>
+            <ClockCircleOutlined style={{ fontSize: '16px', color: '#64748b' }} />
+            <Text style={{ fontSize: '15px', fontWeight: '600', color: '#64748b' }}>
+              {formatTime(metrics.remainingHours)}
+            </Text>
+          </MetricValue>
+        </MetricSection>
+
+        {/* Exam Date Section */}
+        <MetricSection>
+          <MetricTitle>זמן למבחן</MetricTitle>
+          <MetricValue>
+            <CalendarOutlined style={{ fontSize: '16px', color: '#64748b', marginLeft: '8px' }} />
+            <ExamDatePicker 
+              prep={prep}
+              onPrepUpdate={onPrepUpdate}
+            />
+          </MetricValue>
+        </MetricSection>
+      </MetricGroup>
+
+      {/* Topics Group */}
+      <MetricGroup>
+        <MetricSection>
+          <MetricTitle>תכולת מבחן</MetricTitle>
+          <MetricValue $variant="progress" onClick={() => onShowTopicDetails?.()}>
+            <BookOutlined style={{ fontSize: '16px', color: '#3b82f6' }} />
+            <Text style={{ fontSize: '15px', fontWeight: '600', color: '#3b82f6' }}>
               {prep.selection.subTopics.length}/{subTopicCount} נושאים
-            </Button>
-          </div>
-        </div>
-      </div>
+            </Text>
+          </MetricValue>
+        </MetricSection>
+      </MetricGroup>
 
       <ProgressDetailsDialog
         isOpen={isDetailsDialogOpen}
         onClose={() => setIsDetailsDialogOpen(false)}
         metrics={metrics}
       />
-    </>
+    </MetricsContainer>
   );
 };
 

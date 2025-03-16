@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Alert, Space, Button, Layout, Typography, Card, message, Result } from 'antd';
-import { HomeOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { HomeOutlined, ArrowLeftOutlined, MessageOutlined, RobotOutlined } from '@ant-design/icons';
 import { PracticeHeader } from '../components/PracticeHeader';
-import QuestionInteractionContainer from '../components/practice/QuestionInteractionContainer';
+import { QuestionInteractionContainer } from '../components/practice/QuestionInteractionContainer';
 import { WelcomeScreen } from '../components/practice/WelcomeScreen';
 import type { ActivePracticeQuestion, SkipReason } from '../types/prepUI';
 import type { Question, FullAnswer } from '../types/question';
@@ -21,12 +21,73 @@ import { memo } from 'react';
 import moment from 'moment';
 import { examService } from '../services/examService';
 import { PrepStateManager } from '../services/PrepStateManager';
+import RelatedContent from '../components/practice/RelatedContent';
+import { universalTopics } from '../services/universalTopics';
+import QuestionProperties from '../components/practice/QuestionProperties';
+import { FirstPanel, MainContent, ThirdPanel, AssistanceSection, PropertiesSection } from '../components/practice/LayoutComponents';
+import { UserHeader } from '../components/layout/UserHeader';
+import PracticeHeaderProgress from '../components/PracticeHeaderProgress/PracticeHeaderProgress';
+import styled from 'styled-components';
 
 interface PageState {
   error?: string;
   prep?: StudentPrep;
   isLoading: boolean;
 }
+
+const ContentContainer = styled.div`
+  display: flex;
+  gap: 20px;
+  padding: 16px 16px 0 16px;
+  height: calc(100vh - var(--total-header-height));
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+`;
+
+const SidePanel = styled.div<{ $position: 'left' | 'right' }>`
+  display: flex;
+  flex-direction: column;
+  flex: ${props => props.$position === 'left' ? '1' : '1.2'};
+  min-width: ${props => props.$position === 'left' ? '220px' : '280px'};
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  padding: 12px;
+  
+  ${props => props.$position === 'left' && `
+    border-right: 1px solid #e5e7eb;
+  `}
+  
+  ${props => props.$position === 'right' && `
+    border-left: 1px solid #e5e7eb;
+  `}
+
+  @media (max-width: 1200px) {
+    min-width: ${props => props.$position === 'left' ? '200px' : '240px'};
+  }
+`;
+
+const MainPanel = styled.div`
+  flex: 3;
+  min-width: 500px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+`;
+
+const PanelTitle = styled(Typography.Title)`
+  font-size: 14px !important;
+  margin-bottom: 12px !important;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #64748b;
+`;
 
 const PracticePage: React.FC = () => {
   const { prepId } = useParams<{ prepId: string }>();
@@ -52,6 +113,24 @@ const PracticePage: React.FC = () => {
     prep: prep || undefined
   });
   const hasInitialized = useRef(false);
+  const [activeTab, setActiveTab] = useState('videos');
+
+  const handleContentSelect = useCallback((topic: string) => {
+    // Implementation of handleContentSelect
+  }, []);
+
+  const handleVideoSelect = useCallback((videoId: string) => {
+    // Implementation of handleVideoSelect
+  }, []);
+
+  const getTopicName = useCallback((question: Question) => {
+    const { topicId, subtopicId } = question.metadata;
+    return universalTopics.getMostSpecificTopicName(topicId, subtopicId);
+  }, []);
+
+  const handleTabChange = useCallback((key: string) => {
+    setActiveTab(key);
+  }, []);
 
   // Handle new prep creation
   useEffect(() => {
@@ -216,20 +295,18 @@ const PracticePage: React.FC = () => {
   } : undefined;
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <PracticeHeader 
-        prepId={prepId || ''} 
-        currentQuestion={activePracticeQuestion && currentQuestion ? {
-          question: currentQuestion.data,
-          practiceState: activePracticeQuestion.practiceState
-        } : undefined}
-        question={currentQuestion?.data}
-        prep={state.prep}
-        onPrepUpdate={(updatedPrep) => {
-          setState(prev => ({ ...prev, prep: updatedPrep }));
-        }}
-      />
-      <Layout.Content className="practice-content">
+    <Layout style={{ minHeight: '100vh', width: '100%' }}>
+      <div className="practice-headers">
+        <PracticeHeader 
+          prep={prep}
+          isLoading={isQuestionLoading}
+          onPrepUpdate={(updatedPrep) => {
+            // Handle prep updates if needed
+            console.log('Prep updated:', updatedPrep);
+          }}
+        />
+      </div>
+      <Layout.Content className="practice-content" style={{ width: '100%' }}>
         {state.error && (
           <Alert
             message="שגיאה"
@@ -251,25 +328,64 @@ const PracticePage: React.FC = () => {
           <LoadingSpinner />
         )}
         {currentQuestion && state.prep && (
-          <div className="practice-container">
-            <div className="practice-main">
-              {currentQuestion ? (
+          <ContentContainer className="ContentContainer">
+            <SidePanel $position="left">
+              <PanelTitle level={4}>תוכן לימודי</PanelTitle>
+              {currentQuestion?.data && (
+                <div className="related-content">
+                  <RelatedContent
+                    currentQuestion={currentQuestion.data}
+                    subtopicId={currentQuestion.data.metadata.subtopicId || ''}
+                    onVideoSelect={handleVideoSelect}
+                  />
+                </div>
+              )}
+            </SidePanel>
+
+            <MainPanel className="MainPanel">
+              {currentQuestion?.data && (
                 <QuestionInteractionContainer
                   question={currentQuestion.data}
                   onSubmit={handleSubmit}
                   onSkip={handleSkip}
                   onNext={handleNext}
                   onPrevious={handlePrevious}
-                  prep={state.prep}
-                  isQuestionLoading={state.isLoading}
+                  prep={prep}
+                  isQuestionLoading={isQuestionLoading}
                   state={questionState}
                   setState={setQuestionState}
                 />
-              ) : (
-                <div>Loading...</div>
               )}
-            </div>
-          </div>
+            </MainPanel>
+
+            <SidePanel $position="right">
+              <div style={{ marginBottom: '24px' }}>
+                <PanelTitle level={4}>פרטים</PanelTitle>
+                {currentQuestion?.data && (
+                  <QuestionProperties
+                    question={currentQuestion.data}
+                    questionNumber={questionState.submissions.length + 1}
+                    totalQuestions={state.prep.exam.totalQuestions}
+                    onSkip={handleSkip}
+                  />
+                )}
+              </div>
+              
+              <div>
+                <PanelTitle level={4}>עזרה</PanelTitle>
+                <div style={{ 
+                  padding: '16px', 
+                  background: '#f8fafc', 
+                  borderRadius: '6px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <Typography.Text style={{ color: '#64748b' }}>
+                    לחץ על כפתור העזרה בשאלה כדי לקבל הסבר מפורט
+                  </Typography.Text>
+                </div>
+              </div>
+            </SidePanel>
+          </ContentContainer>
         )}
       </Layout.Content>
 

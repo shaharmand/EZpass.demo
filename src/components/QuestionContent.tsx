@@ -17,7 +17,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        minHeight: '100px'
+        minHeight: '80px'
       }}>
         <Spin />
       </div>
@@ -30,14 +30,14 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
       <style>
         {`
           .question-content-text {
-            font-size: 18px;
-            line-height: 1.8;
-            font-weight: 500;
+            font-size: 16px;
+            line-height: 1.6;
+            font-weight: 400;
             color: #262626;
           }
           
           .question-content-text p {
-            margin: 1em 0;
+            margin: 0.8em 0;
           }
           
           .question-content-text strong {

@@ -13,14 +13,14 @@ import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../../types/userTypes';
 
 const UserButton = styled(Button)<{ $isLoggedIn: boolean }>`
-  height: 40px;
-  padding: 0 20px;
+  height: 36px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 14px;
   font-weight: 500;
-  border-radius: 20px;
+  border-radius: 18px;
   background: ${props => props.$isLoggedIn ? '#2563eb' : '#ffffff'};
   border-color: ${props => props.$isLoggedIn ? '#2563eb' : '#e2e8f0'};
   color: ${props => props.$isLoggedIn ? '#ffffff' : '#475569'};
@@ -63,7 +63,7 @@ const UserContainer = styled.div`
   gap: 16px;
   justify-content: flex-end;
   min-width: max-content;
-  height: 40px;
+  height: 100%;
 `;
 
 const getRoleLabel = (role: UserRole): string => {

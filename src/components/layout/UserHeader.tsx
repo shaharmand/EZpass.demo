@@ -1,18 +1,24 @@
 import React from 'react';
-import { Typography } from 'antd';
-import { motion } from 'framer-motion';
+import { Button, Typography } from 'antd';
+import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
+import { colors } from '../../utils/feedbackStyles';
+import { SubscriptionTier } from '../../types/userTypes';
+import UserProfile from '../user/UserProfile';
 import { BrandLogo } from '../brand/BrandLogo';
-import { UserProfile } from '../user/UserProfile';
+import { DailyLimitIndicator } from '../feedback/DailyLimitIndicator';
+import { usePracticeAttempts } from '../../contexts/PracticeAttemptsContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { getSubscriptionColor, getSubscriptionLabel } from '../../utils/subscriptionUtils';
+import { StyledTag } from '../styled/StyledTag';
 
 const { Text } = Typography;
 
-// Consistent color scheme
-const colors = {
+// Define UI colors since feedbackStyles doesn't have these
+const uiColors = {
   background: {
     header: '#ffffff',
-    metrics: '#f8fafc',
-    highlight: '#f0f7ff'
+    metrics: '#f8fafc'
   },
   border: {
     light: '#e5e7eb',
@@ -20,152 +26,182 @@ const colors = {
   },
   text: {
     primary: '#1e293b',
-    secondary: '#64748b',
-    brand: '#3b82f6'
-  },
-  icon: {
-    left: '#ff9800',
-    right: '#3b82f6'
+    secondary: '#64748b'
   }
 };
 
-interface UserHeaderProps {
+const TopRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 24px;
+  height: var(--user-header-height, 56px);
+  border-bottom: 1px solid ${uiColors.border.light};
+  direction: rtl;
+  background: ${uiColors.background.header};
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 10;
+`;
+
+const PageIdentityContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  border-right: 1px solid ${uiColors.border.separator};
+  height: 40px;
+`;
+
+const PageType = styled(Text)`
+  font-size: 14px;
+  font-weight: 500;
+  color: ${uiColors.text.secondary};
+`;
+
+const PageContent = styled(Text)`
+  font-size: 16px;
+  font-weight: 600;
+  color: ${uiColors.text.primary};
+`;
+
+const Spacer = styled.div`
+  flex: 1;
+`;
+
+const UserInfoSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`;
+
+const UserMetaContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-right: 1px solid ${uiColors.border.separator};
+  height: 40px;
+`;
+
+const DailyLimitContainer = styled.div`
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-right: 1px solid ${uiColors.border.separator};
+  height: 40px;
+`;
+
+const ActionsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const UpgradeButton = styled(Button)`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #ff9800 0%, #ed6c02 100%);
+  color: white;
+  border: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(237, 108, 2, 0.2);
+
+  &:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%) !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(237, 108, 2, 0.3);
+  }
+`;
+
+export interface UserHeaderProps {
   children?: React.ReactNode;
-  showMetricsRow?: boolean;
-  metricsContent?: React.ReactNode;
-  centerContent?: React.ReactNode;
-  rightContent?: React.ReactNode;
-  pageTitle?: string;
-  leftContent?: React.ReactNode;
-  variant?: 'practice' | 'default';
-  topRowContent?: React.ReactNode;
+  pageType: string;
+  pageContent: string;
+  variant?: 'default' | 'practice' | 'course';
   style?: React.CSSProperties;
 }
 
 export const UserHeader: React.FC<UserHeaderProps> = ({
-  children,
-  showMetricsRow = false,
-  metricsContent,
-  centerContent,
-  rightContent,
-  pageTitle,
-  leftContent,
+  pageType,
+  pageContent,
   variant = 'default',
-  topRowContent,
-  style
+  style,
+  children
 }) => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  
+  // Only use practice attempts if we're in practice variant
+  const practiceAttempts = variant === 'practice' ? usePracticeAttempts() : null;
+  const getCurrentAttempts = React.useCallback(() => {
+    return practiceAttempts?.getCurrentAttempts() ?? 0;
+  }, [practiceAttempts]);
+  
+  const getMaxAttempts = React.useCallback(() => {
+    return practiceAttempts?.getMaxAttempts() ?? 0;
+  }, [practiceAttempts]);
 
-  const headerStyle = {
-    container: {
-      width: '100%',
-      background: '#ffffff',
-      borderBottom: '1px solid #e5e7eb',
-      zIndex: 100,
-    },
-    content: {
-      maxWidth: '1920px',
-      margin: '0 auto',
-      padding: '0 24px',
-    },
-    topRow: {
-      height: '64px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    metricsRow: {
-      minHeight: '64px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      borderTop: '1px solid #e5e7eb',
-    },
-    pageContent: {
-      backgroundColor: colors.background.header,
-      borderBottom: `1px solid ${colors.border.light}`,
-      padding: '12px 40px',
-      minHeight: '64px',
-    },
-    practiceContent: {
-      display: 'grid',
-      gridTemplateColumns: 'auto 1fr auto',
-      gap: '24px',
-      alignItems: 'center',
-    },
-    practiceMetrics: {
-      display: 'grid',
-      gridTemplateColumns: '1fr auto 1fr',
-      gap: '24px',
-      alignItems: 'center',
-    },
-    metricsGroup: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '24px',
-      justifyContent: 'center'
-    },
-    metricItem: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      padding: '8px 16px',
-      backgroundColor: colors.background.header,
-      borderRadius: '8px',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-    },
-    logo: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '4px',
-      minWidth: '200px'
-    },
-    pageTitle: {
-      fontSize: '15px',
-      color: colors.text.secondary,
-      fontWeight: 500,
-      margin: 0,
-      padding: '0 24px',
-      borderLeft: `1px solid ${colors.border.separator}`,
-      whiteSpace: 'nowrap' as const,
-      height: '40px',
-      display: 'flex',
-      alignItems: 'center'
-    }
-  };
-
-  const getContentStyle = () => {
-    const baseStyle = headerStyle.pageContent;
-    switch (variant) {
-      case 'practice':
-        return { ...baseStyle, ...headerStyle.practiceContent };
-      default:
-        return baseStyle;
-    }
-  };
-
-  const getMetricsStyle = () => {
-    const baseStyle = headerStyle.metricsRow;
-    switch (variant) {
-      case 'practice':
-        return { ...baseStyle, ...headerStyle.practiceMetrics };
-      default:
-        return baseStyle;
-    }
+  const getUpgradeButton = (currentTier: SubscriptionTier) => {
+    if (currentTier === SubscriptionTier.PRO) return null;
+    
+    return (
+      <UpgradeButton 
+        type="text"
+        onClick={() => navigate('/upgrade')}
+      >
+        שדרג
+      </UpgradeButton>
+    );
   };
 
   return (
-    <div style={{ ...headerStyle.container, ...style }}>
-      <div style={headerStyle.content}>
-        <div style={headerStyle.topRow}>
-          {topRowContent}
-        </div>
-        {metricsContent && (
-          <div style={headerStyle.metricsRow}>
-            {metricsContent}
-          </div>
-        )}
-      </div>
-    </div>
+    <TopRow style={style}>
+      <BrandLogo />
+      <PageIdentityContainer>
+        <PageContent>{pageContent}</PageContent>
+        <PageType>{pageType}</PageType>
+      </PageIdentityContainer>
+      <Spacer />
+      {profile && (
+        <UserInfoSection>
+          <UserProfile />
+          <UserMetaContainer>
+            <StyledTag 
+              $type="subscription" 
+              color={getSubscriptionColor(profile.subscription_tier)}
+            >
+              {getSubscriptionLabel(profile.subscription_tier)}
+            </StyledTag>
+          </UserMetaContainer>
+          {variant === 'practice' && (
+            <DailyLimitContainer>
+              <DailyLimitIndicator
+                current={getCurrentAttempts()}
+                max={getMaxAttempts()}
+              />
+            </DailyLimitContainer>
+          )}
+          <ActionsContainer>
+            {getUpgradeButton(profile.subscription_tier)}
+          </ActionsContainer>
+        </UserInfoSection>
+      )}
+      {children}
+    </TopRow>
   );
 }; 

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Typography, Progress, Button } from 'antd';
-import { LockOutlined, GoogleOutlined, BookOutlined } from '@ant-design/icons';
+import { Typography, Progress, Button, Divider } from 'antd';
+import { LockOutlined, GoogleOutlined, BookOutlined, RocketOutlined, StarOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { motion } from 'framer-motion';
+import styled from 'styled-components';
 import { 
   Question, 
   QuestionType,
@@ -20,7 +21,170 @@ import { MultipleChoiceFeedbackHeader } from './MultipleChoiceFeedbackHeader';
 import { QuestionSubmission } from '../../types/submissionTypes';
 import { JoinEZpassPlusDialog } from '../dialogs/JoinEZpassPlusDialog';
 
-const { Text, Title } = Typography;
+const { Text, Title, Paragraph } = Typography;
+
+// Styled components for enhanced feedback display
+const FeedbackWrapper = styled(motion.div)`
+  margin: 24px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+`;
+
+const GuestFeedbackContainer = styled.div`
+  background: linear-gradient(to bottom, #ffffff, #f8fafc);
+  padding: 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+`;
+
+const GuestMessage = styled(Text)`
+  font-size: 18px;
+  color: #334155;
+  font-weight: 500;
+  max-width: 400px;
+  margin: 0 auto;
+`;
+
+const AuthContainer = styled.div`
+  margin-top: 8px;
+  width: 100%;
+  max-width: 320px;
+`;
+
+const PremiumFeedbackContainer = styled.div`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+`;
+
+const PreviewSection = styled.div`
+  position: relative;
+  background: white;
+  overflow: hidden;
+`;
+
+const ExplanationHeader = styled.div`
+  padding: 16px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+`;
+
+const ExplanationTitle = styled(Title)`
+  margin: 0 !important;
+  color: #1e293b !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  
+  svg {
+    color: #3b82f6;
+  }
+`;
+
+const PreviewContent = styled.div`
+  filter: blur(3px);
+  user-select: none;
+  opacity: 0.7;
+  padding: 24px;
+  background: white;
+  position: relative;
+`;
+
+const PreviewText = styled.div`
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.6;
+`;
+
+const PreviewParagraph = styled.p`
+  margin-bottom: 16px;
+  color: #475569;
+`;
+
+const PreviewList = styled.ul`
+  list-style: none;
+  padding-right: 20px;
+  margin: 16px 0;
+`;
+
+const PreviewListItem = styled.li`
+  margin-bottom: 10px;
+  position: relative;
+  
+  &:before {
+    content: "•";
+    position: absolute;
+    right: -20px;
+    color: #3b82f6;
+  }
+`;
+
+const UpgradeSection = styled.div`
+  padding: 24px;
+  background: linear-gradient(to bottom, #f1f5f9, #ffffff);
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+`;
+
+const UpgradeMessage = styled(Text)`
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 4px !important;
+`;
+
+const UpgradeDescription = styled(Paragraph)`
+  color: #64748b;
+  font-size: 16px;
+  max-width: 500px;
+  margin: 0 auto 16px !important;
+`;
+
+const UpgradeButton = styled(Button)`
+  height: 44px;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 0 24px;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  border: none;
+  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+  
+  &:hover {
+    background: linear-gradient(90deg, #2563eb, #1d4ed8);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 8px rgba(37, 99, 235, 0.25);
+  }
+`;
+
+const BenefitsList = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+`;
+
+const BenefitItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 14px;
+  
+  svg {
+    color: #3b82f6;
+  }
+`;
 
 interface LimitedFeedbackContainerProps {
   question: Question;
@@ -46,51 +210,19 @@ export const LimitedFeedbackContainer: React.FC<LimitedFeedbackContainerProps> =
 
   if (isGuest) {
     return (
-      <motion.div 
+      <FeedbackWrapper
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="guest-feedback-container"
       >
-        <div className="guest-feedback-content">
-          <Text className="guest-feedback-message">
+        <GuestFeedbackContainer>
+          <GuestMessage>
             התחבר כדי לקבל משוב מפורט על התשובות שלך
-          </Text>
-          <div className="guest-feedback-auth">
+          </GuestMessage>
+          <AuthContainer>
             <AuthForms returnUrl={window.location.pathname} googleOnly />
-          </div>
-        </div>
-
-        <style>
-          {`
-            .guest-feedback-container {
-              background: white;
-              border-radius: 12px;
-              border: 1px solid #e5e7eb;
-              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-              padding: 32px;
-              text-align: center;
-              margin: 20px 0;
-            }
-
-            .guest-feedback-content {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              gap: 24px;
-            }
-
-            .guest-feedback-message {
-              font-size: 18px;
-              color: #374151;
-              font-weight: 500;
-            }
-
-            .guest-feedback-auth {
-              margin-top: 8px;
-            }
-          `}
-        </style>
-      </motion.div>
+          </AuthContainer>
+        </GuestFeedbackContainer>
+      </FeedbackWrapper>
     );
   }
 
@@ -120,188 +252,84 @@ export const LimitedFeedbackContainer: React.FC<LimitedFeedbackContainerProps> =
 
   // For logged-in users, show the header and blurred explanation
   return (
-    <motion.div 
+    <FeedbackWrapper
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="premium-feedback-container"
     >
-      {isMultipleChoice && (
-        <MultipleChoiceFeedbackHeader
-          question={question}
-          submission={mockSubmission}
-          feedback={feedback}
-        />
-      )}
+      <PremiumFeedbackContainer>
+        {isMultipleChoice && (
+          <MultipleChoiceFeedbackHeader
+            question={question}
+            submission={mockSubmission}
+            feedback={feedback}
+          />
+        )}
 
-      <div className="feedback-preview-section">
-        <div className="feedback-content">
-          <div className="explanation-header">
-            <Title level={5} className="explanation-title">
-              <BookOutlined /> הסבר
-            </Title>
-          </div>
-          {/* Blurred explanation area */}
-          <div className="preview-content">
-            <div className="preview-text">
-              <p className="preview-paragraph-text">ההסבר המפורט מראה כיצד לגשת לפתרון השאלה בצורה מובנית ושיטתית.</p>
-              <p className="preview-paragraph-text">נתחיל בניתוח הנתונים העיקריים:</p>
-              <ul className="preview-list">
-                <li className="preview-list-text">• ראשית, נבחן את המשמעות של כל מושג בשאלה</li>
-                <li className="preview-list-text">• לאחר מכן, נראה את הקשר בין המרכיבים השונים</li>
-                <li className="preview-list-text">• לבסוף, נסביר מדוע התשובה שנבחרה היא הנכונה</li>
-              </ul>
-            </div>
-          </div>
+        <PreviewSection>
+          <ExplanationHeader>
+            <ExplanationTitle level={5}>
+              <BookOutlined /> הסבר מפורט
+            </ExplanationTitle>
+          </ExplanationHeader>
           
-          {/* Clear upgrade message */}
-          <div className="upgrade-message">
-            <Text strong className="upgrade-text">
-              הצטרף לאיזיפס+ וקבל הסברים מפורטים לתשובות
-            </Text>
-            <Button 
+          {/* Blurred explanation area */}
+          <PreviewContent>
+            <PreviewText>
+              <PreviewParagraph>
+                ההסבר המפורט מראה כיצד לגשת לפתרון השאלה בצורה מובנית ושיטתית.
+              </PreviewParagraph>
+              <PreviewParagraph>
+                נתחיל בניתוח הנתונים העיקריים:
+              </PreviewParagraph>
+              <PreviewList>
+                <PreviewListItem>ראשית, נבחן את המשמעות של כל מושג בשאלה</PreviewListItem>
+                <PreviewListItem>לאחר מכן, נראה את הקשר בין המרכיבים השונים</PreviewListItem>
+                <PreviewListItem>נסביר את הדרך לפתרון ואת השלבים המתמטיים</PreviewListItem>
+                <PreviewListItem>לבסוף, נסביר מדוע התשובה שנבחרה היא הנכונה</PreviewListItem>
+              </PreviewList>
+              <PreviewParagraph>
+                בנוסף, נציג טיפים ודגשים חשובים שיעזרו לך להתמודד עם שאלות דומות בעתיד.
+              </PreviewParagraph>
+            </PreviewText>
+          </PreviewContent>
+          
+          {/* Upgrade section */}
+          <UpgradeSection>
+            <UpgradeMessage>
+              <LockOutlined style={{ marginLeft: 8 }} /> שדרג לאיזיפס+ וקבל הסברים מפורטים
+            </UpgradeMessage>
+            <UpgradeDescription>
+              קבל גישה להסברים מפורטים, פתרונות מלאים וניתוח מעמיק של כל שאלה
+            </UpgradeDescription>
+            
+            <BenefitsList>
+              <BenefitItem>
+                <StarOutlined /> הסברים מפורטים
+              </BenefitItem>
+              <BenefitItem>
+                <CheckCircleOutlined /> פתרונות מלאים
+              </BenefitItem>
+              <BenefitItem>
+                <RocketOutlined /> טיפים לשיפור
+              </BenefitItem>
+            </BenefitsList>
+            
+            <UpgradeButton 
               type="primary" 
-              className="preview-upgrade-button"
+              size="large"
               onClick={handleJoinClick}
+              icon={<RocketOutlined />}
             >
               הצטרף עכשיו
-            </Button>
-          </div>
-        </div>
-      </div>
+            </UpgradeButton>
+          </UpgradeSection>
+        </PreviewSection>
+      </PremiumFeedbackContainer>
 
       <JoinEZpassPlusDialog 
         open={showJoinDialog}
         onClose={() => setShowJoinDialog(false)}
       />
-
-      <style>
-        {`
-          .premium-feedback-container {
-            position: relative;
-            margin: 20px 0;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-          }
-
-          .feedback-preview-section {
-            position: relative;
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-          }
-
-          .feedback-content {
-            position: relative;
-            padding: 20px;
-          }
-
-          .explanation-header {
-            margin-bottom: 12px;
-            padding: 0 4px;
-          }
-
-          .explanation-title {
-            margin: 0 !important;
-            color: #111827 !important;
-            font-size: 18px !important;
-            font-weight: 600 !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 8px !important;
-          }
-
-          .explanation-title svg {
-            font-size: 18px;
-            color: #6b7280;
-          }
-
-          .preview-content {
-            filter: blur(2px);
-            user-select: none;
-            opacity: 0.7;
-            margin-bottom: 16px;
-            background: white;
-            padding: 16px;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-          }
-
-          .preview-text {
-            color: #4b5563;
-            font-size: 16px;
-            line-height: 1.5;
-          }
-
-          .preview-paragraph-text {
-            margin-bottom: 12px;
-            color: #4b5563;
-          }
-
-          .preview-list {
-            list-style: none;
-            padding-right: 16px;
-            margin: 12px 0;
-          }
-
-          .preview-list-text {
-            margin-bottom: 8px;
-            color: #4b5563;
-          }
-
-          .preview-paragraph {
-            display: none;
-          }
-
-          .preview-list-item {
-            display: none;
-          }
-
-          .upgrade-message {
-            text-align: center;
-            padding: 16px 24px;
-            background: #f8fafc;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            position: relative;
-            z-index: 2;
-            margin: 0 auto;
-            max-width: 100%;
-          }
-
-          .upgrade-text {
-            font-size: 16px;
-            color: #1e293b;
-            font-weight: 500;
-          }
-
-          .preview-upgrade-button {
-            background: #2563eb;
-            border: none;
-            height: 40px;
-            padding: 0 24px;
-            font-size: 14px;
-            font-weight: 500;
-            border-radius: 20px;
-            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
-            transition: all 0.2s ease;
-            color: white;
-          }
-
-          .preview-upgrade-button:hover {
-            background: #1d4ed8;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
-          }
-        `}
-      </style>
-    </motion.div>
+    </FeedbackWrapper>
   );
 }; 

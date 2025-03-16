@@ -106,14 +106,14 @@ const OptionNumber = styled.div<{ $status: OptionStatus; $selected: boolean }>`
     (props.$status === 'correct' || props.$status === 'incorrect' || props.$selected) ? 
     '#ffffff' : '#64748b'};
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   margin-left: 12px;
   flex-shrink: 0;
 `;
 
 const OptionContent = styled.div`
   flex: 1;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.4;
   color: #334155;
 `;

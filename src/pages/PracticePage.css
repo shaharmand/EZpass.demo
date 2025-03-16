@@ -183,7 +183,7 @@ body {
 }
 
 .question-content {
-  margin-bottom: 24px;
+  margin: 0 !important;
 }
 
 .question-text {

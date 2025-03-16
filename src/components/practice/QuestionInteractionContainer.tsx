@@ -28,33 +28,30 @@ import './QuestionInteractionContainer.css';
 import styled from 'styled-components';
 import { FeedbackContainer } from '../feedback/FeedbackContainer';
 import { QuestionHeader } from './QuestionHeader';
+import SectionTitle from './SectionTitle';
 
 const { Text } = Typography;
 
+// Global style to ensure consistent font sizes
+const GlobalStyle = () => (
+  <style jsx global>{`
+    .question-content,
+    .question-content-text,
+    .markdown-content,
+    .markdown-content p {
+      font-size: 16px !important;
+    }
+  `}</style>
+);
+
 // Simple Answer Header component
 const AnswerHeader: React.FC = () => {
-  return (
-    <div className="question-header simplified">
-      <div className="title-row">
-        <h2 className="question-title">
-          <span>תשובה</span>
-        </h2>
-      </div>
-    </div>
-  );
+  return <SectionTitle>תשובה</SectionTitle>;
 };
 
 // Simple Feedback Header component
 const FeedbackHeader: React.FC = () => {
-  return (
-    <div className="question-header simplified">
-      <div className="title-row">
-        <h2 className="question-title">
-          <span>משוב</span>
-        </h2>
-      </div>
-    </div>
-  );
+  return <SectionTitle>משוב</SectionTitle>;
 };
 
 interface QuestionInteractionContainerProps {
@@ -84,16 +81,33 @@ const StyledContainer = styled.div`
   margin-bottom: 0;
 `;
 
-const ProgressContainer = styled.div`
-  padding: 4px 0;
-  margin-bottom: 4px;
+const ProgressContainer = styled.div.attrs({
+  className: 'progress-container'
+})`
+  padding: 8px 0;
+  margin-bottom: 8px;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 20;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), 0 4px 8px rgba(0, 0, 0, 0.03);
+  padding-bottom: 12px;
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.95);
 `;
 
-const ScrollableContent = styled.div`
+const ScrollableContent = styled.div.attrs({
+  className: 'scrollable-content'
+})`
   overflow-y: auto;
   max-height: calc(100vh - 140px);
   padding-bottom: 50px; /* Add space for the fixed action bar */
+  padding-top: 8px;
   margin-bottom: 0;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
 `;
 
 const QuestionContainer = styled.div`
@@ -109,9 +123,16 @@ const QuestionCard = styled.div`
   border-right: 4px solid #3b82f6; /* Consistent blue border for all question types */
   overflow: hidden;
   transition: all 0.3s ease;
-  margin-bottom: 4px;
-  max-height: calc(30vh - 60px); /* Reduced max-height to leave more space for answers and feedback */
-  overflow-y: auto;
+  margin: 0 0 12px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  
+  & > * {
+    border: none;
+  }
+  
+  &:hover {
+    box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+  }
 `;
 
 const ActionBarContainer = styled.div`
@@ -170,6 +191,35 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
   const progressSectionRef = useRef<HTMLDivElement>(null);
   const questionCounterRef = useRef<HTMLDivElement>(null);
   const [isAnswerSectionVisible, setIsAnswerSectionVisible] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  // Detect scroll to add shadow effect to the progress bar
+  useEffect(() => {
+    const handleScroll = () => {
+      if (containerRef.current && progressSectionRef.current) {
+        const scrollTop = containerRef.current.scrollTop || document.documentElement.scrollTop;
+        if (scrollTop > 10) {
+          progressSectionRef.current.classList.add('scrolled');
+          setIsScrolled(true);
+        } else {
+          progressSectionRef.current.classList.remove('scrolled');
+          setIsScrolled(false);
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    if (containerRef.current) {
+      containerRef.current.addEventListener('scroll', handleScroll);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (containerRef.current) {
+        containerRef.current.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
 
   // Animation and transition effects
   useEffect(() => {
@@ -321,22 +371,24 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
   const renderQuestionContent = () => {
     return (
       <div className="question-content">
-        <div className="question-body">
-          <div className="question-content-wrapper">
-            <QuestionContentDisplay
-              content={question.content.text}
-              isLoading={false}
-            />
-          </div>
-        </div>
+        <QuestionContentDisplay
+          content={question.content.text}
+          isLoading={false}
+        />
       </div>
     );
   };
 
   const renderAnswerSection = () => {
     return (
-      <div className={`answer-section ${isAnswerSectionVisible ? 'animate-in' : ''}`}>
-        <AnswerHeader />
+      <QuestionCard 
+        className={`answer-section ${isAnswerSectionVisible ? 'animate-in' : ''}`}
+        style={{ marginTop: '12px' }}
+      >
+        <QuestionHeader
+          title="תשובה"
+          showControls={false}
+        />
         <QuestionResponseInput 
           question={question}
           onAnswer={handleAnswerChange}
@@ -345,7 +397,28 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
           selectedAnswer={answer}
           onCanSubmitChange={setIsSubmitEnabled}
         />
-      </div>
+      </QuestionCard>
+    );
+  };
+
+  const renderFeedbackSection = () => {
+    const latestSubmission = state.submissions[state.submissions.length - 1];
+    
+    return (
+      <QuestionCard 
+        className="feedback-container"
+        style={{ marginTop: '12px' }}
+      >
+        <QuestionHeader
+          title="משוב"
+          showControls={false}
+        />
+        <FeedbackContainer
+          question={question}
+          submission={latestSubmission}
+          isLimitedFeedback={!isAllowedFullFeedback()}
+        />
+      </QuestionCard>
     );
   };
 
@@ -362,14 +435,13 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
 
   return (
     <StyledContainer className={className} style={style} ref={containerRef}>
+      <GlobalStyle />
       <ProgressContainer ref={progressSectionRef}>
-        <div ref={questionCounterRef} className="question-counter-wrapper">
-          <QuestionSetProgress
-            questionId={question.id}
-            prepId={prep.id}
-            prep={prep}
-          />
-        </div>
+        <QuestionSetProgress
+          questionId={question.id}
+          prepId={prep.id}
+          prep={prep}
+        />
       </ProgressContainer>
       
       <ScrollableContent>
@@ -409,16 +481,7 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
               )}
 
               {state.submissions.length > 0 && state.submissions[state.submissions.length - 1].feedback?.data && (
-                <div className="feedback-container">
-                  <FeedbackHeader />
-                  <div className="feedback-section">
-                    <FeedbackContainer 
-                      question={question}
-                      submission={state.submissions[state.submissions.length - 1]}
-                      isLimitedFeedback={!isAllowedFullFeedback()}
-                    />
-                  </div>
-                </div>
+                renderFeedbackSection()
               )}
             </motion.div>
           </AnimatePresence>

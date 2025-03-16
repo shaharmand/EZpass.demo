@@ -106,18 +106,19 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const { isAllowedFullFeedback } = usePracticeAttempts();
   const isGuest = !user;
-
+  
   // Safety check - if no feedback data, don't render anything
   if (!submission.feedback?.data) {
     return null;
   }
-
+  
   // If limited feedback is requested or user has exceeded their limit, show limited feedback
-  if (isLimitedFeedback) {
+  if (isLimitedFeedback || !isAllowedFullFeedback()) {
     return (
-      <LimitedFeedbackContainer
-        question={question}
+      <LimitedFeedbackContainer 
+        question={question} 
         feedback={submission.feedback.data as LimitedQuestionFeedback}
         selectedAnswer={submission.answer.finalAnswer?.type === 'multiple_choice' ? 
           String(submission.answer.finalAnswer.value) : 
@@ -131,9 +132,9 @@ export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   // For multiple choice questions with basic feedback
   if (question.metadata.type === QuestionType.MULTIPLE_CHOICE && isBasicFeedback(submission.feedback.data)) {
     return (
-      <MultipleChoiceFeedback
-        question={question}
-        submission={submission}
+      <MultipleChoiceFeedback 
+        question={question} 
+        submission={submission} 
       />
     );
   }

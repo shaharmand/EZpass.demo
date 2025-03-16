@@ -25,27 +25,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   }
 
   return (
-    <div className="question-content-text">
-      <MarkdownRenderer content={content} />
-      <style>
-        {`
-          .question-content-text {
-            font-size: 16px;
-            line-height: 1.6;
-            font-weight: 400;
-            color: #262626;
-          }
-          
-          .question-content-text p {
-            margin: 0.8em 0;
-          }
-          
-          .question-content-text strong {
-            font-weight: 600;
-          }
-        `}
-      </style>
-    </div>
+    <MarkdownRenderer content={content} className="question-content-text" />
   );
 };
 

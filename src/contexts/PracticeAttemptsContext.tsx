@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { SubscriptionTier } from '../types/userTypes';
 
 interface PracticeAttemptsContextType {
   incrementAttempt: () => Promise<boolean>;
@@ -11,13 +12,16 @@ interface PracticeAttemptsContextType {
 
 const PracticeAttemptsContext = createContext<PracticeAttemptsContextType | undefined>(undefined);
 
+// Attempt limits for different user types
 const MAX_GUEST_ATTEMPTS = 2; // Guest users get 2 free questions
-const MAX_DETAILED_FEEDBACK_ATTEMPTS = 5;
+const MAX_FREE_TIER_ATTEMPTS = 5; // Free tier users get 5 questions
+const MAX_PLUS_TIER_ATTEMPTS = 50; // EZpass+ users get 50 questions
+const MAX_PRO_TIER_ATTEMPTS = 500; // EZpass Pro users get 500 questions
 
 export function PracticeAttemptsProvider({ children }: { children: React.ReactNode }) {
   const [guestAttemptsCount, setGuestAttemptsCount] = useState(0);
   const [userAttemptsCount, setUserAttemptsCount] = useState(0);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   // Reset user attempts when user logs in
   useEffect(() => {
@@ -44,41 +48,61 @@ export function PracticeAttemptsProvider({ children }: { children: React.ReactNo
     console.log('=== Incrementing user attempts ===', {
       previousCount: userAttemptsCount,
       newCount,
-      maxAttempts: MAX_DETAILED_FEEDBACK_ATTEMPTS
+      maxAttempts: getMaxAttemptsForUser()
     });
     setUserAttemptsCount(newCount);
     return true;
   };
 
+  // Get the maximum attempts based on user's subscription tier
+  const getMaxAttemptsForUser = () => {
+    if (!user) return MAX_GUEST_ATTEMPTS;
+    
+    if (profile?.subscription_tier) {
+      switch (profile.subscription_tier) {
+        case SubscriptionTier.PRO:
+          return MAX_PRO_TIER_ATTEMPTS;
+        case SubscriptionTier.PLUS:
+          return MAX_PLUS_TIER_ATTEMPTS;
+        case SubscriptionTier.FREE:
+        default:
+          return MAX_FREE_TIER_ATTEMPTS;
+      }
+    }
+    
+    return MAX_FREE_TIER_ATTEMPTS; // Default to free tier if no profile
+  };
+
   // Determine if user has exceeded their limit
   const hasExceededLimit = !user ? 
     guestAttemptsCount >= MAX_GUEST_ATTEMPTS : 
-    userAttemptsCount >= MAX_DETAILED_FEEDBACK_ATTEMPTS;
+    userAttemptsCount >= getMaxAttemptsForUser();
 
   // Check if user is allowed to see full feedback
   const isAllowedFullFeedback = () => {
     if (!user) {
       return guestAttemptsCount <= MAX_GUEST_ATTEMPTS;
     }
-    return userAttemptsCount <= MAX_DETAILED_FEEDBACK_ATTEMPTS;
+    return userAttemptsCount <= getMaxAttemptsForUser();
   };
 
   useEffect(() => {
     console.log('=== Limit status changed ===', {
       isGuest: !user,
       attempts: !user ? guestAttemptsCount : userAttemptsCount,
-      maxAttempts: !user ? MAX_GUEST_ATTEMPTS : MAX_DETAILED_FEEDBACK_ATTEMPTS,
+      maxAttempts: getMaxAttemptsForUser(),
       hasExceededLimit,
-      isAllowedFullFeedback: isAllowedFullFeedback()
+      isAllowedFullFeedback: isAllowedFullFeedback(),
+      subscriptionTier: profile?.subscription_tier
     });
-  }, [hasExceededLimit, user, guestAttemptsCount, userAttemptsCount]);
+  }, [hasExceededLimit, user, guestAttemptsCount, userAttemptsCount, profile?.subscription_tier]);
 
   const getCurrentAttempts = () => {
     return user ? userAttemptsCount : guestAttemptsCount;
   };
 
   const getMaxAttempts = () => {
-    return user ? MAX_DETAILED_FEEDBACK_ATTEMPTS : MAX_GUEST_ATTEMPTS;
+    return getMaxAttemptsForUser();
   };
 
   return (

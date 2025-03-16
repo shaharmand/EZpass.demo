@@ -84,6 +84,7 @@ const OptionNumber = styled.div<{ $selected: boolean; $correct?: boolean; $incor
 
 const OptionContent = styled.div`
   flex: 1;
+  font-size: 16px;
 `;
 
 const FeedbackIndicator = styled.div<{ $correct: boolean }>`

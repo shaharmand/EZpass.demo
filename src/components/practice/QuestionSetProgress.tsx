@@ -20,28 +20,34 @@ interface QuestionSetProgressProps {
   prep: StudentPrep;
 }
 
-const ProgressContainer = styled.div`
+const ProgressContainer = styled.div.attrs({
+  className: 'question-progress-bar'
+})`
   width: 100%;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 4px 0;
+  padding: 8px 16px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative;
+  
+  &::after {
+    content: none;
+  }
 `;
 
-const QuestionText = styled(Text)`
-  font-size: 13px;
-  font-weight: 500;
-  color: #4b5563;
-  background: #f3f4f6;
-  padding: 4px 8px;
-  border-radius: 16px;
-  border: 1px solid #e5e7eb;
+const QuestionText = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
   white-space: nowrap;
-
-  span {
-    font-weight: 700;
-    color: #1f2937;
-  }
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  margin-right: 4px;
 `;
 
 const ProgressBar = styled.div`
@@ -173,7 +179,7 @@ const QuestionSetProgress: React.FC<QuestionSetProgressProps> = ({
   
   return (
     <ProgressContainer>
-      <QuestionText>שאלה <span>{currentIndex + 1}</span>/10</QuestionText>
+      <QuestionText>שאלה {currentIndex + 1} מתוך 10</QuestionText>
       <ProgressBar>
         {Array.from({ length: 10 }, (_, index) => {
           // Get result if it exists, otherwise undefined

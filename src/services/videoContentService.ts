@@ -20,10 +20,12 @@ interface LessonSummary {
   subtopicId: string;
   totalDuration: number;
   videoCount: number;
+  videos: { id: string; title: string }[];
 }
 
 class VideoContentService {
   private videos: ProcessedVideo[] = [];
+  private videoTitles: Map<string, string> = new Map();
   private initialized = false;
   private lessonSummaries: Map<number, LessonSummary> = new Map();
 
@@ -31,58 +33,80 @@ class VideoContentService {
     if (this.initialized) return;
 
     try {
-      const response = await fetch('/data/processed_summaries.json');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Load processed summaries
+      const summariesResponse = await fetch('/data/processed_summaries.json');
+      if (!summariesResponse.ok) {
+        throw new Error(`HTTP error! status: ${summariesResponse.status}`);
       }
-      const data: ProcessedSummaries = await response.json();
+      const data: ProcessedSummaries = await summariesResponse.json();
+
+      // Load video data which contains lesson durations and updated titles
+      const videoDataResponse = await fetch('/data/courses/construction_safety_video_course/video_data.json');
+      if (!videoDataResponse.ok) {
+        throw new Error(`HTTP error! status: ${videoDataResponse.status}`);
+      }
+      const videoData = await videoDataResponse.json();
+      
+      // Create maps for durations and titles
+      const lessonDurations = new Map<number, number>();
+      this.videoTitles.clear();
+      
+      videoData.videos.forEach((video: { id: string; lessonNumber: number; duration: number; title: string }) => {
+        // Sum durations per lesson
+        const current = lessonDurations.get(video.lessonNumber) || 0;
+        lessonDurations.set(video.lessonNumber, current + video.duration);
+        
+        // Store updated titles
+        this.videoTitles.set(`video_${video.id}`, video.title);
+      });
+      
+      // Set videos and build summaries
       this.videos = data.summaries;
-      this.buildLessonSummaries();
+      this.buildLessonSummaries(lessonDurations);
       this.initialized = true;
-      console.log('=== Debug: Video Summaries Structure ===');
-      console.log('First video example:', this.videos[0]);
-      console.log('Number of videos with lesson numbers:', 
-        this.videos.filter(v => v.lesson_number !== undefined).length);
-      console.log('Total videos:', this.videos.length);
-      console.log('=====================================');
     } catch (error) {
-      console.error('Error loading video summaries:', error);
+      console.error('Error loading data:', error);
       this.videos = [];
     }
   }
 
-  private buildLessonSummaries() {
+  private buildLessonSummaries(lessonDurations: Map<number, number>) {
     this.lessonSummaries.clear();
     
-    // Group videos by lesson number
+    // Group videos by lesson number only
     this.videos.forEach(video => {
       if (!this.lessonSummaries.has(video.lesson_number)) {
         this.lessonSummaries.set(video.lesson_number, {
           lessonNumber: video.lesson_number,
           subtopicId: video.subtopic_id,
-          totalDuration: 0,
-          videoCount: 0
+          totalDuration: lessonDurations.get(video.lesson_number) || 0,
+          videoCount: 0,
+          videos: []
         });
       }
       
       const summary = this.lessonSummaries.get(video.lesson_number)!;
-      summary.totalDuration += video.duration || 0;
       summary.videoCount += 1;
+      
+      // Add video with updated title to the summary
+      const updatedTitle = this.videoTitles.get(video.video_id) || video.video_title;
+      summary.videos.push({
+        id: video.video_id,
+        title: updatedTitle
+      });
     });
-
-    console.log('Built lesson summaries:', Array.from(this.lessonSummaries.entries()));
   }
 
   private processedToVideoContent(processed: ProcessedVideo): VideoContent {
     return {
       id: processed.video_id,
-      title: processed.video_title,
+      title: this.videoTitles.get(processed.video_id) || processed.video_title,
       description: processed.content,
       videoSource: VideoSource.VIMEO,
       videoId: processed.video_id.replace('video_', ''),
       subtopicId: processed.subtopic_id,
       lessonNumber: processed.lesson_number,
-      duration: this.formatDuration(0), // We'll need to add this to the processed data
+      duration: this.formatDuration(processed.duration || 0),
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -101,6 +125,16 @@ class VideoContentService {
 
   async getRelatedLessons(subtopicId: string, currentLessonNumber: number): Promise<LessonSummary[]> {
     await this.initialize();
+    
+    // Debug: Log all videos for this subtopic
+    console.log('All videos for subtopic:', subtopicId, 
+      this.videos.filter(v => v.subtopic_id === subtopicId)
+        .map(v => ({
+          lessonNumber: v.lesson_number,
+          duration: v.duration,
+          title: v.video_title
+        }))
+    );
     
     // Simply filter lessons by matching subtopicId
     const relatedLessons = Array.from(this.lessonSummaries.values())

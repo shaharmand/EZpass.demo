@@ -9,6 +9,8 @@ import { CourseData, VideoData } from './types';
 import CourseHeader from './CourseHeader';
 import { VideoPlayer } from '../practice/VideoPlayer';
 import { VideoSource } from '../../types/videoContent';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
@@ -19,11 +21,11 @@ const CourseContainer = styled.div`
 `;
 
 const VideoContainer = styled.div`
-  padding: 32px;
+  padding: 16px;
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   max-width: 1200px;
   margin: 0 auto;
   overflow-y: auto;
@@ -101,61 +103,61 @@ const PlayerContainer = styled.div`
 `;
 
 const VideoDetailsCard = styled(Card)`
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  margin-bottom: 24px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  margin-bottom: 16px;
   flex: 0 0 auto;
 
   .ant-card-body {
-    padding: 24px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
   }
 `;
 
 const LessonName = styled.div`
-  font-size: 14px;
+  font-size: 13px;
   color: #6b7280;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 `;
 
 const VideoTitle = styled(Title)`
-  margin-bottom: 16px !important;
-  font-size: 28px !important;
+  margin-bottom: 12px !important;
+  font-size: 20px !important;
   color: #1e293b;
   line-height: 1.3;
 `;
 
 const VideoMeta = styled.div`
   display: flex;
-  gap: 16px;
+  gap: 12px;
   color: #666;
-  font-size: 14px;
+  font-size: 13px;
   flex: 0 0 auto;
   margin-bottom: 0;
 
   span {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
 
   .progress-indicator {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 12px;
+    gap: 6px;
+    padding: 3px 10px;
     background: #f0f9ff;
-    border-radius: 16px;
+    border-radius: 12px;
     color: #3b82f6;
     font-weight: 500;
   }
 `;
 
 const VideoDescription = styled(Text)`
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.5;
   color: #4a4a4a;
   margin-bottom: 0;
 `;
@@ -223,10 +225,16 @@ const VideoDetails = styled.div`
 
 const NavigationButtons = styled.div`
   display: flex;
-  gap: 8px;
-  justify-content: flex-end;
+  gap: 6px;
+  justify-content: space-between;
   margin: 0;
   padding: 0;
+  width: 100%;
+`;
+
+const NavButtonGroup = styled.div`
+  display: flex;
+  gap: 6px;
 `;
 
 const NavButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
@@ -254,6 +262,15 @@ const NavButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
   }
 `;
 
+const BackButton = styled(NavButton)`
+  background: #f3f4f6;
+  color: #4b5563;
+  
+  &:hover {
+    background: #e5e7eb;
+  }
+`;
+
 interface VideoProgress {
   videoId: string;
   progress: number;
@@ -272,6 +289,7 @@ interface CourseViewProps {
 }
 
 const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) => {
+  const { user } = useAuth();
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [videoProgress, setVideoProgress] = useState<VideoProgress[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -280,6 +298,7 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
   const lastTimeUpdateRef = useRef<number>(0);
   const wasSeekingRef = useRef<boolean>(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const navigate = useNavigate();
 
   // Combined initial video selection logic
   useEffect(() => {
@@ -502,6 +521,64 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
     return acc;
   }, {} as Record<number, VideoData[]>);
 
+  const getPracticePageUrl = () => {
+    console.log('Auth state:', user ? 'Logged in user' : 'Guest user');
+
+    if (user) {
+      // For logged in users, check active_preps
+      const activePreps = localStorage.getItem('active_preps');
+      console.log('Active preps for logged in user:', activePreps);
+      
+      if (activePreps) {
+        try {
+          const parsedPreps = JSON.parse(activePreps);
+          console.log('Parsed active preps:', parsedPreps);
+          
+          // Get the most recent active prep
+          const preps = Object.entries(parsedPreps);
+          if (preps.length > 0) {
+            // Sort by startedAt time to get most recent
+            const [id] = preps.sort(([,a]: any, [,b]: any) => 
+              (b.state?.startedAt || 0) - (a.state?.startedAt || 0)
+            )[0];
+            
+            console.log('Found most recent prep ID for logged in user:', id);
+            const url = `/practice/${id}`;
+            console.log('Will navigate to user prep:', url);
+            return url;
+          }
+        } catch (e) {
+          console.error('Error parsing active preps:', e);
+        }
+      }
+    } else {
+      // For guests, check guest_prep_id
+      const guestPrepId = localStorage.getItem('guest_prep_id');
+      console.log('Guest prep ID:', guestPrepId);
+      if (guestPrepId) {
+        // Verify the prep exists in active_preps
+        const activePreps = localStorage.getItem('active_preps');
+        if (activePreps) {
+          try {
+            const parsedPreps = JSON.parse(activePreps);
+            if (parsedPreps[guestPrepId]) {
+              const url = `/practice/${guestPrepId}`;
+              console.log('Will navigate to guest prep:', url);
+              return url;
+            } else {
+              console.log('Guest prep ID found but prep not found in active_preps');
+            }
+          } catch (e) {
+            console.error('Error parsing active preps:', e);
+          }
+        }
+      }
+    }
+    
+    console.log('No valid prep data found, falling back to /practice');
+    return '/practice'; // Fallback to main practice page if no ID found
+  };
+
   const renderContent = () => {
     if (!selectedVideo) {
       return (
@@ -550,21 +627,31 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
             <VideoDescription>{selectedVideo.description}</VideoDescription>
           )}
           <NavigationButtons>
-            <NavButton 
-              onClick={() => handleNavigate('prev')}
-              disabled={!prevVideo}
-            >
-              <RightOutlined />
-              <span>{prevVideo ? prevVideo.title : 'אין וידאו קודם'}</span>
-            </NavButton>
-            <NavButton 
-              $variant="primary"
-              onClick={() => handleNavigate('next')}
-              disabled={!nextVideo}
-            >
-              <span>{nextVideo ? nextVideo.title : 'אין וידאו הבא'}</span>
-              <LeftOutlined />
-            </NavButton>
+            <BackButton onClick={() => {
+              const url = getPracticePageUrl();
+              console.log('Would navigate to:', url);
+              navigate(url);
+            }}>
+              <ArrowRightOutlined />
+              חזרה לתרגול
+            </BackButton>
+            <NavButtonGroup>
+              <NavButton 
+                onClick={() => handleNavigate('prev')}
+                disabled={!prevVideo}
+              >
+                <RightOutlined />
+                <span>{prevVideo ? prevVideo.title : 'אין וידאו קודם'}</span>
+              </NavButton>
+              <NavButton 
+                $variant="primary"
+                onClick={() => handleNavigate('next')}
+                disabled={!nextVideo}
+              >
+                <span>{nextVideo ? nextVideo.title : 'אין וידאו הבא'}</span>
+                <LeftOutlined />
+              </NavButton>
+            </NavButtonGroup>
           </NavigationButtons>
         </VideoDetailsCard>
       </VideoContainer>

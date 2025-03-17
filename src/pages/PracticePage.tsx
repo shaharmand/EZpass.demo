@@ -195,16 +195,17 @@ const PracticePage: React.FC = () => {
     setActiveTab(key);
   }, []);
 
-  // Handle new prep creation
+  // Handle prep initialization
   useEffect(() => {
     const initializePrep = async () => {
       if (!prepId) return;
       
-      // Check if this is a new prep request
-      if (prepId.startsWith('new/')) {
-        const examId = prepId.split('/')[1];
-        try {
-          setState(prev => ({ ...prev, isLoading: true }));
+      setState(prev => ({ ...prev, isLoading: true }));
+      
+      try {
+        // Check if this is a new prep request
+        if (prepId.startsWith('new/')) {
+          const examId = prepId.split('/')[1];
           const exam = await examService.getExamById(examId);
           if (!exam) {
             throw new Error('Failed to load exam template');
@@ -217,18 +218,45 @@ const PracticePage: React.FC = () => {
           }
           
           navigate(`/practice/${newPrepId}`, { replace: true });
-        } catch (error) {
-          setState(prev => ({
-            ...prev,
-            error: error instanceof Error ? error.message : 'Failed to start practice'
+        } else {
+          // Load existing prep data
+          console.log('Loading existing prep data for ID:', prepId);
+          
+          // Get prep from storage
+          const existingPrep = PrepStateManager.getPrep(prepId);
+          if (!existingPrep) {
+            throw new Error('Practice session not found');
+          }
+          
+          // Initialize progress tracker with existing data
+          const tracker = PrepStateManager.getHeaderMetrics(existingPrep);
+          console.log('Loaded prep progress:', tracker);
+          
+          // Initialize question sequencer if needed
+          const questionSequencer = PrepStateManager.getSetProgress(prepId);
+          console.log('Loaded question sequencer state:', questionSequencer);
+          
+          // Update state with loaded prep
+          setState(prev => ({ 
+            ...prev, 
+            prep: existingPrep,
+            isLoading: false 
           }));
-        } finally {
-          setState(prev => ({ ...prev, isLoading: false }));
         }
+      } catch (error) {
+        console.error('Error initializing prep:', error);
+        setState(prev => ({
+          ...prev,
+          error: error instanceof Error ? error.message : 'Failed to initialize practice session',
+          isLoading: false
+        }));
       }
     };
 
-    initializePrep();
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      initializePrep();
+    }
   }, [prepId, startPrep, navigate, user]);
 
   // Update state.prep when prep changes
@@ -372,24 +400,23 @@ const PracticePage: React.FC = () => {
     <Layout style={{ minHeight: '100vh', width: '100%', margin: 0, padding: 0 }}>
       <div className="practice-headers">
         <UserHeader 
-          pageType="practice"
-          pageContent={currentQuestion?.data ? getTopicName(currentQuestion.data) : 'Practice'}
+          variant="practice"
+          pageType="תרגול שאלות"
+          pageContent={prep?.exam.names?.full || 'תרגול שאלות'}
         />
         <PracticeHeaderProgress 
           prep={prep}
-          metrics={{
-            overallProgress: (questionState.submissions.length / (state.prep?.exam.totalQuestions || 1)) * 100,
-            successRate: questionState.submissions.length > 0 
-              ? (questionState.submissions.filter(s => s.feedback?.data.isCorrect).length / questionState.submissions.length) * 100 
-              : 0,
-            remainingHours: 0, // You'll need to calculate this based on your requirements
-            remainingQuestions: (state.prep?.exam.totalQuestions || 0) - (questionState.submissions.length || 0),
-            hoursPracticed: 0, // You'll need to calculate this based on your requirements
-            questionsAnswered: questionState.submissions.length || 0,
-            weeklyNeededHours: 0, // You'll need to calculate this based on your requirements
-            dailyNeededHours: 0, // You'll need to calculate this based on your requirements
-            examDate: state.prep?.goals.examDate || Date.now(),
-            typeSpecificMetrics: [] // You'll need to populate this based on your requirements
+          metrics={prep ? PrepStateManager.getHeaderMetrics(prep) : {
+            overallProgress: 0,
+            successRate: 0,
+            remainingHours: 0,
+            remainingQuestions: 0,
+            hoursPracticed: 0,
+            questionsAnswered: 0,
+            weeklyNeededHours: 0,
+            dailyNeededHours: 0,
+            examDate: Date.now(),
+            typeSpecificMetrics: []
           }}
         />
       </div>

@@ -236,48 +236,86 @@ const NextLessonsSection = styled.div<{ $isPlaying: boolean }>`
 const VideoListItem = styled.div<{ $isFeatured?: boolean }>`
   display: flex;
   gap: 12px;
-  padding: 8px;
+  padding: 12px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  height: ${props => props.$isFeatured ? '100%' : '70px'};
-  margin-bottom: ${props => props.$isFeatured ? '0' : '4px'};
+  height: ${props => props.$isFeatured ? '100%' : '80px'};
+  margin-bottom: ${props => props.$isFeatured ? '0' : '8px'};
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  position: relative;
+  overflow: hidden;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+    &::after {
+      opacity: 1;
+    }
+
+    img {
+      transform: scale(1.05);
+    }
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 48px;
+    height: 48px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E");
+    background-size: 24px;
+    background-repeat: no-repeat;
+    background-position: center;
   }
 
   img {
-    width: ${props => props.$isFeatured ? '180px' : '100px'};
-    height: ${props => props.$isFeatured ? 'auto' : '100%'};
+    width: ${props => props.$isFeatured ? '240px' : '120px'};
+    height: ${props => props.$isFeatured ? '135px' : '67.5px'};
     object-fit: cover;
-    border-radius: 4px;
+    border-radius: 6px;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
   }
 
   .content {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 4px;
+    gap: 6px;
     flex: 1;
     min-width: 0;
+    padding-right: 8px;
 
     .lesson-name {
       font-size: ${props => props.$isFeatured ? '14px' : '12px'};
-      color: #666;
-      line-height: 1.2;
+      color: #64748b;
+      line-height: 1.3;
       display: -webkit-box;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 1;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
 
     .video-title {
-      font-size: ${props => props.$isFeatured ? '16px' : '13px'};
-      font-weight: 500;
-      color: #333;
+      font-size: ${props => props.$isFeatured ? '16px' : '14px'};
+      font-weight: 600;
+      color: #1e293b;
+      line-height: 1.4;
       display: -webkit-box;
-      -webkit-line-clamp: ${props => props.$isFeatured ? '2' : '1'};
+      -webkit-line-clamp: ${props => props.$isFeatured ? '2' : '2'};
       -webkit-box-orient: vertical;
       overflow: hidden;
     }

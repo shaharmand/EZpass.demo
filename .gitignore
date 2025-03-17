@@ -92,3 +92,7 @@ node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Sensitive files
+src/scripts/video/client_secrets.json
+src/scripts/video/token.json

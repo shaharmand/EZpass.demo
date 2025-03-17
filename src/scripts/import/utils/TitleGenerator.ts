@@ -37,20 +37,3 @@ export class TitleGenerator {
         });
         return '';
     }
-
-    /**
-     * Cleans up question text for use as a title
-     * - Removes exam info using ExamInfoParser
-     * - Removes line breaks
-     * - Removes question marks at the end
-     */
-    private static cleanQuestionText(text: string): string {
-        return ExamInfoParser.cleanExamInfo(text)
-            // Remove line breaks and extra whitespace
-            .replace(/\n+/g, ' ')
-            .replace(/\s+/g, ' ')
-            // Remove question marks at the end
-            .replace(/\?+\s*$/, '')
-            .trim();
-    }
-} 

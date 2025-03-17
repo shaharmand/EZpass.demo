@@ -33,6 +33,7 @@ export interface ProgressHeaderMetrics {
   weeklyNeededHours: number;
   dailyNeededHours: number;
   examDate: number;
+  totalQuestions: number;
   typeSpecificMetrics: Array<{
     type: QuestionType;
     progress: number;
@@ -77,6 +78,7 @@ export class PrepProgressTracker {
     weeklyNeededHours: 0,
     dailyNeededHours: 0,
     examDate: 0,
+    totalQuestions: 0,
     typeSpecificMetrics: []
   };
   private typeSpecificMetrics: Array<{
@@ -336,6 +338,9 @@ export class PrepProgressTracker {
     // Get total questions from history instead of just completedQuestions
     const questionsAnswered = this.questionHistory.length;
     
+    // Calculate total questions from all type-specific metrics
+    const totalQuestions = this.typeSpecificMetrics.reduce((acc, metric) => acc + metric.questionsAnswered, 0);
+    
     // Calculate type-specific progress from subtopic progress
     let totalMultipleChoiceProgress = 0;
     let totalOpenProgress = 0;
@@ -390,6 +395,7 @@ export class PrepProgressTracker {
       weeklyNeededHours,
       dailyNeededHours,
       examDate: this.examDate,
+      totalQuestions,
       typeSpecificMetrics: [
         {
           type: QuestionType.MULTIPLE_CHOICE,

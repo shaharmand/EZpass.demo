@@ -28,6 +28,7 @@ import { FirstPanel, MainContent, ThirdPanel, AssistanceSection, PropertiesSecti
 import { UserHeader } from '../components/layout/UserHeader';
 import PracticeHeaderProgress from '../components/PracticeHeaderProgress/PracticeHeaderProgress';
 import styled, { css } from 'styled-components';
+import { ExamContentDialog } from '../components/practice/ExamContentDialog';
 
 interface PageState {
   error?: string;
@@ -167,7 +168,8 @@ const PracticePage: React.FC = () => {
     setQuestionState,
     getNext,
     startPrep,
-    startPractice
+    startPractice,
+    setPrep
   } = useStudentPrep();
   const { incrementAttempt, hasExceededLimit, getCurrentAttempts, getMaxAttempts } = usePracticeAttempts();
   const { user } = useAuth();
@@ -181,6 +183,7 @@ const PracticePage: React.FC = () => {
   const [propertiesCollapsed, setPropertiesCollapsed] = useState(false);
   const [helpCollapsed, setHelpCollapsed] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [isExamContentOpen, setIsExamContentOpen] = useState(false);
 
   const handleContentSelect = useCallback((topic: string) => {
     // Implementation of handleContentSelect
@@ -377,6 +380,11 @@ const PracticePage: React.FC = () => {
     };
   }, []);
 
+  // Add handler for showing exam content
+  const handleShowTopicDetails = () => {
+    setIsExamContentOpen(true);
+  };
+
   if (!prep) {
     return (
       <Result
@@ -402,22 +410,12 @@ const PracticePage: React.FC = () => {
         <UserHeader 
           variant="practice"
           pageType="תרגול שאלות"
-          pageContent={prep?.exam.names?.full || 'תרגול שאלות'}
+          pageContent={prep?.exam.names?.full }
         />
         <PracticeHeaderProgress 
           prep={prep}
-          metrics={prep ? PrepStateManager.getHeaderMetrics(prep) : {
-            overallProgress: 0,
-            successRate: 0,
-            remainingHours: 0,
-            remainingQuestions: 0,
-            hoursPracticed: 0,
-            questionsAnswered: 0,
-            weeklyNeededHours: 0,
-            dailyNeededHours: 0,
-            examDate: Date.now(),
-            typeSpecificMetrics: []
-          }}
+          onShowTopicDetails={handleShowTopicDetails}
+          metrics={PrepStateManager.getHeaderMetrics(prep)}
         />
       </div>
       <Layout.Content className="practice-content">
@@ -545,6 +543,51 @@ const PracticePage: React.FC = () => {
         <UserLimitDialog 
           open={showLimitDialog} 
           onClose={() => setShowLimitDialog(false)}
+        />
+      )}
+
+      {/* Add ExamContentDialog */}
+      {prep && isExamContentOpen && (
+        <ExamContentDialog
+          key={`exam-content-${Date.now()}`}
+          open={true}
+          onClose={async () => {
+            console.log('🔄 PracticePage - Dialog onClose triggered');
+            
+            // Get the fresh prep state after the dialog's update
+            const updatedPrep = PrepStateManager.getPrep(prep.id);
+            if (updatedPrep) {
+              console.log('📚 PracticePage - Got updated prep:', {
+                oldTopics: prep.selection.subTopics.length,
+                newTopics: updatedPrep.selection.subTopics.length,
+                timestamp: new Date().toISOString()
+              });
+
+              // Update local state with fresh prep
+              setState(prev => ({ 
+                ...prev, 
+                prep: updatedPrep
+              }));
+            }
+            
+            console.log('🚪 PracticePage - Closing dialog');
+            setIsExamContentOpen(false);
+          }}
+          exam={prep.exam}
+          prepId={prep.id}
+          onPrepUpdate={(updatedPrep) => {
+            console.log('📚 PracticePage - Received prep update:', {
+              oldTopics: prep.selection.subTopics.length,
+              newTopics: updatedPrep.selection.subTopics.length,
+              timestamp: new Date().toISOString()
+            });
+
+            // Update local state with fresh prep
+            setState(prev => ({ 
+              ...prev, 
+              prep: updatedPrep
+            }));
+          }}
         />
       )}
     </Layout>

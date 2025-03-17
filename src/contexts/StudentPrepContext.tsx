@@ -31,6 +31,7 @@ interface StudentPrepContextType {
   setFocusedType: (type: QuestionType | null) => void;
   setFocusedSubTopic: (subtopicId: string | null) => void;
   startPractice: () => Promise<void>;
+  setPrep: React.Dispatch<React.SetStateAction<StudentPrep | null>>;
 }
 
 const StudentPrepContext = createContext<StudentPrepContextType | undefined>(undefined);
@@ -305,9 +306,16 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     console.log('Starting new prep session', { examId: exam.id });
     
     try {
-      // Create prep state
-      const newPrep = await PrepStateManager.createPrep(exam);
-      console.log('Created new prep', { prepId: newPrep.id });
+      // Get the current prep's selection if it exists
+      const currentSelection = prep?.selection;
+      console.log('Current prep selection:', currentSelection);
+      
+      // Create prep state with existing selection
+      const newPrep = await PrepStateManager.createPrep(exam, currentSelection);
+      console.log('Created new prep', { 
+        prepId: newPrep.id,
+        selectedTopics: newPrep.selection.subTopics.length
+      });
       
       // Initialize managers
       prepStateManager.current = PrepStateManager.getInstance({ topics: exam.topics });
@@ -335,7 +343,7 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
       console.error('Failed to start prep:', error);
       throw error;
     }
-  }, []);
+  }, [prep]);
 
   const handleGetPrep = useCallback(async (prepId: string): Promise<StudentPrep | null> => {
     // Try to get prep from storage first
@@ -430,7 +438,8 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     getPrep: handleGetPrep,
     setFocusedType: handleSetFocusedType,
     setFocusedSubTopic: handleSetFocusedSubTopic,
-    startPractice
+    startPractice,
+    setPrep
   };
 
   return (

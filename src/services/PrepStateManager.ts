@@ -76,6 +76,9 @@ export type PrepStateStatus =
 
 export class PrepStateManager {
     private static progressTrackers: Map<string, PrepProgressTracker> = new Map();
+    private static progressSubscribers: Map<string, Set<(progress: SetProgress) => void>> = new Map();
+    private static prepStateSubscribers: Map<string, Set<(prep: StudentPrep) => void>> = new Map();
+    private static examDateSubscribers: Map<string, Set<(prep: StudentPrep) => void>> = new Map();
     private static setTracker: SetProgressTracker = new SetProgressTracker();
     private static prepsCache: Record<string, StudentPrep> | null = null;
     private static lastLoadTime: number = 0;
@@ -109,13 +112,21 @@ export class PrepStateManager {
     }
 
     private static initializeProgressTracker(prep: StudentPrep): PrepProgressTracker {
-        // Initialize weights from prep's subtopics
+        // Initialize weights from prep's selected subtopics only
         const subTopicWeights = prep.exam.topics.flatMap((topic: Topic) => 
-            topic.subTopics.map((st: SubTopic) => ({
-                id: st.id,
-                percentageOfTotal: st.percentageOfTotal || 0
-            }))
+            topic.subTopics
+                .filter((st: SubTopic) => prep.selection.subTopics.includes(st.id))
+                .map((st: SubTopic) => ({
+                    id: st.id,
+                    percentageOfTotal: st.percentageOfTotal || 0
+                }))
         );
+        
+        console.log('🎯 Initializing progress tracker:', {
+            selectedTopics: prep.selection.subTopics.length,
+            totalTopics: prep.exam.topics.flatMap(t => t.subTopics).length,
+            timestamp: new Date().toISOString()
+        });
         
         const tracker = new PrepProgressTracker(subTopicWeights, prep.goals.examDate);
 
@@ -418,6 +429,10 @@ export class PrepStateManager {
     }
     // Get progress info - delegate to trackers
     static getHeaderMetrics(prep: StudentPrep): ProgressHeaderMetrics {
+        if (!prep) {
+            throw new Error('Cannot get header metrics: prep is null');
+        }
+
         let tracker = this.progressTrackers.get(prep.id);
         if (!tracker) {
             tracker = this.initializeProgressTracker(prep);
@@ -465,33 +480,39 @@ export class PrepStateManager {
     }
 
     // Update topic/subtopic selection for a prep
-    static updateSelection(prep: StudentPrep, selection: TopicSelection): StudentPrep {
-        // Initialize progress for any new subtopics
-        const subTopicProgress = { ...prep.subTopicProgress };
-        selection.subTopics.forEach(subtopicId => {
-            if (!subTopicProgress[subtopicId]) {
-                subTopicProgress[subtopicId] = {
-                    subtopicId,
-                    currentDifficulty: 1 as DifficultyLevel,
-                    questionsAnswered: 0,
-                    correctAnswers: 0,
-                    totalQuestions: 20,
-                    estimatedTimePerQuestion: 4,
-                    lastAttemptDate: Date.now()
-                };
-            }
+    static updateSelection(prepId: string, newSelection: StudentPrep['selection']): StudentPrep {
+        console.log('🔄 PrepStateManager - Updating selection:', {
+            oldSelection: this.getPrep(prepId)?.selection,
+            newSelection,
+            timestamp: new Date().toISOString()
         });
 
-        const updatedPrep: StudentPrep = {
-            ...prep,
-            selection,
-            subTopicProgress
-        };
+        const prep = this.getPrep(prepId);
+        if (!prep) {
+            console.error('❌ PrepStateManager - Cannot update selection: Prep not found:', prepId);
+            throw new Error(`Cannot update selection: Prep not found: ${prepId}`);
+        }
 
-        // Save to storage
+        const oldCount = prep.selection.subTopics.length;
+        const updatedPrep = {
+            ...prep,
+            selection: newSelection
+        };
+        const newCount = updatedPrep.selection.subTopics.length;
+
+        // Save the updated prep state
         const preps = this.loadPreps();
-        preps[updatedPrep.id] = updatedPrep;
+        preps[prepId] = updatedPrep;
         this.savePreps(preps);
+
+        console.log('✅ PrepStateManager - Selection updated successfully:', {
+            oldCount,
+            newCount,
+            timestamp: new Date().toISOString()
+        });
+
+        // Notify subscribers of the change
+        this.notifyPrepStateChange(prepId, updatedPrep);
 
         return updatedPrep;
     }
@@ -582,6 +603,9 @@ export class PrepStateManager {
         preps[updatedPrep.id] = updatedPrep;
         this.savePreps(preps);
 
+        // Notify subscribers of the change
+        this.notifyPrepStateChange(updatedPrep.id, updatedPrep);
+
         return updatedPrep;
     }
 
@@ -591,9 +615,12 @@ export class PrepStateManager {
         const preps = this.loadPreps();
         const oldPrep = preps[prep.id];
         
-        // Check if exam date has changed
-        if (oldPrep && oldPrep.goals.examDate !== prep.goals.examDate) {
-            // Reinitialize progress tracker with new exam date
+        // Check if exam date or selection has changed
+        if (oldPrep && (
+            oldPrep.goals.examDate !== prep.goals.examDate ||
+            JSON.stringify(oldPrep.selection) !== JSON.stringify(prep.selection)
+        )) {
+            // Reinitialize progress tracker with new exam date or selection
             const tracker = this.initializeProgressTracker(prep);
             this.progressTrackers.set(prep.id, tracker);
         }
@@ -601,6 +628,10 @@ export class PrepStateManager {
         // Save to storage
         preps[prep.id] = prep;
         this.savePreps(preps);
+
+        // Notify subscribers of the change
+        this.notifyPrepStateChange(prep.id, prep);
+
         return prep;
     }
 
@@ -798,5 +829,149 @@ export class PrepStateManager {
 
         // Clean up any remaining guest state
         localStorage.removeItem(GUEST_QUESTION_STATE_KEY);
+    }
+
+    // Get selected topics count for a prep (subtopics only)
+    static getSelectedTopicsCount(prep: StudentPrep): number {
+        return prep.selection.subTopics.length;
+    }
+
+    // Get total topics count for a prep (all available subtopics in the exam)
+    static getTotalTopicsCount(prep: StudentPrep): number {
+        return prep.exam.topics?.reduce(
+            (count: number, topic) => count + (topic.subTopics?.length || 0), 
+            0
+        ) || 0;
+    }
+
+    // Get both selected and total topics count (subtopics only)
+    static getTopicsCounts(prep: StudentPrep): { selected: number; total: number } {
+        const selected = this.getSelectedTopicsCount(prep);
+        const total = this.getTotalTopicsCount(prep);
+        
+        console.log('📊 PrepStateManager - Getting subtopic counts:', {
+            selected,
+            total,
+            timestamp: new Date().toISOString()
+        });
+
+        return { selected, total };
+    }
+
+    // Get topic counts by type (main topics vs subtopics)
+    static getTopicCountsByType(prep: StudentPrep): {
+        mainTopics: { selected: number; total: number };
+        subtopics: { selected: number; total: number };
+    } {
+        // Count selected main topics (topics that have at least one selected subtopic)
+        const selectedMainTopics = new Set(prep.selection.subTopics.map(id => 
+            prep.exam.topics.find(t => 
+                t.subTopics.some(st => st.id === id)
+            )?.id
+        )).size;
+
+        const mainTopics = {
+            selected: selectedMainTopics,
+            total: prep.exam.topics.length
+        };
+
+        const subtopics = {
+            selected: prep.selection.subTopics.length,
+            total: this.getTotalTopicsCount(prep)
+        };
+
+        console.log('📊 PrepStateManager - Getting topic counts by type:', {
+            mainTopics,
+            subtopics,
+            timestamp: new Date().toISOString()
+        });
+
+        return { mainTopics, subtopics };
+    }
+
+    // Subscribe to exam date changes
+    static subscribeToExamDateChanges(prepId: string, callback: (prep: StudentPrep) => void): void {
+        if (!this.examDateSubscribers.has(prepId)) {
+            this.examDateSubscribers.set(prepId, new Set());
+        }
+        this.examDateSubscribers.get(prepId)!.add(callback);
+    }
+
+    // Unsubscribe from exam date changes
+    static unsubscribeFromExamDateChanges(prepId: string, callback: (prep: StudentPrep) => void): void {
+        const subscribers = this.examDateSubscribers.get(prepId);
+        if (subscribers) {
+            subscribers.delete(callback);
+        }
+    }
+
+    // Update exam date and notify subscribers
+    static updateExamDate(prepId: string, newDate: number): void {
+        const prep = this.getPrep(prepId);
+        if (!prep) {
+            console.error('❌ PrepStateManager - Cannot update exam date: Prep not found:', prepId);
+            return;
+        }
+
+        prep.goals.examDate = newDate;
+        const preps = this.loadPreps();
+        preps[prepId] = prep;
+        this.savePreps(preps);
+
+        // Notify subscribers of the change
+        this.notifyPrepStateChange(prepId, prep);
+    }
+
+    // Subscribe to any prep state changes
+    static subscribeToPrepStateChanges(prepId: string, callback: (prep: StudentPrep) => void): void {
+        if (!this.prepStateSubscribers.has(prepId)) {
+            this.prepStateSubscribers.set(prepId, new Set());
+        }
+        this.prepStateSubscribers.get(prepId)!.add(callback);
+    }
+
+    // Unsubscribe from prep state changes
+    static unsubscribeFromPrepStateChanges(prepId: string, callback: (prep: StudentPrep) => void): void {
+        const subscribers = this.prepStateSubscribers.get(prepId);
+        if (subscribers) {
+            subscribers.delete(callback);
+        }
+    }
+
+    // Helper method to notify subscribers of prep state changes
+    private static notifyPrepStateChange(prepId: string, updatedPrep: StudentPrep): void {
+        console.log('🔔 PrepStateManager - Notifying subscribers of prep state change:', {
+            prepId,
+            subscriberCount: this.prepStateSubscribers.get(prepId)?.size || 0,
+            timestamp: new Date().toISOString()
+        });
+
+        const subscribers = this.prepStateSubscribers.get(prepId);
+        if (subscribers) {
+            subscribers.forEach(callback => {
+                console.log('📨 PrepStateManager - Sending update to subscriber:', {
+                    prepId,
+                    timestamp: new Date().toISOString()
+                });
+                try {
+                    callback(updatedPrep);
+                    console.log('✅ PrepStateManager - Update sent successfully to subscriber:', {
+                        prepId,
+                        timestamp: new Date().toISOString()
+                    });
+                } catch (error) {
+                    console.error('❌ PrepStateManager - Error sending update to subscriber:', {
+                        prepId,
+                        error: error instanceof Error ? error.message : 'Unknown error',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            });
+        } else {
+            console.log('⚠️ PrepStateManager - No subscribers found for prep:', {
+                prepId,
+                timestamp: new Date().toISOString()
+            });
+        }
     }
 } 

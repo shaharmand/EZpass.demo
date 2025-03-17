@@ -18,6 +18,7 @@ import { VideoCreatePage } from '../pages/admin/videos/VideoCreatePage';
 import { VideoEditPage } from '../pages/admin/videos/VideoEditPage';
 import VideoPage from '../components/courses/VideoPage';
 import { VideoData, LessonInfo } from '../components/courses/types';
+import { AdminRoute } from '../components/Auth/AdminRoute';
 
 // Wrapper component to handle loading question data and state management
 const QuestionEditPageWrapper: React.FC = () => {
@@ -210,7 +211,13 @@ const VideoPageWrapper: React.FC = () => {
 
 export const adminRoutes: RouteObject = {
   path: 'admin',
-  element: <AdminLayout><Outlet /></AdminLayout>,
+  element: (
+    <AdminRoute>
+      <AdminLayout>
+        <Outlet />
+      </AdminLayout>
+    </AdminRoute>
+  ),
   children: [
     {
       index: true,
@@ -253,12 +260,12 @@ export const adminRoutes: RouteObject = {
           element: <VideoCreatePage />,
         },
         {
-          path: ':id',
-          element: <VideoEditPage />,
+          path: ':videoId',
+          element: <VideoPageWrapper />,
         },
         {
-          path: ':videoId',
-          element: <VideoPage />
+          path: ':videoId/edit',
+          element: <VideoEditPage />,
         }
       ],
     },

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Table, Select, message, Tag } from 'antd';
+import { Modal, Table, Select, message, Tag, Result } from 'antd';
 import type { TableProps } from 'antd';
 import type { DefaultOptionType } from 'antd/es/select';
 import { supabase } from '../lib/supabaseClient';
 import { translations } from '../translations/he';
 import styled from 'styled-components';
+import { useAuth } from '../contexts/AuthContext';
 
 const StyledModal = styled(Modal)`
   .ant-modal-content {
@@ -181,8 +182,13 @@ const tableLocale = {
 export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen, onClose }) => {
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
+  const { user, profile } = useAuth();
 
   const fetchUsers = async () => {
+    if (!user || profile?.role !== 'admin') {
+      return;
+    }
+
     setLoading(true);
     try {
       console.log('Fetching users...');
@@ -203,6 +209,11 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
   };
 
   const handleRoleChange = async (userId: string, newRole: string) => {
+    if (!user || profile?.role !== 'admin') {
+      message.error('אין לך הרשאות לשנות תפקידים');
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('profiles')
@@ -219,6 +230,11 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
   };
 
   const handleSubscriptionChange = async (userId: string, newTier: string) => {
+    if (!user || profile?.role !== 'admin') {
+      message.error('אין לך הרשאות לשנות מנויים');
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('profiles')
@@ -324,6 +340,42 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
       render: (date: string) => new Date(date).toLocaleDateString('he-IL'),
     },
   ];
+
+  if (!user) {
+    return (
+      <StyledModal
+        title="ניהול משתמשים"
+        open={isOpen}
+        onCancel={onClose}
+        footer={null}
+        width={600}
+      >
+        <Result
+          status="warning"
+          title="נדרשת התחברות"
+          subTitle="עליך להתחבר כדי לגשת לניהול משתמשים"
+        />
+      </StyledModal>
+    );
+  }
+
+  if (profile?.role !== 'admin') {
+    return (
+      <StyledModal
+        title="ניהול משתמשים"
+        open={isOpen}
+        onCancel={onClose}
+        footer={null}
+        width={600}
+      >
+        <Result
+          status="403"
+          title="אין גישה"
+          subTitle="אין לך הרשאות לגשת לניהול משתמשים"
+        />
+      </StyledModal>
+    );
+  }
 
   return (
     <StyledModal

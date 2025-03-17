@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, DatePicker, Typography, notification, Tooltip } from 'antd';
 import { CalendarOutlined } from '@ant-design/icons';
 import moment, { Moment } from 'moment';
@@ -16,16 +16,23 @@ interface ExamDatePickerProps {
 export const ExamDatePicker: React.FC<ExamDatePickerProps> = ({ prep, onPrepUpdate }) => {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [currentExamDate, setCurrentExamDate] = useState(prep.goals.examDate);
+
+  useEffect(() => {
+    setCurrentExamDate(prep.goals.examDate);
+  }, [prep.goals.examDate]);
 
   const handleDateChange = (date: Moment | null) => {
     if (date && date.isValid()) {
       setIsDatePickerOpen(false);
+      const newExamDate = date.startOf('day').valueOf();
+      setCurrentExamDate(newExamDate);
 
       const updatedPrep: StudentPrep = {
         ...prep,
         goals: {
           ...prep.goals,
-          examDate: date.startOf('day').valueOf()
+          examDate: newExamDate
         }
       };
       
@@ -51,37 +58,29 @@ export const ExamDatePicker: React.FC<ExamDatePickerProps> = ({ prep, onPrepUpda
     <Tooltip title="לחץ כאן לשנות את מועד הבחינה" placement="top">
       <div 
         style={{
-          background: '#fff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '4px',
-          padding: '8px 12px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           height: '36px',
           minWidth: '140px',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          padding: '8px 0'
         }}
         onClick={(e) => {
           e.stopPropagation();
           setIsDatePickerOpen(true);
         }}
       >
-        <CalendarOutlined style={{ 
-          fontSize: '16px',
-          color: '#64748b',
-          marginLeft: '8px'
-        }} />
         <Text style={{
           fontSize: '16px',
           color: '#64748b',
           fontWeight: '600',
           lineHeight: '1.2'
-        }}>{formatExamDate(new Date(prep.goals.examDate))}</Text>
+        }}>{formatExamDate(new Date(currentExamDate))}</Text>
 
         <DatePicker
           open={isDatePickerOpen}
-          value={moment(prep.goals.examDate)}
+          value={moment(currentExamDate)}
           onChange={handleDateChange}
           onOpenChange={(open) => setIsDatePickerOpen(open)}
           allowClear={false}

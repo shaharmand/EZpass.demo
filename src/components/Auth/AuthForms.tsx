@@ -1,249 +1,140 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Button } from 'antd';
 import { useAuth } from '../../contexts/AuthContext';
-import { Button, Form, Input, message, Card, Tabs, Divider } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined, GoogleOutlined } from '@ant-design/icons';
-import { TabsProps } from 'antd';
-import { useNavigate, useLocation } from 'react-router-dom';
-
-interface AuthFormData {
-  email: string;
-  password: string;
-  full_name?: string;
-}
+import { CheckCircleOutlined } from '@ant-design/icons';
 
 interface AuthFormsProps {
   returnUrl?: string;
+  onSuccess?: () => void;
   googleOnly?: boolean;
 }
 
-export function AuthForms({ returnUrl, googleOnly }: AuthFormsProps) {
-  const [activeTab, setActiveTab] = useState('signin');
-  const { signIn, signUp, signInWithGoogle } = useAuth();
-  const [form] = Form.useForm();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  // Get return URL from props, location state, or default to home
-  const finalReturnUrl = returnUrl || 
-    (location.state as any)?.from || 
-    '/';
-
-  const handleSuccessfulAuth = () => {
-    navigate(finalReturnUrl, { replace: true });
-  };
-
-  const handleSignIn = async (values: AuthFormData) => {
-    try {
-      const { error } = await signIn(values.email, values.password);
-      if (error) throw error;
-      message.success('התחברת בהצלחה!');
-      handleSuccessfulAuth();
-    } catch (error: any) {
-      message.error(error.message || 'ההתחברות נכשלה');
-    }
-  };
-
-  const handleSignUp = async (values: AuthFormData) => {
-    try {
-      const [first_name = '', last_name = ''] = (values.full_name || '').split(' ');
-      const { error } = await signUp(values.email, values.password, first_name, last_name);
-      
-      if (error) throw error;
-      
-      message.success('נרשמת בהצלחה! אנא אשר את המייל שנשלח אליך.');
-      setActiveTab('signin');
-    } catch (error: any) {
-      console.error('Error signing up:', error);
-      message.error(error.message);
-    }
-  };
+export function AuthForms({ returnUrl, onSuccess, googleOnly }: AuthFormsProps) {
+  const { signInWithGoogle } = useAuth();
 
   const handleGoogleSignIn = async () => {
     try {
-      // Store return URL in localStorage before redirecting
-      localStorage.setItem('returnUrl', finalReturnUrl);
-      const { error } = await signInWithGoogle();
-      if (error) throw error;
-    } catch (error: any) {
-      message.error('ההתחברות עם Google נכשלה');
+      localStorage.setItem('returnUrl', returnUrl || '/');
+      await signInWithGoogle();
+      onSuccess?.();
+    } catch (error) {
+      console.error(error);
     }
   };
 
-  // If googleOnly is true, render only the Google sign-in button
-  if (googleOnly) {
-    return (
-      <Button 
-        icon={<GoogleOutlined style={{ fontSize: '20px', marginRight: '8px' }} />} 
-        onClick={handleGoogleSignIn} 
-        size="large"
-        style={{ 
-          backgroundColor: '#4285f4',
-          borderColor: '#4285f4',
-          color: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          height: '48px',
-          fontSize: '16px',
-          padding: '0 32px',
-          borderRadius: '24px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-          transition: 'all 0.3s ease',
-          fontWeight: 500
-        }}
-        className="google-sign-in-button"
-        onMouseEnter={e => {
-          const target = e.currentTarget;
-          target.style.backgroundColor = '#3367d6';
-          target.style.borderColor = '#3367d6';
-          target.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
-        }}
-        onMouseLeave={e => {
-          const target = e.currentTarget;
-          target.style.backgroundColor = '#4285f4';
-          target.style.borderColor = '#4285f4';
-          target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.15)';
-        }}
-      >
-        התחבר עם Google
-      </Button>
-    );
-  }
-
-  const items: TabsProps['items'] = [
-    {
-      key: 'signin',
-      label: 'התחברות',
-      children: (
-        <Form
-          form={form}
-          name="signin"
-          onFinish={handleSignIn}
-          layout="vertical"
-          requiredMark={false}
-        >
-          <Form.Item
-            name="email"
-            rules={[
-              { required: true, message: 'אנא הכנס אימייל' },
-              { type: 'email', message: 'אנא הכנס אימייל תקין' }
-            ]}
-          >
-            <Input prefix={<MailOutlined />} placeholder="אימייל" />
-          </Form.Item>
-
-          <Form.Item
-            name="password"
-            rules={[{ required: true, message: 'אנא הכנס סיסמה' }]}
-          >
-            <Input.Password prefix={<LockOutlined />} placeholder="סיסמה" />
-          </Form.Item>
-
-          <Form.Item>
-            <Button type="primary" htmlType="submit" block>
-              התחבר
-            </Button>
-          </Form.Item>
-
-          <Divider>או</Divider>
-
-          <Button 
-            icon={<GoogleOutlined />} 
-            onClick={handleGoogleSignIn} 
-            block
-            style={{ 
-              backgroundColor: '#fff',
-              borderColor: '#d9d9d9',
-              color: 'rgba(0, 0, 0, 0.85)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            התחבר עם Google
-          </Button>
-        </Form>
-      ),
-    },
-    {
-      key: 'signup',
-      label: 'הרשמה',
-      children: (
-        <Form
-          form={form}
-          name="signup"
-          onFinish={handleSignUp}
-          layout="vertical"
-          requiredMark={false}
-        >
-          <Form.Item
-            name="full_name"
-            rules={[{ required: true, message: 'אנא הכנס שם מלא' }]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="שם מלא" />
-          </Form.Item>
-
-          <Form.Item
-            name="email"
-            rules={[
-              { required: true, message: 'אנא הכנס אימייל' },
-              { type: 'email', message: 'אנא הכנס אימייל תקין' }
-            ]}
-          >
-            <Input prefix={<MailOutlined />} placeholder="אימייל" />
-          </Form.Item>
-
-          <Form.Item
-            name="password"
-            rules={[{ required: true, message: 'אנא הכנס סיסמה' }]}
-          >
-            <Input.Password prefix={<LockOutlined />} placeholder="סיסמה" />
-          </Form.Item>
-
-          <Form.Item>
-            <Button type="primary" htmlType="submit" block>
-              הרשם
-            </Button>
-          </Form.Item>
-
-          <Divider>או</Divider>
-
-          <Button 
-            icon={<GoogleOutlined />} 
-            onClick={handleGoogleSignIn} 
-            block
-            style={{ 
-              backgroundColor: '#fff',
-              borderColor: '#d9d9d9',
-              color: 'rgba(0, 0, 0, 0.85)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            הרשם עם Google
-          </Button>
-        </Form>
-      ),
-    },
-  ];
-
-  const containerStyle = returnUrl ? {} : { maxWidth: 400, margin: '40px auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' };
-
   return (
-    <Card style={containerStyle}>
-      <Tabs
-        activeKey={activeTab}
-        items={items}
-        onChange={(key) => {
-          setActiveTab(key);
-          form.resetFields();
-        }}
-        centered
-      />
-    </Card>
+    <div style={{ 
+      background: 'white',
+      width: '480px',
+      direction: 'rtl',
+      borderRadius: '16px',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.2)',
+      border: '1px solid rgba(0, 0, 0, 0.05)'
+    }}>
+      <div style={{ 
+        padding: '40px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '32px'
+      }}>
+        <div style={{ textAlign: 'center', width: '100%' }}>
+          <h1 style={{ 
+            fontSize: '26px', 
+            margin: 0, 
+            fontWeight: 500,
+            color: '#1e293b',
+            marginBottom: '8px'
+          }}>התחבר לאיזיפס</h1>
+          <p style={{ 
+            fontSize: '16px', 
+            color: '#64748b', 
+            margin: 0
+          }}>מביאים אותך להצלחה במבחן</p>
+        </div>
+
+        <Button 
+          onClick={handleGoogleSignIn}
+          style={{
+            width: '100%',
+            maxWidth: '360px',
+            height: '48px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#4285f4',
+            border: 'none',
+            borderRadius: '24px',
+            color: 'white',
+            fontSize: '16px',
+            position: 'relative',
+            paddingLeft: '48px',
+            paddingRight: '32px',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
+            transition: 'all 0.2s ease-in-out'
+          }}
+          onMouseEnter={(e) => {
+            const target = e.currentTarget;
+            target.style.transform = 'translateY(-1px)';
+            target.style.boxShadow = '0 4px 12px rgba(66, 133, 244, 0.25)';
+            target.style.background = '#5290f5';
+          }}
+          onMouseLeave={(e) => {
+            const target = e.currentTarget;
+            target.style.transform = 'translateY(0)';
+            target.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.08)';
+            target.style.background = '#4285f4';
+          }}
+        >
+          <div style={{
+            position: 'absolute',
+            left: '2px',
+            top: '2px',
+            bottom: '2px',
+            width: '44px',
+            background: 'white',
+            borderRadius: '22px',
+            backgroundImage: 'url(https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg)',
+            backgroundSize: '22px',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            transition: 'all 0.2s ease-in-out'
+          }} />
+          המשך עם Google
+        </Button>
+
+        <div style={{ 
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          width: '100%'
+        }}>
+          {[
+            'לקבל משוב מותאם אישית וסיוע מיידי מחונך אישי',
+            'ללמוד עם מסלול מותאם אישית המזהה ומחזק את החולשות שלך',
+            'לגשת למאגר שאלות עדכני וחומרי לימוד ממוקדים'
+          ].map((text, index) => (
+            <div key={index} style={{ 
+              display: 'flex', 
+              alignItems: 'flex-start', 
+              gap: '16px'
+            }}>
+              <CheckCircleOutlined style={{ 
+                color: '#4285f4', 
+                fontSize: '20px',
+                flexShrink: 0,
+                marginTop: '4px'
+              }} />
+              <span style={{ 
+                fontSize: '16px', 
+                color: '#475569',
+                lineHeight: '1.6',
+                textAlign: 'right'
+              }}>{text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
-} 
+}

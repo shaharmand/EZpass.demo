@@ -6,7 +6,6 @@ import { PracticeAttemptsProvider } from './contexts/PracticeAttemptsContext';
 import { ExamProvider } from './contexts/ExamContext';
 import { SearchResultsProvider } from './contexts/SearchResultsContext';
 import PracticePage from './pages/PracticePage';
-import { AuthForms } from './components/Auth/AuthForms';
 import { ProtectedRoute } from './components/Auth/ProtectedRoute';
 import ExamDashboard from './pages/ExamDashboard';
 import { UserProfile } from './pages/UserProfile';
@@ -28,7 +27,6 @@ const App: React.FC = () => {
     {
       path: 'auth',
       children: [
-        { index: true, element: <AuthForms /> },
         { path: 'callback', element: <AuthCallback /> }
       ]
     },

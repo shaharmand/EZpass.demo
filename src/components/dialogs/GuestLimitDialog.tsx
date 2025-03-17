@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Typography } from 'antd';
 import { AuthForms } from '../Auth/AuthForms';
-import { StarOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { StarOutlined } from '@ant-design/icons';
 
 const MAX_DIALOG_SHOWS = 1; // Show dialog only once
 const { Text } = Typography;
@@ -15,41 +15,17 @@ export const GuestLimitDialog: React.FC<GuestLimitDialogProps> = ({ open, onClos
   const [isOpen, setIsOpen] = useState(false);
   const [showCount, setShowCount] = useState(0);
 
-  // Log initial render and prop changes
-  console.log('=== GuestLimitDialog render ===', {
-    receivedOpenProp: open,
-    currentIsOpen: isOpen,
-    currentShowCount: showCount
-  });
-
   useEffect(() => {
-    console.log('=== GuestLimitDialog useEffect triggered ===', {
-      open,
-      showCount,
-      isOpen,
-      willShow: open && showCount < MAX_DIALOG_SHOWS
-    });
-
     if (open && showCount < MAX_DIALOG_SHOWS) {
-      console.log('Opening guest limit dialog');
       setIsOpen(true);
     }
   }, [open, showCount]);
 
   const handleClose = () => {
-    console.log('Closing guest limit dialog');
     setIsOpen(false);
     setShowCount(prev => prev + 1);
     onClose();
   };
-
-  // Log before returning JSX
-  console.log('=== GuestLimitDialog pre-render state ===', {
-    isOpen,
-    showCount,
-    willRenderModal: isOpen,
-    willShowFirstMessage: showCount === 0
-  });
 
   return (
     <Modal
@@ -77,100 +53,40 @@ export const GuestLimitDialog: React.FC<GuestLimitDialogProps> = ({ open, onClos
           {showCount === 0 ? "כל הכבוד! 🎓" : "התחברות נדרשת"}
         </div>
 
-        {showCount === 0 ? (
-          <>
-            <div style={{
-              padding: '16px 20px',
-              background: '#f0f9ff',
-              borderRadius: '12px',
-              border: '1px solid #93c5fd',
-              marginBottom: '24px',
-              boxShadow: '0 2px 4px rgba(37, 99, 235, 0.1)'
-            }}>
-              <Text style={{ 
-                fontSize: '20px', 
-                color: '#1e40af',
-                fontWeight: 500,
-                display: 'block',
-                lineHeight: 1.4
-              }}>
-                השלמת בהצלחה 2 שאלות תרגול!
-              </Text>
-            </div>
-
-            <div style={{
-              background: '#ffffff',
-              padding: '24px',
-              borderRadius: '16px',
-              border: '1px solid #e5e7eb',
-              marginBottom: '24px',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-            }}>
-              <Text style={{ 
-                fontSize: '18px',
-                color: '#1d4ed8',
-                fontWeight: 600,
-                display: 'block',
-                marginBottom: '20px'
-              }}>
-                צור/י חשבון חינמי כדי:
-              </Text>
-
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px',
-                marginBottom: '24px',
-                textAlign: 'right'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <CheckCircleOutlined style={{ color: '#2563eb', fontSize: '20px' }} />
-                  <Text style={{ fontSize: '16px', color: '#374151', fontWeight: 500 }}>
-                    לקבל משוב מפורט עבור שאלות נוספות
-                  </Text>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <CheckCircleOutlined style={{ color: '#2563eb', fontSize: '20px' }} />
-                  <Text style={{ fontSize: '16px', color: '#374151', fontWeight: 500 }}>
-                    לשמור את ההתקדמות שלך
-                  </Text>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <CheckCircleOutlined style={{ color: '#2563eb', fontSize: '20px' }} />
-                  <Text style={{ fontSize: '16px', color: '#374151', fontWeight: 500 }}>
-                    לעקוב אחר הביצועים שלך
-                  </Text>
-                </div>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div style={{
-            padding: '16px 20px',
-            background: '#f0f9ff',
-            borderRadius: '12px',
-            border: '1px solid #93c5fd',
-            marginBottom: '24px',
-            boxShadow: '0 2px 4px rgba(37, 99, 235, 0.1)'
+        <div style={{
+          padding: '24px',
+          background: '#f0f9ff',
+          borderRadius: '16px',
+          border: '1px solid #93c5fd',
+          marginBottom: '32px',
+          boxShadow: '0 2px 4px rgba(37, 99, 235, 0.1)'
+        }}>
+          <Text style={{ 
+            fontSize: '20px', 
+            color: '#1e40af',
+            fontWeight: 500,
+            display: 'block',
+            lineHeight: 1.4
           }}>
-            <Text style={{ 
-              fontSize: '18px',
-              color: '#1e40af',
-              fontWeight: 500,
-              display: 'block',
-              lineHeight: 1.4
-            }}>
-              התחבר כדי לקבל משוב מפורט על התשובות שלך
-            </Text>
-          </div>
-        )}
+            {showCount === 0 ? (
+              <>
+                השלמת בהצלחה 2 שאלות תרגול!
+                <br />
+                <span style={{ fontSize: '16px', marginTop: '8px', display: 'block' }}>
+                  התחבר כדי להמשיך לתרגל ולקבל משוב מפורט
+                </span>
+              </>
+            ) : (
+              "התחבר כדי לקבל משוב מפורט על התשובות שלך"
+            )}
+          </Text>
+        </div>
         
         <div style={{ 
           display: 'flex', 
-          justifyContent: 'center',
-          paddingTop: '8px'
+          justifyContent: 'center'
         }}>
-          <AuthForms returnUrl={window.location.pathname} googleOnly />
+          <AuthForms returnUrl={window.location.pathname} />
         </div>
       </div>
 

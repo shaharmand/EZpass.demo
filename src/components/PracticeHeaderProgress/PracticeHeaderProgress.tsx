@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Typography, Tooltip, Progress, Button, Modal, Popover, DatePicker } from 'antd';
-import { TrophyOutlined, CheckCircleOutlined, ClockCircleOutlined, QuestionCircleOutlined, CrownOutlined, CalendarOutlined, BookOutlined } from '@ant-design/icons';
+import { TrophyOutlined, CheckCircleOutlined, ClockCircleOutlined, QuestionCircleOutlined, CrownOutlined, CalendarOutlined, BookOutlined, LineChartOutlined } from '@ant-design/icons';
 import { StudentPrep } from '../../types/prepState';
 import { PrepStateManager } from '../../services/PrepStateManager';
 import { QuestionType } from '../../types/question';
@@ -9,6 +9,7 @@ import { ExamDatePicker } from '../practice/ExamDatePicker';
 import moment from 'moment';
 import { notification } from 'antd';
 import styled from 'styled-components';
+import { usePrepState } from '../../hooks/usePrepState';
 
 const { Text } = Typography;
 
@@ -42,6 +43,7 @@ interface PracticeHeaderProgressProps {
     weeklyNeededHours: number;
     dailyNeededHours: number;
     examDate: number;
+    totalQuestions: number;
     typeSpecificMetrics: Array<{
       type: QuestionType;
       progress: number;
@@ -85,7 +87,7 @@ const MetricSection = styled.div`
 const MetricTitle = styled(Text)`
   font-size: 13px;
   color: ${uiColors.text.secondary};
-  font-weight: 500;
+  fontWeight: 500;
 `;
 
 const MetricValue = styled.div<{ $variant?: 'success' | 'progress' | 'default' | 'warning' | 'error' }>`
@@ -127,40 +129,88 @@ const ProgressBar = styled(Progress)`
   }
 `;
 
-const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({ 
-  prep,
+function PracticeHeaderProgress({ 
+  prep: initialPrep,
   onShowTopicDetails,
   onPrepUpdate,
   metrics
-}) => {
+}: PracticeHeaderProgressProps) {
+  const componentId = useRef(Math.random().toString(36).substring(2, 8));
+  const renderCount = useRef(0);
+
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isExamDatePopoverOpen, setIsExamDatePopoverOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isLocalTopicsDialogOpen, setIsLocalTopicsDialogOpen] = useState(false);
 
-  // Add logging when component receives new props
-  console.log('PracticeHeaderProgress - Received props:', {
-    hasPrep: !!prep,
-    topicsCount: prep?.selection?.subTopics?.length,
-    totalTopics: prep?.exam?.topics?.reduce((acc, topic) => acc + topic.subTopics.length, 0),
-    metrics
+  const prep = usePrepState(initialPrep.id, (updatedPrep) => {
+    console.log('🔄 PracticeHeaderProgress - Received prep update:', {
+      prepId: updatedPrep.id,
+      componentId: componentId.current,
+      renderCount: renderCount.current,
+      topicsCount: updatedPrep.selection.subTopics.length,
+      timestamp: new Date().toISOString()
+    });
+    if (onPrepUpdate) {
+      console.log('📤 PracticeHeaderProgress - Calling onPrepUpdate callback');
+      onPrepUpdate(updatedPrep);
+    }
   });
 
-  // Calculate topic counts
-  const subTopicCount = prep.exam.topics?.reduce(
-    (count: number, topic) => count + (topic.subTopics?.length || 0), 
-    0
-  ) || 0;
+  // Log component lifecycle
+  useEffect(() => {
+    renderCount.current += 1;
+    console.log('🎯 PracticeHeaderProgress - Component mounted:', {
+      prepId: prep?.id ?? 'unknown',
+      componentId: componentId.current,
+      renderCount: renderCount.current,
+      hasPrep: !!prep,
+      timestamp: new Date().toISOString()
+    });
 
-  // Add detailed logging
-  console.log('PracticeHeaderProgress: Topic counts', {
-    selectedTopics: prep.selection.subTopics,
-    selectedCount: prep.selection.subTopics.length,
-    totalSubTopics: subTopicCount,
-    examTopics: prep.exam.topics?.map(topic => ({
-      topicName: topic.name,
-      subTopicsCount: topic.subTopics?.length
-    }))
+    return () => {
+      console.log('👋 PracticeHeaderProgress - Component unmounted:', {
+        prepId: prep?.id ?? 'unknown',
+        componentId: componentId.current,
+        renderCount: renderCount.current,
+        timestamp: new Date().toISOString()
+      });
+    };
+  }, [prep?.id]);
+
+  // Log when prep changes
+  useEffect(() => {
+    console.log('📊 PracticeHeaderProgress - Prep state changed:', {
+      prepId: prep?.id ?? 'unknown',
+      componentId: componentId.current,
+      renderCount: renderCount.current,
+      hasPrep: !!prep,
+      topicsCount: prep?.selection.subTopics.length ?? 0,
+      timestamp: new Date().toISOString()
+    });
+  }, [prep]);
+
+  // Log when metrics change
+  useEffect(() => {
+    console.log('📈 PracticeHeaderProgress - Metrics changed:', {
+      prepId: prep?.id ?? 'unknown',
+      componentId: componentId.current,
+      renderCount: renderCount.current,
+      overallProgress: metrics.overallProgress,
+      questionsAnswered: metrics.questionsAnswered,
+      successRate: metrics.successRate,
+      timestamp: new Date().toISOString()
+    });
+  }, [metrics, prep?.id]);
+
+  // Log before rendering
+  console.log('🎨 PracticeHeaderProgress - Rendering:', {
+    prepId: prep?.id ?? 'unknown',
+    componentId: componentId.current,
+    renderCount: renderCount.current,
+    hasMetrics: !!metrics,
+    overallProgress: metrics.overallProgress,
+    timestamp: new Date().toISOString()
   });
 
   // Helper functions
@@ -183,10 +233,6 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
     const hours = Math.ceil(diff / (1000 * 60 * 60));
     return formatTime(hours);
   };
-
-  // Calculate total values
-  const totalQuestions = metrics.questionsAnswered + metrics.remainingQuestions;
-  const totalHours = metrics.hoursPracticed + metrics.remainingHours;
 
   // Get type-specific tooltips
   const getProgressTooltip = () => {
@@ -250,7 +296,7 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
         <br />
         <Text style={{ color: '#e2e8f0' }}>שאלות שהושלמו: {metrics.questionsAnswered}</Text>
         <br />
-        <Text style={{ color: '#e2e8f0' }}>סה"כ שאלות: {totalQuestions}</Text>
+        <Text style={{ color: '#e2e8f0' }}>סה"כ שאלות: {metrics.totalQuestions}</Text>
       </div>
     );
   };
@@ -305,15 +351,7 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
   };
 
   // Get question count and success rate
-  const questionCount = metrics.questionsAnswered;
-  const successRate = metrics.successRate;
-  const successStyles = getSuccessRateStyles(successRate, questionCount);
-
-  console.log('PracticeHeaderProgress: Received progress data', {
-    metrics,
-    questionCount,
-    successRate
-  });
+  const successStyles = getSuccessRateStyles(metrics.successRate, metrics.questionsAnswered);
 
   const examDateContent = (
     <div className="exam-date-popover">
@@ -332,15 +370,9 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
     </div>
   );
 
-  // Add logging before render
-  console.log('PracticeHeaderProgress - Rendering with topics:', {
-    selectedTopics: prep?.selection?.subTopics?.length,
-    totalTopics: prep?.exam?.topics?.reduce((acc, topic) => acc + topic.subTopics.length, 0)
-  });
-
   const handleOpenDetailsDialog = () => {
     // Refresh metrics before opening dialog
-    if (onPrepUpdate) {
+    if (onPrepUpdate && prep) {
       onPrepUpdate(prep);
     }
     setIsDetailsDialogOpen(true);
@@ -354,16 +386,26 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
         <MetricSection>
           <MetricTitle>התקדמות</MetricTitle>
           <MetricValue $variant="progress" onClick={handleOpenDetailsDialog}>
-            <TrophyOutlined style={{ fontSize: '18px', color: '#3b82f6' }} />
-            <Text style={{ fontSize: '15px', fontWeight: '600', color: '#0284c7' }}>
-              {questionCount === 0 ? '-' : `${Math.round(metrics.overallProgress)}/100`}
-            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <LineChartOutlined style={{ fontSize: '16px', color: '#0284c7' }} />
+              <Text style={{ fontSize: '15px', fontWeight: '600', color: '#0284c7' }}>
+                {(() => {
+                  console.log('📊 PracticeHeaderProgress - Rendering progress value:', {
+                    prepId: prep?.id ?? 'unknown',
+                    componentId: componentId.current,
+                    renderCount: renderCount.current,
+                    questionsAnswered: metrics.questionsAnswered,
+                    progress: metrics.questionsAnswered === 0 ? '-' : `${Math.round(metrics.overallProgress)}/100`,
+                    timestamp: new Date().toISOString()
+                  });
+                  return metrics.questionsAnswered === 0 ? '-' : `${Math.round(metrics.overallProgress)}/100`;
+                })()}
+              </Text>
+            </div>
             <ProgressBar 
               percent={metrics.overallProgress} 
               size="small"
               strokeColor="#0284c7"
-              trailColor="#bae6fd"
-              showInfo={false}
             />
           </MetricValue>
         </MetricSection>
@@ -373,20 +415,18 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
           <MetricTitle>ציון</MetricTitle>
           <MetricValue 
             $variant={
-              successRate >= 80 ? 'success' : 
-              successRate >= 60 ? 'warning' : 
+              metrics.successRate >= 80 ? 'success' : 
+              metrics.successRate >= 60 ? 'warning' : 
               'error'
             }
             onClick={handleOpenDetailsDialog}
           >
-            <Text style={{
-              fontSize: '18px',
-              color: successStyles.text,
-              fontWeight: '600',
-              margin: '0 auto'
-            }}>
-              {questionCount === 0 ? '-' : Math.round(successRate)}
-            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircleOutlined style={{ fontSize: '16px', color: successStyles.text }} />
+              <Text style={{ fontSize: '15px', fontWeight: '600', color: successStyles.text }}>
+                {metrics.questionsAnswered === 0 ? '-' : Math.round(metrics.successRate)}%
+              </Text>
+            </div>
           </MetricValue>
         </MetricSection>
       </MetricGroup>
@@ -397,10 +437,12 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
         <MetricSection>
           <MetricTitle>נותרו לתרגל</MetricTitle>
           <MetricValue onClick={handleOpenDetailsDialog}>
-            <ClockCircleOutlined style={{ fontSize: '16px', color: '#64748b' }} />
-            <Text style={{ fontSize: '15px', fontWeight: '600', color: '#64748b' }}>
-              {formatTime(metrics.remainingHours)}
-            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ClockCircleOutlined style={{ fontSize: '16px', color: '#64748b' }} />
+              <Text style={{ fontSize: '15px', fontWeight: '600', color: '#64748b' }}>
+                {formatTime(metrics.remainingHours)}
+              </Text>
+            </div>
           </MetricValue>
         </MetricSection>
 
@@ -409,10 +451,12 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
           <MetricTitle>זמן למבחן</MetricTitle>
           <MetricValue>
             <CalendarOutlined style={{ fontSize: '16px', color: '#64748b', marginLeft: '8px' }} />
-            <ExamDatePicker 
-              prep={prep}
-              onPrepUpdate={onPrepUpdate}
-            />
+            {prep && (
+              <ExamDatePicker 
+                prep={prep}
+                onPrepUpdate={onPrepUpdate}
+              />
+            )}
           </MetricValue>
         </MetricSection>
       </MetricGroup>
@@ -422,10 +466,12 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
         <MetricSection>
           <MetricTitle>תכולת מבחן</MetricTitle>
           <MetricValue $variant="progress" onClick={() => onShowTopicDetails?.()}>
-            <BookOutlined style={{ fontSize: '16px', color: '#3b82f6' }} />
-            <Text style={{ fontSize: '15px', fontWeight: '600', color: '#3b82f6' }}>
-              {prep.selection.subTopics.length}/{subTopicCount} נושאים
-            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BookOutlined style={{ fontSize: '16px', color: '#3b82f6' }} />
+              <Text style={{ fontSize: '15px', fontWeight: '600', color: '#3b82f6' }}>
+                {prep?.selection.subTopics.length ?? 0}/{prep ? PrepStateManager.getTotalTopicsCount(prep) : 0} תתי-נושאים
+              </Text>
+            </div>
           </MetricValue>
         </MetricSection>
       </MetricGroup>
@@ -437,6 +483,6 @@ const PracticeHeaderProgress: React.FC<PracticeHeaderProgressProps> = ({
       />
     </MetricsContainer>
   );
-};
+}
 
 export default PracticeHeaderProgress;

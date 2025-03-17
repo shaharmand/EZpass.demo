@@ -1,8 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { UserProfile } from '../user/UserProfile';
-import { Modal } from 'antd';
-import { AuthForms } from '../Auth/AuthForms';
 
 const HeaderContainer = styled.header`
   height: 64px;
@@ -40,30 +38,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ youtubeId, title }) =>
 };
 
 export const MinimalHeader: React.FC = () => {
-  const [isLoginModalOpen, setIsLoginModalOpen] = React.useState(false);
-
-  const handleLoginClick = () => {
-    setIsLoginModalOpen(true);
-  };
-
   return (
-    <>
-      <HeaderContainer>
-        <UserProfile 
-          variant="base"
-          onLoginClick={handleLoginClick}
-        />
-      </HeaderContainer>
-
-      <Modal
-        title="התחברות"
-        open={isLoginModalOpen}
-        onCancel={() => setIsLoginModalOpen(false)}
-        footer={null}
-        width={400}
-      >
-        <AuthForms returnUrl="/" />
-      </Modal>
-    </>
+    <HeaderContainer>
+      <UserProfile variant="base" />
+    </HeaderContainer>
   );
 }; 

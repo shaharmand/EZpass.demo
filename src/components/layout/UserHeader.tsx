@@ -180,30 +180,32 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
           <PageType>{pageType}</PageType>
         </PageIdentityContainer>
         <Spacer />
-        {profile && (
-          <UserInfoSection>
-            <UserProfile />
-            <UserMetaContainer>
-              <StyledTag 
-                $type="subscription" 
-                color={getSubscriptionColor(profile.subscription_tier)}
-              >
-                {getSubscriptionLabel(profile.subscription_tier)}
-              </StyledTag>
-            </UserMetaContainer>
-            {variant === 'practice' && (
-              <DailyLimitContainer>
-                <DailyLimitIndicator
-                  current={getCurrentAttempts()}
-                  max={getMaxAttempts()}
-                />
-              </DailyLimitContainer>
-            )}
-            <ActionsContainer>
-              {getUpgradeButton(profile.subscription_tier)}
-            </ActionsContainer>
-          </UserInfoSection>
-        )}
+        <UserInfoSection>
+          <UserProfile />
+          {profile && (
+            <>
+              <UserMetaContainer>
+                <StyledTag 
+                  $type="subscription" 
+                  color={getSubscriptionColor(profile.subscription_tier)}
+                >
+                  {getSubscriptionLabel(profile.subscription_tier)}
+                </StyledTag>
+              </UserMetaContainer>
+              {variant === 'practice' && (
+                <DailyLimitContainer>
+                  <DailyLimitIndicator
+                    current={getCurrentAttempts()}
+                    max={getMaxAttempts()}
+                  />
+                </DailyLimitContainer>
+              )}
+              <ActionsContainer>
+                {getUpgradeButton(profile.subscription_tier)}
+              </ActionsContainer>
+            </>
+          )}
+        </UserInfoSection>
         {children}
       </TopRow>
       

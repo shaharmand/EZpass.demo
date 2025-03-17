@@ -21,6 +21,11 @@ const VideoPlayerWrapper = styled.div<{ $isVisible: boolean }>`
   justify-content: center;
   padding: 0;
   overflow: hidden;
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
 `;
 
 const VideoPlayerContainer = styled.div`
@@ -31,6 +36,7 @@ const VideoPlayerContainer = styled.div`
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  pointer-events: auto;
 `;
 
 const VideoHeader = styled.div`
@@ -43,9 +49,10 @@ const VideoHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 2;
+  z-index: 3;
   direction: rtl;
   height: 48px;
+  pointer-events: auto;
 `;
 
 const VideoTitle = styled.div`
@@ -610,7 +617,7 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
                 {relatedLessons.map(lesson => (
                   <LessonLink 
                     key={lesson.lessonNumber}
-                    href={`http://localhost:3000/courses/safety?lessonId=${lesson.lessonNumber}`}
+                    href={`/courses/safety?lessonId=${lesson.lessonNumber}`}
                   >
                     <h4>{lessonInfoService.getLessonName(lesson.lessonNumber)}</h4>
                     <div className="lesson-info">

@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Avatar, Button, Dropdown, MenuProps, Space } from 'antd';
 import { 
   UserOutlined, 
   SettingOutlined, 
   LogoutOutlined, 
-  LoginOutlined,
+  GoogleOutlined,
   ControlOutlined 
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../../types/userTypes';
+import { AuthModal } from '../Auth/AuthModal';
 
 const UserButton = styled(Button)<{ $isLoggedIn: boolean }>`
   height: 36px;
@@ -25,23 +26,33 @@ const UserButton = styled(Button)<{ $isLoggedIn: boolean }>`
   border-color: ${props => props.$isLoggedIn ? '#2563eb' : '#e2e8f0'};
   color: ${props => props.$isLoggedIn ? '#ffffff' : '#475569'};
   box-shadow: ${props => props.$isLoggedIn 
-    ? '0 2px 4px rgba(37, 99, 235, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+    ? '0 2px 4px rgba(37, 99, 235, 0.15)'
     : '0 1px 2px rgba(0, 0, 0, 0.05)'};
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    background: ${props => props.$isLoggedIn ? '#1d4ed8' : '#ffffff'};
-    border-color: ${props => props.$isLoggedIn ? '#1d4ed8' : '#94a3b8'};
-    color: ${props => props.$isLoggedIn ? '#ffffff' : '#475569'};
-    transform: translateY(-1px);
+    background: ${props => props.$isLoggedIn ? '#1d4ed8' : '#f0f9ff'};
+    border-color: ${props => props.$isLoggedIn ? '#1d4ed8' : '#60a5fa'};
+    color: ${props => props.$isLoggedIn ? '#ffffff' : '#2563eb'};
+    transform: translateY(-2px);
     box-shadow: ${props => props.$isLoggedIn
-      ? '0 4px 8px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
-      : '0 4px 6px rgba(0, 0, 0, 0.05)'};
+      ? '0 8px 12px rgba(37, 99, 235, 0.2), 0 4px 6px rgba(37, 99, 235, 0.1)'
+      : '0 4px 6px -1px rgba(37, 99, 235, 0.1)'};
+  }
+
+  &:active {
+    transform: translateY(0);
+    background: ${props => props.$isLoggedIn ? '#1d4ed8' : '#e0f2fe'};
+    border-color: ${props => props.$isLoggedIn ? '#1d4ed8' : '#3b82f6'};
+    box-shadow: ${props => props.$isLoggedIn
+      ? '0 2px 4px rgba(37, 99, 235, 0.15)'
+      : '0 2px 4px -2px rgba(37, 99, 235, 0.05)'};
   }
 
   .anticon {
     font-size: 16px;
     margin-left: 4px;
+    color: ${props => props.$isLoggedIn ? '#ffffff' : 'inherit'};
   }
 
   .user-name {
@@ -54,6 +65,16 @@ const UserButton = styled(Button)<{ $isLoggedIn: boolean }>`
   .user-role {
     font-size: 12px;
     opacity: 0.8;
+  }
+
+  .guest-text {
+    color: #64748b;
+    font-size: 12px;
+    transition: color 0.3s ease;
+  }
+
+  &:hover .guest-text {
+    color: #2563eb;
   }
 `;
 
@@ -82,16 +103,15 @@ const getRoleLabel = (role: UserRole): string => {
 export interface UserProfileProps {
   variant?: 'admin' | 'base';
   showAvatar?: boolean;
-  onLoginClick?: () => void;
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({
   variant = 'base',
-  showAvatar = false,
-  onLoginClick
+  showAvatar = false
 }) => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   const handleMenuClick: MenuProps['onClick'] = async (e) => {
     switch (e.key) {
@@ -113,7 +133,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({
         }
         break;
       case 'login':
-        onLoginClick?.();
+        setIsLoginModalOpen(true);
+        break;
+      case 'signup':
+        setIsLoginModalOpen(true);
         break;
     }
   };
@@ -143,8 +166,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   ] : [
     {
       key: 'login',
-      icon: <LoginOutlined />,
-      label: 'התחברות'
+      icon: <GoogleOutlined />,
+      label: 'התחבר'
     }
   ];
 
@@ -156,21 +179,37 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
   return (
     <UserContainer>
-      <Dropdown 
-        menu={{ items: menuItems, onClick: handleMenuClick }}
-        placement="bottomRight"
-        trigger={['click']}
-      >
-        <UserButton $isLoggedIn={!!user}>
+      {user ? (
+        <Dropdown 
+          menu={{ items: menuItems, onClick: handleMenuClick }}
+          placement="bottomRight"
+          trigger={['click']}
+        >
+          <UserButton $isLoggedIn={true}>
+            <UserOutlined />
+            <Space direction="vertical" size={0} style={{ lineHeight: 1.2 }}>
+              <span className="user-name">{displayName}</span>
+              {profile?.role && (
+                <span className="user-role">{getRoleLabel(profile.role as UserRole)}</span>
+              )}
+            </Space>
+          </UserButton>
+        </Dropdown>
+      ) : (
+        <UserButton $isLoggedIn={false} onClick={() => setIsLoginModalOpen(true)}>
           <UserOutlined />
           <Space direction="vertical" size={0} style={{ lineHeight: 1.2 }}>
-            <span className="user-name">{displayName}</span>
-            {user && profile?.role && (
-              <span className="user-role">{getRoleLabel(profile.role as UserRole)}</span>
-            )}
+            <span className="user-name">אורח</span>
+            <span className="guest-text">התחבר</span>
           </Space>
         </UserButton>
-      </Dropdown>
+      )}
+
+      <AuthModal
+        open={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        returnUrl={window.location.pathname}
+      />
     </UserContainer>
   );
 };

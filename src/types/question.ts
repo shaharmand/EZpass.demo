@@ -318,7 +318,7 @@ export interface DatabaseQuestion {
   update_metadata?: UpdateMetadata;
   creation_metadata?: CreateMetadata;
   // Additional fields
-  ai_generated_fields: AIGeneratedFields;lets add it  to t
+  ai_generated_fields: AIGeneratedFields;
   import_info?: ImportInfo;
   
   // Audit fields

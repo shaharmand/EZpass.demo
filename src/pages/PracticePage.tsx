@@ -520,7 +520,7 @@ const PracticePage: React.FC = () => {
                       border: '1px solid #bae6fd'
                     }}>
                       <Typography.Text style={{ color: '#1890ff', fontWeight: 500 }}>
-                        לחץ על כפתור העזרה בשאלה כדי לקבל הסבר מפורט
+                        עזרה אישית בקרוב
                       </Typography.Text>
                     </div>
                   )}

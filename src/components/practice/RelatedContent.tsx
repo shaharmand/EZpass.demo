@@ -5,7 +5,8 @@ import { Question } from '../../types/question';
 import { LearningContentService } from '../../services/learningContentService';
 import { videoContentService } from '../../services/videoContentService';
 import { VideoPlayer } from './VideoPlayer';
-import { CloseOutlined } from '@ant-design/icons';
+import { CloseOutlined, ClockCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { lessonInfoService } from '../../services/lessonInfoService';
 
 const VideoPlayerWrapper = styled.div<{ $isVisible: boolean }>`
   position: absolute;
@@ -60,9 +61,11 @@ const VideoTitle = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
 
-  .lesson-number {
+  .lesson-name {
     color: rgba(255, 255, 255, 0.8);
     font-size: 14px;
+    white-space: normal;
+    line-height: 1.2;
   }
 
   .separator {
@@ -262,9 +265,11 @@ const VideoListItem = styled.div<{ $isFeatured?: boolean }>`
     .lesson-name {
       font-size: ${props => props.$isFeatured ? '14px' : '12px'};
       color: #666;
-      white-space: nowrap;
+      line-height: 1.2;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      text-overflow: ellipsis;
     }
 
     .video-title {
@@ -279,30 +284,38 @@ const VideoListItem = styled.div<{ $isFeatured?: boolean }>`
   }
 `;
 
-const LessonLink = styled.div`
-  padding: 8px 12px;
-  border-radius: 8px;
+const LessonLink = styled.a`
+  display: block;
+  padding: 16px;
   background: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: background-color 0.2s;
   cursor: pointer;
-  transition: all 0.2s ease;
 
   &:hover {
-    background: #eee;
+    background: #e8e8e8;
   }
 
   h4 {
-    margin: 0 0 2px 0;
-    font-size: 14px;
+    margin: 0 0 8px;
+    font-size: 16px;
     color: #333;
   }
 
-  p {
-    margin: 0;
-    font-size: 12px;
+  .lesson-info {
+    font-size: 14px;
     color: #666;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: flex;
+    gap: 12px;
+
+    span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
   }
 `;
 
@@ -319,6 +332,7 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
   const [videos, setVideos] = useState<VideoContent[]>([]);
   const [activeVideo, setActiveVideo] = useState<VideoContent | null>(null);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [relatedLessons, setRelatedLessons] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -385,6 +399,35 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
     };
   }, [isVideoPlaying]);
 
+  const featuredVideo = videos[0];
+  const currentLessonNumber = activeVideo?.lessonNumber || featuredVideo?.lessonNumber;
+
+  useEffect(() => {
+    const fetchRelatedLessons = async () => {
+      console.log('Fetching related lessons with:', {
+        currentLessonNumber,
+        subtopicId
+      });
+
+      if (currentLessonNumber && subtopicId) {
+        try {
+          const lessons = await videoContentService.getRelatedLessons(subtopicId, currentLessonNumber);
+          console.log('Found related lessons:', lessons);
+          setRelatedLessons(lessons);
+        } catch (error) {
+          console.error('Error fetching related lessons:', error);
+        }
+      } else {
+        console.log('Missing required data for fetching lessons:', {
+          currentLessonNumber,
+          subtopicId
+        });
+      }
+    };
+
+    fetchRelatedLessons();
+  }, [currentLessonNumber, subtopicId]);
+
   const handleVideoClick = (video: VideoContent) => {
     setActiveVideo(video);
     setIsVideoPlaying(true);
@@ -405,11 +448,42 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
     }
   }, []);
 
+  const handleNextVideo = () => {
+    if (!activeVideo || !videos) return;
+    
+    const currentIndex = videos.findIndex(v => v.videoId === activeVideo.videoId);
+    if (currentIndex < videos.length - 1) {
+      setActiveVideo(videos[currentIndex + 1]);
+    }
+  };
+
+  const handlePreviousVideo = () => {
+    if (!activeVideo || !videos) return;
+    
+    const currentIndex = videos.findIndex(v => v.videoId === activeVideo.videoId);
+    if (currentIndex > 0) {
+      setActiveVideo(videos[currentIndex - 1]);
+    }
+  };
+
+  const hasNextVideo = () => {
+    if (!activeVideo || !videos) return false;
+    
+    const currentIndex = videos.findIndex(v => v.videoId === activeVideo.videoId);
+    return currentIndex < videos.length - 1;
+  };
+
+  const hasPreviousVideo = () => {
+    if (!activeVideo || !videos) return false;
+    
+    const currentIndex = videos.findIndex(v => v.videoId === activeVideo.videoId);
+    return currentIndex > 0;
+  };
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
-  const featuredVideo = videos[0];
   const relatedVideos = videos.slice(1, 4);
 
   return (
@@ -420,7 +494,7 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
             <VideoTitle>
               {activeVideo && (
                 <>
-                  <span className="lesson-number">שיעור {activeVideo.lessonNumber}</span>
+                  <span className="lesson-name">{lessonInfoService.getLessonName(activeVideo.lessonNumber)}</span>
                   <span className="separator">|</span>
                   <span className="title">{activeVideo.title}</span>
                 </>
@@ -438,7 +512,7 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
                 videoId={activeVideo.videoId}
                 videoSource={VideoSource.VIMEO}
                 title={activeVideo.title}
-                isOpen={isVideoPlaying}
+                isOpen={!!activeVideo}
                 onClose={handleVideoClose}
               />
             )}
@@ -463,7 +537,7 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
                   alt={featuredVideo.title} 
                 />
                 <div className="content">
-                  <span className="lesson-name">שיעור: {featuredVideo.lessonNumber || 'N/A'}</span>
+                  <span className="lesson-name">{lessonInfoService.getLessonName(featuredVideo.lessonNumber)}</span>
                   <span className="video-title">{featuredVideo.title}</span>
                 </div>
               </VideoListItem>
@@ -483,7 +557,7 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
                     alt={video.title} 
                   />
                   <div className="content">
-                    <span className="lesson-name">שיעור: {video.lessonNumber || 'N/A'}</span>
+                    <span className="lesson-name">{lessonInfoService.getLessonName(video.lessonNumber)}</span>
                     <span className="video-title">{video.title}</span>
                   </div>
                 </VideoListItem>
@@ -491,19 +565,31 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
             </div>
           </RelatedSection>
 
-          <NextLessonsSection $isPlaying={isVideoPlaying}>
-            <h3>שיעורים הבאים</h3>
-            <div className="lessons-container">
-              <LessonLink onClick={() => handleLessonClick(22)}>
-                <h4>שיעור 22</h4>
-                <p>עגורן צריח - בדיקות בודק מוסמך</p>
-              </LessonLink>
-              <LessonLink onClick={() => handleLessonClick(23)}>
-                <h4>שיעור 23</h4>
-                <p>עגורנאים - הרשאה להפעלה</p>
-              </LessonLink>
-            </div>
-          </NextLessonsSection>
+          {relatedLessons.length > 0 && (
+            <NextLessonsSection $isPlaying={isVideoPlaying}>
+              <h3>שיעור מלא</h3>
+              <div className="lessons-container">
+                {relatedLessons.map(lesson => (
+                  <LessonLink 
+                    key={lesson.lessonNumber}
+                    href={`http://localhost:3000/courses/safety?lessonId=${lesson.lessonNumber}`}
+                  >
+                    <h4>{lessonInfoService.getLessonName(lesson.lessonNumber)}</h4>
+                    <div className="lesson-info">
+                      <span>
+                        <ClockCircleOutlined />
+                        {videoContentService.formatDuration(lesson.totalDuration)}
+                      </span>
+                      <span>
+                        <PlayCircleOutlined />
+                        {lesson.videoCount} סרטונים
+                      </span>
+                    </div>
+                  </LessonLink>
+                ))}
+              </div>
+            </NextLessonsSection>
+          )}
         </>
       )}
     </ContentSection>

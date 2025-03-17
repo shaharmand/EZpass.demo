@@ -1,22 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { PlayCircleOutlined, ClockCircleOutlined, CaretLeftOutlined } from '@ant-design/icons';
 import type { VideoData, LessonInfo, Topic } from './types';
 
 const NavContainer = styled.div`
   width: 100%;
-  max-width: 400px;
   height: 100%;
   background: #ffffff;
   overflow-y: auto;
   direction: rtl;
-  padding: 16px 0;
+  padding: 0;
   border-left: 1px solid #e5e7eb;
-  margin-right: auto;
-
-  @media (max-width: 768px) {
-    margin-right: 0;
-  }
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -33,17 +27,17 @@ const NavContainer = styled.div`
 `;
 
 const CourseTitle = styled.div`
-  padding: 0 24px 20px 24px;
-  margin-bottom: 20px;
+  padding: 16px 24px;
+  margin-bottom: 16px;
   border-bottom: 1px solid #e5e7eb;
   background: #f8fafc;
+  width: 100%;
 
   h1 {
     font-size: 20px;
     font-weight: 600;
     color: #1f2937;
     margin: 0 0 12px 0;
-    padding: 16px 0 0 0;
   }
 
   .stats {
@@ -52,12 +46,14 @@ const CourseTitle = styled.div`
     gap: 12px;
     font-size: 14px;
     color: #6b7280;
+    width: 100%;
 
     .stats-row {
       display: flex;
       flex-wrap: wrap;
       gap: 16px;
       align-items: center;
+      width: 100%;
     }
 
     .stat-item {
@@ -97,33 +93,35 @@ const Progress = styled.div`
 `;
 
 const TopicItem = styled.div`
-  margin: 8px 16px;
-  border-radius: 12px;
+  margin: 16px 16px;
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e5e7eb;
+  width: calc(100% - 32px);
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #334155;
   
   &:last-child {
-    margin-bottom: 16px;
+    margin-bottom: 24px;
   }
 `;
 
 const TopicHeader = styled.div<{ $isOpen: boolean }>`
-  padding: 16px 20px;
-  font-size: 16px;
+  padding: 16px 24px;
+  font-size: 18px;
   font-weight: 600;
-  color: #1f2937;
+  color: #0f172a;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: ${props => props.$isOpen ? '#f8fafc' : '#ffffff'};
+  background: ${props => props.$isOpen ? '#334155' : '#475569'};
   transition: all 0.3s ease;
-  border-bottom: 1px solid ${props => props.$isOpen ? '#e5e7eb' : 'transparent'};
+  width: 100%;
+  border-radius: ${props => props.$isOpen ? '12px 12px 0 0' : '12px'};
 
   &:hover {
-    background: #f8fafc;
+    background: #334155;
   }
 
   .topic-header-main {
@@ -137,6 +135,9 @@ const TopicHeader = styled.div<{ $isOpen: boolean }>`
     display: flex;
     align-items: center;
     gap: 12px;
+    font-size: 17px;
+    color: #f8fafc;
+    font-weight: 600;
   }
 
   .topic-metadata {
@@ -147,7 +148,7 @@ const TopicHeader = styled.div<{ $isOpen: boolean }>`
 
   .topic-duration {
     font-size: 13px;
-    color: #6b7280;
+    color: #cbd5e1;
     font-weight: 500;
     display: flex;
     align-items: center;
@@ -156,8 +157,8 @@ const TopicHeader = styled.div<{ $isOpen: boolean }>`
 
   .topic-progress {
     font-size: 13px;
-    color: #10b981;
-    font-weight: 500;
+    color: #4ade80;
+    font-weight: 600;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -165,7 +166,7 @@ const TopicHeader = styled.div<{ $isOpen: boolean }>`
 
   .topic-progress-bar {
     height: 4px;
-    background: #e5e7eb;
+    background: #1e293b;
     border-radius: 2px;
     overflow: hidden;
     width: 100%;
@@ -173,14 +174,14 @@ const TopicHeader = styled.div<{ $isOpen: boolean }>`
 
     .progress-fill {
       height: 100%;
-      background: #10b981;
+      background: #4ade80;
       border-radius: 2px;
       transition: width 0.3s ease;
     }
   }
 
   .caret {
-    color: #6b7280;
+    color: #cbd5e1;
     transform: ${props => props.$isOpen ? 'rotate(-90deg)' : 'rotate(0deg)'};
     transition: transform 0.3s ease;
   }
@@ -189,36 +190,63 @@ const TopicHeader = styled.div<{ $isOpen: boolean }>`
 const LessonContainer = styled.div<{ $isOpen: boolean }>`
   display: ${props => props.$isOpen ? 'block' : 'none'};
   background: #ffffff;
-  padding: 8px 12px;
+  padding: 12px 12px 12px 24px;
+  width: 100%;
+  border-radius: 0 0 12px 12px;
+  border-top: 1px solid #475569;
 `;
 
-const LessonHeader = styled.div<{ $isActive: boolean; $isCompleted: boolean }>`
-  padding: 8px 12px;
+const ProgressBar = styled.div<{ $progress: number }>`
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+  width: 100%;
+  margin-top: 4px;
+
+  .progress-fill {
+    height: 100%;
+    background: #10b981;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: ${props => Math.min(Math.max(props.$progress, 0), 100)}%;
+  }
+`;
+
+const LessonHeader = styled.div<{ $isActive: boolean; $isCompleted: boolean; $isExpanded: boolean }>`
+  padding: 12px 16px;
   cursor: pointer;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  border-radius: 6px;
+  flex-direction: column;
+  gap: 8px;
   background: ${props => {
     if (props.$isActive) return '#eff6ff';
-    if (props.$isCompleted) return '#ecfdf5';
-    return 'transparent';
+    if (props.$isCompleted) return '#dcfce7';
+    return '#f1f5f9';
   }};
   border: 2px solid ${props => {
     if (props.$isActive) return '#3b82f6';
-    if (props.$isCompleted) return '#10b981';
     return 'transparent';
   }};
-  position: relative;
+  width: 100%;
   transition: all 0.2s ease;
+  border-radius: 8px;
+  position: relative;
+
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
 
   &:hover {
     background: ${props => {
       if (props.$isActive) return '#eff6ff';
-      if (props.$isCompleted) return '#d1fae5';
-      return '#f3f4f6';
+      if (props.$isCompleted) return '#bbf7d0';
+      return '#e2e8f0';
     }};
-    transform: translateX(-4px);
+    border-color: ${props => props.$isActive ? '#3b82f6' : '#e5e7eb'};
   }
 
   .lesson-content {
@@ -269,8 +297,13 @@ const LessonHeader = styled.div<{ $isActive: boolean; $isCompleted: boolean }>`
 `;
 
 const LessonItem = styled.div<{ $isOpen: boolean; $isActive: boolean; $isCompleted: boolean }>`
-  margin: 4px 0;
+  margin: 4px 4px;
   transition: all 0.2s ease;
+  border-radius: 8px;
+  border: 1px solid ${props => props.$isOpen ? '#e5e7eb' : 'transparent'};
+  background: ${props => props.$isOpen ? '#ffffff' : 'transparent'};
+  box-shadow: ${props => props.$isOpen ? '0 1px 3px rgba(0, 0, 0, 0.05)' : 'none'};
+  position: relative;
 
   &:first-child {
     margin-top: 0;
@@ -279,10 +312,46 @@ const LessonItem = styled.div<{ $isOpen: boolean; $isActive: boolean; $isComplet
   &:last-child {
     margin-bottom: 0;
   }
+
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -16px;
+    width: 2px;
+    background: #e5e7eb;
+  }
+
+  &:after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -16px;
+    width: 12px;
+    height: 2px;
+    background: #e5e7eb;
+  }
+
+  .lesson-progress-bar {
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 2px;
+    overflow: hidden;
+    width: 100%;
+    margin-top: 4px;
+
+    .progress-fill {
+      height: 100%;
+      background: #10b981;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+  }
 `;
 
 const LessonTitle = styled.div<{ $isActive: boolean; $isCompleted: boolean }>`
-  font-size: 14px;
+  font-size: 15px;
   font-weight: ${props => (props.$isActive || props.$isCompleted) ? '600' : '500'};
   color: ${props => {
     if (props.$isActive) return '#3b82f6';
@@ -316,6 +385,7 @@ const LessonMetadata = styled.div`
     padding: 2px 8px;
     background: #f3f4f6;
     border-radius: 12px;
+    margin-right: auto;
   }
 
   .lesson-progress {
@@ -329,60 +399,81 @@ const VideoList = styled.div<{ $isVisible: boolean }>`
   opacity: ${props => props.$isVisible ? '1' : '0'};
   overflow: hidden;
   transition: all 0.3s ease-in-out;
-  padding: ${props => props.$isVisible ? '8px 4px' : '0'};
-  background: ${props => props.$isVisible ? '#ffffff' : 'transparent'};
+  padding: ${props => props.$isVisible ? '8px 8px 8px 32px' : '0'};
+  background: #ffffff;
+  width: 100%;
   border-radius: 0 0 8px 8px;
-  margin: 0 4px;
+  position: relative;
+
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 40px;
+    width: 2px;
+    background: #e5e7eb;
+  }
 `;
 
 const VideoItem = styled.div<{ $isActive: boolean; $isWatched: boolean }>`
-  padding: 8px 12px;
-  margin: 2px 0;
+  padding: 12px 16px;
   cursor: pointer;
-  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   background: ${props => {
     if (props.$isActive) return '#eff6ff';
-    if (props.$isWatched) return '#ecfdf5';
-    return 'transparent';
+    if (props.$isWatched) return '#f8fafc';
+    return '#ffffff';
   }};
-  border: 2px solid ${props => {
+  border: 1px solid ${props => {
     if (props.$isActive) return '#3b82f6';
-    if (props.$isWatched) return '#10b981';
+    if (props.$isWatched) return '#e5e7eb';
     return 'transparent';
   }};
-  opacity: 1;
+  border-radius: 8px;
   transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin: 4px 0;
   position: relative;
-  
+
+  &:before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -24px;
+    width: 16px;
+    height: 2px;
+    background: #e5e7eb;
+  }
+
   &:hover {
     background: ${props => {
       if (props.$isActive) return '#eff6ff';
-      if (props.$isWatched) return '#d1fae5';
-      return '#f3f4f6';
+      if (props.$isWatched) return '#f1f5f9';
+      return '#f8fafc';
     }};
     border-color: ${props => {
       if (props.$isActive) return '#3b82f6';
-      if (props.$isWatched) return '#10b981';
       return '#e5e7eb';
     }};
-    transform: translateX(-4px);
   }
 
-  &:active {
-    transform: translateX(-2px);
+  .video-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
   }
 
   .video-icon {
-    color: ${props => props.$isActive ? '#3b82f6' : props.$isWatched ? '#10b981' : '#6b7280'};
+    color: ${props => {
+      if (props.$isActive) return '#3b82f6';
+      if (props.$isWatched) return '#10b981';
+      return '#6b7280';
+    }};
     font-size: 16px;
-    transition: transform 0.2s ease;
-  }
-
-  &:hover .video-icon {
-    transform: scale(1.1);
+    transition: all 0.2s ease;
   }
 
   .segment-number {
@@ -409,14 +500,6 @@ const VideoItem = styled.div<{ $isActive: boolean; $isWatched: boolean }>`
     align-items: center;
     gap: 4px;
     transition: all 0.2s ease;
-
-    .progress-text {
-      color: ${props => props.$isWatched ? '#10b981' : '#3b82f6'};
-      font-weight: 600;
-      padding-left: 4px;
-      border-left: 1px solid ${props => props.$isWatched ? '#6ee7b7' : '#e5e7eb'};
-      margin-left: 4px;
-    }
   }
 
   &:hover .duration-badge {
@@ -508,6 +591,8 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
 }) => {
   const [openTopics, setOpenTopics] = useState<string[]>([]);
   const [openLessons, setOpenLessons] = useState<number[]>([]);
+  const selectedLessonRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Update state management to handle selectedVideo changes more safely
   useEffect(() => {
@@ -527,8 +612,34 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
           }
           return prev;
         });
+
+        // Clear any existing scroll timeout
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
+
+        // Set new scroll timeout
+        scrollTimeoutRef.current = setTimeout(() => {
+          if (selectedLessonRef.current) {
+            try {
+              selectedLessonRef.current.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+              });
+            } catch (error) {
+              console.warn('Failed to scroll to selected lesson:', error);
+            }
+          }
+        }, 300); // Increased delay to ensure animations complete
       }
     }
+
+    // Cleanup function
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, [selectedVideo, topics]);
 
   const toggleTopic = (topicId: string) => {
@@ -564,7 +675,10 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
       }
       // Keep currently selected lesson open when opening a new one
       const currentLessonId = selectedVideo?.lessonNumber;
-      return [...prev.filter(id => id === currentLessonId), lessonId];
+      if (currentLessonId) {
+        return [...prev.filter(id => id === currentLessonId), lessonId];
+      }
+      return [...prev, lessonId];
     });
   };
 
@@ -703,11 +817,11 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
                     $isOpen={openLessons.includes(lessonId)}
                     $isActive={isLessonActive}
                     $isCompleted={completed}
+                    ref={isLessonActive ? selectedLessonRef : undefined}
                   >
                     <LessonHeader 
                       onClick={() => {
                         toggleLesson(lessonId);
-                        // If there's only one video in the lesson, select it directly
                         const lessonVideos = videos.filter(v => v.lessonNumber === lessonId);
                         if (lessonVideos.length === 1) {
                           onVideoSelect(lessonVideos[0]);
@@ -715,29 +829,43 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
                       }}
                       $isActive={isLessonActive}
                       $isCompleted={completed}
-                      data-expanded={openLessons.includes(lessonId)}
+                      $isExpanded={openLessons.includes(lessonId)}
                     >
-                      <div className="progress-indicator" />
-                      <div className="lesson-content">
-                        <LessonTitle 
-                          $isActive={isLessonActive}
-                          $isCompleted={completed}
-                        >
-                          {lesson.name}
-                        </LessonTitle>
-                        <LessonMetadata>
-                          <span className="lesson-duration">
-                            <ClockCircleOutlined /> {lessonDuration}
-                          </span>
-                          {lessonProgress.completed > 0 && (
-                            <span className="lesson-progress">
-                              <PlayCircleOutlined /> {lessonProgress.completed}/{lessonProgress.total}
+                      <div className="header-content">
+                        <div className="progress-indicator" />
+                        <div className="lesson-content">
+                          <LessonTitle 
+                            $isActive={isLessonActive}
+                            $isCompleted={completed}
+                          >
+                            {lesson.name}
+                          </LessonTitle>
+                          <LessonMetadata>
+                            <span className="lesson-duration">
+                              <ClockCircleOutlined /> {lessonDuration}
                             </span>
-                          )}
-                        </LessonMetadata>
+                          </LessonMetadata>
+                        </div>
+                        {videos.filter(v => v.lessonNumber === lessonId).length > 1 && (
+                          <CaretLeftOutlined className="expand-indicator" />
+                        )}
                       </div>
-                      {videos.filter(v => v.lessonNumber === lessonId).length > 1 && (
-                        <CaretLeftOutlined className="expand-indicator" />
+                      <div className="lesson-progress-bar">
+                        <div 
+                          className="progress-fill" 
+                          style={{ width: `${Math.round(lessonProgress.percentage)}%` }} 
+                        />
+                      </div>
+                      {lessonProgress.completed > 0 && (
+                        <div style={{ 
+                          fontSize: '12px', 
+                          color: '#10b981', 
+                          fontWeight: '500',
+                          textAlign: 'left',
+                          marginTop: '-4px'
+                        }}>
+                          {lessonProgress.completed}/{lessonProgress.total} סרטונים הושלמו
+                        </div>
                       )}
                     </LessonHeader>
                     
@@ -749,7 +877,6 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
                           .map(video => {
                             const videoProgressData = videoProgress.find(p => p.videoId === video.id);
                             const isWatched = videoProgressData?.completed || false;
-                            const progress = videoProgressData?.progress || 0;
 
                             return (
                               <VideoItem 
@@ -758,18 +885,17 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
                                 $isActive={selectedVideo?.id === video.id}
                                 $isWatched={isWatched}
                               >
-                                <PlayCircleOutlined className="video-icon" />
-                                <span className="segment-number">{video.segmentNumber}</span>
-                                <VideoTitle $isActive={selectedVideo?.id === video.id} $isWatched={isWatched}>
-                                  {video.title}
-                                </VideoTitle>
-                                <span className="duration-badge">
-                                  {progress > 0 && !isWatched && (
-                                    <span className="progress-text">{Math.round(progress)}%</span>
-                                  )}
-                                  <ClockCircleOutlined />
-                                  {formatNavigationTime(video.duration)}
-                                </span>
+                                <div className="video-content">
+                                  <PlayCircleOutlined className="video-icon" />
+                                  <span className="segment-number">{video.segmentNumber}</span>
+                                  <VideoTitle $isActive={selectedVideo?.id === video.id} $isWatched={isWatched}>
+                                    {video.title}
+                                  </VideoTitle>
+                                  <span className="duration-badge">
+                                    <ClockCircleOutlined />
+                                    {formatNavigationTime(video.duration)}
+                                  </span>
+                                </div>
                               </VideoItem>
                             );
                           })}

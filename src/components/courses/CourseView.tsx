@@ -1,14 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { Typography, Card, Button } from 'antd';
-import { PlayCircleOutlined, ClockCircleOutlined, BookOutlined, LeftOutlined, RightOutlined, LoadingOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, ClockCircleOutlined, BookOutlined, LeftOutlined, RightOutlined, LoadingOutlined, ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import Player from '@vimeo/player';
 import CourseLayout from './CourseLayout';
 import CourseNavigation from './CourseNavigation';
 import { CourseData, VideoData } from './types';
 import CourseHeader from './CourseHeader';
+import { VideoPlayer } from '../practice/VideoPlayer';
+import { VideoSource } from '../../types/videoContent';
 
 const { Title, Text } = Typography;
+
+const CourseContainer = styled.div`
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+`;
 
 const VideoContainer = styled.div`
   padding: 32px;
@@ -18,17 +26,19 @@ const VideoContainer = styled.div`
   gap: 24px;
   max-width: 1200px;
   margin: 0 auto;
-  overflow: hidden;
+  overflow-y: auto;
 `;
 
 const VideoWrapper = styled.div`
   position: relative;
   width: 100%;
-  padding-top: 56.25%; /* 16:9 Aspect Ratio */
+  padding-top: min(56.25%, calc(100vh - 600px)); /* 16:9 Aspect Ratio with max height */
   background: #000;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  flex: 1 1 auto;
+  min-height: 0; /* Allow shrinking */
 `;
 
 const PlayerContainer = styled.div`
@@ -90,26 +100,40 @@ const PlayerContainer = styled.div`
   }
 `;
 
-const VideoInfo = styled(Card)`
+const VideoDetailsCard = styled(Card)`
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin-bottom: 24px;
+  flex: 0 0 auto;
 
   .ant-card-body {
     padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
+`;
+
+const LessonName = styled.div`
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 8px;
 `;
 
 const VideoTitle = styled(Title)`
   margin-bottom: 16px !important;
-  font-size: 24px !important;
+  font-size: 28px !important;
+  color: #1e293b;
+  line-height: 1.3;
 `;
 
 const VideoMeta = styled.div`
   display: flex;
   gap: 16px;
-  margin-bottom: 24px;
   color: #666;
   font-size: 14px;
+  flex: 0 0 auto;
+  margin-bottom: 0;
 
   span {
     display: flex;
@@ -133,6 +157,7 @@ const VideoDescription = styled(Text)`
   font-size: 16px;
   line-height: 1.6;
   color: #4a4a4a;
+  margin-bottom: 0;
 `;
 
 const WelcomeContainer = styled(Card)`
@@ -167,20 +192,65 @@ const formatDuration = (minutes: number) => {
   return hours > 0 ? `${hours}ש' ${mins}ד'` : `${mins}ד'`;
 };
 
-const NavigationButtons = styled.div`
+const VideoDetails = styled.div`
   display: flex;
-  gap: 16px;
-  margin-top: 24px;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: #1e293b;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.4;
+  }
 `;
 
-const NavButton = styled(Button)`
+const NavigationButtons = styled.div`
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 0;
+`;
+
+const NavButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
   display: flex;
   align-items: center;
-  gap: 8px;
-  
-  &[disabled] {
-    pointer-events: none;
+  gap: 6px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: ${props => props.$variant === 'primary' ? '#3b82f6' : '#f3f4f6'};
+  color: ${props => props.$variant === 'primary' ? 'white' : '#4b5563'};
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 28px;
+
+  &:hover {
+    background: ${props => props.$variant === 'primary' ? '#2563eb' : '#e5e7eb'};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 `;
 
@@ -209,18 +279,31 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
   const playerContainerRef = useRef<HTMLDivElement | null>(null);
   const lastTimeUpdateRef = useRef<number>(0);
   const wasSeekingRef = useRef<boolean>(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
-  // Find the first video when component mounts
+  // Combined initial video selection logic
   useEffect(() => {
-    if (!selectedVideo && courseData.topics.length > 0) {
-      const firstTopic = courseData.topics[0];
-      const firstLesson = firstTopic.lessons[0];
-      const firstVideo = courseData.videos
-        .filter(v => v.lessonNumber === firstLesson)
-        .sort((a, b) => a.segmentNumber - b.segmentNumber)[0];
+    if (!selectedVideo) {
+      let targetVideo: VideoData | null = null;
+
+      if (courseData.initialLessonId) {
+        // Find first video of the specified lesson
+        targetVideo = courseData.videos
+          .filter(v => v.lessonNumber === courseData.initialLessonId)
+          .sort((a, b) => a.segmentNumber - b.segmentNumber)[0];
+      } 
       
-      if (firstVideo) {
-        setSelectedVideo(firstVideo);
+      if (!targetVideo && courseData.topics.length > 0) {
+        // Fallback to first video of first lesson if no specific lesson ID or video not found
+        const firstTopic = courseData.topics[0];
+        const firstLesson = firstTopic.lessons[0];
+        targetVideo = courseData.videos
+          .filter(v => v.lessonNumber === firstLesson)
+          .sort((a, b) => a.segmentNumber - b.segmentNumber)[0];
+      }
+      
+      if (targetVideo) {
+        setSelectedVideo(targetVideo);
       }
     }
   }, [courseData, selectedVideo]);
@@ -399,6 +482,26 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
     }
   };
 
+  const handleVideoClick = (video: VideoData) => {
+    setSelectedVideo(video);
+    setIsVideoPlaying(true);
+  };
+
+  const handleVideoClose = () => {
+    setIsVideoPlaying(false);
+    setSelectedVideo(null);
+  };
+
+  // Group videos by lesson number
+  const videosByLesson = courseData.videos.reduce((acc, video) => {
+    const lessonNumber = video.lessonNumber;
+    if (!acc[lessonNumber]) {
+      acc[lessonNumber] = [];
+    }
+    acc[lessonNumber].push(video);
+    return acc;
+  }, {} as Record<number, VideoData[]>);
+
   const renderContent = () => {
     if (!selectedVideo) {
       return (
@@ -414,7 +517,6 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
     const topic = courseData.topics.find(t => t.lessons.includes(selectedVideo.lessonNumber));
     const prevVideo = findAdjacentVideo('prev');
     const nextVideo = findAdjacentVideo('next');
-
     const currentProgress = videoProgress.find(p => p.videoId === selectedVideo.id);
 
     return (
@@ -428,17 +530,16 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
             )}
           </PlayerContainer>
         </VideoWrapper>
-        <VideoInfo>
+        
+        <VideoDetailsCard>
+          <LessonName>{lesson?.name}</LessonName>
           <VideoTitle level={3}>{selectedVideo.title}</VideoTitle>
           <VideoMeta>
-            <span>
-              <BookOutlined /> {topic?.title}
-            </span>
             <span>
               <PlayCircleOutlined /> חלק {selectedVideo.segmentNumber}
             </span>
             <span>
-              <ClockCircleOutlined /> {formatDuration(selectedVideo.duration)}
+              <ClockCircleOutlined />{' '}{formatDuration(selectedVideo.duration)}
             </span>
             <span className="progress-indicator">
               <PlayCircleOutlined /> 
@@ -450,23 +551,22 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
           )}
           <NavigationButtons>
             <NavButton 
-              type="default"
               onClick={() => handleNavigate('prev')}
               disabled={!prevVideo}
-              icon={<LeftOutlined />}
             >
-              {prevVideo ? `הקודם: ${prevVideo.title}` : 'אין וידאו קודם'}
+              <RightOutlined />
+              <span>{prevVideo ? prevVideo.title : 'אין וידאו קודם'}</span>
             </NavButton>
             <NavButton 
-              type="primary"
+              $variant="primary"
               onClick={() => handleNavigate('next')}
               disabled={!nextVideo}
             >
-              {nextVideo ? `הבא: ${nextVideo.title}` : 'אין וידאו הבא'}
-              {nextVideo && <RightOutlined />}
+              <span>{nextVideo ? nextVideo.title : 'אין וידאו הבא'}</span>
+              <LeftOutlined />
             </NavButton>
           </NavigationButtons>
-        </VideoInfo>
+        </VideoDetailsCard>
       </VideoContainer>
     );
   };
@@ -494,8 +594,88 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
     />
   );
 
+  const handleNextVideo = () => {
+    if (!selectedVideo || !courseData) return;
+    
+    const currentLessonVideos = courseData.videos.filter(v => v.lessonNumber === selectedVideo.lessonNumber);
+    const currentIndex = currentLessonVideos.findIndex(v => v.id === selectedVideo.id);
+    
+    if (currentIndex < currentLessonVideos.length - 1) {
+      setSelectedVideo(currentLessonVideos[currentIndex + 1]);
+    } else {
+      const allLessons = courseData.topics.flatMap(t => t.lessons);
+      const currentLessonIndex = allLessons.indexOf(selectedVideo.lessonNumber);
+      
+      if (currentLessonIndex < allLessons.length - 1) {
+        const nextLessonVideos = courseData.videos.filter(v => v.lessonNumber === allLessons[currentLessonIndex + 1]);
+        if (nextLessonVideos.length > 0) {
+          setSelectedVideo(nextLessonVideos[0]);
+        }
+      }
+    }
+  };
+
+  const handlePreviousVideo = () => {
+    if (!selectedVideo || !courseData) return;
+    
+    const currentLessonVideos = courseData.videos.filter(v => v.lessonNumber === selectedVideo.lessonNumber);
+    const currentIndex = currentLessonVideos.findIndex(v => v.id === selectedVideo.id);
+    
+    if (currentIndex > 0) {
+      setSelectedVideo(currentLessonVideos[currentIndex - 1]);
+    } else {
+      const allLessons = courseData.topics.flatMap(t => t.lessons);
+      const currentLessonIndex = allLessons.indexOf(selectedVideo.lessonNumber);
+      
+      if (currentLessonIndex > 0) {
+        const prevLessonVideos = courseData.videos.filter(v => v.lessonNumber === allLessons[currentLessonIndex - 1]);
+        if (prevLessonVideos.length > 0) {
+          setSelectedVideo(prevLessonVideos[prevLessonVideos.length - 1]);
+        }
+      }
+    }
+  };
+
+  const hasNextVideo = () => {
+    if (!selectedVideo || !courseData) return false;
+    
+    const currentLessonVideos = courseData.videos.filter(v => v.lessonNumber === selectedVideo.lessonNumber);
+    const currentIndex = currentLessonVideos.findIndex(v => v.id === selectedVideo.id);
+    
+    if (currentIndex < currentLessonVideos.length - 1) return true;
+    
+    const allLessons = courseData.topics.flatMap(t => t.lessons);
+    const currentLessonIndex = allLessons.indexOf(selectedVideo.lessonNumber);
+    
+    if (currentLessonIndex < allLessons.length - 1) {
+      const nextLessonVideos = courseData.videos.filter(v => v.lessonNumber === allLessons[currentLessonIndex + 1]);
+      return nextLessonVideos.length > 0;
+    }
+    
+    return false;
+  };
+
+  const hasPreviousVideo = () => {
+    if (!selectedVideo || !courseData) return false;
+    
+    const currentLessonVideos = courseData.videos.filter(v => v.lessonNumber === selectedVideo.lessonNumber);
+    const currentIndex = currentLessonVideos.findIndex(v => v.id === selectedVideo.id);
+    
+    if (currentIndex > 0) return true;
+    
+    const allLessons = courseData.topics.flatMap(t => t.lessons);
+    const currentLessonIndex = allLessons.indexOf(selectedVideo.lessonNumber);
+    
+    if (currentLessonIndex > 0) {
+      const prevLessonVideos = courseData.videos.filter(v => v.lessonNumber === allLessons[currentLessonIndex - 1]);
+      return prevLessonVideos.length > 0;
+    }
+    
+    return false;
+  };
+
   return (
-    <>
+    <CourseContainer>
       <CourseHeader
         courseTitle="קורס בטיחות בבניה"
       />
@@ -505,8 +685,79 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
       >
         {renderContent()}
       </CourseLayout>
-    </>
+      {isVideoPlaying && selectedVideo && (
+        <>
+          <VideoPlayer
+            videoId={selectedVideo.vimeoId}
+            videoSource={VideoSource.VIMEO}
+            title={selectedVideo.title}
+            isOpen={isVideoPlaying}
+            onClose={handleVideoClose}
+          />
+          <VideoDetails>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3>{selectedVideo.title}</h3>
+                {selectedVideo.description && <p>{selectedVideo.description}</p>}
+              </div>
+              <NavigationButtons>
+                <NavButton
+                  onClick={handlePreviousVideo}
+                  disabled={!hasPreviousVideo()}
+                >
+                  <ArrowLeftOutlined /> Previous
+                </NavButton>
+                <NavButton
+                  onClick={handleNextVideo}
+                  disabled={!hasNextVideo()}
+                  $variant="primary"
+                >
+                  Next <ArrowRightOutlined />
+                </NavButton>
+              </NavigationButtons>
+            </div>
+          </VideoDetails>
+        </>
+      )}
+    </CourseContainer>
   );
 };
 
-export default CourseView; 
+const VideoPlayerWrapper = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const TopicSection = styled.div`
+  margin-bottom: 32px;
+
+  h2 {
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+`;
+
+const LessonSection = styled.div`
+  margin-bottom: 24px;
+
+  h3 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+`;
+
+const VideoGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+`;
+
+export default CourseView;

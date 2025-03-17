@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Spin } from 'antd';
+import { useSearchParams } from 'react-router-dom';
 import CourseView from '../../components/courses/CourseView';
 import { CourseData } from '../../components/courses/types';
 import { UserHeader } from '../../components/layout/UserHeader';
 import './SafetyCoursePage.css';
 
 const SafetyCoursePage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const lessonId = searchParams.get('lessonId');
   const [loading, setLoading] = useState(true);
   const [courseData, setCourseData] = useState<CourseData>({
     id: 'construction_safety',
@@ -44,7 +47,8 @@ const SafetyCoursePage: React.FC = () => {
       }
     ],
     lessonInfo: [],
-    videos: []
+    videos: [],
+    initialLessonId: lessonId ? parseInt(lessonId) : undefined
   });
 
   useEffect(() => {

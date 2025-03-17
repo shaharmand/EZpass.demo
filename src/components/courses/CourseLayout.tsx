@@ -4,10 +4,14 @@ import styled from 'styled-components';
 const LayoutContainer = styled.div`
   display: flex;
   width: 100%;
-  height: calc(100vh - 128px);
+  height: calc(100vh - 56px);
   background: #ffffff;
   direction: rtl;
-  margin-top: 128px;
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
 `;
 
 const MainContent = styled.div<{ $isAdmin?: boolean }>`
@@ -17,16 +21,16 @@ const MainContent = styled.div<{ $isAdmin?: boolean }>`
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, #f1f5f9 0%, #f8fafc 100%);
-  align-items: center;
-  justify-content: center;
-  padding: ${props => props.$isAdmin ? '48px' : '32px'};
+  align-items: flex-start;
+  padding: ${props => props.$isAdmin ? '24px' : '16px'};
+  padding-top: 0;
   direction: ltr;
   overflow-y: auto;
 
   > div {
     width: 100%;
+    min-width: 800px;
     max-width: 1200px;
-    aspect-ratio: 16 / 9;
     background: #ffffff;
     border-radius: 12px;
     overflow: hidden;
@@ -36,7 +40,9 @@ const MainContent = styled.div<{ $isAdmin?: boolean }>`
 `;
 
 const NavigationWrapper = styled.div<{ $isOpen: boolean }>`
-  width: 400px;
+  width: calc(100% - 1200px);
+  max-width: 800px;
+  min-width: 400px;
   height: 100%;
   position: relative;
   flex-shrink: 0;
@@ -66,8 +72,12 @@ const NavigationWrapper = styled.div<{ $isOpen: boolean }>`
     }
   }
   
-  @media (max-width: 1200px) {
-    width: 360px;
+  @media (max-width: 1600px) {
+    width: calc(100% - 1000px);
+  }
+
+  @media (max-width: 1400px) {
+    width: 400px;
   }
 
   @media (max-width: 768px) {

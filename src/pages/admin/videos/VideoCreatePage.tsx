@@ -283,6 +283,7 @@ export const VideoCreatePage: React.FC = () => {
       <VideoPlayer
         videoSource={previewVideoSource}
         videoId={previewVideoId}
+        title="תצוגה מקדימה"
         isOpen={!!previewVideoId}
         onClose={() => setPreviewVideoId('')}
       />

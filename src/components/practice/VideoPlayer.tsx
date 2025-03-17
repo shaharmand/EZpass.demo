@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Spin } from 'antd';
-import { CloseOutlined } from '@ant-design/icons';
+import { CloseOutlined, ArrowRightOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import Player from '@vimeo/player';
 import { VideoSource } from '../../types/videoContent';
@@ -90,6 +90,49 @@ const LoadingContainer = styled.div`
   align-items: center;
   gap: 12px;
   color: white;
+`;
+
+const NavigationButton = styled.button<{ $direction: 'next' | 'prev' }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  direction: rtl;
+
+  &:hover {
+    background: #e5e7eb;
+    color: #1f2937;
+  }
+
+  &:active {
+    background: #d1d5db;
+  }
+
+  .icon {
+    font-size: 16px;
+    ${props => props.$direction === 'next' ? 'margin-right: -4px;' : 'margin-left: -4px;'}
+  }
+
+  .label {
+    ${props => props.$direction === 'next' ? 'margin-left: 4px;' : 'margin-right: 4px;'}
+  }
+`;
+
+const NavigationControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  direction: rtl;
 `;
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({

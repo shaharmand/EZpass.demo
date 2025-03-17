@@ -171,8 +171,13 @@ export const VideoLibraryPage: React.FC = () => {
       <VideoPlayer
         videoSource={previewVideoSource}
         videoId={previewVideoId || ''}
+        title="תצוגה מקדימה"
         isOpen={!!previewVideoId}
         onClose={() => setPreviewVideoId(null)}
+        onNext={() => {}}
+        onPrevious={() => {}}
+        hasNext={false}
+        hasPrevious={false}
       />
     </PageContainer>
   );

@@ -8,15 +8,24 @@ interface ProcessedVideo {
   subtopic_id: string;
   lesson_number: number;
   segment_number: number;
+  duration?: number;
 }
 
 interface ProcessedSummaries {
   summaries: ProcessedVideo[];
 }
 
+interface LessonSummary {
+  lessonNumber: number;
+  subtopicId: string;
+  totalDuration: number;
+  videoCount: number;
+}
+
 class VideoContentService {
   private videos: ProcessedVideo[] = [];
   private initialized = false;
+  private lessonSummaries: Map<number, LessonSummary> = new Map();
 
   private async initialize() {
     if (this.initialized) return;
@@ -28,6 +37,7 @@ class VideoContentService {
       }
       const data: ProcessedSummaries = await response.json();
       this.videos = data.summaries;
+      this.buildLessonSummaries();
       this.initialized = true;
       console.log('=== Debug: Video Summaries Structure ===');
       console.log('First video example:', this.videos[0]);
@@ -41,6 +51,28 @@ class VideoContentService {
     }
   }
 
+  private buildLessonSummaries() {
+    this.lessonSummaries.clear();
+    
+    // Group videos by lesson number
+    this.videos.forEach(video => {
+      if (!this.lessonSummaries.has(video.lesson_number)) {
+        this.lessonSummaries.set(video.lesson_number, {
+          lessonNumber: video.lesson_number,
+          subtopicId: video.subtopic_id,
+          totalDuration: 0,
+          videoCount: 0
+        });
+      }
+      
+      const summary = this.lessonSummaries.get(video.lesson_number)!;
+      summary.totalDuration += video.duration || 0;
+      summary.videoCount += 1;
+    });
+
+    console.log('Built lesson summaries:', Array.from(this.lessonSummaries.entries()));
+  }
+
   private processedToVideoContent(processed: ProcessedVideo): VideoContent {
     return {
       id: processed.video_id,
@@ -50,11 +82,33 @@ class VideoContentService {
       videoId: processed.video_id.replace('video_', ''),
       subtopicId: processed.subtopic_id,
       lessonNumber: processed.lesson_number,
-      duration: '0:00', // We'll need to add this to the processed data
+      duration: this.formatDuration(0), // We'll need to add this to the processed data
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+  }
+
+  formatDuration(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = Math.round(minutes % 60);
+    
+    if (hours > 0) {
+      return `${hours} שעות ו-${remainingMinutes} דקות`;
+    }
+    return `${remainingMinutes} דקות`;
+  }
+
+  async getRelatedLessons(subtopicId: string, currentLessonNumber: number): Promise<LessonSummary[]> {
+    await this.initialize();
+    
+    // Simply filter lessons by matching subtopicId
+    const relatedLessons = Array.from(this.lessonSummaries.values())
+      .filter(summary => summary.subtopicId === subtopicId)
+      .sort((a, b) => a.lessonNumber - b.lessonNumber);
+
+    console.log('Found lessons for subtopic:', subtopicId, relatedLessons);
+    return relatedLessons.slice(0, 2); // Return at most 2 related lessons
   }
 
   async getVideo(id: string): Promise<VideoContent | null> {

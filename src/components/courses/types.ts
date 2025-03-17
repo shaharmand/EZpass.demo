@@ -32,6 +32,7 @@ export interface CourseData {
   topics: Topic[];
   lessonInfo: LessonInfo[];
   videos: VideoData[];
+  initialLessonId?: number;
 }
 
 export interface VimeoThumbnail {

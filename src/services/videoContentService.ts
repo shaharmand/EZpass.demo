@@ -29,7 +29,12 @@ class VideoContentService {
       const data: ProcessedSummaries = await response.json();
       this.videos = data.summaries;
       this.initialized = true;
-      console.log('Loaded video summaries:', this.videos.length);
+      console.log('=== Debug: Video Summaries Structure ===');
+      console.log('First video example:', this.videos[0]);
+      console.log('Number of videos with lesson numbers:', 
+        this.videos.filter(v => v.lesson_number !== undefined).length);
+      console.log('Total videos:', this.videos.length);
+      console.log('=====================================');
     } catch (error) {
       console.error('Error loading video summaries:', error);
       this.videos = [];
@@ -44,6 +49,7 @@ class VideoContentService {
       videoSource: VideoSource.VIMEO,
       videoId: processed.video_id.replace('video_', ''),
       subtopicId: processed.subtopic_id,
+      lessonNumber: processed.lesson_number,
       duration: '0:00', // We'll need to add this to the processed data
       isActive: true,
       createdAt: new Date().toISOString(),

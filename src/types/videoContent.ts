@@ -17,6 +17,7 @@ export interface VideoContent {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  lessonNumber?: number;
 }
 
 export interface CreateVideoContentInput {

@@ -5,9 +5,11 @@ import { SkipReason } from '../../types/prepUI';
 import SectionTitle from './SectionTitle';
 import styled from 'styled-components';
 
-const HeaderContainer = styled.div`
+const HeaderContainer = styled.div.attrs({
+  className: 'section-header'
+})`
   padding: 12px 24px;
-  background: #f9fafb;
+  background: linear-gradient(to bottom, #e2e8f0, #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -28,9 +30,9 @@ const HeaderContainer = styled.div`
 `;
 
 const QuestionTitle = styled(SectionTitle)`
-  color: #111827;
+  color: #1f2937;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.4;
 `;
 

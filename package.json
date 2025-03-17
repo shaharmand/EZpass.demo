@@ -12,6 +12,7 @@
     "@codemirror/theme-one-dark": "^6.0.0",
     "@codemirror/view": "^6.0.0",
     "@cortex-js/compute-engine": "^0.27.0",
+    "@cyntler/react-doc-viewer": "^1.17.0",
     "@langchain/core": "^0.1.63",
     "@langchain/openai": "^0.0.14",
     "@lexical/code": "^0.27.1",

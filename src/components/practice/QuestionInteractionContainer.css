@@ -133,26 +133,27 @@
 }
 
 .question-counter {
-  font-size: 12px;
-  color: #374151;
-  font-weight: 600;
-  padding: 8px 16px;
-  background: #f3f4f6;
+  font-size: 18px;
+  color: #1f2937;
+  font-weight: 700;
+  padding: 10px 20px;
+  background: #e5e7eb;
   border-radius: 8px;
   transition: transform 0.3s ease-in-out, color 0.3s ease-in-out;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #d1d5db;
   white-space: nowrap;
   direction: rtl;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .question-counter:hover {
-  background: #f8fafc;
-  border-color: #d1d5db;
+  background: #d1d5db;
+  border-color: #9ca3af;
 }
 
 .question-header {
   padding: 12px 24px;
-  background: #f9fafb;
+  background: linear-gradient(to bottom, #e2e8f0, #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -175,9 +176,9 @@
 
 .question-header h3 {
   margin: 0;
-  color: #111827;
+  color: #1f2937;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.4;
 }
 
@@ -489,7 +490,7 @@
 .answer-header {
   margin-bottom: 0;
   padding: 12px 24px;
-  background: #f9fafb;
+  background: linear-gradient(to bottom, #e2e8f0, #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -512,9 +513,9 @@
 
 .answer-header h3 {
   margin: 0;
-  color: #111827;
+  color: #1f2937;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.4;
 }
 
@@ -614,8 +615,8 @@
   }
 
   .question-counter {
-    font-size: 14px;
-    padding: 6px 12px;
+    font-size: 18px;
+    padding: 8px 16px;
   }
 }
 
@@ -713,7 +714,7 @@
 .feedback-header {
   margin-bottom: 0;
   padding: 12px 24px;
-  background: #f9fafb;
+  background: linear-gradient(to bottom, #e2e8f0, #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -736,9 +737,9 @@
 
 .feedback-header h3 {
   margin: 0;
-  color: #111827;
+  color: #1f2937;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.4;
 }
 
@@ -1096,4 +1097,30 @@
 
 .progress-container.scrolled {
   animation: fadeInShadow 0.3s forwards;
+}
+
+/* Global override for the header class that's being applied at runtime */
+.gktVse {
+  background: linear-gradient(to bottom, #e2e8f0, #f1f5f9) !important;
+  color: #1f2937 !important;
+}
+
+.gktVse h3, 
+.gktVse h4, 
+.gktVse div {
+  color: #1f2937 !important;
+  font-weight: 700 !important;
+}
+
+/* Section headers styling */
+.section-header {
+  background: linear-gradient(to bottom, #e2e8f0, #f1f5f9) !important;
+  color: #1f2937 !important;
+}
+
+.section-header h3, 
+.section-header h4, 
+.section-header div {
+  color: #1f2937 !important;
+  font-weight: 700 !important;
 } 

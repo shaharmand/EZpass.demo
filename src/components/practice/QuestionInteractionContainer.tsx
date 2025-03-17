@@ -237,6 +237,10 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
       option.classList.remove('animate-in');
     });
     
+    // Reset answer state when question changes
+    setAnswer(null);
+    setIsSubmitEnabled(false);
+    
     setIsQuestionEntering(true);
     setQuestionChangeKey(prev => prev + 1);
     setIsAnswerSectionVisible(false);
@@ -392,10 +396,11 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
         <QuestionResponseInput 
           question={question}
           onAnswer={handleAnswerChange}
-          disabled={state.status === 'submitted'}
+          disabled={state.status === 'submitted' || state.status === 'receivedFeedback'}
           feedback={state.submissions.length > 0 ? state.submissions[state.submissions.length - 1].feedback?.data : undefined}
           selectedAnswer={answer}
           onCanSubmitChange={setIsSubmitEnabled}
+          key={`answer-input-${question.id}`}
         />
       </QuestionCard>
     );

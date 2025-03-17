@@ -61,6 +61,22 @@
   outline: none;
 }
 
+/* Feedback states */
+.math-text-input.correct {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.math-text-input.partial {
+  border-color: #f59e0b;
+  background: #fefce8;
+}
+
+.math-text-input.incorrect {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
 /* Helper text */
 .helper-text {
   font-size: 13px;
@@ -71,9 +87,29 @@
 
 /* Disabled state */
 .math-text-input:disabled {
-  background-color: #f5f5f5;
   cursor: not-allowed;
-  color: rgba(0, 0, 0, 0.25);
+  opacity: 0.85;
+  color: #374151;
+}
+
+/* Preserve feedback colors when disabled */
+.math-text-input:disabled:not(.correct):not(.partial):not(.incorrect) {
+  background-color: #f5f5f5;
+}
+
+.math-text-input.correct:disabled {
+  background: #f0fdf4;
+  border-color: #10b981;
+}
+
+.math-text-input.partial:disabled {
+  background: #fefce8;
+  border-color: #f59e0b;
+}
+
+.math-text-input.incorrect:disabled {
+  background: #fef2f2;
+  border-color: #ef4444;
 }
 
 .math-symbols-toolbar .ant-btn:disabled {

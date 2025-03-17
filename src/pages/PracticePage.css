@@ -85,28 +85,30 @@ body {
 
 .practice-content {
   margin-top: var(--total-header-height);
-  padding-top: 0px;
+  padding: 0;
   flex: 1;
   overflow-y: auto;
   background: linear-gradient(180deg, #f1f5f9 0%, #f8fafc 100%);
-  padding: 8px 24px 24px 24px;
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
   padding-bottom: 0 !important;
   margin-bottom: 0 !important;
+  display: flex;
 }
 
 /* Ensure the content container takes full height with no extra space */
 .ContentContainer {
-  padding-bottom: 0 !important;
-  margin-bottom: 0 !important;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .practice-container {
   display: grid;
-  grid-template-columns: 300px 1fr 300px;
-  gap: 24px;
+  grid-template-columns: 280px 1fr 280px;
+  gap: 8px;
   height: 100%;
   max-width: 1800px;
   margin: 0 auto;

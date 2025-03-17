@@ -27,7 +27,7 @@ import QuestionProperties from '../components/practice/QuestionProperties';
 import { FirstPanel, MainContent, ThirdPanel, AssistanceSection, PropertiesSection } from '../components/practice/LayoutComponents';
 import { UserHeader } from '../components/layout/UserHeader';
 import PracticeHeaderProgress from '../components/PracticeHeaderProgress/PracticeHeaderProgress';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 
 interface PageState {
   error?: string;
@@ -35,42 +35,88 @@ interface PageState {
   isLoading: boolean;
 }
 
-const ContentContainer = styled.div`
+interface StyledContainerProps {
+  $isVideoPlaying: boolean;
+}
+
+interface StyledSidePanelProps {
+  $position: 'left' | 'right';
+  $isCollapsed?: boolean;
+  $isExpanded?: boolean;
+}
+
+const ContentContainer = styled.div<StyledContainerProps>`
   display: flex;
-  gap: 20px;
-  padding: 16px 16px 0 16px;
+  gap: 12px;
+  padding: 16px;
   height: calc(100vh - var(--total-header-height));
   overflow: hidden;
   width: 100%;
-  max-width: 100%;
+  transition: all 0.3s ease;
+
+  @media (max-width: 1366px) {
+    gap: 8px;
+    padding: 12px;
+  }
 `;
 
-const SidePanel = styled.div<{ $position: 'left' | 'right' }>`
+const SidePanel = styled.div<StyledSidePanelProps>`
   display: flex;
   flex-direction: column;
-  flex: ${props => props.$position === 'left' ? '1' : '1.2'};
-  min-width: ${props => props.$position === 'left' ? '220px' : '280px'};
   background: #ffffff;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow-y: auto;
-  padding: 12px;
+  transition: all 0.3s ease;
+  height: 100%;
   
-  ${props => props.$position === 'left' && `
+  /* Left panel (properties) */
+  ${props => props.$position === 'left' && css`
+    flex: ${props.$isCollapsed ? '0 0 0' : '1 1 320px'};
     border-right: 1px solid #e5e7eb;
-  `}
+    min-width: ${props.$isCollapsed ? '0' : '280px'};
+    max-width: ${props.$isCollapsed ? '0' : '320px'};
+    
+    @media (min-width: 1920px) {
+      flex: ${props.$isCollapsed ? '0 0 0' : '1 1 360px'};
+      min-width: ${props.$isCollapsed ? '0' : '320px'};
+      max-width: ${props.$isCollapsed ? '0' : '360px'};
+    }
+    
+    @media (max-width: 1366px) {
+      flex: ${props.$isCollapsed ? '0 0 0' : '1 1 280px'};
+      min-width: ${props.$isCollapsed ? '0' : '240px'};
+      max-width: ${props.$isCollapsed ? '0' : '280px'};
+    }
+  `};
   
-  ${props => props.$position === 'right' && `
+  /* Right panel (learning content) */
+  ${props => props.$position === 'right' && css`
+    flex: ${props.$isCollapsed ? '0 0 0' : props.$isExpanded ? '1 1 960px' : '1 1 480px'};
     border-left: 1px solid #e5e7eb;
-  `}
+    min-width: ${props.$isCollapsed ? '0' : props.$isExpanded ? '960px' : '400px'};
+    max-width: ${props.$isCollapsed ? '0' : props.$isExpanded ? '1280px' : '480px'};
+    
+    @media (min-width: 1920px) {
+      flex: ${props.$isCollapsed ? '0 0 0' : props.$isExpanded ? '1 1 1280px' : '1 1 560px'};
+      min-width: ${props.$isCollapsed ? '0' : props.$isExpanded ? '1280px' : '480px'};
+      max-width: ${props.$isCollapsed ? '0' : props.$isExpanded ? '1440px' : '560px'};
+    }
+    
+    @media (max-width: 1366px) {
+      flex: ${props.$isCollapsed ? '0 0 0' : props.$isExpanded ? '1 1 720px' : '1 1 400px'};
+      min-width: ${props.$isCollapsed ? '0' : props.$isExpanded ? '720px' : '360px'};
+      max-width: ${props.$isCollapsed ? '0' : props.$isExpanded ? '840px' : '400px'};
+    }
+  `};
 
-  @media (max-width: 1200px) {
-    min-width: ${props => props.$position === 'left' ? '200px' : '240px'};
-  }
+  padding: ${props => props.$isCollapsed ? '0' : '12px'};
+  opacity: ${props => props.$isCollapsed ? '0' : '1'};
+  visibility: ${props => props.$isCollapsed ? 'hidden' : 'visible'};
 `;
 
-const MainPanel = styled.div`
-  flex: 3;
+const MainPanel = styled.div<StyledContainerProps>`
+  flex: 2 2 auto;
   min-width: 500px;
   background: #ffffff;
   border-radius: 8px;
@@ -79,6 +125,14 @@ const MainPanel = styled.div`
   padding: 12px;
   display: flex;
   flex-direction: column;
+  transition: all 0.3s ease;
+  margin: 0 12px;
+
+  @media (max-width: 1366px) {
+    padding: 8px;
+    margin: 0 8px;
+    min-width: 400px;
+  }
 `;
 
 const PanelTitle = styled(Typography.Title)<{ collapsed?: boolean }>`
@@ -126,13 +180,10 @@ const PracticePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('videos');
   const [propertiesCollapsed, setPropertiesCollapsed] = useState(false);
   const [helpCollapsed, setHelpCollapsed] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   const handleContentSelect = useCallback((topic: string) => {
     // Implementation of handleContentSelect
-  }, []);
-
-  const handleVideoSelect = useCallback((videoId: string) => {
-    // Implementation of handleVideoSelect
   }, []);
 
   const getTopicName = useCallback((question: Question) => {
@@ -287,6 +338,17 @@ const PracticePage: React.FC = () => {
     });
   }, [showLimitDialog, hasExceededLimit, user, getCurrentAttempts, getMaxAttempts]);
 
+  useEffect(() => {
+    const handleVideoPlayingState = (event: CustomEvent<{ isPlaying: boolean }>) => {
+      setIsVideoPlaying(event.detail.isPlaying);
+    };
+
+    window.addEventListener('videoPlayingStateChanged', handleVideoPlayingState as EventListener);
+    return () => {
+      window.removeEventListener('videoPlayingStateChanged', handleVideoPlayingState as EventListener);
+    };
+  }, []);
+
   if (!prep) {
     return (
       <Result
@@ -307,18 +369,31 @@ const PracticePage: React.FC = () => {
   } : undefined;
 
   return (
-    <Layout style={{ minHeight: '100vh', width: '100%' }}>
+    <Layout style={{ minHeight: '100vh', width: '100%', margin: 0, padding: 0 }}>
       <div className="practice-headers">
-        <PracticeHeader 
+        <UserHeader 
+          pageType="practice"
+          pageContent={currentQuestion?.data ? getTopicName(currentQuestion.data) : 'Practice'}
+        />
+        <PracticeHeaderProgress 
           prep={prep}
-          isLoading={isQuestionLoading}
-          onPrepUpdate={(updatedPrep) => {
-            // Handle prep updates if needed
-            console.log('Prep updated:', updatedPrep);
+          metrics={{
+            overallProgress: (questionState.submissions.length / (state.prep?.exam.totalQuestions || 1)) * 100,
+            successRate: questionState.submissions.length > 0 
+              ? (questionState.submissions.filter(s => s.feedback?.data.isCorrect).length / questionState.submissions.length) * 100 
+              : 0,
+            remainingHours: 0, // You'll need to calculate this based on your requirements
+            remainingQuestions: (state.prep?.exam.totalQuestions || 0) - (questionState.submissions.length || 0),
+            hoursPracticed: 0, // You'll need to calculate this based on your requirements
+            questionsAnswered: questionState.submissions.length || 0,
+            weeklyNeededHours: 0, // You'll need to calculate this based on your requirements
+            dailyNeededHours: 0, // You'll need to calculate this based on your requirements
+            examDate: state.prep?.goals.examDate || Date.now(),
+            typeSpecificMetrics: [] // You'll need to populate this based on your requirements
           }}
         />
       </div>
-      <Layout.Content className="practice-content" style={{ width: '100%' }}>
+      <Layout.Content className="practice-content">
         {state.error && (
           <Alert
             message="שגיאה"
@@ -340,21 +415,26 @@ const PracticePage: React.FC = () => {
           <LoadingSpinner />
         )}
         {currentQuestion && state.prep && (
-          <ContentContainer className="ContentContainer">
-            <SidePanel $position="left">
+          <ContentContainer $isVideoPlaying={isVideoPlaying}>
+            {/* Learning content panel on the right */}
+            <SidePanel 
+              $position="right" 
+              $isCollapsed={false}
+              $isExpanded={isVideoPlaying}
+            >
               <PanelTitle level={4}>תוכן לימודי</PanelTitle>
               {currentQuestion?.data && (
-                <div className="related-content">
+                <div className="related-content" style={{ height: '100%' }}>
                   <RelatedContent
                     currentQuestion={currentQuestion.data}
                     subtopicId={currentQuestion.data.metadata.subtopicId || ''}
-                    onVideoSelect={handleVideoSelect}
                   />
                 </div>
               )}
             </SidePanel>
 
-            <MainPanel className="MainPanel">
+            {/* Main content in the middle */}
+            <MainPanel $isVideoPlaying={isVideoPlaying}>
               {currentQuestion?.data && (
                 <QuestionInteractionContainer
                   question={currentQuestion.data}
@@ -370,51 +450,54 @@ const PracticePage: React.FC = () => {
               )}
             </MainPanel>
 
-            <SidePanel $position="right">
-              <div style={{ marginBottom: '24px' }}>
-                <PanelTitle 
-                  level={4}
-                  onClick={() => setPropertiesCollapsed(!propertiesCollapsed)}
-                  collapsed={propertiesCollapsed}
-                >
-                  פרטי שאלה
-                  <span className="collapse-icon">
-                    {propertiesCollapsed ? '▶' : '▼'}
-                  </span>
-                </PanelTitle>
-                {!propertiesCollapsed && currentQuestion?.data && (
-                  <QuestionProperties
-                    question={currentQuestion.data}
-                    questionNumber={questionState.submissions.length + 1}
-                    totalQuestions={state.prep.exam.totalQuestions}
-                    onSkip={handleSkip}
-                  />
-                )}
-              </div>
-              
-              <div>
-                <PanelTitle 
-                  level={4}
-                  onClick={() => setHelpCollapsed(!helpCollapsed)}
-                  collapsed={helpCollapsed}
-                >
-                  עזרה
-                  <span className="collapse-icon">
-                    {helpCollapsed ? '▶' : '▼'}
-                  </span>
-                </PanelTitle>
-                {!helpCollapsed && (
-                  <div style={{ 
-                    padding: '16px', 
-                    background: '#f0f9ff', 
-                    borderRadius: '6px',
-                    border: '1px solid #bae6fd'
-                  }}>
-                    <Typography.Text style={{ color: '#1890ff', fontWeight: 500 }}>
-                      לחץ על כפתור העזרה בשאלה כדי לקבל הסבר מפורט
-                    </Typography.Text>
-                  </div>
-                )}
+            {/* Properties panel on the left */}
+            <SidePanel $position="left" $isCollapsed={isVideoPlaying}>
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ flex: '1 1 auto', marginBottom: '24px' }}>
+                  <PanelTitle 
+                    level={4}
+                    onClick={() => setPropertiesCollapsed(!propertiesCollapsed)}
+                    collapsed={propertiesCollapsed}
+                  >
+                    פרטי שאלה
+                    <span className="collapse-icon">
+                      {propertiesCollapsed ? '▶' : '▼'}
+                    </span>
+                  </PanelTitle>
+                  {!propertiesCollapsed && currentQuestion?.data && (
+                    <QuestionProperties
+                      question={currentQuestion.data}
+                      questionNumber={questionState.submissions.length + 1}
+                      totalQuestions={state.prep.exam.totalQuestions}
+                      onSkip={handleSkip}
+                    />
+                  )}
+                </div>
+                
+                <div style={{ flex: '1 1 auto' }}>
+                  <PanelTitle 
+                    level={4}
+                    onClick={() => setHelpCollapsed(!helpCollapsed)}
+                    collapsed={helpCollapsed}
+                  >
+                    עזרה
+                    <span className="collapse-icon">
+                      {helpCollapsed ? '▶' : '▼'}
+                    </span>
+                  </PanelTitle>
+                  {!helpCollapsed && (
+                    <div style={{ 
+                      padding: '16px', 
+                      background: '#f0f9ff', 
+                      borderRadius: '6px',
+                      border: '1px solid #bae6fd'
+                    }}>
+                      <Typography.Text style={{ color: '#1890ff', fontWeight: 500 }}>
+                        לחץ על כפתור העזרה בשאלה כדי לקבל הסבר מפורט
+                      </Typography.Text>
+                    </div>
+                  )}
+                </div>
               </div>
             </SidePanel>
           </ContentContainer>

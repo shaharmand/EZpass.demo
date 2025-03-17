@@ -1,6 +1,8 @@
 import React from 'react';
 import { Input, Space, Button, Tooltip } from 'antd';
 import './SimpleTextMathInput.css';
+import { QuestionFeedback } from '../types/feedback/types';
+import { FeedbackStatus, getFeedbackStatus } from '../types/feedback/status';
 
 const { TextArea } = Input;
 
@@ -23,11 +25,29 @@ const MATH_SYMBOLS = [
   { symbol: '∞', tooltip: 'אינסוף' },
 ];
 
+// Helper function to get the appropriate class based on feedback
+const getFeedbackClass = (feedback?: QuestionFeedback): string => {
+  if (!feedback?.evalLevel) return '';
+  
+  const status = getFeedbackStatus(feedback.evalLevel);
+  switch (status) {
+    case FeedbackStatus.SUCCESS:
+      return 'correct';
+    case FeedbackStatus.PARTIAL:
+      return 'partial';
+    case FeedbackStatus.FAILURE:
+      return 'incorrect';
+    default:
+      return '';
+  }
+};
+
 interface SimpleTextMathInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  feedback?: QuestionFeedback;
 }
 
 export const SimpleTextMathInput: React.FC<SimpleTextMathInputProps> = ({
@@ -35,8 +55,10 @@ export const SimpleTextMathInput: React.FC<SimpleTextMathInputProps> = ({
   onChange,
   placeholder = 'הקלד את תשובתך כאן...',
   disabled = false,
+  feedback,
 }) => {
   const textAreaRef = React.useRef<any>(null);
+  const feedbackClass = getFeedbackClass(feedback);
 
   const insertSymbol = (symbol: string) => {
     if (disabled || !textAreaRef.current) return;
@@ -84,7 +106,7 @@ export const SimpleTextMathInput: React.FC<SimpleTextMathInputProps> = ({
         placeholder={placeholder}
         disabled={disabled}
         autoSize={{ minRows: 3, maxRows: 6 }}
-        className="math-text-input"
+        className={`math-text-input ${feedbackClass}`}
         dir="auto"
       />
     </div>

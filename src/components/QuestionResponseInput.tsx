@@ -305,6 +305,7 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
               value={getCurrentValue()}
               onChange={handleAnswerChange}
               disabled={disabled}
+              feedback={feedback}
             />
           </div>
         ) : (
@@ -374,7 +375,26 @@ const QuestionResponseInput: React.FC<QuestionResponseInputProps> = ({
           .response-textarea:disabled {
             opacity: 0.85;
             color: #374151;
+          }
+          
+          /* Preserve feedback colors when disabled */
+          .response-textarea:disabled:not(.correct):not(.partial):not(.incorrect) {
             background-color: #f9fafb;
+          }
+          
+          .response-textarea.correct:disabled {
+            background: #f0fdf4;
+            border-color: #10b981;
+          }
+          
+          .response-textarea.partial:disabled {
+            background: #fefce8;
+            border-color: #f59e0b;
+          }
+          
+          .response-textarea.incorrect:disabled {
+            background: #fef2f2;
+            border-color: #ef4444;
           }
 
           .step-by-step-container {

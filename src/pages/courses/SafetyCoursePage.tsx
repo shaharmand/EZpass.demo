@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Spin } from 'antd';
+import { Spin, message } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 import CourseView from '../../components/courses/CourseView';
 import { CourseData } from '../../components/courses/types';
 import { UserHeader } from '../../components/layout/UserHeader';
+import { courseService } from '../../services/courseService';
 import './SafetyCoursePage.css';
 
 const SafetyCoursePage: React.FC = () => {
@@ -11,41 +12,10 @@ const SafetyCoursePage: React.FC = () => {
   const lessonId = searchParams.get('lessonId');
   const [loading, setLoading] = useState(true);
   const [courseData, setCourseData] = useState<CourseData>({
-    id: 'construction_safety',
+    id: 'CIV-SAF',
     title: 'קורס בטיחות בעבודה',
     description: 'קורס מקיף בנושא בטיחות בעבודה בענף הבנייה',
-    topics: [
-      {
-        id: 'safety_management_fundamentals',
-        title: 'יסודות ניהול הבטיחות',
-        lessons: [1, 2, 3, 4, 5, 6]
-      },
-      {
-        id: 'Construction_methods_and_Works',
-        title: 'שיטות בנייה ועבודות',
-        lessons: [7, 8, 9, 10, 11, 12, 13, 14]
-      },
-      {
-        id: 'height_work',
-        title: 'עבודה בגובה',
-        lessons: [16, 17, 18, 19]
-      },
-      {
-        id: 'lifting_and_cranes',
-        title: 'ציוד הרמה ועגורנים',
-        lessons: [20, 21, 22, 23]
-      },
-      {
-        id: 'specialized_safety',
-        title: 'בטיחות בעבודות מיוחדות',
-        lessons: [15, 24, 25]
-      },
-      {
-        id: 'equipment_and_health',
-        title: 'ציוד מכני ובריאות',
-        lessons: [26, 27]
-      }
-    ],
+    topics: [],
     lessonInfo: [],
     videos: [],
     initialLessonId: lessonId ? parseInt(lessonId) : undefined
@@ -54,33 +24,29 @@ const SafetyCoursePage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [videoResponse, lessonResponse] = await Promise.all([
-          fetch('/data/course/CIV-SAF/content/video_data.json'),
-          fetch('/data/course/CIV-SAF/content/lesson_info.json')
-        ]);
-
-        if (!videoResponse.ok || !lessonResponse.ok) {
-          throw new Error('Failed to fetch course data');
+        setLoading(true);
+        const { courseData: data, error } = await courseService.fetchCourseData('CIV-SAF');
+        
+        if (error) {
+          throw new Error(error);
         }
-
-        const videoData = await videoResponse.json();
-        const lessonData = await lessonResponse.json();
-
-        setCourseData(prev => ({
-          ...prev,
-          videos: videoData.videos || [],
-          lessonInfo: lessonData.lessons || [],
-          topics: lessonData.topics || prev.topics
-        }));
+        
+        // Add the initialLessonId from URL if it exists
+        if (lessonId) {
+          data.initialLessonId = parseInt(lessonId);
+        }
+        
+        setCourseData(data);
       } catch (error) {
         console.error('Failed to load course data:', error);
+        message.error('שגיאה בטעינת נתוני הקורס');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [lessonId]);
 
   const renderContent = () => {
     if (loading) {

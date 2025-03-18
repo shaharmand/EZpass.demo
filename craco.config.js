@@ -30,12 +30,24 @@ module.exports = {
         new CopyWebpackPlugin({
           patterns: [
             {
-              from: path.resolve(__dirname, 'data'),
+              from: path.resolve(__dirname, 'src/data'),
               to: path.resolve(__dirname, 'build/data'),
               globOptions: {
                 ignore: [
-                  '**/video_data.json',  // Ignore video data since we're bundling it
-                  '**/lesson_info.json', // Ignore lesson info since we're bundling it
+                  '**/raw/**',           // Ignore raw data
+                  '**/*.docx',           // Ignore Word docs
+                  '**/*.pdf',            // Ignore PDFs
+                  '**/*.mp4',            // Ignore videos
+                  '**/*.mov',            // Ignore videos
+                  '**/*.avi'             // Ignore videos
+                ]
+              }
+            },
+            {
+              from: path.resolve(__dirname, 'public/data'),
+              to: path.resolve(__dirname, 'build/data'),
+              globOptions: {
+                ignore: [
                   '**/raw/**',           // Ignore raw data
                   '**/*.docx',           // Ignore Word docs
                   '**/*.pdf',            // Ignore PDFs

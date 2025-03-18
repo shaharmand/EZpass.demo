@@ -626,12 +626,21 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
     protected async generateAIFields(question: Omit<Question, 'id'>): Promise<AIGeneratedFields> {
         try {
             console.log('\n=== Generating AI Fields ===');
+            console.log('Question Content:', question.content?.text);
+            console.log('Question Options:', question.content?.options?.map(opt => opt.text));
+            console.log('Question Solution:', question.schoolAnswer?.solution?.text);
+            
             const aiFields = await TitleGenerator.generateAIFields(question);
-            console.log('AI Fields Generated:', aiFields);
+            
+            // Log the generated fields and confidence scores
+            console.log('Generated Fields:', aiFields.fields);
+            console.log('Confidence Scores:', aiFields.confidence);
             console.log('AI Generation Complete\n');
+            
             return aiFields;
         } catch (error) {
             console.error('Error generating AI fields:', error);
+            // Return empty result on error
             return {
                 fields: [],
                 confidence: {},

@@ -1,0 +1,274 @@
+{
+  "summary": {
+    "timestamp": "2025-03-18T13:30:54.963Z",
+    "configuration": {
+      "mode": "dry-run",
+      "jsonPath": "imports/files/all_mahat.json",
+      "excelPath": "imports/files/All_mahat.xls",
+      "type": "multiple-choice",
+      "limit": 1
+    },
+    "results": {
+      "counts": {
+        "total": 1,
+        "successful": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "validation": {
+        "total": 1,
+        "valid": 1,
+        "errors": 0,
+        "warnings": 0
+      },
+      "duration": 36710
+    },
+    "errors": []
+  },
+  "validationDetails": {
+    "errored": [],
+    "warned": []
+  },
+  "details": {
+    "CIV-SAF-990001": {
+      "status": "success",
+      "processingTime": 36485,
+      "validationStatus": "valid",
+      "originalData": {
+        "title": "אביב 2019, מועד ב - שאלה 1 - מנוי (טפסות)",
+        "titleNew": "אביב 2019, מועד ב - שאלה 1 - מנוי (טפסות)",
+        "question": "[אביב 2019, מועד ב -  שאלה 1]\n כיצד נדרש לבצע קשירות של תומכת מתכת במערכת טפסות?",
+        "correct_message": "הסבר:\nיש לשים לב כי מדובר בתןמכות מתכת (\"רגליים\", \"רגלי מסקו\") , ויש הבדל בדרישות לגבי תומכות עץ.\nב\"תקנות הבטיחות בעבודה (עבודות בניה), תשמ\"ח – 1988\" תקנה 93 (א) (ג) נדרש כי התומכות \"יקושרו ביניהן\" ומכאן אנו למדים שהכוונה בשני כיוונים. \nלתומכות מתכת יבוצע הקישור בצינורות מתכת בלבד ויחוברו לתומכות באמצעות מצמדות.\nאין בתקנות חריגים אחרים לגבי דרישת הקשירה ולכן תבוצע לכל התומכות.",
+        "answer1": "א. בעזרת צינורות ומצמדות לשני הכיוונים.",
+        "answer2": "ב. בעזרת צינורות או לוחות עץ קשורים היטב עם חוט שזור ולפי הוראות מנהל העבודה.",
+        "answer3": "ג. תומכות שגובהן פחות מ - 2.75 מטרים אין צורך לקשור, ותומכות שגובהן עולה על 2.75 מטרים יש לקשור היטב בלוחות עץ ובחוט שזור.",
+        "answer4": "ד. בכיוון האורך בעזרת צינורות ומצמדות ובכיוון הרוחב, רק כאשר גובה התומכות עולה על ארבעה מטרים.",
+        "correct_answer": "1",
+        "category": "טפסות",
+        "post_id": "12540",
+        "db_id": "12540",
+        "created_at": "",
+        "updated_at": "",
+        "source": "ezpass1.0",
+        "source_file": "imports/files/all_mahat.json"
+      },
+      "transformedData": {
+        "name": "נהלי קשירת תומכות מתכת בטפסות",
+        "content": {
+          "text": "כיצד נדרש לבצע קשירות של תומכת מתכת במערכת טפסות?",
+          "format": "markdown",
+          "options": [
+            {
+              "text": "בעזרת צינורות ומצמדות לשני הכיוונים.",
+              "format": "markdown"
+            },
+            {
+              "text": "בעזרת צינורות או לוחות עץ קשורים היטב עם חוט שזור ולפי הוראות מנהל העבודה.",
+              "format": "markdown"
+            },
+            {
+              "text": "תומכות שגובהן פחות מ - 2.75 מטרים אין צורך לקשור, ותומכות שגובהן עולה על 2.75 מטרים יש לקשור היטב בלוחות עץ ובחוט שזור.",
+              "format": "markdown"
+            },
+            {
+              "text": "בכיוון האורך בעזרת צינורות ומצמדות ובכיוון הרוחב, רק כאשר גובה התומכות עולה על ארבעה מטרים.",
+              "format": "markdown"
+            }
+          ]
+        },
+        "schoolAnswer": {
+          "finalAnswer": {
+            "type": "multiple_choice",
+            "value": 1
+          },
+          "solution": {
+            "text": "יש לשים לב כי מדובר בתןמכות מתכת (\"רגליים\", \"רגלי מסקו\") , ויש הבדל בדרישות לגבי תומכות עץ.\nב\"תקנות הבטיחות בעבודה (עבודות בניה), תשמ\"ח – 1988\" תקנה 93 (א) (ג) נדרש כי התומכות \"יקושרו ביניהן\" ומכאן אנו למדים שהכוונה בשני כיוונים. \nלתומכות מתכת יבוצע הקישור בצינורות מתכת בלבד ויחוברו לתומכות באמצעות מצמדות.\nאין בתקנות חריגים אחרים לגבי דרישת הקשירה ולכן תבוצע לכל התומכות.",
+            "format": "markdown"
+          }
+        },
+        "metadata": {
+          "subjectId": "civil_engineering",
+          "domainId": "construction_safety",
+          "topicId": "Construction_methods_and_Works",
+          "subtopicId": "concrete_formwork",
+          "type": "multiple_choice",
+          "difficulty": 3,
+          "answerFormat": {
+            "hasFinalAnswer": true,
+            "finalAnswerType": "multiple_choice",
+            "requiresSolution": false
+          }
+        },
+        "evaluationGuidelines": {
+          "requiredCriteria": [
+            {
+              "name": "Correctness",
+              "description": "Selection of the correct answer",
+              "weight": 100
+            }
+          ]
+        },
+        "id": "CIV-SAF-990001"
+      },
+      "validationResult": {
+        "errors": [],
+        "warnings": [],
+        "status": "valid"
+      },
+      "dbQuestion": {
+        "id": "CIV-SAF-990001",
+        "data": {
+          "name": "נהלי קשירת תומכות מתכת בטפסות",
+          "content": {
+            "text": "כיצד נדרש לבצע קשירות של תומכת מתכת במערכת טפסות?",
+            "format": "markdown",
+            "options": [
+              {
+                "text": "בעזרת צינורות ומצמדות לשני הכיוונים.",
+                "format": "markdown"
+              },
+              {
+                "text": "בעזרת צינורות או לוחות עץ קשורים היטב עם חוט שזור ולפי הוראות מנהל העבודה.",
+                "format": "markdown"
+              },
+              {
+                "text": "תומכות שגובהן פחות מ - 2.75 מטרים אין צורך לקשור, ותומכות שגובהן עולה על 2.75 מטרים יש לקשור היטב בלוחות עץ ובחוט שזור.",
+                "format": "markdown"
+              },
+              {
+                "text": "בכיוון האורך בעזרת צינורות ומצמדות ובכיוון הרוחב, רק כאשר גובה התומכות עולה על ארבעה מטרים.",
+                "format": "markdown"
+              }
+            ]
+          },
+          "schoolAnswer": {
+            "finalAnswer": {
+              "type": "multiple_choice",
+              "value": 1
+            },
+            "solution": {
+              "text": "יש לשים לב כי מדובר בתןמכות מתכת (\"רגליים\", \"רגלי מסקו\") , ויש הבדל בדרישות לגבי תומכות עץ.\nב\"תקנות הבטיחות בעבודה (עבודות בניה), תשמ\"ח – 1988\" תקנה 93 (א) (ג) נדרש כי התומכות \"יקושרו ביניהן\" ומכאן אנו למדים שהכוונה בשני כיוונים. \nלתומכות מתכת יבוצע הקישור בצינורות מתכת בלבד ויחוברו לתומכות באמצעות מצמדות.\nאין בתקנות חריגים אחרים לגבי דרישת הקשירה ולכן תבוצע לכל התומכות.",
+              "format": "markdown"
+            }
+          },
+          "metadata": {
+            "subjectId": "civil_engineering",
+            "domainId": "construction_safety",
+            "topicId": "Construction_methods_and_Works",
+            "subtopicId": "concrete_formwork",
+            "type": "multiple_choice",
+            "difficulty": 3,
+            "answerFormat": {
+              "hasFinalAnswer": true,
+              "finalAnswerType": "multiple_choice",
+              "requiresSolution": false
+            }
+          },
+          "evaluationGuidelines": {
+            "requiredCriteria": [
+              {
+                "name": "Correctness",
+                "description": "Selection of the correct answer",
+                "weight": 100
+              }
+            ]
+          },
+          "id": "CIV-SAF-990001"
+        },
+        "publication_status": "draft",
+        "publication_metadata": {
+          "publishedAt": "",
+          "publishedBy": "",
+          "archivedAt": "",
+          "archivedBy": "",
+          "reason": ""
+        },
+        "validation_status": "valid",
+        "review_status": "pending_review",
+        "review_metadata": {
+          "reviewedAt": "",
+          "reviewedBy": "",
+          "comments": ""
+        },
+        "update_metadata": {
+          "lastUpdatedAt": "2025-03-18T13:30:54.962Z",
+          "lastUpdatedBy": "system"
+        },
+        "ai_generated_fields": {
+          "fields": [],
+          "confidence": {},
+          "generatedAt": "2025-03-18T13:30:54.959Z"
+        },
+        "import_info": {
+          "importMetadata": {
+            "importedAt": "2025-03-18T13:30:54.962Z",
+            "importScript": "ezpass1-mahat-multiple-choice-importer",
+            "params": {}
+          },
+          "source": {
+            "name": "ezpass1.0",
+            "files": [
+              "imports/files/all_mahat.json",
+              "imports/files/All_mahat.xls"
+            ],
+            "format": "json+xls",
+            "originalId": "12540",
+            "dbId": "12540"
+          },
+          "originalData": {
+            "raw": {
+              "title": "אביב 2019, מועד ב - שאלה 1 - מנוי (טפסות)",
+              "question": "כיצד נדרש לבצע קשירות של תומכת מתכת במערכת טפסות?",
+              "answers": {
+                "answer1": "בעזרת צינורות ומצמדות לשני הכיוונים.",
+                "answer2": "בעזרת צינורות או לוחות עץ קשורים היטב עם חוט שזור ולפי הוראות מנהל העבודה.",
+                "answer3": "תומכות שגובהן פחות מ - 2.75 מטרים אין צורך לקשור, ותומכות שגובהן עולה על 2.75 מטרים יש לקשור היטב בלוחות עץ ובחוט שזור.",
+                "answer4": "בכיוון האורך בעזרת צינורות ומצמדות ובכיוון הרוחב, רק כאשר גובה התומכות עולה על ארבעה מטרים."
+              },
+              "correctAnswer": "1",
+              "correctMessage": "יש לשים לב כי מדובר בתןמכות מתכת (\"רגליים\", \"רגלי מסקו\") , ויש הבדל בדרישות לגבי תומכות עץ.\nב\"תקנות הבטיחות בעבודה (עבודות בניה), תשמ\"ח – 1988\" תקנה 93 (א) (ג) נדרש כי התומכות \"יקושרו ביניהן\" ומכאן אנו למדים שהכוונה בשני כיוונים. \nלתומכות מתכת יבוצע הקישור בצינורות מתכת בלבד ויחוברו לתומכות באמצעות מצמדות.\nאין בתקנות חריגים אחרים לגבי דרישת הקשירה ולכן תבוצע לכל התומכות.",
+              "category": "טפסות"
+            },
+            "final": {
+              "title": "נהלי קשירת תומכות מתכת בטפסות",
+              "question": "כיצד נדרש לבצע קשירות של תומכת מתכת במערכת טפסות?",
+              "answers": {
+                "answer1": "בעזרת צינורות ומצמדות לשני הכיוונים.",
+                "answer2": "בעזרת צינורות או לוחות עץ קשורים היטב עם חוט שזור ולפי הוראות מנהל העבודה.",
+                "answer3": "תומכות שגובהן פחות מ - 2.75 מטרים אין צורך לקשור, ותומכות שגובהן עולה על 2.75 מטרים יש לקשור היטב בלוחות עץ ובחוט שזור.",
+                "answer4": "בכיוון האורך בעזרת צינורות ומצמדות ובכיוון הרוחב, רק כאשר גובה התומכות עולה על ארבעה מטרים."
+              },
+              "correctAnswer": "1",
+              "correctMessage": "יש לשים לב כי מדובר בתןמכות מתכת (\"רגליים\", \"רגלי מסקו\") , ויש הבדל בדרישות לגבי תומכות עץ.\nב\"תקנות הבטיחות בעבודה (עבודות בניה), תשמ\"ח – 1988\" תקנה 93 (א) (ג) נדרש כי התומכות \"יקושרו ביניהן\" ומכאן אנו למדים שהכוונה בשני כיוונים. \nלתומכות מתכת יבוצע הקישור בצינורות מתכת בלבד ויחוברו לתומכות באמצעות מצמדות.\nאין בתקנות חריגים אחרים לגבי דרישת הקשירה ולכן תבוצע לכל התומכות.",
+              "category": "טפסות",
+              "topicId": "Construction_methods_and_Works",
+              "subtopicId": "concrete_formwork"
+            },
+            "aiReasoning": {
+              "titleGeneration": {
+                "originalTitle": "אביב 2019, מועד ב - שאלה 1 - מנוי (טפסות)",
+                "newTitle": "אביב 2019, מועד ב - שאלה 1 - מנוי (טפסות)",
+                "generatedTitle": "נהלי קשירת תומכות מתכת בטפסות",
+                "reasoning": {
+                  "questionLength": 49,
+                  "hasExamInfo": true,
+                  "examInfo": {
+                    "year": 2019,
+                    "period": "Spring",
+                    "moed": "B",
+                    "order": 1
+                  },
+                  "titleLength": 29,
+                  "isQuestionBased": false,
+                  "isOriginalBased": false
+                }
+              }
+            }
+          }
+        },
+        "created_at": "2025-03-18T13:30:54.962Z",
+        "updated_at": "2025-03-18T13:30:54.962Z"
+      }
+    }
+  }
+}

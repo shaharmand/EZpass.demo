@@ -27,14 +27,7 @@ export class TitleGenerator {
 
     private static initializeOpenAI() {
         if (!this.openai) {
-            const apiKey = process.env.OPENAI_API_KEY;
-            if (!apiKey) {
-                throw new Error('OpenAI API key not found in environment variables');
-            }
-            this.openai = new OpenAI({ apiKey });
-        }
-        if (!this.openai) {
-            throw new Error('Failed to initialize OpenAI client');
+            this.openai = getOpenAI();
         }
     }
 
@@ -256,7 +249,7 @@ Category: ${question?.metadata?.subtopicId || question?.metadata?.topicId || ''}
                 messages: [
                     {
                         role: "system",
-                        content: "You are an AI field generation expert. Provide structured JSON response with fields and confidence scores."
+                        content: "You are an AI field generation expert. Provide structured JSON response with fields and confidence scores. Always include confidence scores between 0 and 1."
                     },
                     {
                         role: "user",
@@ -281,19 +274,26 @@ Category: ${question?.metadata?.subtopicId || question?.metadata?.topicId || ''}
             // Parse the JSON response
             const result = JSON.parse(response);
             
-            // Prepare the fields array and confidence object
-            const fields = [
-                'name',
-                ...(result.additionalFields || []).map((field: any) => field.field)
-            ];
+            // Validate confidence scores
+            if (!result.title?.confidence || result.title.confidence < 0 || result.title.confidence > 1) {
+                throw new Error('Invalid confidence score for title');
+            }
 
-            const confidence = {
-                name: result.title.confidence,
-                ...(result.additionalFields || []).reduce((acc: { [key: string]: number }, field: any) => {
-                    acc[field.field] = field.confidence;
-                    return acc;
-                }, {})
+            // Prepare the fields array and confidence object
+            const fields = ['name'];
+            const confidence: { [key: string]: number } = {
+                name: result.title.confidence
             };
+
+            // Add additional fields if they exist
+            if (result.additionalFields) {
+                for (const field of result.additionalFields) {
+                    if (field.field && field.confidence >= 0 && field.confidence <= 1) {
+                        fields.push(field.field);
+                        confidence[field.field] = field.confidence;
+                    }
+                }
+            }
 
             return {
                 fields,

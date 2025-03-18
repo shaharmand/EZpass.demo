@@ -1,7 +1,12 @@
 import { VideoContent, VideoSource } from '../types/videoContent';
 
 // Import video data directly
-import videoDataJson from '../data/course/CIV-SAF/content/video_data.json';
+let videoDataJson: any = { videos: [] };
+try {
+  videoDataJson = require('../data/course/CIV-SAF/content/video_data.json');
+} catch (error) {
+  console.warn('Warning: Could not load video_data.json:', error);
+}
 
 interface ProcessedVideo {
   video_id: string;
@@ -39,30 +44,44 @@ class VideoContentService {
       // Load processed summaries
       const summariesResponse = await fetch('/data/videos/embeddings/processed_summaries.json');
       if (!summariesResponse.ok) {
-        throw new Error(`HTTP error! status: ${summariesResponse.status}`);
+        console.error(`Failed to load video summaries: ${summariesResponse.status} ${summariesResponse.statusText}`);
+        // Initialize with empty data instead of throwing
+        this.videos = [];
+        this.initialized = true;
+        return;
       }
+      
       const data: ProcessedSummaries = await summariesResponse.json();
+      if (!data || !data.summaries) {
+        console.error('Invalid video summaries data format');
+        this.videos = [];
+        this.initialized = true;
+        return;
+      }
 
       // Create maps for durations and titles from bundled video data
       const lessonDurations = new Map<number, number>();
       this.videoTitles.clear();
       
-      videoDataJson.videos.forEach((video: { id: string; lessonNumber: number; duration: number; title: string }) => {
-        // Sum durations per lesson
-        const current = lessonDurations.get(video.lessonNumber) || 0;
-        lessonDurations.set(video.lessonNumber, current + video.duration);
-        
-        // Store updated titles
-        this.videoTitles.set(`video_${video.id}`, video.title);
-      });
+      if (videoDataJson && videoDataJson.videos) {
+        videoDataJson.videos.forEach((video: { id: string; lessonNumber: number; duration: number; title: string }) => {
+          // Sum durations per lesson
+          const current = lessonDurations.get(video.lessonNumber) || 0;
+          lessonDurations.set(video.lessonNumber, current + video.duration);
+          
+          // Store updated titles
+          this.videoTitles.set(`video_${video.id}`, video.title);
+        });
+      }
       
       // Set videos and build summaries
       this.videos = data.summaries;
       this.buildLessonSummaries(lessonDurations);
       this.initialized = true;
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading video data:', error);
       this.videos = [];
+      this.initialized = true;
     }
   }
 

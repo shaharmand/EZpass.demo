@@ -11,6 +11,7 @@ import { generateQuestionId } from '../../../utils/idGenerator';
 import { CategoryMapper } from './utils/CategoryMapper';
 import { CreateQuestion } from '../../../types/storage';
 import { QuestionStorage } from '../questionStorage';
+import { TitleGenerator } from './utils/TitleGenerator';
 const XLSX = require('xlsx');
 
 interface ExcelQuestion {
@@ -86,18 +87,37 @@ export class OpenQuestionXlsImporter extends BaseImporter {
     }
 
     protected async transformQuestion(question: ExcelQuestion, id?: string): Promise<Question> {
-        // Extract exam info from title
-        const examInfo = this.parseExamInfo(question.title);
+        // Extract exam info from title and question text
+        const titleExamInfo = this.parseExamInfo(question.title);
+        const questionExamInfo = this.parseExamInfo(question.question);
+
+        // Combine exam info, preferring title info over question info
+        const examInfo = {
+            ...questionExamInfo,
+            ...titleExamInfo
+        };
 
         // Map category to topic structure
         const { topicId, subtopicId } = CategoryMapper.mapCategoryToTopic(question.category);
 
-        // Use provided ID or generate a new one
+        // Use provided ID or generate a new one if not provided
         const questionId = id || await generateQuestionId('civil_engineering', 'construction_safety');
+        
+        // Generate title using our new TitleGenerator
+        const generatedTitle = TitleGenerator.generateTitleFromRaw({
+            questionText: question.question,
+            title: question.title,
+            category: question.category,
+            type: 'Open Question'
+        }, {
+            includeCategory: true,
+            maxLength: 100,
+            includeQuestionType: true
+        });
         
         const transformed: Question = {
             id: questionId,
-            name: question.title,  // Use the title from Excel directly
+            title: generatedTitle,
             content: {
                 text: question.question,
                 format: 'markdown'

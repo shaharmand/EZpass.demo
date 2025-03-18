@@ -19,6 +19,7 @@ import { validateQuestion, ValidationError } from '../../../utils/questionValida
 import { examService } from '../../../services/examService';
 import { generateQuestionId, validateQuestionId } from '../../../utils/idGenerator';
 import { CategoryMapper } from './utils/CategoryMapper';
+import { TitleGenerator } from './utils/TitleGenerator';
 import { CreateQuestion } from '../../../types/storage';
 import fs from 'fs';
 import chalk from 'chalk';
@@ -114,8 +115,26 @@ export class MultipleChoiceJsonXlsImporter extends BaseImporter {
         // Use provided ID or generate a new one if not provided
         const questionId = id || await generateQuestionId('civil_engineering', 'construction_safety');
         
+        // Generate title using our enhanced TitleGenerator
+        const generatedTitle = TitleGenerator.generateTitleFromRaw({
+            questionText: question._question,
+            title: question._title,
+            category: question._category,
+            type: 'Multiple Choice',
+            subtopicId: subtopicId,
+            options: question._answerData.map(answer => ({ text: answer._answer })),
+            solution: question._correctMsg
+        }, {
+            includeCategory: true,
+            maxLength: 100,
+            includeQuestionType: true,
+            useChoices: true,  // Use multiple choice options
+            useSolution: true  // Use solution text
+        });
+        
         const transformed: Question = {
             id: questionId,
+            title: generatedTitle,
             content: {
                 text: question._question,
                 format: 'markdown',

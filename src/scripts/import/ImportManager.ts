@@ -10,7 +10,8 @@ import {
     ReviewStatusEnum,
     PublicationMetadata,
     ReviewMetadata,
-    AIGeneratedFields
+    AIGeneratedFields,
+    SaveQuestion
 } from '../../types/question';
 import { ImportInfo } from './types/importTypes';
 import { validateQuestion } from '../../utils/questionValidator';
@@ -122,7 +123,7 @@ export class ImportManager {
         try {
             const stats = await importer.importFromSource(sourcePath, {
                 ...options,
-                onQuestionProcessed: (id, details) => {
+                onQuestionProcessed: async (id, details) => {
                     // Track validation issues
                     if (details.databaseRecord.validationResult) {
                         const { errors, warnings } = details.databaseRecord.validationResult;
@@ -150,6 +151,41 @@ export class ImportManager {
                         validationErrors: details.databaseRecord.validationResult?.errors.map(e => e.message) || [],
                         validationWarnings: details.databaseRecord.validationResult?.warnings.map(w => w.message) || []
                     });
+
+                    // Handle dry-run mode
+                    if (details.databaseRecord.status === 'success' && 
+                        details.databaseRecord.id && 
+                        details.databaseRecord.data && 
+                        details.databaseRecord.import_info) {
+                        // Prepare the complete DatabaseQuestion object using the manager's method
+                        const completeDbQuestion = await this.prepareQuestionForStorage(
+                            details.databaseRecord.data,
+                            details.databaseRecord.import_info
+                        );
+
+                        // Update the databaseRecord with the complete DatabaseQuestion while preserving required fields
+                        details.databaseRecord = {
+                            ...completeDbQuestion,
+                            status: details.databaseRecord.status,
+                            processingTime: details.databaseRecord.processingTime,
+                            validationResult: details.databaseRecord.validationResult
+                        };
+
+                        if (options.dryRun) {
+                            // In dry-run mode, just log what would be saved
+                            logger.info('Dry run - would save DatabaseQuestion:', {
+                                fullObject: completeDbQuestion
+                            });
+                        } else {
+                            // In live mode, actually save the question
+                            const saveQuestion: SaveQuestion = {
+                                id: completeDbQuestion.id,
+                                data: completeDbQuestion.data,
+                                publication_status: completeDbQuestion.publication_status
+                            };
+                            await this.questionStorage.saveQuestion(saveQuestion);
+                        }
+                    }
                 }
             });
             

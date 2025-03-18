@@ -49,6 +49,7 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
     private titleToCategoryMap: Map<string, string> = new Map();
     private jsonPath: string;
     private excelPath: string;
+    private options?: { limit?: number; dryRun?: boolean };
 
     constructor(
         jsonPath: string,
@@ -62,107 +63,114 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
     }
 
     /**
+     * Set import options
+     */
+    setOptions(options: { limit?: number; dryRun?: boolean }) {
+        console.log('\n=== EZpass1MahatMultipleChoiceImporter setOptions ===');
+        console.log('Previous options:', this.options);
+        console.log('New options:', options);
+        this.options = options;
+        console.log('Updated options:', this.options);
+        console.log('================================================\n');
+    }
+
+    /**
      * Read questions from JSON file and convert to raw rows
      */
     async readSource(sourcePath: string): Promise<RawSourceRow[]> {
-        const [jsonPath, excelPath] = sourcePath.split(';');
-        
-        // Read JSON questions
-        const fileContent = await fs.promises.readFile(jsonPath, 'utf-8');
-        const jsonData = JSON.parse(fileContent);
-        const questionMap = jsonData.question || {};
-        const rows: RawSourceRow[] = [];
-        const errors: string[] = [];
+        console.log('\n=== EZpass1MahatMultipleChoiceImporter readSource ===');
+        console.log('Source Path:', sourcePath);
+        console.log('Options state:', this.options);
+        console.log('Limit value:', this.options?.limit);
+        console.log('Dry run value:', this.options?.dryRun);
+        console.log('===================================================\n');
 
-        // Read Excel mappings
-        const workbook = xlsx.readFile(excelPath);
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const mappings = xlsx.utils.sheet_to_json(worksheet, {
-            raw: true,
-            defval: '',
-            blankrows: false
-        });
+        try {
+            // Read JSON file
+            const jsonData = await fs.promises.readFile(sourcePath, 'utf-8');
+            const data = JSON.parse(jsonData);
 
-        // Create normalized title to row map for Excel data
-        const normalizedTitleMap = new Map<string, any>();
-        
-        // First log all Excel titles
-        console.log('\nAvailable Excel mappings:');
-        mappings.forEach((row: any) => {
-            const title = row['Title'] || '';
-            if (title.includes('2015')) {
-                console.log(`Excel: "${title}" -> "${row['Multi question category']}"`);
+            // Read category mappings from Excel
+            const workbook = xlsx.readFile(this.excelPath);
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const categoryData = xlsx.utils.sheet_to_json(worksheet);
+            
+            // Debug: Log the first row to see column names
+            if (categoryData.length > 0) {
+                console.log('Excel file first row:', categoryData[0]);
             }
-        });
 
-        // Then create the map - only use rows with non-empty categories
-        mappings.forEach((row: any) => {
-            const title = row['Title'] || '';
-            const category = row['Multi question category'] || '';
-            // Add to map regardless of category being empty or not
-            normalizedTitleMap.set(title, row);
-        });
-
-        // Extract questions from nested structure
-        Object.entries(questionMap).forEach(([key, value]: [string, any]) => {
-            Object.entries(value).forEach(([questionId, questionData]: [string, any]) => {
-                if (questionData) {
-                    const title = questionData._title || '';
-                    
-                    // Find matching Excel row using exact title
-                    const excelRow = normalizedTitleMap.get(title);
-                    const category = excelRow ? excelRow['Multi question category'] || '' : '';
-                    const titleNew = excelRow ? excelRow['TitleNew'] || '' : '';
-                    
-                    if (!category) {
-                        // Log error but continue with the import
-                        console.error(`\nERROR: No category found for JSON title: "${title}"`);
-                        console.error(`Question text: "${questionData._question}"`);
-                        // Try to find similar titles
-                        Array.from(normalizedTitleMap.keys())
-                            .forEach(t => {
-                                const similarity = t.replace(/\s+/g, '') === title.replace(/\s+/g, '');
-                                if (similarity) {
-                                    console.error(`Found similar Excel title: "${t}" -> "${normalizedTitleMap.get(t)['Multi question category']}"`);
-                                }
-                            });
-                        errors.push(`Missing category mapping for title: "${title}"`);
-                    }
-
-                    // Parse answer data into separate fields
-                    const answers = questionData._answerData || [];
-                    const correctIndex = answers.findIndex((a: any) => a._correct) + 1;
-
-                    const row: RawSourceRow = {
-                        title: title,
-                        titleNew: titleNew,
-                        question: questionData._question || '',
-                        correct_message: questionData._correctMsg || '',
-                        answer1: answers[0]?._answer || '',
-                        answer2: answers[1]?._answer || '',
-                        answer3: answers[2]?._answer || '',
-                        answer4: answers[3]?._answer || '',
-                        correct_answer: correctIndex.toString(),
-                        category: category, // This might be empty string now
-                        post_id: questionId,
-                        db_id: questionData._dbId?.toString() || '',
-                        created_at: questionData._createdAt || '',
-                        updated_at: questionData._updatedAt || '',
-                        source: 'json',
-                        source_file: jsonPath
-                    };
-
-                    rows.push(row);
+            // Create mapping of titles to categories
+            const categoryMap = new Map<string, string>();
+            categoryData.forEach((row: any) => {
+                if (row['Title'] && row['Category']) {
+                    categoryMap.set(row['Title'], row['Category']);
                 }
             });
-        });
 
-        if (errors.length > 0) {
-            console.error('\nCategory mapping errors found:');
-            errors.forEach(error => console.error(`- ${error}`));
+            console.log(`Loaded ${categoryMap.size} category mappings from Excel`);
+            if (categoryMap.size > 0) {
+                console.log('First few mappings:', Array.from(categoryMap.entries()).slice(0, 2));
+            } else {
+                console.log('No category mappings found. Available columns:', Object.keys(categoryData[0] || {}));
+            }
+
+            // Extract questions from JSON data
+            const questions = Object.entries(data.question || {})
+                .map(([key, value]: [string, any]) => {
+                    const questionId = Object.keys(value)[0];
+                    const questionData = value[questionId];
+                    const postData = data.post?.[questionId];
+
+                    if (!questionData) {
+                        console.log(`Missing data for question ${key}`);
+                        return null;
+                    }
+
+                    // Get category by matching title
+                    const category = categoryMap.get(questionData._title);
+                    if (!category) {
+                        console.log(`No category found for title: ${questionData._title}`);
+                        return null;
+                    }
+
+                    // Convert to RawSourceRow format
+                    const rawRow: RawSourceRow = {
+                        title: questionData._title || '',
+                        titleNew: questionData._title || '',  // Initially same as title
+                        question: questionData._question || '',
+                        correct_message: questionData._correctMsg || '',
+                        answer1: questionData._answerData?.[0]?._answer || '',
+                        answer2: questionData._answerData?.[1]?._answer || '',
+                        answer3: questionData._answerData?.[2]?._answer || '',
+                        answer4: questionData._answerData?.[3]?._answer || '',
+                        correct_answer: (questionData._answerData?.findIndex((a: any) => a._correct) + 1).toString() || '',
+                        category: category,
+                        post_id: questionId,
+                        db_id: questionId,
+                        created_at: postData?.post_date || '',
+                        updated_at: postData?.post_modified || '',
+                        source: 'ezpass1.0',
+                        source_file: this.jsonPath
+                    };
+
+                    return rawRow;
+                })
+                .filter((row): row is RawSourceRow => row !== null);
+
+            console.log(`Found ${questions.length} valid questions`);
+
+            // Apply limit if specified
+            const limitedQuestions = this.options?.limit ? questions.slice(0, this.options.limit) : questions;
+            console.log(`Processing ${limitedQuestions.length} questions (${this.options?.limit ? `limited from ${questions.length}` : 'all'})`);
+
+            return limitedQuestions;
+
+        } catch (error) {
+            console.error('Error reading source:', error);
+            throw error;
         }
-
-        return rows;
     }
 
     /**
@@ -171,19 +179,55 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
     protected async cleanRow(row: RawImportRow): Promise<RawImportRow> {
         const sourceRow = row as RawSourceRow;
         
+        console.log('\n=== Cleaning Row ===');
+        console.log('Original Row:', {
+            title: sourceRow.title,
+            question: sourceRow.question,
+            answers: {
+                answer1: sourceRow.answer1,
+                answer2: sourceRow.answer2,
+                answer3: sourceRow.answer3,
+                answer4: sourceRow.answer4
+            },
+            category: sourceRow.category
+        });
+        
         // Extract exam info first (we need this for metadata)
         const examInfo = ExamInfoParser.parseExamInfo(sourceRow.title);
+        console.log('Extracted Exam Info:', examInfo);
 
         // Also check question text for order if not found in title
         if (!examInfo.order) {
             const questionMatch = sourceRow.question.match(/שאלה\s*(\d+)/);
             if (questionMatch) {
                 examInfo.order = parseInt(questionMatch[1]);
+                console.log('Found order in question text:', examInfo.order);
             }
         }
 
-        // Clean question text with dedicated method
-        const cleanedQuestionText = this.cleanQuestionText(sourceRow.question);
+        // Clean question text with special handling
+        const cleanedQuestion = this.cleanQuestionText(sourceRow.question);
+        console.log('Cleaned Question Text:', {
+            original: sourceRow.question,
+            cleaned: cleanedQuestion,
+            changes: cleanedQuestion !== sourceRow.question
+        });
+
+        // Clean correct message with special handling for solutions
+        const cleanedMessage = this.cleanSolutionText(sourceRow.correct_message);
+        console.log('Cleaned Solution Text:', {
+            original: sourceRow.correct_message,
+            cleaned: cleanedMessage,
+            changes: cleanedMessage !== sourceRow.correct_message
+        });
+
+        // Clean answers with special handling
+        const cleanedAnswers = {
+            answer1: this.cleanOptionText(sourceRow.answer1),
+            answer2: this.cleanOptionText(sourceRow.answer2),
+            answer3: this.cleanOptionText(sourceRow.answer3),
+            answer4: this.cleanOptionText(sourceRow.answer4)
+        };
 
         // Create new cleaned row with explicit fields
         const cleanedRow: CleanedRow = {
@@ -196,20 +240,16 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
             source_file: sourceRow.source_file,
 
             // Cleaned transform fields
-            title: sourceRow.titleNew || sourceRow.title, // Use titleNew if available, fallback to original title
+            title: sourceRow.titleNew || sourceRow.title,
             titleNew: sourceRow.titleNew,
-            question: cleanedQuestionText,
-            correct_message: this.cleanText(sourceRow.correct_message, {
-                removeExtraSpaces: true,
-                removeTabs: true,
-                trim: true
-            }),
+            question: cleanedQuestion,
+            correct_message: cleanedMessage,
             
-            // Clean each answer
-            answer1: this.cleanOptionText(sourceRow.answer1),
-            answer2: this.cleanOptionText(sourceRow.answer2),
-            answer3: this.cleanOptionText(sourceRow.answer3),
-            answer4: this.cleanOptionText(sourceRow.answer4),
+            // Cleaned answers
+            answer1: cleanedAnswers.answer1,
+            answer2: cleanedAnswers.answer2,
+            answer3: cleanedAnswers.answer3,
+            answer4: cleanedAnswers.answer4,
             correct_answer: sourceRow.correct_answer,
             
             category: sourceRow.category?.trim() || '',
@@ -220,18 +260,32 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
             // Track cleaning changes for debugging/validation
             cleaning_changes: JSON.stringify({
                 title_changed: (sourceRow.titleNew || sourceRow.title) !== sourceRow.title,
-                question_changed: cleanedQuestionText !== sourceRow.question,
-                correct_message_changed: this.cleanText(sourceRow.correct_message) !== sourceRow.correct_message,
+                question_changed: cleanedQuestion !== sourceRow.question,
+                correct_message_changed: cleanedMessage !== sourceRow.correct_message,
                 answers_changed: [
-                    this.cleanOptionText(sourceRow.answer1) !== sourceRow.answer1,
-                    this.cleanOptionText(sourceRow.answer2) !== sourceRow.answer2,
-                    this.cleanOptionText(sourceRow.answer3) !== sourceRow.answer3,
-                    this.cleanOptionText(sourceRow.answer4) !== sourceRow.answer4
+                    cleanedAnswers.answer1 !== sourceRow.answer1,
+                    cleanedAnswers.answer2 !== sourceRow.answer2,
+                    cleanedAnswers.answer3 !== sourceRow.answer3,
+                    cleanedAnswers.answer4 !== sourceRow.answer4
                 ],
                 category_changed: (sourceRow.category?.trim() || '') !== sourceRow.category,
                 exam_info_extracted: !!examInfo
             })
         };
+
+        console.log('Cleaned Row Result:', {
+            title: cleanedRow.title,
+            titleNew: cleanedRow.titleNew,
+            question: cleanedRow.question,
+            answers: {
+                answer1: cleanedRow.answer1,
+                answer2: cleanedRow.answer2,
+                answer3: cleanedRow.answer3,
+                answer4: cleanedRow.answer4
+            },
+            category: cleanedRow.category
+        });
+        console.log('===================================\n');
 
         return cleanedRow;
     }
@@ -250,10 +304,22 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
         // 1. Remove exam info
         const cleanedExamInfo = ExamInfoParser.cleanExamInfo(text);
 
-        // 2. Normalize whitespace
-        return cleanedExamInfo
-            .replace(/\s+/g, ' ')  // Replace multiple whitespace chars with single space
-            .trim();               // Remove leading/trailing whitespace
+        // 2. Use base class's cleanText to preserve newlines
+        return this.cleanText(cleanedExamInfo, {
+            removeExtraSpaces: true,
+            removeTabs: true,
+            trim: true
+        });
+    }
+
+    /**
+     * Clean option text by removing leading/trailing whitespace and normalizing spaces
+     * while preserving newlines
+     */
+    private cleanOptionText(text: string): string {
+        if (!text) return '';
+        // Remove option prefixes (א., ב., ג., ד.) and any following spaces/tabs
+        return text.replace(/^[א-ד]\.\s*|\t+/g, '').trim();
     }
 
     /**
@@ -268,7 +334,10 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
         let cleaned = text;
 
         if (options.removeExtraSpaces) {
-            cleaned = cleaned.replace(/\s+/g, ' ');
+            // Split by newlines, clean each line, then rejoin
+            cleaned = cleaned.split('\n').map(line => {
+                return line.replace(/\s{2,}/g, ' ');  // Only replace multiple spaces with single space
+            }).join('\n');
         }
 
         if (options.removeTabs) {
@@ -280,6 +349,30 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
         }
 
         return cleaned;
+    }
+
+    /**
+     * Clean solution text by:
+     * 1. Removing הסבר: or הסבר from the first line
+     * 2. Normalizing whitespace while preserving newlines
+     */
+    private cleanSolutionText(text: string): string {
+        if (!text) return '';
+        
+        // Split into lines
+        const lines = text.split('\n');
+        
+        // Clean first line by removing הסבר: or הסבר
+        if (lines.length > 0) {
+            lines[0] = lines[0].replace(/^הסבר:?\s*/, '');
+        }
+        
+        // Rejoin lines and clean whitespace while preserving newlines
+        return this.cleanText(lines.join('\n'), {
+            removeExtraSpaces: true,
+            removeTabs: true,
+            trim: true
+        });
     }
 
     /**
@@ -355,44 +448,18 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
      */
     async transformRow(row: RawImportRow): Promise<Omit<Question, 'id'>> {
         const cleanedRow = row as CleanedRow;
-        
-        // Map category to topic structure only if category exists
-        let topicMapping: { topicId: string; subtopicId: string } | undefined;
-        
-        if (cleanedRow.category) {
-            try {
-                topicMapping = CategoryMapper.mapCategoryToTopic(cleanedRow.category);
-            } catch (error) {
-                console.error(`Failed to map category "${cleanedRow.category}" to topic structure:`, error);
-                // Leave topic/subtopic undefined
-            }
-        }
 
-        // Parse exam info (added during cleaning)
-        const examInfo = cleanedRow.exam_info ? JSON.parse(cleanedRow.exam_info) : null;
-        
-        // Debug logging for title selection
-        console.log('\nTransforming row title:', {
-            titleNew: cleanedRow.titleNew,
-            originalTitle: cleanedRow.title,
-            selectedTitle: cleanedRow.titleNew || cleanedRow.title,
-            hasExamInfo: !!examInfo,
-            examInfoYear: examInfo?.year,
-            examInfoPeriod: examInfo?.period,
-            category: cleanedRow.category,
-            hasTopicMapping: !!topicMapping
-        });
-
-        const transformed: Omit<Question, 'id'> = {
-            name: cleanedRow.titleNew || cleanedRow.title || 'Missing Title',
+        // Create the question object with only core content fields
+        const question: Omit<Question, 'id'> = {
+            name: cleanedRow.titleNew || cleanedRow.title,  // Use original title initially
             content: {
                 text: cleanedRow.question,
-                format: 'markdown',
+                format: 'markdown' as const,
                 options: [
-                    { text: cleanedRow.answer1, format: 'markdown' },
-                    { text: cleanedRow.answer2, format: 'markdown' },
-                    { text: cleanedRow.answer3, format: 'markdown' },
-                    { text: cleanedRow.answer4, format: 'markdown' }
+                    { text: cleanedRow.answer1, format: 'markdown' as const },
+                    { text: cleanedRow.answer2, format: 'markdown' as const },
+                    { text: cleanedRow.answer3, format: 'markdown' as const },
+                    { text: cleanedRow.answer4, format: 'markdown' as const }
                 ]
             },
             schoolAnswer: {
@@ -402,34 +469,24 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
                 },
                 solution: {
                     text: cleanedRow.correct_message,
-                    format: 'markdown'
+                    format: 'markdown' as const
                 }
             },
+            // Required metadata with minimal values
             metadata: {
                 subjectId: 'civil_engineering',
                 domainId: 'construction_safety',
-                topicId: topicMapping?.topicId || '',
-                subtopicId: topicMapping?.subtopicId || '',
+                topicId: CategoryMapper.mapCategoryToTopic(cleanedRow.category).topicId,
+                subtopicId: CategoryMapper.mapCategoryToTopic(cleanedRow.category).subtopicId,
                 type: QuestionType.MULTIPLE_CHOICE,
                 difficulty: 3,
                 answerFormat: {
                     hasFinalAnswer: true,
                     finalAnswerType: 'multiple_choice',
                     requiresSolution: false
-                },
-                estimatedTime: 3,
-                source: examInfo ? {
-                    type: 'exam',
-                    examTemplateId: 'mahat_civil_safety',
-                    year: examInfo.year,
-                    period: examInfo.period,
-                    moed: examInfo.moed,
-                    order: examInfo.order
-                } : {
-                    type: 'ezpass',
-                    creatorType: EzpassCreatorType.HUMAN
                 }
             },
+            // Required evaluation guidelines with minimal values
             evaluationGuidelines: {
                 requiredCriteria: [
                     {
@@ -441,14 +498,55 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
             }
         };
 
-        return transformed;
+        // Generate title using OpenAI as the final step
+        try {
+            console.log('\n=== Generating Title ===');
+            const generatedTitle = await TitleGenerator.generateTitle(question);
+            console.log('Generated Title:', generatedTitle);
+            question.name = generatedTitle;
+            console.log('Title Generation Complete');
+            console.log('========================\n');
+        } catch (error) {
+            console.error('Error generating title:', error);
+            console.log('Keeping original title:', question.name);
+            // Keep the original title if generation fails
+        }
+
+        // Log the transformed question content
+        console.log('\n=== Transformed Question Content ===');
+        console.log(JSON.stringify(question, null, 2));
+        console.log('===================================\n');
+
+        return question;
     }
 
     /**
      * Get source-specific import info
      */
-    protected getImportInfo(row: RawImportRow): ImportInfo {
+    protected getImportInfo(row: RawImportRow, question: Question): ImportInfo {
         const sourceRow = row as RawSourceRow;
+        const cleanedRow = row as CleanedRow;
+        const examInfo = JSON.parse(cleanedRow.exam_info || '{}');
+        const { topicId, subtopicId } = CategoryMapper.mapCategoryToTopic(cleanedRow.category);
+
+        // Only use the generated title, no fallback
+        const title = question.name;
+
+        // Log title generation details
+        console.log('\n=== Title Generation ===');
+        console.log('Original Title:', sourceRow.title);
+        console.log('New Title:', sourceRow.titleNew);
+        console.log('Generated Title:', title);
+        console.log('Title Generation Reasoning:', {
+            questionLength: cleanedRow.question.length,
+            hasExamInfo: !!examInfo,
+            examInfo,
+            titleLength: title?.length || 0,
+            isQuestionBased: title === cleanedRow.question,
+            isOriginalBased: title === cleanedRow.title
+        });
+        console.log('========================\n');
+
         return {
             importMetadata: {
                 importedAt: new Date().toISOString(),
@@ -463,29 +561,51 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
                 dbId: sourceRow.db_id
             },
             originalData: {
-                title: sourceRow.title,
-                question: sourceRow.question,
-                correctMessage: sourceRow.correct_message,
-                answers: [
-                    sourceRow.answer1,
-                    sourceRow.answer2,
-                    sourceRow.answer3,
-                    sourceRow.answer4
-                ],
-                correctAnswer: sourceRow.correct_answer,
-                category: sourceRow.category,
-                createdAt: sourceRow.created_at,
-                updatedAt: sourceRow.updated_at
+                raw: {
+                    title: sourceRow.title,
+                    question: sourceRow.question,
+                    answers: {
+                        answer1: sourceRow.answer1,
+                        answer2: sourceRow.answer2,
+                        answer3: sourceRow.answer3,
+                        answer4: sourceRow.answer4
+                    },
+                    correctAnswer: sourceRow.correct_answer,
+                    correctMessage: sourceRow.correct_message,
+                    category: sourceRow.category
+                },
+                final: {
+                    title,
+                    question: cleanedRow.question,
+                    answers: {
+                        answer1: cleanedRow.answer1,
+                        answer2: cleanedRow.answer2,
+                        answer3: cleanedRow.answer3,
+                        answer4: cleanedRow.answer4
+                    },
+                    correctAnswer: cleanedRow.correct_answer,
+                    correctMessage: cleanedRow.correct_message,
+                    category: cleanedRow.category,
+                    topicId,
+                    subtopicId
+                },
+                aiReasoning: {
+                    titleGeneration: {
+                        originalTitle: sourceRow.title,
+                        newTitle: sourceRow.titleNew,
+                        generatedTitle: title,
+                        reasoning: {
+                            questionLength: cleanedRow.question.length,
+                            hasExamInfo: !!examInfo,
+                            examInfo,
+                            titleLength: title?.length || 0,
+                            isQuestionBased: title === cleanedRow.question,
+                            isOriginalBased: title === cleanedRow.title
+                        }
+                    }
+                }
             }
         };
-    }
-
-    /**
-     * Clean option text by removing prefixes like א., ב., etc.
-     */
-    private cleanOptionText(text: string): string {
-        // Remove option prefixes (א., ב., ג., ד.) and any following spaces/tabs
-        return text.replace(/^[א-ד]\.\s*|\t+/g, '').trim();
     }
 
     /**

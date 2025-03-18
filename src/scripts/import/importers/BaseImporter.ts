@@ -114,21 +114,26 @@ export abstract class BaseImporter implements BaseQuestionImporter {
         };
 
         try {
-            // Read raw rows from source
+            // Set options on the importer if it supports it
+            if ('setOptions' in this) {
+                (this as any).setOptions(options);
+            }
+
+            // Read raw rows from source with limit if specified
             const rows = await this.readSource(sourcePath);
+            
+            // Update stats with the actual number of rows we'll process
             stats.totalRows = rows.length;
             
             logger.info(`Starting import from ${sourcePath}`, {
-                totalRows: rows.length,
+                totalAvailableRows: rows.length,
+                rowsToProcess: stats.totalRows,
                 dryRun: options.dryRun ? true : false,
                 limit: options.limit
             });
 
-            // Apply limit if specified
-            const limitedRows = options.limit ? rows.slice(0, options.limit) : rows;
-
             // Process each row
-            for (const rawRow of limitedRows) {
+            for (const rawRow of rows) {
                 const startTime = Date.now();
                 try {
                     // Clean and validate the row
@@ -251,73 +256,37 @@ export abstract class BaseImporter implements BaseQuestionImporter {
                         updated_at: ''
                     };
 
-                    // Only set timestamps if they exist in source
-                    const sourceRow = cleanedRow as { created_at?: string; updated_at?: string };
-                    if (sourceRow.created_at) {
-                        databaseFields.created_at = sourceRow.created_at;
-                    }
-                    if (sourceRow.updated_at) {
-                        databaseFields.updated_at = sourceRow.updated_at;
-                    }
-                    
-                    // Only store in database if not dry run
-                    if (!options.dryRun) {
-                        await this.questionStorage.createQuestion({
-                            question: transformedQuestion,
-                            import_info: importInfo
-                        });
-                    }
-
-                    // Track processing details with proper section nesting
-                    const details: QuestionProcessingDetails = {
-                        rawSourceData: {
-                            raw: rawRow,
-                            cleaned: cleanedRow,
-                            cleaning_changes: 'cleaning_changes' in cleanedRow ? 
-                                JSON.parse(cleanedRow.cleaning_changes as string) : null
-                        },
-                        databaseRecord: {
-                            ...databaseFields,
-                            status: 'success',
-                            processingTime: Date.now() - startTime,
-                            validationResult,
-                            errors: validationResult.errors.map(e => e.message),
-                            warnings: validationResult.warnings.map(w => w.message)
-                        }
-                    };
-
-                    // Skip actual import in dry run mode
-                    if (options.dryRun) {
-                        stats.skippedRows++;
-                        // Don't add dry run skipping as a warning - it's expected behavior
-                    } else {
-                        stats.successfulRows++;
-                    }
-
-                    // Notify about processed question with clear section separation
+                    // Call the callback with processing details
                     if (options.onQuestionProcessed) {
-                        const questionId = transformedQuestion.id || this.getRowIdentifier(rawRow);
-                        options.onQuestionProcessed(questionId, {
-                            rawSourceData: details.rawSourceData,
-                            databaseRecord: details.databaseRecord
+                        options.onQuestionProcessed(transformedQuestion.id, {
+                            rawSourceData: {
+                                raw: rawRow,
+                                cleaned: cleanedRow,
+                                cleaning_changes: (cleanedRow as any).cleaning_changes
+                            },
+                            databaseRecord: {
+                                ...databaseFields,
+                                status: 'success',
+                                processingTime: Date.now() - startTime,
+                                validationResult
+                            }
                         });
                     }
+
+                    // Always increment successful rows - the manager will handle dry-run mode
+                    stats.successfulRows++;
 
                 } catch (error) {
-                    stats.failedRows++;
-                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                    stats.errors.push(errorMessage);
-                    stats.validationStats.errors++; // Count failed imports as validation errors
-                    
-                    logger.error(`Failed to process question: ${this.getRowIdentifier(rawRow)}`, {
-                        error: errorMessage,
-                        status: 'error'
+                    // Log the error with full context
+                    logger.error('Failed to process row', {
+                        rowId: this.getRowIdentifier(rawRow),
+                        error: error instanceof Error ? error.message : 'Unknown error',
+                        stack: error instanceof Error ? error.stack : undefined
                     });
-                    
-                    const errorId = this.getRowIdentifier(rawRow);
-                    // Notify about failed question with proper section nesting
+
+                    // Call the callback with error details
                     if (options.onQuestionProcessed) {
-                        options.onQuestionProcessed(errorId, {
+                        options.onQuestionProcessed(this.getRowIdentifier(rawRow), {
                             rawSourceData: {
                                 raw: rawRow,
                                 cleaned: null,
@@ -326,36 +295,24 @@ export abstract class BaseImporter implements BaseQuestionImporter {
                             databaseRecord: {
                                 status: 'failed',
                                 processingTime: Date.now() - startTime,
-                                errors: [errorMessage]
+                                errors: [error instanceof Error ? error.message : 'Unknown error']
                             }
                         });
                     }
+
+                    stats.failedRows++;
                 }
             }
 
-            // Add accumulated warnings to stats
-            stats.warnings.push(...this.warnings);
-
-            // Log final validation summary
-            logger.info('Import validation summary:', {
-                total: stats.totalRows,
-                valid: stats.validationStats.valid,
-                errors: stats.validationStats.errors,
-                warnings: stats.validationStats.warnings,
-                processingTime: Date.now() - importStartTime
-            });
+            return stats;
 
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            stats.errors.push(errorMessage);
-            logger.error('Import failed:', {
-                error: errorMessage,
+            logger.error('Import failed', {
                 file: sourcePath,
-                processingTime: Date.now() - importStartTime
+                error: error instanceof Error ? error.message : 'Unknown error'
             });
+            throw error;
         }
-
-        return stats;
     }
 
     /**
@@ -363,34 +320,25 @@ export abstract class BaseImporter implements BaseQuestionImporter {
      * Common text cleaning logic that can be used by all importers
      */
     protected cleanText(text: string, options: {
-        removeExamInfo?: boolean;
         removeExtraSpaces?: boolean;
         removeTabs?: boolean;
         trim?: boolean;
     } = {}): string {
-        const {
-            removeExamInfo = false,
-            removeExtraSpaces = true,
-            removeTabs = true,
-            trim = true
-        } = options;
-
         let cleaned = text;
 
-        if (trim) {
-            cleaned = cleaned.trim();
+        if (options.removeExtraSpaces) {
+            // Split by newlines, clean each line, then rejoin
+            cleaned = cleaned.split('\n').map(line => {
+                return line.replace(/\s{2,}/g, ' ');  // Only replace multiple spaces with single space
+            }).join('\n');
         }
 
-        if (removeExamInfo) {
-            cleaned = cleaned.replace(/^\s*\[.*?\]\s*/m, '');
-        }
-
-        if (removeTabs) {
+        if (options.removeTabs) {
             cleaned = cleaned.replace(/\t+/g, ' ');
         }
 
-        if (removeExtraSpaces) {
-            cleaned = cleaned.replace(/\s{2,}/g, ' ');
+        if (options.trim) {
+            cleaned = cleaned.trim();
         }
 
         return cleaned;

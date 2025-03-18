@@ -2,6 +2,18 @@ import * as dotenv from 'dotenv';
 import { resolve, join } from 'path';
 import * as fs from 'fs/promises';
 import { ValidationResult } from '../../utils/questionValidator';
+import { 
+    Question,
+    QuestionType, 
+    ValidationStatus, 
+    DatabaseQuestion,
+    PublicationStatusEnum,
+    ReviewStatusEnum,
+    PublicationMetadata,
+    ReviewMetadata,
+    AIGeneratedFields
+} from '../../types/question';
+import { ImportInfo } from './types/importTypes';
 
 // Load environment variables from .env file
 dotenv.config({ path: resolve(__dirname, '../../../.env') });
@@ -25,7 +37,6 @@ import { checkEnvironmentVariables } from '../../utils/envCheck';
 import { getSupabase } from '../../lib/supabase';
 import { EZpass1MahatMultipleChoiceImporter } from './importers/EZpass1MahatMultipleChoiceImporter';
 import { EZpass1ConstructionCommiteeOpenImporter } from './importers/EZpass1ConstructionCommiteeOpenImporter';
-import { QuestionType, ValidationStatus } from '../../types/question';
 import chalk from 'chalk';
 
 // Check environment variables - this will log the status of all env vars
@@ -49,6 +60,8 @@ interface QuestionDetails {
     originalData: any;
     transformedData: any;
     validationResult?: ValidationResult;
+    dbQuestion?: DatabaseQuestion;
+    importInfo?: ImportInfo;
 }
 
 interface ImportReport {
@@ -90,6 +103,27 @@ interface DatabaseRecordSection {
     warnings?: string[];
     [key: string]: any;  // Allow other fields
 }
+
+// Add default values
+const DEFAULT_PUBLICATION_METADATA: PublicationMetadata = {
+    publishedAt: '',
+    publishedBy: '',
+    archivedAt: '',
+    archivedBy: '',
+    reason: ''
+};
+
+const DEFAULT_REVIEW_METADATA: ReviewMetadata = {
+    reviewedAt: '',
+    reviewedBy: 'system',
+    comments: ''
+};
+
+const DEFAULT_AI_GENERATED_FIELDS: AIGeneratedFields = {
+    fields: [],
+    confidence: {},
+    generatedAt: ''
+};
 
 async function writeReport(report: ImportReport, basePath: string) {
     // Create reports directory in the project root
@@ -134,7 +168,24 @@ async function writeReport(report: ImportReport, basePath: string) {
             const validationInfo = {
                 id,
                 errors: details.errors?.map(error => error) || [],
-                warnings: details.warnings?.map(warning => warning) || []
+                warnings: details.warnings?.map(warning => warning) || [],
+                dbQuestion: details.dbQuestion ? {
+                    ...details.dbQuestion,
+                    data: details.transformedData as Question,
+                    publication_status: PublicationStatusEnum.DRAFT,
+                    publication_metadata: DEFAULT_PUBLICATION_METADATA,
+                    validation_status: details.validationStatus || ValidationStatus.VALID,
+                    review_status: ReviewStatusEnum.PENDING_REVIEW,
+                    review_metadata: DEFAULT_REVIEW_METADATA,
+                    update_metadata: {
+                        lastUpdatedAt: new Date().toISOString(),
+                        lastUpdatedBy: 'system'
+                    },
+                    ai_generated_fields: DEFAULT_AI_GENERATED_FIELDS,
+                    import_info: details.importInfo,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                } : undefined
             };
 
             if (details.errors && details.errors.length > 0) {
@@ -227,35 +278,29 @@ async function main() {
     try {
         // Parse command line arguments
         const args = process.argv.slice(2);
-        const type = args.find(arg => arg.startsWith('--type='))?.split('=')[1] || 'multiple-choice';
+        console.log('\n=== Command Line Arguments ===');
+        console.log('Raw args:', args);
+        
+        const sourcePath = args[0];
+        const excelPath = args[1];
+        const typeArg = args.find(arg => arg.startsWith('--type='));
+        const type = typeArg?.split('=')[1] || 'multiple-choice';
         const isDryRun = args.includes('--dry-run');
-        const limit = parseInt(args.find(arg => arg.startsWith('--limit='))?.split('=')[1] || '0');
+        const limitArg = args.find(arg => arg.startsWith('--limit='));
+        const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : undefined;
 
-        // Get file paths based on type
-        let jsonPath = '';
-        let excelPath = '';
-        const remainingArgs = args.filter(arg => !arg.startsWith('--'));
+        console.log('\n=== Extracted Parameters ===');
+        console.log('Source Path:', sourcePath);
+        console.log('Excel Path:', excelPath);
+        console.log('Type Arg:', typeArg);
+        console.log('Type:', type);
+        console.log('Is Dry Run:', isDryRun);
+        console.log('Limit Arg:', limitArg);
+        console.log('Limit:', limit);
+        console.log('===========================\n');
 
-        if (type === 'multiple-choice') {
-            [jsonPath, excelPath] = remainingArgs;
-            if (!jsonPath || !excelPath) {
-                console.error(chalk.red('Please provide paths to both the JSON and Excel files for multiple choice questions'));
-                console.error(chalk.yellow(
-                    'Usage: npm run import-questions <json-file-path> <excel-file-path> --type=multiple-choice [--dry-run] [--limit=N]'
-                ));
-                process.exit(1);
-            }
-        } else if (type === 'open') {
-            [excelPath] = remainingArgs;
-            if (!excelPath) {
-                console.error(chalk.red('Please provide path to the Excel file for open questions'));
-                console.error(chalk.yellow(
-                    'Usage: npm run import-questions <excel-file-path> --type=open [--dry-run] [--limit=N]'
-                ));
-                process.exit(1);
-            }
-        } else {
-            console.error(chalk.red('Invalid question type. Must be either "multiple-choice" or "open"'));
+        if (!sourcePath || !type) {
+            console.error('Usage: npm run import-questions <sourcePath> <excelPath> --type=<type> [--dry-run] [--limit=<number>]');
             process.exit(1);
         }
 
@@ -266,7 +311,7 @@ async function main() {
         // Initialize importer based on type
         let importer;
         if (type === 'multiple-choice') {
-            importer = new EZpass1MahatMultipleChoiceImporter(jsonPath, excelPath, storage);
+            importer = new EZpass1MahatMultipleChoiceImporter(sourcePath, excelPath, storage);
         } else {
             importer = new EZpass1ConstructionCommiteeOpenImporter(excelPath, storage);
         }
@@ -274,51 +319,32 @@ async function main() {
         // Log import configuration
         console.log(chalk.blue('\nImport Configuration:'));
         console.log(chalk.blue(`Type: ${type}`));
-        if (type === 'multiple-choice') {
-            console.log(chalk.blue(`JSON Path: ${jsonPath}`));
-        }
+        console.log(chalk.blue(`Source Path: ${sourcePath}`));
         console.log(chalk.blue(`Excel Path: ${excelPath}`));
         console.log(chalk.yellow(`Mode: ${isDryRun ? '🔍 DRY RUN' : '💾 LIVE'}`));
-        if (limit > 0) {
+        if (limit !== undefined) {
             console.log(chalk.blue(`Limit: ${limit} questions`));
         }
 
-        // Import questions
-        const sourcePath = type === 'multiple-choice' ? `${jsonPath};${excelPath}` : excelPath;
-        let currentQuestionNumber = 0;
-        
-        console.log(chalk.blue('\nStarting import process...'));
-        process.stdout.write(chalk.yellow('Processing question: 0'));
+        // Set options on the importer
+        if ('setOptions' in importer) {
+            (importer as any).setOptions({ limit, dryRun: isDryRun });
+        }
 
         const result = await importer.importFromSource(sourcePath, { 
-            dryRun: isDryRun, 
+            dryRun: isDryRun,
             limit,
-            onQuestionProcessed: (id: string, details: any) => {
-                currentQuestionNumber++;
-                
-                // Update progress counter in the same line
-                process.stdout.write(`\r${chalk.yellow(`Processing question: ${currentQuestionNumber}`)}`);
-                
-                // Store complete details including raw source and database record
+            onQuestionProcessed: (id, details) => {
                 questionDetails[id] = {
                     status: details.databaseRecord.status,
                     processingTime: details.databaseRecord.processingTime,
                     errors: details.databaseRecord.errors,
                     warnings: details.databaseRecord.warnings,
-                    validationStatus: details.databaseRecord.validation_status,
-                    // Store both original and transformed data
-                    originalData: {
-                        raw: details.rawSourceData.raw,
-                        cleaned: details.rawSourceData.cleaned,
-                        cleaning_changes: details.rawSourceData.cleaning_changes
-                    },
-                    transformedData: {
-                        question: details.databaseRecord.data,
-                        validation_status: details.databaseRecord.validation_status,
-                        review_status: details.databaseRecord.review_status,
-                        import_info: details.databaseRecord.import_info
-                    },
-                    validationResult: details.databaseRecord.validationResult
+                    validationStatus: details.databaseRecord.validationResult?.status,
+                    originalData: details.rawSourceData.raw,
+                    transformedData: details.databaseRecord.data,
+                    validationResult: details.databaseRecord.validationResult,
+                    dbQuestion: details.databaseRecord.data as DatabaseQuestion
                 };
             }
         });
@@ -342,7 +368,7 @@ async function main() {
             timestamp: new Date().toISOString(),
             configuration: {
                 mode: isDryRun ? 'dry-run' : 'live',
-                jsonPath,
+                jsonPath: sourcePath,
                 excelPath,
                 type,
                 limit

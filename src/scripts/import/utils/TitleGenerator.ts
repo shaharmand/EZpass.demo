@@ -1,86 +1,205 @@
-import { logger } from '../../../utils/logger';
-import { ExamInfoParser } from './ExamInfoParser';
+import { Question } from '../../../../types/question';
+import OpenAI from 'openai';
+import { initializeOpenAI, getOpenAI } from '../../../utils/openai';
+
+export interface TitleGenerationOptions {
+    includeCategory?: boolean;
+    maxLength?: number;
+    includeQuestionType?: boolean;
+    useChoices?: boolean;  // Whether to use multiple choice options in title generation
+    useSolution?: boolean; // Whether to use solution text in title generation
+    useAI?: boolean;  // Whether to use AI for title generation
+}
+
+export interface RawQuestionData {
+    questionText?: string;
+    title?: string;
+    category?: string;
+    type?: string;
+    subtopicId?: string;  // Added subtopicId
+    options?: Array<{ text: string }>;  // Added multiple choice options
+    solution?: string;    // Added solution text
+}
 
 export class TitleGenerator {
-    /**
-     * Maximum length for using question text as title
-     * Questions longer than this will use the provided title instead
-     */
-    private static readonly MAX_QUESTION_LENGTH = 100;
-    private static readonly MAX_TITLE_LENGTH = 60;
-    private static readonly MIN_TITLE_LENGTH = 20;
+    private static openai: OpenAI;
 
-    private static cleanQuestionText(text: string): string {
-        // Remove markdown formatting
-        let clean = text.replace(/[*_`~]/g, '');
+    private static initializeOpenAI() {
+        if (!this.openai) {
+            initializeOpenAI();
+            this.openai = getOpenAI();
+        }
+    }
+
+    private static async generateAITitle(data: RawQuestionData): Promise<string> {
+        this.initializeOpenAI();
+
+        const prompt = `You are an expert educational content organizer specializing in creating concise, descriptive titles for questions in an educational system. 
+
+Your task is to analyze the following question and create a standardized title that effectively summarizes its core content while following specific formatting rules.
+
+## Question Information:
+SubTopic: ${data.subtopicId || data.category || 'Not specified'}
+Question Text: ${data.questionText || ''}
+Options: ${data.options ? data.options.map(opt => opt.text).join('\n') : 'No options'}
+Solution: ${data.solution || 'No solution provided'}
+
+## Title Creation Rules:
+1. Create a title between 15-35 characters (3-7 words) that captures the essence of what knowledge is being tested
+2. Start with an appropriate type indicator word based on question intent:
+   - "הגדרת" (Definition of) for questions about what something is
+   - "דרישות" (Requirements) for questions about what is needed/required
+   - "תנאים" (Conditions) for questions about when something applies
+   - "אחריות" (Responsibility) for questions about who is responsible
+   - "סמכות" (Authority) for questions about who has authority
+   - "נהלי" (Procedures) for questions about how something is done
+   - "תדירות" (Frequency) for questions about how often something occurs
+   - "מפרט" (Specifications) for questions about detailed requirements
+   - "חובת" (Obligation) for questions about mandatory actions/requirements
+   - "אמצעי" (Means) for questions about tools or methods
+3. Follow with the specific subject matter that is more specific than the SubTopic
+4. Add distinguishing context when necessary, especially:
+   - Location context (e.g., "באתר", "במפעל", "במעבדה")
+   - Material context (e.g., "מעץ", "ממתכת")
+   - Specific regulation or standard reference (e.g., "לפי תקן")
+   - Temporal context (e.g., "זמני", "קבוע")
+   - Conditional context (e.g., "בחירום", "בשגרה")
+5. Focus on what knowledge is being tested rather than the question's phrasing
+
+## Response Format:
+First, analyze the question by addressing these points:
+1. Question Type: [Identify if this is a definition, requirement, procedure, etc. question]
+2. Central Concept: [Extract the main subject being tested]
+3. Specific Context: [Note any distinguishing context that should be included]
+4. Potential Similar Questions: [Identify potential similar questions that might exist in this subtopic]
+5. Distinguishing Features: [Identify what specific elements would distinguish this question from similar ones]
+6. Appropriate Type Indicator: [Select the most appropriate prefix word from the list]
+7. Knowledge Being Tested: [Describe what specific knowledge or regulation this question is testing]
+
+Then, based on your analysis, provide:
+Generated Title: [Your title here]
+
+Please provide both the analysis and the title.`;
+
+        try {
+            const completion = await this.openai.chat.completions.create({
+                model: "gpt-4",
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a title generation expert. Provide both the analysis and the generated title."
+                    },
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+                temperature: 0.2,
+                max_tokens: 500  // Increased to accommodate the analysis
+            });
+
+            const response = completion.choices[0]?.message?.content?.trim();
+            
+            // Log the full response for debugging
+            console.log('\n=== Title Generation Analysis ===');
+            console.log(response);
+            console.log('===============================\n');
+
+            // Extract just the title from the response and remove any extra quotes
+            const titleMatch = response?.match(/Generated Title:\s*(.+)$/m);
+            const generatedTitle = titleMatch 
+                ? titleMatch[1].trim().replace(/^["']|["']$/g, '') // Remove leading/trailing quotes
+                : this.generateFallbackTitle(data);
+            
+            return generatedTitle;
+        } catch (error) {
+            console.error('Error generating AI title:', error);
+            return this.generateFallbackTitle(data);
+        }
+    }
+
+    private static generateFallbackTitle(data: RawQuestionData): string {
+        // Fallback to the original title generation logic if AI fails
+        let title = '';
+
+        if (data.subtopicId || data.category) {
+            title += `${data.subtopicId || data.category} - `;
+        }
+
+        if (data.type) {
+            title += `[${data.type}] - `;
+        }
+
+        const contentText = data.title || data.questionText || '';
+        const firstSentence = contentText.split(/[.!?]/)[0];
         
-        // Remove HTML tags
-        clean = clean.replace(/<[^>]*>/g, '');
-        
-        // Remove extra whitespace
-        clean = clean.replace(/\s+/g, ' ').trim();
-        
-        // Remove question marks and other punctuation at the end
-        clean = clean.replace(/[?.,!]$/, '');
-        
-        return clean;
+        const cleanText = firstSentence
+            .replace(/[#*_`~]/g, '')
+            .replace(/<[^>]*>/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        title += cleanText.length > 100 
+            ? cleanText.substring(0, 100) + '...'
+            : cleanText;
+
+        return title;
     }
 
     /**
-     * Generates an appropriate title for a question
-     * If the question text is short and clear enough, uses it as the title
-     * Otherwise returns empty string to use the provided title
-     * 
-     * @param questionText The full text of the question
-     * @param currentTitle The current/default title if any
-     * @returns The generated title or empty string to use current title
+     * Generates a title for a question based on its content
+     * @param question The question object containing various fields
+     * @param options Configuration options for title generation
+     * @returns Generated title
      */
-    static generateTitle(questionText: string, currentTitle: string): string {
-        // Clean up the question text
-        const cleanText = this.cleanQuestionText(questionText);
+    static async generateTitle(question: Question, options: TitleGenerationOptions = {}): Promise<string> {
+        const {
+            includeCategory = true,
+            maxLength = 100,
+            includeQuestionType = false,
+            useChoices = false,
+            useSolution = false,
+            useAI = true  // Default to using AI
+        } = options;
 
-        // If question is short enough and doesn't end with question mark, use it as title
-        if (cleanText.length <= this.MAX_QUESTION_LENGTH && !cleanText.includes('?')) {
-            logger.debug('Using question text as title', {
-                originalText: questionText,
-                cleanText: cleanText
-            });
-            return cleanText;
+        // Create raw data with null checks
+        const rawData: RawQuestionData = {
+            questionText: question?.content?.text || question?.name || '',
+            title: question?.name || '',
+            category: question?.metadata?.subtopicId || question?.metadata?.topicId || '',
+            type: question?.metadata?.type || '',
+            subtopicId: question?.metadata?.subtopicId || '',
+            options: question?.content?.options || [],
+            solution: question?.schoolAnswer?.solution?.text || ''
+        };
+
+        if (useAI) {
+            return this.generateAITitle(rawData);
         }
 
-        // If current title is good, keep it
-        if (currentTitle && 
-            currentTitle.length >= this.MIN_TITLE_LENGTH && 
-            currentTitle.length <= this.MAX_TITLE_LENGTH) {
-            logger.debug('Using current title', {
-                currentTitle: currentTitle
-            });
-            return currentTitle;
-        }
-
-        // Generate a new title from the first sentence
-        const firstSentence = cleanText.split(/[.!?]/)[0].trim();
-        if (firstSentence.length >= this.MIN_TITLE_LENGTH && 
-            firstSentence.length <= this.MAX_TITLE_LENGTH) {
-            logger.debug('Using first sentence as title', {
-                firstSentence: firstSentence
-            });
-            return firstSentence;
-        }
-
-        // If first sentence is too long, truncate it
-        if (firstSentence.length > this.MAX_TITLE_LENGTH) {
-            logger.debug('Truncating first sentence', {
-                originalSentence: firstSentence,
-                truncatedSentence: firstSentence.substring(0, this.MAX_TITLE_LENGTH - 3) + '...'
-            });
-            return firstSentence.substring(0, this.MAX_TITLE_LENGTH - 3) + '...';
-        }
-
-        // If first sentence is too short, use a default title
-        logger.debug('Using default title', {
-            defaultTitle: 'שאלה חדשה'
-        });
-        return 'שאלה חדשה';
+        return this.generateFallbackTitle(rawData);
     }
-}
+
+    /**
+     * Generates a title from raw question data (useful during import)
+     * @param data Raw question data from import source
+     * @param options Configuration options for title generation
+     * @returns Generated title
+     */
+    static async generateTitleFromRaw(data: RawQuestionData, options: TitleGenerationOptions = {}): Promise<string> {
+        const {
+            includeCategory = true,
+            maxLength = 100,
+            includeQuestionType = false,
+            useChoices = false,
+            useSolution = false,
+            useAI = true  // Default to using AI
+        } = options;
+
+        if (useAI) {
+            return this.generateAITitle(data);
+        }
+
+        return this.generateFallbackTitle(data);
+    }
+} 

@@ -1,0 +1,33 @@
+{
+  "summary": {
+    "timestamp": "2025-03-18T11:29:04.012Z",
+    "configuration": {
+      "mode": "dry-run",
+      "jsonPath": "imports/files/all_mahat.json",
+      "excelPath": "imports/files/All_mahat.xls",
+      "type": "multiple-choice",
+      "limit": 1
+    },
+    "results": {
+      "counts": {
+        "total": 1,
+        "successful": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "validation": {
+        "total": 1,
+        "valid": 1,
+        "errors": 0,
+        "warnings": 0
+      },
+      "duration": 218
+    },
+    "errors": []
+  },
+  "validationDetails": {
+    "errored": [],
+    "warned": []
+  },
+  "details": {}
+}

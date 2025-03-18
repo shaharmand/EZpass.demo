@@ -22,20 +22,21 @@ module.exports = {
       // Add path alias for data directory
       webpackConfig.resolve.alias = {
         ...webpackConfig.resolve.alias,
-        data: path.resolve(__dirname, './data'),
+        data: path.resolve(__dirname, './public/data'),
       };
 
-      // Copy data files to public directory
+      // Copy data files to the build output
       webpackConfig.plugins.push(
         new CopyWebpackPlugin({
           patterns: [
-            { 
-              from: 'data',
-              to: 'data',
+            {
+              from: path.resolve(__dirname, 'data'),
+              to: path.resolve(__dirname, 'build/data'),
               globOptions: {
                 ignore: [
+                  '**/video_data.json',  // Ignore video data since we're bundling it
+                  '**/lesson_info.json', // Ignore lesson info since we're bundling it
                   '**/raw/**',           // Ignore raw data
-                  '**/summaries/**',     // Ignore summaries
                   '**/*.docx',           // Ignore Word docs
                   '**/*.pdf',            // Ignore PDFs
                   '**/*.mp4',            // Ignore videos

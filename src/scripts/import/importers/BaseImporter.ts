@@ -259,11 +259,7 @@ export abstract class BaseImporter implements BaseQuestionImporter {
                             lastUpdatedAt: new Date().toISOString(),
                             lastUpdatedBy: 'system'
                         },
-                        ai_generated_fields: {
-                            fields: [],
-                            confidence: {},
-                            generatedAt: ''
-                        },
+                        ai_generated_fields: aiGeneratedFields,
                         import_info: importInfo,
                         // Set timestamps to empty strings by default
                         created_at: '',

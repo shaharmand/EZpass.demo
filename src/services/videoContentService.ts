@@ -1,5 +1,8 @@
 import { VideoContent, VideoSource } from '../types/videoContent';
 
+// Import video data directly
+import videoDataJson from '../data/course/CIV-SAF/content/video_data.json';
+
 interface ProcessedVideo {
   video_id: string;
   video_title: string;
@@ -40,18 +43,11 @@ class VideoContentService {
       }
       const data: ProcessedSummaries = await summariesResponse.json();
 
-      // Load video data which contains lesson durations and updated titles
-      const videoDataResponse = await fetch('/data/course/CIV-SAF/content/video_data.json');
-      if (!videoDataResponse.ok) {
-        throw new Error(`HTTP error! status: ${videoDataResponse.status}`);
-      }
-      const videoData = await videoDataResponse.json();
-      
-      // Create maps for durations and titles
+      // Create maps for durations and titles from bundled video data
       const lessonDurations = new Map<number, number>();
       this.videoTitles.clear();
       
-      videoData.videos.forEach((video: { id: string; lessonNumber: number; duration: number; title: string }) => {
+      videoDataJson.videos.forEach((video: { id: string; lessonNumber: number; duration: number; title: string }) => {
         // Sum durations per lesson
         const current = lessonDurations.get(video.lessonNumber) || 0;
         lessonDurations.set(video.lessonNumber, current + video.duration);

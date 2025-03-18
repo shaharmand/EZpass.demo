@@ -555,10 +555,13 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
           console.error('Error parsing active preps:', e);
         }
       }
+      // If no active prep, just go to /practice for logged in users
+      return '/practice';
     } else {
-      // For guests, check guest_prep_id
+      // For guests, first check if we can find an existing practice session
       const guestPrepId = localStorage.getItem('guest_prep_id');
       console.log('Guest prep ID:', guestPrepId);
+      
       if (guestPrepId) {
         // Verify the prep exists in active_preps
         const activePreps = localStorage.getItem('active_preps');
@@ -569,18 +572,18 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
               const url = `/practice/${guestPrepId}`;
               console.log('Will navigate to guest prep:', url);
               return url;
-            } else {
-              console.log('Guest prep ID found but prep not found in active_preps');
             }
           } catch (e) {
             console.error('Error parsing active preps:', e);
           }
         }
       }
+      
+      // For guest users with no valid session, just stay in the course
+      // Instead of redirecting to /practice which might cause issues
+      console.log('No valid prep data found for guest, staying in course view');
+      return '#'; // Use a hash to prevent navigation
     }
-    
-    console.log('No valid prep data found, falling back to /practice');
-    return '/practice'; // Fallback to main practice page if no ID found
   };
 
   const renderContent = () => {
@@ -631,14 +634,20 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
             <VideoDescription>{selectedVideo.description}</VideoDescription>
           )}
           <NavigationButtons>
-            <BackButton onClick={() => {
-              const url = getPracticePageUrl();
-              console.log('Would navigate to:', url);
-              navigate(url);
-            }}>
-              <ArrowRightOutlined />
-              חזרה לתרגול
-            </BackButton>
+            {user && (
+              <BackButton onClick={() => {
+                const url = getPracticePageUrl();
+                console.log('Would navigate to:', url);
+                if (url === '#') {
+                  // Don't navigate for users with no valid prep
+                  return;
+                }
+                navigate(url);
+              }}>
+                <ArrowRightOutlined />
+                חזרה לתרגול
+              </BackButton>
+            )}
             <NavButtonGroup>
               <NavButton 
                 onClick={() => handleNavigate('prev')}

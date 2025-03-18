@@ -1,5 +1,6 @@
 const path = require('path');
 const dotenv = require('dotenv');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 // Load environment variables from .env file
 dotenv.config();
@@ -23,6 +24,21 @@ module.exports = {
         ...webpackConfig.resolve.alias,
         data: path.resolve(__dirname, './data'),
       };
+
+      // Copy data files to public directory
+      webpackConfig.plugins.push(
+        new CopyWebpackPlugin({
+          patterns: [
+            { 
+              from: 'data',
+              to: 'data',
+              globOptions: {
+                ignore: ['**/raw/**', '**/summaries/**'] // Ignore large binary files
+              }
+            }
+          ]
+        })
+      );
 
       // Inject process.env into the bundle
       webpackConfig.plugins.forEach((plugin) => {

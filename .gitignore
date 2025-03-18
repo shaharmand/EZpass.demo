@@ -96,3 +96,21 @@ node_modules/
 # Sensitive files
 src/scripts/video/client_secrets.json
 src/scripts/video/token.json
+
+# Data files
+data/videos/raw/*
+data/videos/summaries/*
+data/videos/youtube/*
+data/videos/evaluation/*
+!data/videos/raw/.gitkeep
+!data/videos/summaries/.gitkeep
+!data/videos/youtube/.gitkeep
+!data/videos/evaluation/.gitkeep
+
+# Keep course content but ignore any large files
+data/course/*/content/*.json
+!data/course/*/content/lesson_info.json
+!data/course/*/content/course_structure.json
+
+# Keep data mapping
+!data/data_mapping.json

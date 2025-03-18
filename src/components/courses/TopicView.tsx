@@ -56,6 +56,8 @@ const TopicView: React.FC<TopicViewProps> = ({
   videosByLesson,
   onVideoClick
 }) => {
+  console.log('TopicView render:', { title, lessons, lessonInfo, videosByLesson });
+  
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedLesson, setExpandedLesson] = useState<number | null>(null);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
@@ -71,9 +73,13 @@ const TopicView: React.FC<TopicViewProps> = ({
     };
   }, { totalVideos: 0, totalDuration: 0 });
 
+  console.log('Topic stats calculated:', topicStats);
+
   useEffect(() => {
     const fetchThumbnails = async () => {
       const allVideos = lessons.flatMap(lessonId => videosByLesson[lessonId] || []);
+      console.log('Fetching thumbnails for videos:', allVideos);
+      
       const newThumbnails: Record<string, string> = {};
       
       // Fetch in batches of 10 to avoid overwhelming the API
@@ -110,6 +116,7 @@ const TopicView: React.FC<TopicViewProps> = ({
   };
 
   const handleLessonClick = (lessonId: number) => {
+    console.log('Lesson clicked:', lessonId);
     if (expandedLesson === lessonId) {
       setExpandedLesson(null);
     } else {
@@ -119,11 +126,13 @@ const TopicView: React.FC<TopicViewProps> = ({
 
   const handlePreviewClick = (e: React.MouseEvent, video: VideoData) => {
     e.stopPropagation();
+    console.log('Preview clicked for video:', video);
     setPreviewVideo(video);
   };
 
   const handleFullPageClick = (e: React.MouseEvent, video: VideoData, lessonId: number) => {
     e.stopPropagation();
+    console.log('Full page clicked for video:', video, 'in lesson:', lessonId);
     onVideoClick(video, lessonId);
   };
 
@@ -154,63 +163,70 @@ const TopicView: React.FC<TopicViewProps> = ({
         </TopicStats>
       </TopicHeader>
 
-      <LessonsContainer $isExpanded={isExpanded}>
-        <LessonList>
-          {lessons.map((lessonId, index) => {
-            const lesson = lessonInfo.find(l => l.id === lessonId);
-            const lessonVideos = (videosByLesson[lessonId] || [])
-              .sort((a, b) => b.segmentNumber - a.segmentNumber)
-              .reverse();
-            const isLessonExpanded = expandedLesson === lessonId;
-            
-            if (!lesson) return null;
+      {isExpanded && (
+        <LessonsContainer $isExpanded={isExpanded}>
+          <LessonList>
+            {lessons.map((lessonId, index) => {
+              const lesson = lessonInfo.find(l => l.id === lessonId);
+              const lessonVideos = (videosByLesson[lessonId] || [])
+                .sort((a, b) => b.segmentNumber - a.segmentNumber)
+                .reverse();
+              const isLessonExpanded = expandedLesson === lessonId;
+              
+              console.log('Rendering lesson:', { lessonId, lesson, lessonVideos, isLessonExpanded });
+              
+              if (!lesson) {
+                console.warn('No lesson found for ID:', lessonId);
+                return null;
+              }
 
-            return (
-              <div key={lessonId}>
-                <LessonItem onClick={() => handleLessonClick(lessonId)}>
-                  <LessonInfo>
-                    <LessonNumber>{index + 1}</LessonNumber>
-                    <LessonTitle>{lesson.name}</LessonTitle>
-                  </LessonInfo>
-                  <LessonMeta>
-                    <span>
-                      <PlayCircleOutlined /> {lessonVideos.length} סרטונים
-                    </span>
-                    <span>
-                      <ClockCircleOutlined /> {formatDuration(lesson.durationMinutes)}
-                    </span>
-                  </LessonMeta>
-                </LessonItem>
+              return (
+                <div key={lessonId}>
+                  <LessonItem onClick={() => handleLessonClick(lessonId)}>
+                    <LessonInfo>
+                      <LessonNumber>{index + 1}</LessonNumber>
+                      <LessonTitle>{lesson.name}</LessonTitle>
+                    </LessonInfo>
+                    <LessonMeta>
+                      <span>
+                        <PlayCircleOutlined /> {lessonVideos.length} סרטונים
+                      </span>
+                      <span>
+                        <ClockCircleOutlined /> {formatDuration(lesson.durationMinutes)}
+                      </span>
+                    </LessonMeta>
+                  </LessonItem>
 
-                {isLessonExpanded && (
-                  <VideoSegmentsGrid>
-                    {lessonVideos.map((video) => (
-                      <VideoSegmentCard key={video.id}>
-                        <SegmentNumber>{video.segmentNumber}</SegmentNumber>
-                        <SegmentInfo>
-                          <SegmentTitle>
-                            {video.title}
-                          </SegmentTitle>
-                          <VideoActions>
-                            <EyeOutlined 
-                              title="צפה בסרטון" 
-                              onClick={(e) => handlePreviewClick(e, video)} 
-                            />
-                            <ExpandOutlined 
-                              title="פתח במסך מלא" 
-                              onClick={(e) => handleFullPageClick(e, video, lessonId)} 
-                            />
-                          </VideoActions>
-                        </SegmentInfo>
-                      </VideoSegmentCard>
-                    ))}
-                  </VideoSegmentsGrid>
-                )}
-              </div>
-            );
-          })}
-        </LessonList>
-      </LessonsContainer>
+                  {isLessonExpanded && (
+                    <VideoSegmentsGrid>
+                      {lessonVideos.map((video) => (
+                        <VideoSegmentCard key={video.id}>
+                          <SegmentNumber>{video.segmentNumber}</SegmentNumber>
+                          <SegmentInfo>
+                            <SegmentTitle>
+                              {video.title}
+                            </SegmentTitle>
+                            <VideoActions>
+                              <EyeOutlined 
+                                title="צפה בסרטון" 
+                                onClick={(e) => handlePreviewClick(e, video)} 
+                              />
+                              <ExpandOutlined 
+                                title="פתח במסך מלא" 
+                                onClick={(e) => handleFullPageClick(e, video, lessonId)} 
+                              />
+                            </VideoActions>
+                          </SegmentInfo>
+                        </VideoSegmentCard>
+                      ))}
+                    </VideoSegmentsGrid>
+                  )}
+                </div>
+              );
+            })}
+          </LessonList>
+        </LessonsContainer>
+      )}
 
       {previewVideo && (
         <Modal

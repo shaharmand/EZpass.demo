@@ -127,7 +127,7 @@ def load_video_data():
 
 def update_video_mapping(video_id, youtube_id):
     """Update the mapping between Vimeo and YouTube IDs."""
-    mapping_file = Path(__file__).parent / 'youtube_video_mapping.json'
+    mapping_file = Path(__file__).parent.parent.parent / 'data' / 'videos' / 'youtube' / 'video_mapping.json'
     
     try:
         if mapping_file.exists():

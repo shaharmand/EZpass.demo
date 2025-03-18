@@ -54,10 +54,9 @@ const SafetyCoursePage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log('Fetching course data...');
         const [videoResponse, lessonResponse] = await Promise.all([
-          fetch('/data/courses/construction_safety_video_course/video_data.json'),
-          fetch('/data/lesson_info.json')
+          fetch('/data/course/CIV-SAF/content/video_data.json'),
+          fetch('/data/course/CIV-SAF/content/lesson_info.json')
         ]);
 
         if (!videoResponse.ok || !lessonResponse.ok) {
@@ -67,18 +66,12 @@ const SafetyCoursePage: React.FC = () => {
         const videoData = await videoResponse.json();
         const lessonData = await lessonResponse.json();
 
-        console.log('Video data:', videoData);
-        console.log('Lesson data:', lessonData);
-
-        setCourseData(prev => {
-          const updatedData = {
-            ...prev,
-            videos: videoData.videos || [],
-            lessonInfo: lessonData.lessons || []
-          };
-          console.log('Updated course data:', updatedData);
-          return updatedData;
-        });
+        setCourseData(prev => ({
+          ...prev,
+          videos: videoData.videos || [],
+          lessonInfo: lessonData.lessons || [],
+          topics: lessonData.topics || prev.topics
+        }));
       } catch (error) {
         console.error('Failed to load course data:', error);
       } finally {

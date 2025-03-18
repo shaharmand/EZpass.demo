@@ -143,7 +143,7 @@ const VideoPageWrapper: React.FC = () => {
         setLoading(true);
         
         // Load video data from the JSON file
-        const response = await fetch('/data/courses/construction_safety_video_course/video_data.json');
+        const response = await fetch('/data/course/CIV-SAF/content/video_data.json');
         if (!response.ok) {
           throw new Error(`Failed to fetch video data: ${response.statusText}`);
         }
@@ -162,7 +162,7 @@ const VideoPageWrapper: React.FC = () => {
         setVideo(foundVideo);
         
         // Load lesson info
-        const lessonResponse = await fetch('/data/lesson_info.json');
+        const lessonResponse = await fetch('/data/course/CIV-SAF/content/lesson_info.json');
         if (!lessonResponse.ok) {
           throw new Error(`Failed to fetch lesson info: ${lessonResponse.statusText}`);
         }

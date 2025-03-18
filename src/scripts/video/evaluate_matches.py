@@ -58,28 +58,23 @@ def get_subtopic_info(subtopic_id: str):
 
 def load_lesson_names():
     """Load lesson names from lesson_info.json"""
-    try:
-        lesson_paths = [
-            'lesson_info.json',
-            'data/lesson_info.json',
-            'public/data/lesson_info.json'
-        ]
-        
-        for path in lesson_paths:
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    if 'lessons' in data:
-                        # Create lookup dictionary
-                        return {str(lesson['id']): lesson['name'] for lesson in data['lessons']}
-            except FileNotFoundError:
-                continue
-                
-        print("Warning: Could not find lesson_info.json")
-        return {}
-    except Exception as e:
-        print(f"Error loading lesson names: {str(e)}")
-        return {}
+    possible_paths = [
+        'data/course/CIV-SAF/content/lesson_info.json',
+        'lesson_info.json',
+        'data/lesson_info.json',
+        'public/data/lesson_info.json'
+    ]
+    
+    for path in possible_paths:
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return {str(lesson['id']): lesson['name'] for lesson in data['lessons']}
+        except FileNotFoundError:
+            continue
+            
+    print("Warning: Could not find lesson_info.json")
+    return {}
 
 # Load lesson names at module level
 LESSON_NAMES = load_lesson_names()
@@ -208,7 +203,7 @@ def find_matches(question_embedding: list[float], question_data: dict, top_k: in
     """Find top k matches using semantic similarity with small subtopic boost"""
     try:
         # Load processed summaries
-        with open('data/processed_summaries.json', 'r', encoding='utf-8') as f:
+        with open('data/videos/embeddings/processed_summaries.json', 'r', encoding='utf-8') as f:
             data = json.load(f)
             
         results = []
@@ -264,32 +259,6 @@ def find_matches(question_embedding: list[float], question_data: dict, top_k: in
         print(f"Error finding matches: {str(e)}")
         return [], None
 
-def get_word_doc_path(lesson_num: int, segment_num: int) -> str:
-    """Get the full path to the Word document"""
-    try:
-        base_paths = [
-            "data/Videos/Videos_summaries",
-            "Videos/Videos_summaries",
-            "public/data/Videos/Videos_summaries"
-        ]
-        
-        for base_path in base_paths:
-            if os.path.exists(base_path):
-                # List all files in the directory
-                files = os.listdir(base_path)
-                # Find the matching file
-                for file in files:
-                    if file.startswith(f"שיעור {lesson_num}.{segment_num}") and file.endswith(".docx"):
-                        full_path = os.path.abspath(os.path.join(base_path, file))
-                        print(f"Found word doc: {full_path}")
-                        return full_path
-                        
-        print(f"Warning: No word doc found for lesson {lesson_num}.{segment_num}")
-        return None
-    except Exception as e:
-        print(f"Error finding word doc: {str(e)}")
-        return None
-
 def write_results(results_file: str, embedding_text: str, results: dict):
     """Write the results to a file."""
     # Ensure results directory exists
@@ -334,14 +303,6 @@ def write_results(results_file: str, embedding_text: str, results: dict):
             f.write(f"- Solution Similarity: {breakdown['solution_similarity']:.3f}\n")
             f.write(f"- Title Similarity: {breakdown['title_similarity']:.3f}\n")
             f.write(f"- Subtopic Boost: {breakdown['subtopic_boost']:.3f}\n")
-            
-            # Get and write word document path
-            word_path = get_word_doc_path(lesson_num, segment_num)
-            if word_path:
-                file_url = f"file:///{word_path.replace(os.sep, '/')}"
-                f.write(f"Word Doc: {file_url}\n")
-            else:
-                f.write("Word Doc: Not found\n")
                 
             # Write video URL
             video_id = match.get('video_id', '').replace('video_', '')
@@ -372,20 +333,13 @@ def write_results(results_file: str, embedding_text: str, results: dict):
             f.write(f"- Title Similarity: {breakdown['title_similarity']:.3f}\n")
             f.write(f"- Subtopic Boost: {breakdown['subtopic_boost']:.3f}\n")
             
-            # Get and write word document path for manager video
-            word_path = get_word_doc_path(lesson_num, segment_num)
-            if word_path:
-                file_url = f"file:///{word_path.replace(os.sep, '/')}"
-                f.write(f"Word Doc: {file_url}\n")
-            else:
-                f.write("Word Doc: Not found\n")
-            
             f.write("\nContent Preview:\n")
             f.write(f"{manager.get('content', 'N/A')}\n")
             
     print(f"\nResults written to data/evaluation_results/{results_file}")
 
 def main():
+    """Main function."""
     if len(sys.argv) != 2:
         print("Usage: python evaluate_matches.py <question_id>")
         return
@@ -425,12 +379,6 @@ def main():
         # Find matches with the generated embedding
         matches, manager_video = find_matches(question_embedding, question_data)
         
-        print("\nAdding word doc paths to matches...")
-        # Add word doc paths
-        for match in matches:
-            word_path = get_word_doc_path(match.get('lesson_number'), match.get('segment_number'))
-            match['word_path'] = word_path
-            
         # Collect all results
         results = {
             'metadata': metadata,
@@ -449,6 +397,9 @@ def main():
             
     except KeyError as e:
         print(f"Error: Missing required field: {e}")
+        return
+    except Exception as e:
+        print(f"Error: {str(e)}")
         return
 
 if __name__ == "__main__":

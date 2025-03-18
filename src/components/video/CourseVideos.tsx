@@ -30,7 +30,7 @@ const CourseVideos: React.FC<CourseVideosProps> = ({ subtopicId }) => {
     const loadVideos = async () => {
       try {
         // Load video_data.json
-        const response = await fetch('/video_data.json');
+        const response = await fetch('/data/course/CIV-SAF/content/video_data.json');
         const allVideos: VideoData[] = await response.json();
 
         // Filter by subtopic if provided

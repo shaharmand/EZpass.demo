@@ -396,8 +396,8 @@ export const TopicSection = styled.div`
 
 export const LessonsContainer = styled.div<{ $isExpanded: boolean }>`
   padding: ${props => props.$isExpanded ? '20px' : '0'};
-  max-height: ${props => props.$isExpanded ? '600px' : '0'};
-  overflow-y: ${props => props.$isExpanded ? 'auto' : 'hidden'};
+  max-height: ${props => props.$isExpanded ? 'none' : '0'};
+  overflow: ${props => props.$isExpanded ? 'visible' : 'hidden'};
   transition: all 0.3s ease-in-out;
   background: #fafafa;
   border-radius: 0 0 16px 16px;

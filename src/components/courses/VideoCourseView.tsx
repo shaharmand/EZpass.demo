@@ -10,60 +10,55 @@ interface Props {
 }
 
 const VideoCourseView: React.FC<Props> = ({ courseId }) => {
+  console.log('VideoCourseView render with courseId:', courseId);
+  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [videos, setVideos] = useState<VideoData[]>([]);
   const [lessonInfo, setLessonInfo] = useState<LessonInfo[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [videoResponse, lessonResponse] = await Promise.all([
-          fetch('/data/courses/construction_safety_video_course/video_data.json'),
-          fetch('/data/lesson_info.json')
+        console.log('Fetching course data...');
+        const [videosResponse, lessonInfoResponse] = await Promise.all([
+          fetch('/data/course/CIV-SAF/content/video_data.json'),
+          fetch('/data/course/CIV-SAF/content/lesson_info.json')
         ]);
 
-        if (!videoResponse.ok || !lessonResponse.ok) {
-          throw new Error('Failed to fetch data');
+        if (!videosResponse.ok || !lessonInfoResponse.ok) {
+          throw new Error('Failed to fetch course data');
         }
 
-        const videoData = await videoResponse.json();
-        const lessonData = await lessonResponse.json();
+        const [videosData, lessonInfoData] = await Promise.all([
+          videosResponse.json(),
+          lessonInfoResponse.json()
+        ]);
 
-        const filteredVideos = videoData.videos;
-        const sortedVideos = filteredVideos.sort((a: VideoData, b: VideoData) => {
-          if (a.lessonNumber !== b.lessonNumber) {
-            return a.lessonNumber - b.lessonNumber;
-          }
-          return a.segmentNumber - b.segmentNumber;
+        console.log('Fetched data:', {
+          videosCount: videosData.videos.length,
+          lessonsCount: lessonInfoData.lessons.length,
+          topicsCount: lessonInfoData.topics.length,
+          sampleVideo: videosData.videos[0],
+          sampleLesson: lessonInfoData.lessons[0],
+          sampleTopic: lessonInfoData.topics[0]
         });
 
-        setVideos(sortedVideos);
-        setLessonInfo(lessonData.lessons);
-        setTopics(lessonData.topics);
-        setLoading(false);
+        setVideos(videosData.videos);
+        setLessonInfo(lessonInfoData.lessons);
+        setTopics(lessonInfoData.topics);
       } catch (err) {
-        setError('Error loading course data: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        console.error('Error fetching course data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load course data');
+      } finally {
         setLoading(false);
       }
     };
 
     fetchData();
   }, [courseId]);
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
-        <Spin size="large" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return <Alert message="Error" description={error} type="error" />;
-  }
 
   // Group videos by lesson number
   const videosByLesson = videos.reduce((acc, video) => {
@@ -88,21 +83,56 @@ const VideoCourseView: React.FC<Props> = ({ courseId }) => {
           returnPath: `/admin/courses/safety`
         }
       });
+    } else {
+      console.warn('Could not find lesson or topic for video:', { video, lessonId });
     }
   };
 
+  if (loading) {
+    return (
+      <CourseContainer>
+        <Spin size="large" />
+      </CourseContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <CourseContainer>
+        <Alert type="error" message={error} />
+      </CourseContainer>
+    );
+  }
+
+  console.log('Rendering topics:', topics.map(topic => ({
+    id: topic.id,
+    title: topic.title,
+    lessonsCount: topic.lessons.length,
+    lessonIds: topic.lessons,
+    hasVideos: topic.lessons.some(lessonId => videosByLesson[lessonId]?.length > 0)
+  })));
+
   return (
     <CourseContainer>
-      {topics.map(topic => (
-        <TopicView
-          key={topic.id}
-          title={topic.title}
-          lessons={topic.lessons}
-          lessonInfo={lessonInfo}
-          videosByLesson={videosByLesson}
-          onVideoClick={handleVideoClick}
-        />
-      ))}
+      {topics.map(topic => {
+        const topicVideos = topic.lessons.flatMap(lessonId => videosByLesson[lessonId] || []);
+        console.log(`Rendering topic ${topic.title}:`, {
+          lessonIds: topic.lessons,
+          videoCount: topicVideos.length,
+          videoTitles: topicVideos.map(v => v.title)
+        });
+        
+        return (
+          <TopicView
+            key={topic.id}
+            title={topic.title}
+            lessons={topic.lessons}
+            lessonInfo={lessonInfo}
+            videosByLesson={videosByLesson}
+            onVideoClick={handleVideoClick}
+          />
+        );
+      })}
     </CourseContainer>
   );
 };

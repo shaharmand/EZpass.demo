@@ -34,14 +34,14 @@ class VideoContentService {
 
     try {
       // Load processed summaries
-      const summariesResponse = await fetch('/data/processed_summaries.json');
+      const summariesResponse = await fetch('/data/videos/embeddings/processed_summaries.json');
       if (!summariesResponse.ok) {
         throw new Error(`HTTP error! status: ${summariesResponse.status}`);
       }
       const data: ProcessedSummaries = await summariesResponse.json();
 
       // Load video data which contains lesson durations and updated titles
-      const videoDataResponse = await fetch('/data/courses/construction_safety_video_course/video_data.json');
+      const videoDataResponse = await fetch('/data/course/CIV-SAF/content/video_data.json');
       if (!videoDataResponse.ok) {
         throw new Error(`HTTP error! status: ${videoDataResponse.status}`);
       }

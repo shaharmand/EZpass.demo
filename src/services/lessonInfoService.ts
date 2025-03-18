@@ -1,4 +1,4 @@
-import lessonData from '../../public/data/lesson_info.json';
+import lessonData from '../../data/course/CIV-SAF/content/lesson_info.json';
 
 interface Lesson {
   id: number;
@@ -12,7 +12,7 @@ class LessonInfoService {
   private lessons: Map<number, Lesson>;
 
   constructor() {
-    this.lessons = new Map(lessonData.lessons.map(lesson => [lesson.id, lesson]));
+    this.lessons = new Map(lessonData.lessons.map((lesson: Lesson) => [lesson.id, lesson]));
   }
 
   getLessonName(lessonId: number | undefined): string {

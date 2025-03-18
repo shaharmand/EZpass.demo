@@ -33,7 +33,15 @@ module.exports = {
               from: 'data',
               to: 'data',
               globOptions: {
-                ignore: ['**/raw/**', '**/summaries/**'] // Ignore large binary files
+                ignore: [
+                  '**/raw/**',           // Ignore raw data
+                  '**/summaries/**',     // Ignore summaries
+                  '**/*.docx',           // Ignore Word docs
+                  '**/*.pdf',            // Ignore PDFs
+                  '**/*.mp4',            // Ignore videos
+                  '**/*.mov',            // Ignore videos
+                  '**/*.avi'             // Ignore videos
+                ]
               }
             }
           ]

@@ -1,4 +1,4 @@
-import { Question, ValidationStatus, PublicationStatusEnum, ReviewStatusEnum, DatabaseQuestion } from '../../../types/question';
+import { Question, ValidationStatus, PublicationStatusEnum, ReviewStatusEnum, DatabaseQuestion, AIGeneratedFields } from '../../../types/question';
 import { logger } from '../../../utils/logger';
 import { BaseQuestionImporter, RawImportRow, ImportRowResult, ImportBatchStats, ImportInfo } from '../types/importTypes';
 import { QuestionStorage } from '../../../services/admin/questionStorage';
@@ -85,6 +85,17 @@ export abstract class BaseImporter implements BaseQuestionImporter {
     abstract getRowIdentifier(row: RawImportRow): string;
 
     /**
+     * Generate AI fields for a question (optional - default implementation returns empty fields)
+     */
+    protected async generateAIFields(question: Omit<Question, 'id'>): Promise<AIGeneratedFields> {
+        return {
+            fields: [],
+            confidence: {},
+            generatedAt: new Date().toISOString()
+        };
+    }
+
+    /**
      * Get source-specific import info
      */
     protected abstract getImportInfo(row: RawImportRow, question: Question): ImportInfo;
@@ -147,6 +158,9 @@ export abstract class BaseImporter implements BaseQuestionImporter {
 
                     // Transform to question format - without ID
                     const transformedQuestionWithoutId = await this.transformRow(cleanedRow);
+
+                    // Generate AI fields
+                    const aiGeneratedFields = await this.generateAIFields(transformedQuestionWithoutId);
 
                     // Generate ID based on whether this is a dry run
                     let nextId;

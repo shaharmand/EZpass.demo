@@ -1,7 +1,7 @@
-import { Question, QuestionType, EzpassCreatorType } from '../../../types/question';
-import { BaseImporter } from './BaseImporter';
+import { Question, QuestionType, EzpassCreatorType, ValidationStatus, PublicationStatusEnum, ReviewStatusEnum, DatabaseQuestion, AIGeneratedFields } from '../../../types/question';
+import { BaseImporter, ImportStats, RawSourceSection, DatabaseRecordSection, QuestionProcessingDetails, ImportOptions } from '../importers/BaseImporter';
 import { RawImportRow, ImportInfo } from '../types/importTypes';
-import { validateQuestion } from '../../../utils/questionValidator';
+import { validateQuestion, ValidationResult } from '../../../utils/questionValidator';
 import { generateQuestionId } from '../../../utils/idGenerator';
 import { CategoryMapper } from '../utils/CategoryMapper';
 import { ExamInfoParser } from '../utils/ExamInfoParser';
@@ -9,6 +9,7 @@ import { QuestionStorage } from '../../../services/admin/questionStorage';
 import { TitleGenerator } from '../utils/TitleGenerator';
 import xlsx from 'xlsx';
 import fs from 'fs';
+import { logger } from '../../../utils/logger';
 
 // Raw source row - all fields needed throughout the pipeline
 interface RawSourceRow {
@@ -619,5 +620,23 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
         // Implementation of loadTitleToCategoryMap method
     }
 
- 
+    /**
+     * Generate AI fields for a question
+     */
+    protected async generateAIFields(question: Omit<Question, 'id'>): Promise<AIGeneratedFields> {
+        try {
+            console.log('\n=== Generating AI Fields ===');
+            const aiFields = await TitleGenerator.generateAIFields(question);
+            console.log('AI Fields Generated:', aiFields);
+            console.log('AI Generation Complete\n');
+            return aiFields;
+        } catch (error) {
+            console.error('Error generating AI fields:', error);
+            return {
+                fields: [],
+                confidence: {},
+                generatedAt: new Date().toISOString()
+            };
+        }
+    }
 } 

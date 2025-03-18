@@ -572,11 +572,9 @@ const roundToHalfHour = (minutes: number): string => {
 
 // Format video duration in minutes and seconds (for video player)
 const formatVideoTime = (minutes: number): string => {
-  const totalSeconds = Math.round(minutes * 60);
-  const mins = Math.floor(totalSeconds / 60);
-  const secs = totalSeconds % 60;
-  if (secs === 0) return `${mins} ד\'`;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  // Round to the nearest minute for display
+  const roundedMinutes = Math.round(minutes);
+  return `${roundedMinutes} ד\'`;
 };
 
 // Format video duration in rounded minutes (for navigation)

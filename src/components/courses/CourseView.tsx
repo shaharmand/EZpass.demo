@@ -189,8 +189,12 @@ const WelcomeTitle = styled(Title)`
 `;
 
 const formatDuration = (minutes: number) => {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+  // Round to nearest minute
+  const roundedMinutes = Math.round(minutes);
+  
+  const hours = Math.floor(roundedMinutes / 60);
+  const mins = roundedMinutes % 60;
+  
   return hours > 0 ? `${hours}ש' ${mins}ד'` : `${mins}ד'`;
 };
 

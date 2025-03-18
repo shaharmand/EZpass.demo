@@ -1,20 +1,9 @@
--- Enable the pgvector extension
+-- Enable the vector extension
 create extension if not exists vector;
 
--- Create the video content table
-create table video_content (
-    id bigint primary key generated always as identity,
-    lesson_number integer not null,
-    segment_number integer not null,
-    title text not null,
-    subtopic text not null,
-    content text not null,
-    embedding vector(1536),
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-    
-    -- Add a unique constraint on lesson and segment numbers
-    unique(lesson_number, segment_number)
-);
+-- Add embedding column to video_content
+alter table video_content
+add column embedding vector(1536);
 
 -- Create an index for vector similarity search
 create index on video_content 
@@ -30,12 +19,11 @@ create or replace function match_videos_debug(
     max_results int default 5
 )
 returns table (
-    id bigint,
-    lesson_number integer,
-    segment_number integer,
+    id uuid,
     title text,
-    subtopic text,
-    content text,
+    description text,
+    vimeo_id text,
+    subtopic_id uuid,
     similarity float,
     final_score float,
     rank int
@@ -47,11 +35,10 @@ begin
     with similarities as (
         select
             id,
-            lesson_number,
-            segment_number,
             title,
-            subtopic,
-            content,
+            description,
+            vimeo_id,
+            subtopic_id,
             1 - (embedding <=> query_embedding) as similarity,
             case 
                 when subtopic = $2 then 
@@ -80,11 +67,11 @@ create or replace function match_videos_weighted(
     max_results int default 3
 )
 returns table (
-    id bigint,
-    lesson_number integer,
-    segment_number integer,
+    id uuid,
     title text,
-    summary text,
+    description text,
+    vimeo_id text,
+    subtopic_id uuid,
     similarity float,
     final_score float
 )
@@ -94,10 +81,10 @@ begin
     return query
     select
         video_content.id,
-        video_content.lesson_number,
-        video_content.segment_number,
         video_content.title,
-        video_content.summary,
+        video_content.description,
+        video_content.vimeo_id,
+        video_content.subtopic_id,
         1 - (video_content.embedding <=> query_embedding) as similarity,
         case 
             when video_content.subtopic = subtopic then 
@@ -120,11 +107,11 @@ create or replace function match_videos_subtopic(
     max_results int default 3
 )
 returns table (
-    id bigint,
-    lesson_number integer,
-    segment_number integer,
+    id uuid,
     title text,
-    content text,
+    description text,
+    vimeo_id text,
+    subtopic_id uuid,
     similarity float
 )
 language plpgsql
@@ -133,10 +120,10 @@ begin
     return query
     select
         video_content.id,
-        video_content.lesson_number,
-        video_content.segment_number,
         video_content.title,
-        video_content.content,
+        video_content.description,
+        video_content.vimeo_id,
+        video_content.subtopic_id,
         1 - (video_content.embedding <=> query_embedding) as similarity
     from video_content
     where 

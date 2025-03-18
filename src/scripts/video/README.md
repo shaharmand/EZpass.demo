@@ -1,45 +1,29 @@
-# Video Management Scripts
+# Video Processing Scripts
 
-This directory contains scripts for managing video content in the EZpass application.
+This directory contains scripts for processing and analyzing video content. Here's a description of each script:
 
-## Update Vimeo Settings
+## Core Video Processing
+- `detect_titles.py`: Detects chapter titles in videos by analyzing dark frame transitions and using OCR to extract text
+- `detect_dark_transitions.py`: Identifies dark frame transitions in videos that typically indicate chapter breaks
+- `download_and_transcribe.py`: Downloads videos from Vimeo and generates transcriptions using Whisper
 
-The `update_vimeo_settings.py` script updates the embed settings for all your Vimeo videos to allow them to be embedded in the EZpass application.
+## Search and Analysis
+- `search.py`: Main search functionality for finding relevant content in video transcriptions
+- `search_utils.py`: Utility functions for text processing and search operations
+- `search_engine.py`: Core search engine implementation for video content
+- `search_interface.py`: User interface for the search functionality
 
-### Setup
+## Summary Processing
+- `process_summaries.py`: Processes and formats video summaries for display
 
-1. Install the required Python package:
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Testing and Debugging
+- `test_search.py`: Tests for the search functionality
+- `debug_search.py`: Debugging tools for search operations
 
-2. Set your Vimeo access token as an environment variable:
-   ```bash
-   # On Windows (PowerShell):
-   $env:VIMEO_ACCESS_TOKEN = 'your_token_here'
-
-   # On Windows (Command Prompt):
-   set VIMEO_ACCESS_TOKEN=your_token_here
-
-   # On Linux/Mac:
-   export VIMEO_ACCESS_TOKEN='your_token_here'
-   ```
-
-### Usage
-
-Run the script:
+## Usage
+Each script can be run independently. For example:
 ```bash
-python update_vimeo_settings.py
-```
-
-The script will:
-1. Fetch all videos from your Vimeo account
-2. Update each video's embed settings to allow embedding on:
-   - localhost:3000 (for development)
-   - ezpass.demo (for production)
-3. Show progress as it works
-4. Provide a summary at the end
-
-### Adding New Domains
-
-To add new domains where videos can be embedded, edit the `ALLOWED_DOMAINS` list in `update_vimeo_settings.py`. 
+python detect_titles.py video.mp4
+python search.py "search query"
+python download_and_transcribe.py video_url
+``` 

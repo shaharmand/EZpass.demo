@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import CourseView from '../../components/courses/CourseView';
 import { CourseData } from '../../components/courses/types';
 import { UserHeader } from '../../components/layout/UserHeader';
-import { courseService } from '../../services/courseService';
+import { supabase } from '../../lib/supabaseClient';
 import './SafetyCoursePage.css';
 
 const SafetyCoursePage: React.FC = () => {
@@ -25,18 +25,28 @@ const SafetyCoursePage: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const { courseData: data, error } = await courseService.fetchCourseData('CIV-SAF');
-        
-        if (error) {
-          throw new Error(error);
+
+        // Fall back to JSON files instead of trying to use the database
+        // This approach is more reliable until we have the course properly set up in the database
+        const [videoResponse, lessonResponse] = await Promise.all([
+          fetch('/data/course/CIV-SAF/content/video_data.json'),
+          fetch('/data/course/CIV-SAF/content/lesson_info.json')
+        ]);
+
+        if (!videoResponse.ok || !lessonResponse.ok) {
+          throw new Error('Failed to fetch course data');
         }
-        
-        // Add the initialLessonId from URL if it exists
-        if (lessonId) {
-          data.initialLessonId = parseInt(lessonId);
-        }
-        
-        setCourseData(data);
+
+        const videoData = await videoResponse.json();
+        const lessonData = await lessonResponse.json();
+
+        setCourseData(prev => ({
+          ...prev,
+          videos: videoData.videos || [],
+          lessonInfo: lessonData.lessons || [],
+          topics: lessonData.topics || prev.topics,
+          initialLessonId: lessonId ? parseInt(lessonId) : undefined
+        }));
       } catch (error) {
         console.error('Failed to load course data:', error);
         message.error('שגיאה בטעינת נתוני הקורס');

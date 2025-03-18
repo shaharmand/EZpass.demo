@@ -1,4 +1,4 @@
-import { Question } from '../../../../types/question';
+import { Question } from 'question';
 import OpenAI from 'openai';
 import { initializeOpenAI, getOpenAI } from '../../../utils/openai';
 
@@ -148,11 +148,11 @@ Please provide both the analysis and the title.`;
 
     /**
      * Generates a title for a question based on its content
-     * @param question The question object containing various fields
+     * @param question The question object containing various fields (can be without ID)
      * @param options Configuration options for title generation
      * @returns Generated title
      */
-    static async generateTitle(question: Question, options: TitleGenerationOptions = {}): Promise<string> {
+    static async generateTitle(question: Omit<Question, 'id'>, options: TitleGenerationOptions = {}): Promise<string> {
         const {
             includeCategory = true,
             maxLength = 100,

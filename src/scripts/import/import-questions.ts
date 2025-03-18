@@ -174,14 +174,18 @@ async function writeReport(report: ImportReport, basePath: string) {
                     data: details.transformedData as Question,
                     publication_status: PublicationStatusEnum.DRAFT,
                     publication_metadata: DEFAULT_PUBLICATION_METADATA,
-                    validation_status: details.validationStatus || ValidationStatus.VALID,
+                    validation_status: details.validationStatus || ValidationStatus.ERROR,
                     review_status: ReviewStatusEnum.PENDING_REVIEW,
                     review_metadata: DEFAULT_REVIEW_METADATA,
                     update_metadata: {
                         lastUpdatedAt: new Date().toISOString(),
                         lastUpdatedBy: 'system'
                     },
-                    ai_generated_fields: DEFAULT_AI_GENERATED_FIELDS,
+                    ai_generated_fields: details.validationResult?.status === ValidationStatus.VALID ? {
+                        fields: [],
+                        confidence: {},
+                        generatedAt: new Date().toISOString()
+                    } : DEFAULT_AI_GENERATED_FIELDS,
                     import_info: details.importInfo,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
@@ -338,13 +342,52 @@ async function main() {
                 questionDetails[id] = {
                     status: details.databaseRecord.status,
                     processingTime: details.databaseRecord.processingTime,
-                    errors: details.databaseRecord.errors,
-                    warnings: details.databaseRecord.warnings,
                     validationStatus: details.databaseRecord.validationResult?.status,
                     originalData: details.rawSourceData.raw,
                     transformedData: details.databaseRecord.data,
                     validationResult: details.databaseRecord.validationResult,
-                    dbQuestion: details.databaseRecord.data as DatabaseQuestion
+                    dbQuestion: details.databaseRecord.id ? {
+                        id: details.databaseRecord.id,
+                        data: details.databaseRecord.data || {} as Question,
+                        publication_status: details.databaseRecord.publication_status || PublicationStatusEnum.DRAFT,
+                        publication_metadata: details.databaseRecord.publication_metadata || {
+                            publishedAt: '',
+                            publishedBy: '',
+                            archivedAt: '',
+                            archivedBy: '',
+                            reason: ''
+                        },
+                        validation_status: details.databaseRecord.validation_status || ValidationStatus.ERROR,
+                        review_status: details.databaseRecord.review_status || ReviewStatusEnum.PENDING_REVIEW,
+                        review_metadata: details.databaseRecord.review_metadata || {
+                            reviewedAt: '',
+                            reviewedBy: '',
+                            comments: ''
+                        },
+                        update_metadata: details.databaseRecord.update_metadata || {
+                            lastUpdatedAt: new Date().toISOString(),
+                            lastUpdatedBy: 'system'
+                        },
+                        ai_generated_fields: details.databaseRecord.ai_generated_fields || {
+                            fields: [],
+                            confidence: {},
+                            generatedAt: new Date().toISOString()
+                        },
+                        import_info: details.databaseRecord.import_info || {
+                            importMetadata: {
+                                importedAt: new Date().toISOString(),
+                                importScript: 'ezpass1-mahat-multiple-choice-importer'
+                            },
+                            source: {
+                                name: 'ezpass1.0',
+                                files: [],
+                                format: 'json+xls'
+                            },
+                            originalData: {}
+                        },
+                        created_at: details.databaseRecord.created_at || new Date().toISOString(),
+                        updated_at: details.databaseRecord.updated_at || new Date().toISOString()
+                    } : undefined
                 };
             }
         });

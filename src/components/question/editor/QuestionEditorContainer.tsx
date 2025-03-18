@@ -37,10 +37,11 @@ const MetadataValue = styled(Text)`
 const EditorContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 24px;
+  gap: 8px;
+  padding: 0;
   width: 100%;
   position: relative;
+  overflow: visible;
 
   // Ensure tooltips are visible globally
   .ant-tooltip {
@@ -54,7 +55,7 @@ const HeaderContainer = styled.div`
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 0;
   position: relative;
   z-index: 100;
 `;
@@ -67,7 +68,14 @@ const ContentContainer = styled.div`
   width: 100%;
   position: relative;
   z-index: 1;
-  overflow: visible;
+  height: auto;
+  min-height: 100%;
+  padding-bottom: 300px; /* Added more padding to ensure we can scroll past the bottom content */
+
+  @media (max-width: 1024px) {
+    flex-direction: column;
+    padding-bottom: 300px;
+  }
 `;
 
 const MainPanel = styled.div`
@@ -75,10 +83,14 @@ const MainPanel = styled.div`
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 16px;
   position: relative;
   z-index: 1;
-  overflow: visible;
+  overflow-y: auto;
+  margin-bottom: 100px;
+  height: calc(100vh - 200px);
+  padding-right: 16px;
+  margin-top: 0;
 
   > * {
     background: white;
@@ -124,9 +136,9 @@ const PropertiesSidebar = styled.div`
   align-self: flex-start;
   position: sticky;
   top: 24px;
-  overflow: hidden;
   z-index: 2;
-  height: calc(100vh - 48px);
+  overflow-y: auto;
+  max-height: calc(100vh - 100px);
   display: flex;
   flex-direction: column;
 `;
@@ -187,11 +199,17 @@ const MainContent = styled.div`
   display: flex;
   flex-direction: column;
   gap: 32px;
+  width: 100%;
+  height: auto;
+  overflow: visible;
 
   .question-content-wrapper {
     font-size: 18px;
     line-height: 1.8;
     color: #000000;
+    width: 100%;
+    height: auto;
+    overflow: visible;
   }
 
   .question-content-wrapper h1,
@@ -231,6 +249,9 @@ const SectionTitle = styled.h2`
 
 const SectionContent = styled.div`
   padding: 24px;
+  overflow: visible;
+  height: auto;
+  width: 100%;
 `;
 
 const TitleInput = styled.input`
@@ -490,14 +511,9 @@ const QuestionEditorInner: React.FC<{
       <HeaderContainer>
         <QuestionStatusHeader
           question={editedQuestion}
-          onBack={onBack}
-          onPrevious={onPrevious}
-          onNext={onNext}
-          hasPrevious={hasPrevious}
-          hasNext={hasNext}
-          currentPosition={currentPosition}
           hasUnsavedChanges={hasUnsavedChanges()}
           onQuestionUpdated={onQuestionUpdated}
+          onBack={() => {}}
         />
       </HeaderContainer>
 
@@ -749,4 +765,15 @@ export const QuestionEditorContainer: React.FC<QuestionEditorContainerProps> = (
       />
     </QuestionProvider>
   );
-}; 
+};
+
+// Add this styled component definition before the component
+const QuestionEditorActionBarWrapper = styled.div`
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: white;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  margin-bottom: 16px;
+`; 

@@ -19,6 +19,9 @@ import { VideoEditPage } from '../pages/admin/videos/VideoEditPage';
 import VideoPage from '../components/courses/VideoPage';
 import { VideoData, LessonInfo } from '../components/courses/types';
 import { AdminRoute } from '../components/Auth/AdminRoute';
+import VideoLibrary from '../pages/admin/videos/VideoLibrary';
+import CourseManager from '../pages/admin/courses/CourseManager';
+import DomainManager from '../pages/admin/subjects/DomainManager';
 
 // Wrapper component to handle loading question data and state management
 const QuestionEditPageWrapper: React.FC = () => {
@@ -224,6 +227,18 @@ export const adminRoutes: RouteObject = {
       element: <AdminDashboard />,
     },
     {
+      path: 'videos',
+      element: <VideoLibrary />,
+    },
+    {
+      path: 'courses',
+      element: <CourseManager />,
+    },
+    {
+      path: 'subjects',
+      element: <DomainManager />,
+    },
+    {
       path: 'questions',
       children: [
         {
@@ -253,19 +268,19 @@ export const adminRoutes: RouteObject = {
       children: [
         {
           index: true,
-          element: <VideoLibraryPage />,
+          element: <VideoLibrary />,
         },
         {
           path: 'new',
           element: <VideoCreatePage />,
         },
         {
-          path: ':videoId',
-          element: <VideoPageWrapper />,
+          path: ':id/edit',
+          element: <VideoEditPage />,
         },
         {
-          path: ':videoId/edit',
-          element: <VideoEditPage />,
+          path: ':videoId',
+          element: <VideoPageWrapper />,
         }
       ],
     },

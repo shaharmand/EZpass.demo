@@ -3,10 +3,13 @@ import styled from 'styled-components';
 import { VideoContent, VideoSource } from '../../types/videoContent';
 import { Question } from '../../types/question';
 import { LearningContentService } from '../../services/learningContentService';
-import { videoContentService } from '../../services/videoContentService';
+import { VideoContentService } from '../../services/videoContentService';
 import { VideoPlayer } from './VideoPlayer';
 import { CloseOutlined, ClockCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { lessonInfoService } from '../../services/lessonInfoService';
+import { supabase } from '../../lib/supabase';
+import { Button } from 'antd';
+import { useNavigate } from 'react-router-dom';
 
 const VideoPlayerWrapper = styled.div<{ $isVisible: boolean }>`
   position: absolute;
@@ -37,6 +40,8 @@ const VideoPlayerContainer = styled.div`
   display: flex;
   flex-direction: column;
   pointer-events: auto;
+  max-width: 100%;
+  object-fit: contain;
 `;
 
 const VideoHeader = styled.div`
@@ -136,18 +141,26 @@ const ContentSection = styled.div<{ $isPlaying: boolean }>`
     ? '1fr' 
     : '25% 45% 30%'};
   height: 100%;
+  width: 100%;
+  max-width: 100%;
   overflow: hidden;
   background: #fff;
   position: relative;
   transition: all 0.3s ease;
+  flex: ${props => props.$isPlaying ? '1' : 'initial'};
+  contain: layout size;
 `;
 
 const VideoSection = styled.div<{ $isVisible: boolean }>`
   position: absolute;
   top: 0;
   left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   background: #000;
   opacity: ${props => props.$isVisible ? 1 : 0};
   pointer-events: ${props => props.$isVisible ? 'auto' : 'none'};
@@ -156,6 +169,9 @@ const VideoSection = styled.div<{ $isVisible: boolean }>`
   justify-content: center;
   z-index: 2;
   transition: all 0.3s ease;
+  flex: 1;
+  overflow: hidden;
+  contain: layout paint size;
 `;
 
 const VideoContainer = styled.div`
@@ -166,6 +182,7 @@ const VideoContainer = styled.div`
   flex-direction: column;
   background: #000;
   overflow: hidden;
+  flex: 1;
 
   .video-wrapper {
     position: relative;
@@ -175,6 +192,16 @@ const VideoContainer = styled.div`
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    flex: 1;
+  }
+
+  iframe, video {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border: none;
   }
 `;
 
@@ -329,6 +356,66 @@ const VideoListItem = styled.div<{ $isFeatured?: boolean }>`
   }
 `;
 
+const LessonCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 12px;
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  h4 {
+    margin: 0 0 8px 0;
+    color: #1e293b;
+  }
+
+  .lesson-info {
+    color: #64748b;
+    font-size: 0.9em;
+  }
+`;
+
+interface RelatedLesson {
+  lessonNumber: number;
+  subtopicId: string;
+  totalDuration: number;
+  videoCount: number;
+  videos: Array<{
+    id: string;
+    title: string;
+    duration: number;
+  }>;
+  lessonTitle: string;
+}
+
+interface VideoContentWithLesson extends VideoContent {
+  lessons?: {
+    id: string;
+    title: string;
+    description: string;
+    lesson_number: number;
+  };
+}
+
+interface RelatedContentProps {
+  currentQuestion: Question;
+  subtopicId?: string;
+  isVideoPlaying: boolean;
+  onVideoPlayingChange: (isPlaying: boolean) => void;
+}
+
 const LessonLink = styled.a`
   display: block;
   padding: 16px;
@@ -343,148 +430,220 @@ const LessonLink = styled.a`
   &:hover {
     background: #e8e8e8;
   }
-
-  h4 {
-    margin: 0 0 8px;
-    font-size: 16px;
-    color: #333;
-  }
-
-  .lesson-info {
-    font-size: 14px;
-    color: #666;
-    display: flex;
-    gap: 12px;
-
-    span {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-  }
 `;
 
-interface RelatedContentProps {
-  currentQuestion: Question;
-  subtopicId: string;
+interface SupabaseVideoResponse {
+  id: string;
+  title: string;
+  description?: string;
+  vimeo_id: string;
+  subtopic_id: string;
+  duration: string;
+  thumbnail?: string;
+  order?: number;
+  tags?: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  lesson_id?: string;
+  lessons: Array<{
+    id: string;
+    title: string;
+    description: string;
+    lesson_number: number;
+  }>;
 }
 
-export const RelatedContent: React.FC<RelatedContentProps> = ({
+export const RelatedContent: React.FC<RelatedContentProps> = ({ 
   currentQuestion,
-  subtopicId
+  subtopicId,
+  isVideoPlaying,
+  onVideoPlayingChange
 }) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [videos, setVideos] = useState<VideoContent[]>([]);
-  const [activeVideo, setActiveVideo] = useState<VideoContent | null>(null);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [relatedLessons, setRelatedLessons] = useState<any[]>([]);
+  const [videos, setVideos] = useState<VideoContentWithLesson[]>([]);
+  const [relatedLessons, setRelatedLessons] = useState<RelatedLesson[]>([]);
+  const [currentVideo, setCurrentVideo] = useState<VideoContentWithLesson | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchVideos = async () => {
       if (!currentQuestion) return;
       
-      setIsLoading(true);
       try {
-        const allVideos = await videoContentService.getSubtopicVideos(subtopicId);
-        const relatedVideos = await LearningContentService.findVideosForQuestion(
+        // First get related video IDs using similarity search
+        const relatedVideosList = await LearningContentService.findRelatedContent(
           currentQuestion,
-          allVideos
+          [] // Pass empty array since we'll fetch the full data next
         );
 
-        console.log('=== Related Videos ===');
-        relatedVideos.forEach((video) => {
-          console.log('Video:', {
-            id: video.id,
-            title: video.title,
-            lessonNumber: video.lessonNumber,
-            videoId: video.videoId,
-            subtopicId: video.subtopicId
-          });
-        });
+        // Get only the related videos with their lessons
+        const { data: videosWithLessons, error } = await supabase
+          .from('video_content')
+          .select(`
+            id,
+            title,
+            description,
+            vimeo_id,
+            subtopic_id,
+            duration,
+            thumbnail,
+            order,
+            tags,
+            is_active,
+            created_at,
+            updated_at,
+            lesson_id,
+            lessons (
+              id,
+              title,
+              description,
+              lesson_number
+            )
+          `)
+          .in('id', relatedVideosList.map(v => v.id))
+          .not('lesson_id', 'is', null);
 
-        setVideos(relatedVideos);
+        if (error) {
+          console.error('Error fetching videos:', error);
+          return;
+        }
+
+        // Transform the data to include videoSource and ensure proper typing
+        const videosWithSource = (videosWithLessons || []).map((video: any) => {
+          const lessonData = Array.isArray(video.lessons) ? video.lessons[0] : video.lessons;
+          return {
+            ...video,
+            videoSource: VideoSource.VIMEO,
+            lessons: {
+              id: String(lessonData?.id || ''),
+              title: String(lessonData?.title || ''),
+              description: String(lessonData?.description || ''),
+              lesson_number: Number(lessonData?.lesson_number || 0)
+            }
+          };
+        }) as VideoContentWithLesson[];
+
+        console.log('Videos with source:', videosWithSource);
+        setVideos(videosWithSource);
       } catch (error) {
         console.error('Failed to fetch related videos:', error);
-      } finally {
-        setIsLoading(false);
       }
     };
 
     fetchVideos();
-  }, [currentQuestion, subtopicId]);
-
-  useEffect(() => {
-    // Notify parent components about video playing state
-    const event = new CustomEvent('videoPlayingStateChanged', { 
-      detail: { isPlaying: isVideoPlaying } 
-    });
-    window.dispatchEvent(event);
-
-    // We don't need to modify body overflow anymore since we're contained in the panel
-    if (isVideoPlaying) {
-      // Find and hide the parent header if needed
-      const parentHeader = document.querySelector('[data-testid="content-header"]');
-      if (parentHeader) {
-        (parentHeader as HTMLElement).style.display = 'none';
-      }
-    } else {
-      // Restore the parent header
-      const parentHeader = document.querySelector('[data-testid="content-header"]');
-      if (parentHeader) {
-        (parentHeader as HTMLElement).style.display = '';
-      }
-    }
-
-    return () => {
-      // Restore the parent header on unmount
-      const parentHeader = document.querySelector('[data-testid="content-header"]');
-      if (parentHeader) {
-        (parentHeader as HTMLElement).style.display = '';
-      }
-    };
-  }, [isVideoPlaying]);
-
-  const featuredVideo = videos[0];
-  const currentLessonNumber = activeVideo?.lessonNumber || featuredVideo?.lessonNumber;
+  }, [currentQuestion]);
 
   useEffect(() => {
     const fetchRelatedLessons = async () => {
-      console.log('Fetching related lessons with:', {
-        currentLessonNumber,
-        subtopicId
-      });
+      try {
+        if (!currentQuestion) return;
 
-      if (currentLessonNumber && subtopicId) {
-        try {
-          const lessons = await videoContentService.getRelatedLessons(subtopicId, currentLessonNumber);
-          console.log('Found related lessons:', lessons);
-          setRelatedLessons(lessons);
-        } catch (error) {
-          console.error('Error fetching related lessons:', error);
-        }
-      } else {
-        console.log('Missing required data for fetching lessons:', {
-          currentLessonNumber,
-          subtopicId
+        console.log('Fetching related lessons with:', {
+          currentLessonNumber: currentQuestion.metadata.source?.type === 'exam' ? currentQuestion.metadata.source.order : undefined,
+          subtopicId: subtopicId
         });
+
+        // First, get the actual subtopic UUID using the code
+        const { data: subtopicData, error: subtopicError } = await supabase
+          .from('subtopics')
+          .select('id')
+          .eq('code', subtopicId)
+          .single();
+
+        if (subtopicError || !subtopicData) {
+          console.error('Error fetching subtopic:', subtopicError);
+          return;
+        }
+
+        console.log('Found subtopic:', subtopicData);
+
+        const subtopicUuid = subtopicData.id;
+
+        // Get videos with their lessons for the same subtopic
+        const { data: videosWithLessons, error: lessonsError } = await supabase
+          .from('video_content')
+          .select(`
+            *,
+            lessons (
+              id,
+              title,
+              description,
+              lesson_number
+            )
+          `)
+          .eq('subtopic_id', subtopicUuid)
+          .not('lesson_id', 'is', null);
+
+        if (lessonsError) {
+          console.error('Error fetching related lessons:', lessonsError);
+          return;
+        }
+
+        console.log('Found videos with lessons:', videosWithLessons);
+
+        // Group videos by lesson
+        const lessonsMap = new Map<string, {
+          lessonNumber: number;
+          subtopicId: string;
+          totalDuration: number;
+          videoCount: number;
+          videos: any[];
+          lessonTitle: string;
+        }>();
+
+        videosWithLessons?.forEach(video => {
+          if (!video.lesson_id || !video.lessons) return;
+
+          if (!lessonsMap.has(video.lesson_id)) {
+            lessonsMap.set(video.lesson_id, {
+              lessonNumber: video.lessons.lesson_number,
+              subtopicId: video.subtopic_id,
+              totalDuration: 0,
+              videoCount: 0,
+              videos: [],
+              lessonTitle: video.lessons.title
+            });
+          }
+
+          const lesson = lessonsMap.get(video.lesson_id)!;
+          const durationMinutes = VideoContentService.parseDuration(video.duration);
+          lesson.videoCount += 1;
+          lesson.totalDuration += durationMinutes;
+          lesson.videos.push({
+            id: video.id,
+            title: video.title,
+            duration: durationMinutes
+          });
+        });
+
+        // Convert to array and sort by lesson number
+        const relatedLessons = Array.from(lessonsMap.values())
+          .filter(lesson => {
+            const currentLessonNumber = currentQuestion.metadata.source?.type === 'exam' 
+              ? currentQuestion.metadata.source.order 
+              : undefined;
+            return currentLessonNumber ? lesson.lessonNumber !== currentLessonNumber : true;
+          })
+          .sort((a, b) => a.lessonNumber - b.lessonNumber)
+          .slice(0, 2);
+
+        setRelatedLessons(relatedLessons);
+      } catch (error) {
+        console.error('Error in fetchRelatedLessons:', error);
       }
     };
 
     fetchRelatedLessons();
-  }, [currentLessonNumber, subtopicId]);
+  }, [currentQuestion?.metadata.source, subtopicId]);
 
-  const handleVideoClick = (video: VideoContent) => {
-    setActiveVideo(video);
-    setIsVideoPlaying(true);
+  const handleVideoClick = (video: VideoContentWithLesson) => {
+    setCurrentVideo(video);
+    onVideoPlayingChange(true);
   };
 
   const handleVideoClose = () => {
-    setIsVideoPlaying(false);
-    setActiveVideo(null);
-  };
-
-  const handleLessonClick = (lessonNumber: number) => {
-    window.location.href = `/course/construction-safety?lesson=${lessonNumber}`;
+    onVideoPlayingChange(false);
+    setCurrentVideo(null);
   };
 
   const handleWrapperClick = useCallback((e: React.MouseEvent) => {
@@ -493,57 +652,36 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
     }
   }, []);
 
-  const handleNextVideo = () => {
-    if (!activeVideo || !videos) return;
-    
-    const currentIndex = videos.findIndex(v => v.videoId === activeVideo.videoId);
-    if (currentIndex < videos.length - 1) {
-      setActiveVideo(videos[currentIndex + 1]);
-    }
-  };
+  useEffect(() => {
+    // When component unmounts, make sure to notify parent that video is no longer playing
+    return () => {
+      if (isVideoPlaying) {
+        onVideoPlayingChange(false);
+      }
+    };
+  }, [isVideoPlaying, onVideoPlayingChange]);
 
-  const handlePreviousVideo = () => {
-    if (!activeVideo || !videos) return;
-    
-    const currentIndex = videos.findIndex(v => v.videoId === activeVideo.videoId);
-    if (currentIndex > 0) {
-      setActiveVideo(videos[currentIndex - 1]);
-    }
-  };
-
-  const hasNextVideo = () => {
-    if (!activeVideo || !videos) return false;
-    
-    const currentIndex = videos.findIndex(v => v.videoId === activeVideo.videoId);
-    return currentIndex < videos.length - 1;
-  };
-
-  const hasPreviousVideo = () => {
-    if (!activeVideo || !videos) return false;
-    
-    const currentIndex = videos.findIndex(v => v.videoId === activeVideo.videoId);
-    return currentIndex > 0;
-  };
-
-  if (isLoading) {
+  if (!currentQuestion) {
     return <div>Loading...</div>;
   }
 
-  const relatedVideos = videos.slice(1, 4);
+  const relatedVideosList = videos.slice(1, 4);
 
   return (
-    <ContentSection $isPlaying={isVideoPlaying}>
+    <ContentSection $isPlaying={isVideoPlaying} style={{ position: 'relative', overflow: 'hidden', maxWidth: '100%', contain: 'strict' }}>
       <VideoSection $isVisible={isVideoPlaying}>
         <VideoContainer>
           <VideoHeader>
             <VideoTitle>
-              {activeVideo && (
-                <>
-                  <span className="lesson-name">{lessonInfoService.getLessonName(activeVideo.lessonNumber)}</span>
-                  <span className="separator">|</span>
-                  <span className="title">{activeVideo.title}</span>
-                </>
-              )}
+              <span className="lesson-name">
+                {currentVideo?.lessons?.title || 'ללא שם'}
+                <br />
+                <small style={{ fontSize: '0.85em', opacity: 0.7 }}>
+                  שיעור {currentVideo?.lessons?.lesson_number}
+                </small>
+              </span>
+              <span className="separator">|</span>
+              <span className="title">{currentVideo?.title}</span>
             </VideoTitle>
             <CloseButton onClick={handleVideoClose}>
               <CloseOutlined />
@@ -551,16 +689,14 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
             </CloseButton>
           </VideoHeader>
 
-          <div className="video-wrapper">
-            {activeVideo && (
-              <VideoPlayer
-                videoId={activeVideo.videoId}
-                videoSource={VideoSource.VIMEO}
-                title={activeVideo.title}
-                isOpen={!!activeVideo}
-                onClose={handleVideoClose}
-              />
-            )}
+          <div className="video-wrapper" style={{ maxWidth: '100%', overflow: 'hidden' }}>
+            <VideoPlayer
+              videoId={currentVideo?.vimeo_id || ''}
+              videoSource={VideoSource.VIMEO}
+              title={currentVideo?.title || ''}
+              isOpen={isVideoPlaying}
+              onClose={handleVideoClose}
+            />
           </div>
 
           <VideoControls>
@@ -572,18 +708,32 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
       {!isVideoPlaying && (
         <>
           <FeaturedSection $isPlaying={isVideoPlaying}>
-            {featuredVideo && (
+            {videos[0] && (
               <VideoListItem 
                 $isFeatured 
-                onClick={() => handleVideoClick(featuredVideo)}
+                onClick={() => handleVideoClick(videos[0])}
               >
                 <img 
-                  src={`https://vumbnail.com/${featuredVideo.videoId}.jpg`}
-                  alt={featuredVideo.title} 
+                  src={`https://vumbnail.com/${videos[0].vimeo_id}.jpg`}
+                  alt={videos[0].title} 
                 />
                 <div className="content">
-                  <span className="lesson-name">{lessonInfoService.getLessonName(featuredVideo.lessonNumber)}</span>
-                  <span className="video-title">{featuredVideo.title}</span>
+                  <span className="lesson-name">
+                    {videos[0].lesson_id ? (
+                      <>
+                        {videos[0].lessons?.title || 'ללא שם'}
+                        <br />
+                        <small style={{ fontSize: '0.85em', opacity: 0.7 }}>
+                          שיעור {videos[0].lessons?.lesson_number || videos[0].lesson_id}
+                          <br />
+                          <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>
+                            {videos[0].title}
+                          </span>
+                        </small>
+                      </>
+                    ) : 'שיעור ללא מספר'}
+                  </span>
+                  <span className="video-title">{videos[0].title}</span>
                 </div>
               </VideoListItem>
             )}
@@ -592,17 +742,31 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
           <RelatedSection>
             <h3>סרטונים קשורים</h3>
             <div className="videos-container">
-              {relatedVideos.map((video) => (
+              {relatedVideosList.map((video) => (
                 <VideoListItem 
                   key={video.id}
                   onClick={() => handleVideoClick(video)}
                 >
                   <img 
-                    src={`https://vumbnail.com/${video.videoId}.jpg`}
+                    src={`https://vumbnail.com/${video.vimeo_id}.jpg`}
                     alt={video.title} 
                   />
                   <div className="content">
-                    <span className="lesson-name">{lessonInfoService.getLessonName(video.lessonNumber)}</span>
+                    <span className="lesson-name">
+                      {video.lesson_id ? (
+                        <>
+                          {video.lessons?.title || 'ללא שם'}
+                          <br />
+                          <small style={{ fontSize: '0.85em', opacity: 0.7 }}>
+                            שיעור {video.lessons?.lesson_number || video.lesson_id}
+                            <br />
+                            <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>
+                              {video.title}
+                            </span>
+                          </small>
+                        </>
+                      ) : 'שיעור ללא מספר'}
+                    </span>
                     <span className="video-title">{video.title}</span>
                   </div>
                 </VideoListItem>
@@ -612,25 +776,20 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
 
           {relatedLessons.length > 0 && (
             <NextLessonsSection $isPlaying={isVideoPlaying}>
-              <h3>שיעור מלא</h3>
+              <h3>שיעורים קשורים</h3>
               <div className="lessons-container">
                 {relatedLessons.map(lesson => (
-                  <LessonLink 
+                  <LessonCard
                     key={lesson.lessonNumber}
-                    href={`/courses/safety?lessonId=${lesson.lessonNumber}`}
+                    onClick={() => navigate(`/courses/safety?lessonId=${lesson.lessonNumber}`)}
                   >
-                    <h4>{lessonInfoService.getLessonName(lesson.lessonNumber)}</h4>
+                    <h4>{lesson.lessonTitle}</h4>
                     <div className="lesson-info">
                       <span>
-                        <ClockCircleOutlined />
-                        {videoContentService.formatDuration(lesson.totalDuration)}
-                      </span>
-                      <span>
-                        <PlayCircleOutlined />
-                        {lesson.videoCount} סרטונים
+                        {lesson.videoCount} סרטונים • {Math.round(lesson.totalDuration)} דקות
                       </span>
                     </div>
-                  </LessonLink>
+                  </LessonCard>
                 ))}
               </div>
             </NextLessonsSection>

@@ -529,6 +529,12 @@ const VideoInfo = styled.div`
   font-size: 12px;
 `;
 
+interface VideoProgress {
+  vimeoId: string;
+  progress: number;
+  completed: boolean;
+}
+
 interface CourseNavigationProps {
   topics: Topic[];
   lessonInfo: LessonInfo[];
@@ -538,7 +544,7 @@ interface CourseNavigationProps {
   courseTitle: string;
   courseDescription: string;
   watchedVideos: number;
-  videoProgress?: Array<{ videoId: string; progress: number; completed: boolean }>;
+  videoProgress?: Array<VideoProgress>;
 }
 
 const roundToQuarter = (minutes: number): string => {
@@ -588,7 +594,7 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
   courseDescription,
   watchedVideos,
   videoProgress = []
-}) => {
+}): JSX.Element => {
   const [openTopics, setOpenTopics] = useState<string[]>([]);
   const [openLessons, setOpenLessons] = useState<number[]>([]);
   const selectedLessonRef = useRef<HTMLDivElement>(null);
@@ -654,7 +660,7 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
   const getLessonProgress = (lessonId: number) => {
     const lessonVideos = videos.filter(v => v.lessonNumber === lessonId);
     const completedVideos = lessonVideos.filter(video => 
-      videoProgress.find(p => p.videoId === video.id)?.completed
+      videoProgress.find(p => p.vimeoId === video.vimeoId)?.completed
     );
 
     return {
@@ -721,7 +727,7 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
     return lessonInfo.filter(lesson => {
       const lessonVideos = videos.filter(v => v.lessonNumber === lesson.id);
       return lessonVideos.every(video => 
-        videoProgress.find(p => p.videoId === video.id)?.completed
+        videoProgress.find(p => p.vimeoId === video.vimeoId)?.completed
       );
     }).length;
   };
@@ -730,8 +736,18 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
   const isLessonCompleted = (lessonId: number) => {
     const lessonVideos = videos.filter(v => v.lessonNumber === lessonId);
     return lessonVideos.every(video => 
-      videoProgress.find(p => p.videoId === video.id)?.completed
+      videoProgress.find(p => p.vimeoId === video.vimeoId)?.completed
     );
+  };
+
+  const isVideoCompleted = (video: VideoData) => {
+    const progress = videoProgress.find(p => p.vimeoId === video.vimeoId);
+    return progress?.completed || false;
+  };
+
+  const getVideoProgress = (video: VideoData) => {
+    const progress = videoProgress.find(p => p.vimeoId === video.vimeoId);
+    return progress?.progress || 0;
   };
 
   return (
@@ -875,7 +891,7 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
                           .filter(v => v.lessonNumber === lessonId)
                           .sort((a, b) => a.segmentNumber - b.segmentNumber)
                           .map(video => {
-                            const videoProgressData = videoProgress.find(p => p.videoId === video.id);
+                            const videoProgressData = videoProgress.find(p => p.vimeoId === video.vimeoId);
                             const isWatched = videoProgressData?.completed || false;
 
                             return (

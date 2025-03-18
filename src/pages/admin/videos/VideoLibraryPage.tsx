@@ -13,19 +13,86 @@ const { Option } = Select;
 
 const PageContainer = styled.div`
   padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: calc(100vh - 120px);
 `;
 
 const HeaderContainer = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
 `;
 
 const FilterContainer = styled.div`
   display: flex;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+`;
+
+const TableContainer = styled.div`
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 280px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  
+  .ant-table-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .ant-spin-nested-loading {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ant-spin-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ant-table {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ant-table-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ant-table-header {
+    flex-shrink: 0;
+  }
+
+  .ant-table-body {
+    flex: 1;
+    overflow: auto !important;
+    min-height: 0;
+    max-height: calc(100vh - 380px) !important;
+  }
+
+  .ant-table-pagination {
+    flex-shrink: 0;
+    margin: 16px 0 0 !important;
+    padding: 0 8px;
+    background: #fff;
+    border-radius: 0 0 8px 8px;
+  }
 `;
 
 export const VideoLibraryPage: React.FC = () => {
@@ -43,7 +110,7 @@ export const VideoLibraryPage: React.FC = () => {
     try {
       const filters = {
         ...(searchText && { searchText }),
-        ...(statusFilter !== undefined && { isActive: statusFilter }),
+        ...(statusFilter !== undefined && { is_active: statusFilter }),
       };
       const data = await storage.getVideos(filters);
       setVideos(data);
@@ -71,7 +138,7 @@ export const VideoLibraryPage: React.FC = () => {
   };
 
   const handlePreview = (video: VideoContent) => {
-    setPreviewVideoId(video.videoId);
+    setPreviewVideoId(video.vimeo_id);
     setPreviewVideoSource(video.videoSource);
   };
 
@@ -83,7 +150,7 @@ export const VideoLibraryPage: React.FC = () => {
       render: (text: string, record: VideoContent) => (
         <Space>
           {text}
-          {!record.isActive && <Tag color="red">Inactive</Tag>}
+          {!record.is_active && <Tag color="red">Inactive</Tag>}
           <Tag color={record.videoSource === VideoSource.YOUTUBE ? 'red' : 'blue'}>
             {record.videoSource === VideoSource.YOUTUBE ? 'YouTube' : 'Vimeo'}
           </Tag>
@@ -98,10 +165,17 @@ export const VideoLibraryPage: React.FC = () => {
     },
     {
       title: 'Created At',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
+      dataIndex: 'created_at',
+      key: 'created_at',
       width: 200,
-      render: (date: string) => new Date(date).toLocaleString(),
+      render: (date: string) => {
+        if (!date) return '-';
+        try {
+          return new Date(date).toLocaleString();
+        } catch (e) {
+          return '-';
+        }
+      },
     },
     {
       title: 'Actions',
@@ -110,9 +184,12 @@ export const VideoLibraryPage: React.FC = () => {
       render: (_: any, record: VideoContent) => (
         <Space>
           <Button
+            type="primary"
             icon={<PlayCircleOutlined />}
             onClick={() => handlePreview(record)}
-          />
+          >
+            Watch
+          </Button>
           <Button
             icon={<EditOutlined />}
             onClick={() => navigate(`/admin/videos/${record.id}`)}
@@ -161,18 +238,28 @@ export const VideoLibraryPage: React.FC = () => {
         </Select>
       </FilterContainer>
 
-      <Table
-        columns={columns}
-        dataSource={videos}
-        rowKey="id"
-        loading={loading}
-      />
+      <TableContainer>
+        <Table
+          columns={columns}
+          dataSource={videos}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            pageSize: 8,
+            position: ['bottomCenter'],
+            style: { margin: '16px 0' }
+          }}
+          scroll={{ y: 'calc(100vh - 380px)' }}
+          style={{ height: '100%' }}
+        />
+      </TableContainer>
 
       <VideoPlayer
         videoSource={previewVideoSource}
         videoId={previewVideoId || ''}
         isOpen={!!previewVideoId}
         onClose={() => setPreviewVideoId(null)}
+        title={videos.find(v => v.vimeo_id === previewVideoId)?.title || ''}
       />
     </PageContainer>
   );

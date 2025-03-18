@@ -272,7 +272,7 @@ const BackButton = styled(NavButton)`
 `;
 
 interface VideoProgress {
-  videoId: string;
+  vimeoId: string;
   progress: number;
   completed: boolean;
 }
@@ -389,14 +389,14 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
             // Update progress state and save to localStorage after a delay
             progressSaveTimeout = setTimeout(() => {
               setVideoProgress(prev => {
-                const existingProgress = prev.find(p => p.videoId === selectedVideo.id);
+                const existingProgress = prev.find(p => p.vimeoId === selectedVideo.vimeoId);
                 const newProgress = existingProgress
                   ? prev.map(p => 
-                      p.videoId === selectedVideo.id 
+                      p.vimeoId === selectedVideo.vimeoId 
                         ? { ...p, progress, completed: completed || p.completed }
                         : p
                     )
-                  : [...prev, { videoId: selectedVideo.id, progress, completed }];
+                  : [...prev, { vimeoId: selectedVideo.vimeoId, progress, completed }];
 
                 // Save to localStorage
                 localStorage.setItem('videoProgress', JSON.stringify(newProgress));
@@ -408,14 +408,14 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
           // Handle video end
           playerRef.current.on('ended', () => {
             setVideoProgress(prev => {
-              const existingProgress = prev.find(p => p.videoId === selectedVideo.id);
+              const existingProgress = prev.find(p => p.vimeoId === selectedVideo.vimeoId);
               const newProgress = existingProgress
                 ? prev.map(p => 
-                    p.videoId === selectedVideo.id 
+                    p.vimeoId === selectedVideo.vimeoId 
                       ? { ...p, progress: 100, completed: true }
                       : p
                   )
-                : [...prev, { videoId: selectedVideo.id, progress: 100, completed: true }];
+                : [...prev, { vimeoId: selectedVideo.vimeoId, progress: 100, completed: true }];
 
               localStorage.setItem('videoProgress', JSON.stringify(newProgress));
               return [...newProgress]; // Force a re-render
@@ -449,11 +449,11 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
   const handleVideoSelect = (video: VideoData) => {
     // Check if current video should be marked as completed before changing
     if (selectedVideo) {
-      const currentProgress = videoProgress.find(p => p.videoId === selectedVideo.id);
+      const currentProgress = videoProgress.find(p => p.vimeoId === selectedVideo.vimeoId);
       if (currentProgress && currentProgress.progress >= 90 && !currentProgress.completed) {
         setVideoProgress(prev => {
           const newProgress = prev.map(p => 
-            p.videoId === selectedVideo.id 
+            p.vimeoId === selectedVideo.vimeoId 
               ? { ...p, completed: true }
               : p
           );
@@ -594,7 +594,7 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
     const topic = courseData.topics.find(t => t.lessons.includes(selectedVideo.lessonNumber));
     const prevVideo = findAdjacentVideo('prev');
     const nextVideo = findAdjacentVideo('next');
-    const currentProgress = videoProgress.find(p => p.videoId === selectedVideo.id);
+    const currentProgress = videoProgress.find(p => p.vimeoId === selectedVideo.vimeoId);
 
     return (
       <VideoContainer>
@@ -661,8 +661,8 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
   const watchedVideos = videoProgress.filter(p => p.completed).length;
   const totalDuration = courseData.videos.reduce((total, video) => total + video.duration, 0);
   const watchedDuration = videoProgress.reduce((total, p) => {
-    const video = courseData.videos.find(v => v.id === p.videoId);
-    return p.completed && video ? total + video.duration : total;
+    const foundVideo = courseData.videos.find(v => v.id === p.vimeoId);
+    return p.completed && foundVideo ? total + foundVideo.duration : total;
   }, 0);
 
   console.log('CourseView rendering with data:', courseData);

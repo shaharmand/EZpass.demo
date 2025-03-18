@@ -52,15 +52,23 @@ const getYoutubeIdFromUrl = (url: string): string | null => {
   return null;
 };
 
-const parseVideoUrl = (url: string): { videoSource: VideoSource; videoId: string } | null => {
-  const vimeoId = getVimeoIdFromUrl(url);
-  if (vimeoId) {
-    return { videoSource: VideoSource.VIMEO, videoId: vimeoId };
+const formatDuration = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
+const parseVideoUrl = (url: string): { videoSource: VideoSource; vimeo_id: string } | null => {
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) {
+    const vimeoId = vimeoMatch[1];
+    return { videoSource: VideoSource.VIMEO, vimeo_id: vimeoId };
   }
 
-  const youtubeId = getYoutubeIdFromUrl(url);
-  if (youtubeId) {
-    return { videoSource: VideoSource.YOUTUBE, videoId: youtubeId };
+  const youtubeMatch = url.match(/youtube\.com\/watch\?v=([^&]+)/);
+  if (youtubeMatch) {
+    const youtubeId = youtubeMatch[1];
+    return { videoSource: VideoSource.YOUTUBE, vimeo_id: youtubeId };
   }
 
   return null;
@@ -78,7 +86,28 @@ export const VideoCreatePage: React.FC = () => {
   const handleSubmit = async (values: CreateVideoContentInput) => {
     setLoading(true);
     try {
-      await storage.createVideo(values);
+      const videoInfo = parseVideoUrl(values.vimeo_id);
+      if (!videoInfo) {
+        message.error('Invalid video URL');
+        return;
+      }
+
+      const videoData = {
+        ...values,
+        vimeo_id: videoInfo.vimeo_id
+      };
+
+      const response = await fetch(`https://vimeo.com/api/oembed.json?url=https://vimeo.com/${videoInfo.vimeo_id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch video metadata');
+      }
+
+      const metadata = await response.json();
+      videoData.title = metadata.title;
+      videoData.description = metadata.description;
+      videoData.duration = formatDuration(metadata.duration);
+
+      await storage.createVideo(videoData);
       message.success('Video created successfully');
       navigate('/admin/videos');
     } catch (error) {
@@ -90,11 +119,10 @@ export const VideoCreatePage: React.FC = () => {
   };
 
   const handlePreview = () => {
-    const videoId = form.getFieldValue('videoId');
+    const vimeo_id = form.getFieldValue('vimeo_id');
     const videoSource = form.getFieldValue('videoSource');
-    if (videoId) {
-      setPreviewVideoId(videoId);
-      setPreviewVideoSource(videoSource);
+    if (vimeo_id) {
+      setPreviewVideoId(vimeo_id);
     }
   };
 
@@ -113,7 +141,7 @@ export const VideoCreatePage: React.FC = () => {
       // Set video source and ID immediately
       form.setFieldsValue({
         videoSource: videoInfo.videoSource,
-        videoId: videoInfo.videoId
+        vimeo_id: videoInfo.vimeo_id
       });
 
       // Attempt to fetch video metadata
@@ -122,7 +150,7 @@ export const VideoCreatePage: React.FC = () => {
         message.info('YouTube metadata fetching not implemented yet');
       } else {
         // For Vimeo, use their oEmbed API
-        const response = await fetch(`https://vimeo.com/api/oembed.json?url=https://vimeo.com/${videoInfo.videoId}`);
+        const response = await fetch(`https://vimeo.com/api/oembed.json?url=https://vimeo.com/${videoInfo.vimeo_id}`);
         if (!response.ok) {
           throw new Error('Failed to fetch Vimeo metadata');
         }
@@ -146,7 +174,7 @@ export const VideoCreatePage: React.FC = () => {
       }
 
       // Show preview
-      setPreviewVideoId(videoInfo.videoId);
+      setPreviewVideoId(videoInfo.vimeo_id);
       setPreviewVideoSource(videoInfo.videoSource);
     } catch (error) {
       console.error('Failed to fetch video metadata:', error);
@@ -174,20 +202,16 @@ export const VideoCreatePage: React.FC = () => {
           }}
         >
           <Form.Item
-            name="videoUrl"
+            name="vimeo_id"
             label="Video URL"
+            rules={[{ required: true, message: 'Please enter video URL' }]}
             extra={
-              fetchingMetadata 
-                ? "Fetching video information..." 
-                : "Paste a YouTube or Vimeo URL and press Tab to auto-fill fields"
+              <Button type="link" onClick={handlePreview}>
+                Preview Video
+              </Button>
             }
           >
-            <Input 
-              placeholder="https://vimeo.com/123456789 or https://youtube.com/watch?v=abcdef"
-              onBlur={(e) => handleUrlPaste(e.target.value)}
-              disabled={fetchingMetadata}
-              suffix={fetchingMetadata ? <Spin size="small" /> : null}
-            />
+            <Input placeholder="Enter Vimeo or YouTube video URL" />
           </Form.Item>
 
           <Form.Item
@@ -214,19 +238,6 @@ export const VideoCreatePage: React.FC = () => {
               <Select.Option value={VideoSource.VIMEO}>Vimeo</Select.Option>
               <Select.Option value={VideoSource.YOUTUBE}>YouTube</Select.Option>
             </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="videoId"
-            label="Video ID"
-            rules={[{ required: true, message: 'Please enter video ID' }]}
-            extra={
-              <Button type="link" onClick={handlePreview}>
-                Preview Video
-              </Button>
-            }
-          >
-            <Input placeholder="Enter Vimeo or YouTube video ID" />
           </Form.Item>
 
           <Form.Item

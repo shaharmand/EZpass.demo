@@ -102,7 +102,7 @@ export class VideoContentStorage {
   async createVideo(input: CreateVideoContentInput): Promise<VideoContent> {
     try {
       // Validate required fields
-      if (!input.title || !input.videoId || !input.subtopicId || !input.duration) {
+      if (!input.title || !input.vimeo_id || !input.subtopic_id || !input.duration) {
         throw new Error('Missing required fields');
       }
 
@@ -112,17 +112,17 @@ export class VideoContentStorage {
           title: input.title,
           description: input.description,
           video_source: input.videoSource,
-          video_id: input.videoId,
-          subtopic_id: input.subtopicId,
+          vimeo_id: input.vimeo_id,
+          subtopic_id: input.subtopic_id,
           duration: input.duration,
           thumbnail: input.thumbnail || (
             input.videoSource === VideoSource.YOUTUBE 
-              ? `https://img.youtube.com/vi/${input.videoId}/maxresdefault.jpg`
-              : `https://vumbnail.com/${input.videoId}.jpg`
+              ? `https://img.youtube.com/vi/${input.vimeo_id}/maxresdefault.jpg`
+              : `https://vumbnail.com/${input.vimeo_id}.jpg`
           ),
           order: input.order,
           tags: input.tags || [],
-          is_active: input.isActive ?? true
+          is_active: input.is_active ?? true
         }])
         .select()
         .single();
@@ -146,13 +146,13 @@ export class VideoContentStorage {
           title: input.title,
           description: input.description,
           video_source: input.videoSource,
-          video_id: input.videoId,
-          subtopic_id: input.subtopicId,
+          vimeo_id: input.vimeo_id,
+          subtopic_id: input.subtopic_id,
           duration: input.duration,
           thumbnail: input.thumbnail,
           order: input.order,
           tags: input.tags,
-          is_active: input.isActive
+          is_active: input.is_active
         })
         .eq('id', id)
         .select()

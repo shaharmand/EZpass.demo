@@ -10,25 +10,24 @@ const { Text } = Typography;
 const ActionBar = styled.div<{ $hasChanges: boolean }>`
   width: 100%;
   max-width: 1400px;
-  margin: 0 auto;
+  margin: 24px auto;
   background: #ffffff;
   padding: 16px 24px;
   border-radius: 12px;
   border: ${props => props.$hasChanges ? '2px solid #faad14' : '1px solid #e5e7eb'};
   box-shadow: ${props => props.$hasChanges ? 
-    '0 -4px 12px -1px rgba(250, 173, 20, 0.1), 0 -2px 6px -1px rgba(250, 173, 20, 0.06)' : 
-    '0 -4px 6px -1px rgba(0, 0, 0, 0.05), 0 -2px 4px -1px rgba(0, 0, 0, 0.03)'};
+    '0 4px 12px -1px rgba(250, 173, 20, 0.1), 0 2px 6px -1px rgba(250, 173, 20, 0.06)' : 
+    '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)'};
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: fixed;
   bottom: 24px;
   left: 50%;
-  transform: ${props => props.$hasChanges ? 'translate(-50%, 0)' : 'translate(-50%, 150%)'};
-  opacity: ${props => props.$hasChanges ? 1 : 0};
-  z-index: 1000;
+  transform: translate(-50%, 0);
+  z-index: 1500;
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   background-color: rgba(255, 255, 255, 0.98);
-  pointer-events: ${props => props.$hasChanges ? 'auto' : 'none'};
+  display: ${props => props.$hasChanges ? 'block' : 'none'};
 
   &:hover {
     border-color: ${props => props.$hasChanges ? '#d48806' : '#d1d5db'};
@@ -40,7 +39,7 @@ const ActionBar = styled.div<{ $hasChanges: boolean }>`
 
   @media (max-width: 1448px) {
     width: calc(100% - 48px);
-    margin: 0 24px;
+    bottom: 36px;
   }
 `;
 

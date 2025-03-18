@@ -9,6 +9,9 @@ import { VideoPlayer } from '../../../components/practice/VideoPlayer';
 
 const { TextArea } = Input;
 
+// Initialize storage outside component to prevent recreation on each render
+const storage = new VideoContentStorage(getSupabase());
+
 const PageContainer = styled.div`
   padding: 24px;
   max-width: 800px;
@@ -28,7 +31,6 @@ export const VideoEditPage: React.FC = () => {
   const [video, setVideo] = useState<VideoContent | null>(null);
   const [previewVideoId, setPreviewVideoId] = useState<string>('');
   const [previewVideoSource, setPreviewVideoSource] = useState<VideoSource>(VideoSource.VIMEO);
-  const storage = new VideoContentStorage(getSupabase());
 
   useEffect(() => {
     const loadVideo = async () => {
@@ -43,13 +45,13 @@ export const VideoEditPage: React.FC = () => {
             title: data.title,
             description: data.description,
             videoSource: data.videoSource,
-            videoId: data.videoId,
-            subtopicId: data.subtopicId,
+            vimeo_id: data.vimeo_id,
+            subtopic_id: data.subtopic_id,
             duration: data.duration,
             thumbnail: data.thumbnail,
             order: data.order,
+            is_active: data.is_active,
             tags: data.tags,
-            isActive: data.isActive,
           });
         } else {
           message.error('Video not found');
@@ -84,7 +86,7 @@ export const VideoEditPage: React.FC = () => {
   };
 
   const handlePreview = () => {
-    const videoId = form.getFieldValue('videoId');
+    const videoId = form.getFieldValue('vimeo_id');
     const videoSource = form.getFieldValue('videoSource');
     if (videoId) {
       setPreviewVideoId(videoId);
@@ -143,7 +145,7 @@ export const VideoEditPage: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            name="videoId"
+            name="vimeo_id"
             label="Video ID"
             rules={[{ required: true, message: 'Please enter video ID' }]}
             extra={
@@ -156,7 +158,7 @@ export const VideoEditPage: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            name="subtopicId"
+            name="subtopic_id"
             label="Subtopic ID"
             rules={[{ required: true, message: 'Please enter subtopic ID' }]}
           >
@@ -194,7 +196,7 @@ export const VideoEditPage: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            name="isActive"
+            name="is_active"
             label="Status"
           >
             <Select>

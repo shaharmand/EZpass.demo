@@ -37,7 +37,7 @@ const HeaderContainer = styled.div`
   background: #fff;
   border-radius: 12px;
   border: 1px solid #f0f0f0;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   width: 100%;
   position: relative;
   z-index: 1;
@@ -535,29 +535,6 @@ export const QuestionStatusHeader: React.FC<QuestionStatusHeaderProps> = ({
     >
       {({ canPublish, canApprove, onApprove, onPublish, isPendingReview, isDraft }) => (
         <HeaderContainer>
-          <NavigationBar>
-            <NavigationButton className="home-button" icon={<HomeOutlined />} onClick={onBack}>
-              חזרה לספרייה
-            </NavigationButton>
-            <NavigationControls>
-              <div className="nav-group">
-                <NavigationButton 
-                  icon={<RightOutlined />} 
-                  disabled={!hasPrevious}
-                  onClick={onPrevious}
-                />
-                <Text className="counter">
-                  {currentPosition.current} / {currentPosition.filteredTotal}
-                </Text>
-                <NavigationButton 
-                  icon={<LeftOutlined />} 
-                  disabled={!hasNext}
-                  onClick={onNext}
-                />
-              </div>
-            </NavigationControls>
-          </NavigationBar>
-
           <StatusBar $hasValidationIssues={hasValidationIssues} $isDraft={isDraft}>
             <StatusInfo>
               {/* Review Status */}

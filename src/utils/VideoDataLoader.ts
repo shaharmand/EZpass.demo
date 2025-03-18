@@ -1,16 +1,11 @@
 import { VideoData } from '../types/video';
-
-// Import video data directly
-import videoDataJson from '../data/course/CIV-SAF/content/video_data.json';
+import { supabase } from '../lib/supabaseClient';
 
 export class VideoDataLoader {
   private static instance: VideoDataLoader;
-  private videoData: VideoData[] = [];
+  private initialized = false;
 
-  private constructor() {
-    // Extract the videos array from the JSON structure
-    this.videoData = videoDataJson.videos;
-  }
+  private constructor() {}
 
   public static getInstance(): VideoDataLoader {
     if (!VideoDataLoader.instance) {
@@ -19,19 +14,55 @@ export class VideoDataLoader {
     return VideoDataLoader.instance;
   }
 
+  private async initialize() {
+    if (this.initialized) return;
+    this.initialized = true;
+  }
+
   public async loadVideoData(): Promise<VideoData[]> {
-    return this.videoData;
+    await this.initialize();
+    const { data, error } = await supabase
+      .from('video_content')
+      .select('*')
+      .order('order');
+
+    if (error) throw error;
+    return data || [];
   }
 
-  public getVideoById(id: string): VideoData | undefined {
-    return this.videoData.find(video => video.id === id);
+  public async getVideoById(id: string): Promise<VideoData | undefined> {
+    await this.initialize();
+    const { data, error } = await supabase
+      .from('video_content')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
-  public getVideosBySubtopicId(subtopicId: string): VideoData[] {
-    return this.videoData.filter(video => video.subtopicId === subtopicId);
+  public async getVideosBySubtopicId(subtopicId: string): Promise<VideoData[]> {
+    await this.initialize();
+    const { data, error } = await supabase
+      .from('video_content')
+      .select('*')
+      .eq('subtopic_id', subtopicId)
+      .order('order');
+
+    if (error) throw error;
+    return data || [];
   }
 
-  public getVideosByLessonNumber(lessonNumber: number): VideoData[] {
-    return this.videoData.filter(video => video.lessonNumber === lessonNumber);
+  public async getVideosByLessonNumber(lessonNumber: number): Promise<VideoData[]> {
+    await this.initialize();
+    const { data, error } = await supabase
+      .from('video_content')
+      .select('*')
+      .eq('lesson_number', lessonNumber)
+      .order('order');
+
+    if (error) throw error;
+    return data || [];
   }
 } 

@@ -249,7 +249,7 @@ Category: ${question?.metadata?.subtopicId || question?.metadata?.topicId || ''}
                 messages: [
                     {
                         role: "system",
-                        content: "You are an AI field generation expert. Provide structured JSON response with fields and confidence scores. Always include confidence scores between 0 and 1."
+                        content: "You are an educational content analyzer. Provide a JSON response with title and additional fields."
                     },
                     {
                         role: "user",
@@ -257,42 +257,27 @@ Category: ${question?.metadata?.subtopicId || question?.metadata?.topicId || ''}
                     }
                 ],
                 temperature: 0.2,
-                max_tokens: 500
+                response_format: { type: "json_object" }
             });
 
-            const response = completion.choices[0]?.message?.content?.trim();
+            const response = JSON.parse(completion.choices[0].message.content || '{}');
             
-            // Log the full response for debugging
-            console.log('\n=== AI Field Generation Analysis ===');
-            console.log(response);
-            console.log('===================================\n');
+            // Format the response according to AIGeneratedFields type
+            const fields: string[] = [];
+            const confidence: { [key: string]: number } = {};
 
-            if (!response) {
-                throw new Error('No response from AI');
+            // Add title field
+            if (response.title?.value) {
+                fields.push('title');
+                confidence.title = response.title.confidence || 0;
             }
 
-            // Parse the JSON response
-            const result = JSON.parse(response);
-            
-            // Validate confidence scores
-            if (!result.title?.confidence || result.title.confidence < 0 || result.title.confidence > 1) {
-                throw new Error('Invalid confidence score for title');
-            }
-
-            // Prepare the fields array and confidence object
-            const fields = ['name'];
-            const confidence: { [key: string]: number } = {
-                name: result.title.confidence
-            };
-
-            // Add additional fields if they exist
-            if (result.additionalFields) {
-                for (const field of result.additionalFields) {
-                    if (field.field && field.confidence >= 0 && field.confidence <= 1) {
-                        fields.push(field.field);
-                        confidence[field.field] = field.confidence;
-                    }
-                }
+            // Add additional fields
+            if (response.additionalFields) {
+                response.additionalFields.forEach((field: { field: string; value: string; confidence: number }) => {
+                    fields.push(field.field);
+                    confidence[field.field] = field.confidence;
+                });
             }
 
             return {
@@ -302,7 +287,6 @@ Category: ${question?.metadata?.subtopicId || question?.metadata?.topicId || ''}
             };
         } catch (error) {
             console.error('Error generating AI fields:', error);
-            // Return empty result on error
             return {
                 fields: [],
                 confidence: {},

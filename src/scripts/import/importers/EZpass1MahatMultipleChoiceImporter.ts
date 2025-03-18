@@ -448,38 +448,37 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
      * Transform cleaned row into a question
      */
     async transformRow(row: RawImportRow): Promise<Omit<Question, 'id'>> {
-        const cleanedRow = row as CleanedRow;
-
-        // Create the question object with only core content fields
-        const question: Omit<Question, 'id'> = {
-            name: cleanedRow.titleNew || cleanedRow.title,  // Use original title initially
+        const sourceRow = row as RawSourceRow;
+        
+        // Transform the row
+        const transformedQuestion: Omit<Question, 'id'> = {
+            name: sourceRow.titleNew || sourceRow.title,
             content: {
-                text: cleanedRow.question,
+                text: sourceRow.question,
                 format: 'markdown' as const,
                 options: [
-                    { text: cleanedRow.answer1, format: 'markdown' as const },
-                    { text: cleanedRow.answer2, format: 'markdown' as const },
-                    { text: cleanedRow.answer3, format: 'markdown' as const },
-                    { text: cleanedRow.answer4, format: 'markdown' as const }
+                    { text: sourceRow.answer1, format: 'markdown' as const },
+                    { text: sourceRow.answer2, format: 'markdown' as const },
+                    { text: sourceRow.answer3, format: 'markdown' as const },
+                    { text: sourceRow.answer4, format: 'markdown' as const }
                 ]
             },
             schoolAnswer: {
                 finalAnswer: {
                     type: 'multiple_choice',
-                    value: parseInt(cleanedRow.correct_answer) as 1 | 2 | 3 | 4
+                    value: parseInt(sourceRow.correct_answer) as 1 | 2 | 3 | 4
                 },
                 solution: {
-                    text: cleanedRow.correct_message,
+                    text: sourceRow.correct_message,
                     format: 'markdown' as const
                 }
             },
-            // Required metadata with minimal values
             metadata: {
-                subjectId: 'civil_engineering',
-                domainId: 'construction_safety',
-                topicId: CategoryMapper.mapCategoryToTopic(cleanedRow.category).topicId,
-                subtopicId: CategoryMapper.mapCategoryToTopic(cleanedRow.category).subtopicId,
                 type: QuestionType.MULTIPLE_CHOICE,
+                subjectId: 'CIV-SAF',
+                domainId: 'SAFETY',
+                topicId: CategoryMapper.mapCategoryToTopic(sourceRow.category).topicId,
+                subtopicId: sourceRow.category,
                 difficulty: 3,
                 answerFormat: {
                     hasFinalAnswer: true,
@@ -487,7 +486,6 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
                     requiresSolution: false
                 }
             },
-            // Required evaluation guidelines with minimal values
             evaluationGuidelines: {
                 requiredCriteria: [
                     {
@@ -499,26 +497,7 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
             }
         };
 
-        // Generate title using OpenAI as the final step
-        try {
-            console.log('\n=== Generating Title ===');
-            const generatedTitle = await TitleGenerator.generateTitle(question);
-            console.log('Generated Title:', generatedTitle);
-            question.name = generatedTitle;
-            console.log('Title Generation Complete');
-            console.log('========================\n');
-        } catch (error) {
-            console.error('Error generating title:', error);
-            console.log('Keeping original title:', question.name);
-            // Keep the original title if generation fails
-        }
-
-        // Log the transformed question content
-        console.log('\n=== Transformed Question Content ===');
-        console.log(JSON.stringify(question, null, 2));
-        console.log('===================================\n');
-
-        return question;
+        return transformedQuestion;
     }
 
     /**

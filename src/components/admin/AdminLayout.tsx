@@ -7,7 +7,9 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   PlaySquareOutlined,
-  SafetyCertificateOutlined
+  SafetyCertificateOutlined,
+  ReadOutlined,
+  AppstoreOutlined
 } from '@ant-design/icons/lib/icons';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
@@ -70,7 +72,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     {
       key: 'questions',
       icon: <BookOutlined />,
-      label: 'שאלות',
+      label: 'ספריית שאלות',
       onClick: () => navigate('/admin/questions')
     },
     {
@@ -80,22 +82,22 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       onClick: () => navigate('/admin/videos')
     },
     {
-      key: 'safety-courses',
-      icon: <SafetyCertificateOutlined />,
-      label: 'קורסי בטיחות',
-      onClick: () => navigate('/admin/safety-courses')
+      key: 'courses',
+      icon: <ReadOutlined />,
+      label: 'ניהול קורסים',
+      onClick: () => navigate('/admin/courses')
     },
     {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'הגדרות',
-      onClick: () => navigate('/admin/settings')
+      key: 'domains',
+      icon: <AppstoreOutlined />,
+      label: 'ניהול תחומים',
+      onClick: () => navigate('/admin/subjects')
     }
   ];
 
   return (
     <AdminPageProvider>
-      <Layout style={{ minHeight: '100vh' }}>
+      <Layout style={{ minHeight: '100vh', height: 'auto', overflow: 'visible' }}>
         <Sider 
           trigger={null} 
           collapsible 
@@ -103,7 +105,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           theme="light"
           style={{
             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            zIndex: 1
+            zIndex: 1,
+            height: '100vh',
+            position: 'sticky',
+            top: 0,
+            overflow: 'auto'
           }}
         >
           <Menu
@@ -116,7 +122,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             }}
           />
         </Sider>
-        <Layout>
+        <Layout style={{ height: 'auto', minHeight: '100vh' }}>
           <HeaderContainer>
             <HeaderContent>
               <LeftSection>
@@ -144,7 +150,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               </UserArea>
             </HeaderContent>
           </HeaderContainer>
-          <Content style={{ padding: '24px', minHeight: 280 }}>
+          <Content style={{ 
+            padding: '24px', 
+            overflow: 'auto',
+            height: 'auto',
+            minHeight: 'calc(100vh - 64px)',
+            display: 'block'
+          }}>
             {children}
           </Content>
         </Layout>

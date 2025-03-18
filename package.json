@@ -50,7 +50,6 @@
     "csv-parse": "^5.5.3",
     "date-fns": "^4.1.0",
     "dexie": "^4.0.11",
-    "dotenv": "^16.4.7",
     "framer-motion": "^12.4.7",
     "jquery": "^3.7.1",
     "katex": "^0.16.21",
@@ -100,6 +99,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "copy-webpack-plugin": "^13.0.0",
     "css-loader": "^6.7.3",
+    "dotenv": "^16.4.7",
     "react-refresh": "^0.16.0",
     "style-loader": "^3.3.2",
     "vite": "^6.2.1"
@@ -111,7 +111,11 @@
     "eject": "react-scripts eject",
     "type-check": "tsc --noEmit > typescript-errors.log 2>&1",
     "import-questions": "ts-node -P tsconfig.node.json src/scripts/import/import-questions.ts",
-    "test-question-gen": "ts-node -P tsconfig.node.json src/services/llm/testQuestionGeneration.ts"
+    "test-question-gen": "ts-node -P tsconfig.node.json src/services/llm/testQuestionGeneration.ts",
+    "migrate:videos": "ts-node src/scripts/migration/migrateVideos.ts",
+    "migrate:course": "ts-node -P scripts/tsconfig.json scripts/migrate_course_data.ts",
+    "migrate:subject-hierarchy": "ts-node -P scripts/tsconfig.json scripts/migrate_subject_hierarchy.ts",
+    "update:embeddings": "ts-node -P scripts/tsconfig.json scripts/update_video_embeddings.ts"
   },
   "browserslist": {
     "production": [

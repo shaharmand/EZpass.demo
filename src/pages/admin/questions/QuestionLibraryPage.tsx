@@ -83,8 +83,52 @@ const { RangePicker } = DatePicker;
 
 const PageContainer = styled.div`
   width: 100%;
-  padding: 0 16px 32px;
+  padding: 0 16px 16px;
   box-sizing: border-box;
+`;
+
+const FiltersCard = styled(Card)`
+  margin-bottom: 16px;
+  
+  .ant-card-body {
+    padding: 16px;
+  }
+  
+  .ant-form-item {
+    margin-bottom: 0;
+  }
+  
+  .ant-select, .ant-input-search {
+    width: 160px;
+  }
+  
+  .ant-row {
+    row-gap: 12px;
+  }
+`;
+
+const TableContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 8px;
+  padding: 0;
+  min-height: 300px;
+  
+  .table-wrapper {
+    flex: 1;
+    overflow: auto;
+  }
+  
+  .pagination-container {
+    padding: 12px 16px;
+    background: #fafafa;
+    border-top: 1px solid #f0f0f0;
+    border-radius: 0 0 8px 8px;
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+  }
 `;
 
 const TableStyles = styled.div`
@@ -541,6 +585,14 @@ export function QuestionLibraryPage() {
     debouncedSearch(value);
   }, [debouncedSearch]);
 
+  const handleQuestionTypeChange = (value: QuestionType | null, _option: any) => {
+    setFilters(prev => ({ ...prev, type: value || undefined }));
+  };
+
+  const handleDifficultyChange = (value: DifficultyLevel | null, _option: any) => {
+    setFilters(prev => ({ ...prev, difficulty: value || undefined }));
+  };
+
   const handleEditClick = useCallback((questionId: string) => {
     navigate(`/admin/questions/${questionId}`);
   }, [navigate]);
@@ -851,8 +903,8 @@ export function QuestionLibraryPage() {
                         if (e.key === 'Escape') setEditingCell(null);
                       }}
                     >
-                      {[1, 2, 3, 4, 5].map(level => (
-                        <Option key={level} value={level}>{level}</Option>
+                      {(([1, 2, 3, 4, 5]) as DifficultyLevel[]).map((level: DifficultyLevel) => (
+                        <Option key={level} value={level}>{enumMappings.difficulty[level]}</Option>
                       ))}
                     </Select>
                   </Form.Item>
@@ -1095,104 +1147,86 @@ export function QuestionLibraryPage() {
   return (
     <PageContainer>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <FilterSection>
-          <div className="section-header">
-            <Title level={4}>סינון שאלות</Title>
-          </div>
-          
-          {/* First row - Basic filters */}
-          <div className="filter-row">
-            <div className={`filter-group search-group${searchText ? ' has-value' : ''}`}>
-              <div className="filter-label">חיפוש</div>
-              <Input
-                placeholder="חיפוש שאלות..."
-                prefix={<SearchOutlined />}
-                value={searchText}
-                onChange={e => handleSearchChange(e.target.value)}
-                style={{ width: '100%' }}
-              />
-            </div>
-
-            <div className={`filter-group type-group${filters.type ? ' has-value' : ''}`}>
-              <div className="filter-label">סוג שאלה</div>
-              <Select 
-                placeholder="בחר סוג"
-                style={{ width: '100%' }}
-                allowClear
-                value={filters.type}
-                onChange={value => setFilters(prev => ({ ...prev, type: value }))}
-              >
-                {Object.entries(enumMappings.questionType).map(([key, label]) => (
-                  <Option key={key} value={key}>{label}</Option>
-                ))}
-              </Select>
-            </div>
-
-            <div className={`filter-group difficulty-group${filters.difficulty ? ' has-value' : ''}`}>
-              <div className="filter-label">רמת קושי</div>
-              <Select
-                placeholder="קושי"
-                style={{ width: '100%' }}
-                allowClear
-                value={filters.difficulty}
-                onChange={value => setFilters(prev => ({ ...prev, difficulty: value }))}
-              >
-                {[1, 2, 3, 4, 5].map(level => (
-                  <Option key={level} value={level}>{level}</Option>
-                ))}
-              </Select>
-            </div>
-          </div>
-
-          {/* Second row - Topic and Source filters */}
-          <div className="filter-row">
-            <div className={`filter-group topic-group${filters.topic ? ' has-value' : ''}`}>
-              <div className="filter-label">נושא</div>
-              <Select
-                placeholder="בחר נושא"
-                style={{ width: '100%' }}
-                allowClear
-                value={filters.topic}
-                onChange={value => {
-                  setFilters(prev => ({
-                    ...prev,
-                    topic: value,
-                    subtopic: undefined
-                  }));
-                }}
-              >
-                {topics.map((topic: Topic) => (
-                  <Option key={topic.id} value={topic.id}>
-                    {topic.name}
-                  </Option>
-                ))}
-              </Select>
-            </div>
-
-            <div className={`filter-group subtopic-group${filters.subtopic ? ' has-value' : ''}`}>
-              <div className="filter-label">תת-נושא</div>
-              <Select
-                placeholder="בחר תת-נושא"
-                style={{ width: '100%' }}
-                allowClear
-                value={filters.subtopic}
-                onChange={value => setFilters(prev => ({ ...prev, subtopic: value }))}
-                disabled={!filters.topic}
-              >
-                {selectedTopic?.subTopics.map((subtopic: SubTopic) => (
-                  <Option key={subtopic.id} value={subtopic.id}>
-                    {subtopic.name}
-                  </Option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="source-filters">
-              <div className={`filter-group${filters.source?.year ? ' has-value' : ''}`}>
-                <div className="filter-label">שנה</div>
+        <FiltersCard>
+          <Title level={4}>סינון שאלות</Title>
+          <Form layout="inline">
+            <Row gutter={[16, 8]} style={{ width: '100%' }}>
+              <Col>
+                <Input.Search
+                  placeholder="חיפוש שאלות..."
+                  onSearch={value => handleSearchChange(value)}
+                  onChange={e => setSearchText(e.target.value)}
+                  style={{ width: 240 }}
+                  allowClear
+                />
+              </Col>
+              <Col>
+                <Select
+                  placeholder="סוג שאלה"
+                  style={{ width: 160 }}
+                  allowClear
+                  value={filters.type}
+                  onChange={value => setFilters(prev => ({ ...prev, type: value }))}
+                >
+                  {Object.entries(enumMappings.questionType).map(([key, label]) => (
+                    <Option key={key} value={key}>{label}</Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col>
+                <Select
+                  placeholder="רמת קושי"
+                  style={{ width: 160 }}
+                  allowClear
+                  value={filters.difficulty}
+                  onChange={value => setFilters(prev => ({ ...prev, difficulty: value }))}
+                >
+                  {(([1, 2, 3, 4, 5]) as DifficultyLevel[]).map((level: DifficultyLevel) => (
+                    <Option key={level} value={level}>{enumMappings.difficulty[level]}</Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col>
+                <Select
+                  placeholder="נושא"
+                  style={{ width: 180 }}
+                  allowClear
+                  value={filters.topic}
+                  onChange={value => {
+                    setFilters(prev => ({
+                      ...prev,
+                      topic: value,
+                      subtopic: undefined
+                    }));
+                  }}
+                >
+                  {topics.map((topic: Topic) => (
+                    <Option key={topic.id} value={topic.id}>
+                      {topic.name}
+                    </Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col>
+                <Select
+                  placeholder="תת-נושא"
+                  style={{ width: 180 }}
+                  allowClear
+                  value={filters.subtopic}
+                  onChange={value => setFilters(prev => ({ ...prev, subtopic: value }))}
+                  disabled={!filters.topic}
+                >
+                  {selectedTopic?.subTopics.map((subtopic: SubTopic) => (
+                    <Option key={subtopic.id} value={subtopic.id}>
+                      {subtopic.name}
+                    </Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col>
                 <Select
                   placeholder="שנה"
-                  style={{ width: '100%' }}
+                  style={{ width: 100 }}
                   allowClear
                   value={filters.source?.year}
                   onChange={value => setFilters(prev => ({
@@ -1204,13 +1238,11 @@ export function QuestionLibraryPage() {
                     <Option key={year} value={year}>{year}</Option>
                   ))}
                 </Select>
-              </div>
-
-              <div className={`filter-group${filters.source?.period ? ' has-value' : ''}`}>
-                <div className="filter-label">עונה</div>
+              </Col>
+              <Col>
                 <Select
                   placeholder="עונה"
-                  style={{ width: '100%' }}
+                  style={{ width: 100 }}
                   allowClear
                   value={filters.source?.period}
                   onChange={value => setFilters(prev => ({
@@ -1223,13 +1255,11 @@ export function QuestionLibraryPage() {
                   <Option value="Winter">חורף</Option>
                   <Option value="Fall">סתיו</Option>
                 </Select>
-              </div>
-
-              <div className={`filter-group${filters.source?.moed ? ' has-value' : ''}`}>
-                <div className="filter-label">מועד</div>
+              </Col>
+              <Col>
                 <Select
                   placeholder="מועד"
-                  style={{ width: '100%' }}
+                  style={{ width: 100 }}
                   allowClear
                   value={filters.source?.moed}
                   onChange={value => setFilters(prev => ({
@@ -1241,19 +1271,12 @@ export function QuestionLibraryPage() {
                   <Option value="B">ב</Option>
                   <Option value="Special">ג</Option>
                 </Select>
-              </div>
-            </div>
-          </div>
-
-          {/* Third row - Status filters */}
-          <div className="filter-row">
-            <div className="status-filters">
-              <div className={`filter-group${filters.validation_status ? ' has-value' : ''}`}>
-                <div className="filter-label">סטטוס אימות</div>
+              </Col>
+              <Col>
                 <Select
+                  placeholder="סטטוס אימות"
+                  style={{ width: 140 }}
                   allowClear
-                  style={{ width: '100%' }}
-                  placeholder="אימות"
                   value={filters.validation_status}
                   onChange={handleValidationStatusChange}
                 >
@@ -1276,14 +1299,12 @@ export function QuestionLibraryPage() {
                     </Space>
                   </Option>
                 </Select>
-              </div>
-
-              <div className={`filter-group${filters.publication_status ? ' has-value' : ''}`}>
-                <div className="filter-label">סטטוס פרסום</div>
+              </Col>
+              <Col>
                 <Select
+                  placeholder="סטטוס פרסום"
+                  style={{ width: 140 }}
                   allowClear
-                  style={{ width: '100%' }}
-                  placeholder="פרסום"
                   value={filters.publication_status}
                   onChange={handlePublicationStatusChange}
                 >
@@ -1302,14 +1323,12 @@ export function QuestionLibraryPage() {
                     </Option>
                   ))}
                 </Select>
-              </div>
-
-              <div className={`filter-group${filters.review_status ? ' has-value' : ''}`}>
-                <div className="filter-label">סטטוס סקירה</div>
+              </Col>
+              <Col>
                 <Select
+                  placeholder="סטטוס סקירה"
+                  style={{ width: 140 }}
                   allowClear
-                  style={{ width: '100%' }}
-                  placeholder="סקירה"
                   value={filters.review_status}
                   onChange={handleReviewStatusChange}
                 >
@@ -1328,108 +1347,105 @@ export function QuestionLibraryPage() {
                     </Option>
                   ))}
                 </Select>
-              </div>
-            </div>
-          </div>
-        </FilterSection>
+              </Col>
+            </Row>
+          </Form>
+        </FiltersCard>
 
-        <PaginationSection>
-          <div className="pagination-info">
-            <Text className="results-info">{'נמצאו ' + questions.length + ' שאלות'}</Text>
-            <Text className="page-info">{'עמוד ' + (table.getState().pagination.pageIndex + 1) + ' מתוך ' + table.getPageCount()}</Text>
+        <TableContainer>
+          <div className="table-wrapper">
+            <TableStyles>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    {table.getHeaderGroups().map(headerGroup => (
+                      <tr key={headerGroup.id}>
+                        {headerGroup.headers.map(header => (
+                          <th 
+                            key={header.id}
+                            style={{ 
+                              width: header.getSize(),
+                              position: 'relative',
+                              cursor: 'grab',
+                            }}
+                            className={`${header.column.getCanSort() ? 'sortable' : ''} ${
+                              (header.column.columnDef.meta as any)?.sticky ? 'sticky sticky-header' : ''
+                            }`}
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            <div
+                              {...{
+                                onMouseDown: header.getResizeHandler(),
+                                onTouchStart: header.getResizeHandler(),
+                                className: `resizer ${header.column.getIsResizing() ? 'isResizing' : ''}`,
+                              }}
+                            />
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody>
+                    {table.getRowModel().rows.map(row => (
+                      <StyledRow 
+                        key={row.id}
+                        className={row.getIsSelected() ? 'selected' : ''}
+                      >
+                        {row.getVisibleCells().map(cell => (
+                          <td 
+                            key={cell.id}
+                            className={
+                              (cell.column.columnDef.meta as any)?.sticky ? 'sticky' : ''
+                            }
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </td>
+                        ))}
+                      </StyledRow>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </TableStyles>
           </div>
           
-          <div className="pagination-buttons">
-            <Button
-              type="primary"
-              ghost
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              icon={<RightOutlined />}
-            >
-              הקודם
-            </Button>
-            <Button
-              type="primary"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              icon={<LeftOutlined />}
-            >
-              הבא
-            </Button>
+          <div className="pagination-container">
+            <Row justify="space-between" align="middle">
+              <Col>
+                <Text className="results-info">{'נמצאו ' + questions.length + ' שאלות'}</Text>
+                <Text className="page-info" style={{ marginRight: 12 }}>{'עמוד ' + (table.getState().pagination.pageIndex + 1) + ' מתוך ' + table.getPageCount()}</Text>
+              </Col>
+              <Col>
+                <Space>
+                  <Button
+                    type="primary"
+                    ghost
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                    icon={<RightOutlined />}
+                  >
+                    הקודם
+                  </Button>
+                  <Button
+                    type="primary"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                    icon={<LeftOutlined />}
+                  >
+                    הבא
+                  </Button>
+                </Space>
+              </Col>
+            </Row>
           </div>
-        </PaginationSection>
-
-        <Card>
-          <TableStyles>
-            <div className="table-container">
-              <table>
-                <thead>
-                  {table.getHeaderGroups().map(headerGroup => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map(header => (
-                        <th 
-                          key={header.id}
-                          style={{ 
-                            width: header.getSize(),
-                            position: 'relative',
-                            cursor: 'grab',
-                          }}
-                          className={`${header.column.getCanSort() ? 'sortable' : ''} ${
-                            (header.column.columnDef.meta as any)?.sticky ? 'sticky sticky-header' : ''
-                          }`}
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                          <div
-                            {...{
-                              onMouseDown: header.getResizeHandler(),
-                              onTouchStart: header.getResizeHandler(),
-                              className: `resizer ${header.column.getIsResizing() ? 'isResizing' : ''}`,
-                            }}
-                          />
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody>
-                  {table.getRowModel().rows.map(row => (
-                    <StyledRow 
-                      key={row.id}
-                      className={row.getIsSelected() ? 'selected' : ''}
-                    >
-                      {row.getVisibleCells().map(cell => (
-                        <td 
-                          key={cell.id}
-                          className={
-                            (cell.column.columnDef.meta as any)?.sticky ? 'sticky' : ''
-                          }
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </td>
-                      ))}
-                    </StyledRow>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </TableStyles>
-
-          <Row justify="end" align="middle" style={{ marginTop: '16px' }}>
-            <Col>
-              <Text type="secondary">
-                {'מציג ' + table.getRowModel().rows.length + ' מתוך ' + questions.length + ' שאלות בעמוד זה'}
-              </Text>
-            </Col>
-          </Row>
-        </Card>
+        </TableContainer>
       </Space>
     </PageContainer>
   );

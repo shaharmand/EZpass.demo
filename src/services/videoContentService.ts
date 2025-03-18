@@ -1,134 +1,152 @@
 import { VideoContent, VideoSource } from '../types/videoContent';
+import { supabase } from '../lib/supabaseClient';
+import { embeddingService } from './embeddingService';
+import { EmbeddingService } from './embeddingService';
 
-// Import video data directly
-let videoDataJson: any = { videos: [] };
-try {
-  videoDataJson = require('../data/course/CIV-SAF/content/video_data.json');
-} catch (error) {
-  console.warn('Warning: Could not load video_data.json:', error);
+interface VideoMatch {
+  id: string;
+  similarity: number;
+  final_score: number;
 }
 
-interface ProcessedVideo {
-  video_id: string;
-  video_title: string;
-  content: string;
-  embedding: number[];
-  subtopic_id: string;
-  lesson_number: number;
-  segment_number: number;
-  duration?: number;
-}
-
-interface ProcessedSummaries {
-  summaries: ProcessedVideo[];
-}
-
-interface LessonSummary {
-  lessonNumber: number;
-  subtopicId: string;
-  totalDuration: number;
-  videoCount: number;
-  videos: { id: string; title: string }[];
-}
-
-class VideoContentService {
-  private videos: ProcessedVideo[] = [];
-  private videoTitles: Map<string, string> = new Map();
+export class VideoContentService {
   private initialized = false;
-  private lessonSummaries: Map<number, LessonSummary> = new Map();
 
   private async initialize() {
     if (this.initialized) return;
+    this.initialized = true;
+  }
 
-    try {
-      // Load processed summaries
-      const summariesResponse = await fetch('/data/videos/embeddings/processed_summaries.json');
-      if (!summariesResponse.ok) {
-        console.error(`Failed to load video summaries: ${summariesResponse.status} ${summariesResponse.statusText}`);
-        // Initialize with empty data instead of throwing
-        this.videos = [];
-        this.initialized = true;
-        return;
-      }
-      
-      const data: ProcessedSummaries = await summariesResponse.json();
-      if (!data || !data.summaries) {
-        console.error('Invalid video summaries data format');
-        this.videos = [];
-        this.initialized = true;
-        return;
-      }
+  async getVideo(id: string): Promise<VideoContent | null> {
+    await this.initialize();
+    const { data, error } = await supabase
+      .from('video_content')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-      // Create maps for durations and titles from bundled video data
-      const lessonDurations = new Map<number, number>();
-      this.videoTitles.clear();
-      
-      if (videoDataJson && videoDataJson.videos) {
-        videoDataJson.videos.forEach((video: { id: string; lessonNumber: number; duration: number; title: string }) => {
-          // Sum durations per lesson
-          const current = lessonDurations.get(video.lessonNumber) || 0;
-          lessonDurations.set(video.lessonNumber, current + video.duration);
-          
-          // Store updated titles
-          this.videoTitles.set(`video_${video.id}`, video.title);
-        });
-      }
-      
-      // Set videos and build summaries
-      this.videos = data.summaries;
-      this.buildLessonSummaries(lessonDurations);
-      this.initialized = true;
-    } catch (error) {
-      console.error('Error loading video data:', error);
-      this.videos = [];
-      this.initialized = true;
+    if (error) throw error;
+    return data;
+  }
+
+  static async getSubtopicVideos(subtopicId: string): Promise<VideoContent[]> {
+    const { data, error } = await supabase
+      .from('video_content')
+      .select('*')
+      .eq('subtopic_id', subtopicId)
+      .order('order');
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getActiveVideos(): Promise<VideoContent[]> {
+    await this.initialize();
+    const { data, error } = await supabase
+      .from('video_content')
+      .select('*')
+      .eq('is_active', true)
+      .order('order');
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  static async getVideoEmbedding(videoId: string): Promise<number[] | null> {
+    if (!videoId) {
+      console.error('Cannot fetch embedding: videoId is undefined or empty');
+      return null;
     }
-  }
 
-  private buildLessonSummaries(lessonDurations: Map<number, number>) {
-    this.lessonSummaries.clear();
-    
-    // Group videos by lesson number only
-    this.videos.forEach(video => {
-      if (!this.lessonSummaries.has(video.lesson_number)) {
-        this.lessonSummaries.set(video.lesson_number, {
-          lessonNumber: video.lesson_number,
-          subtopicId: video.subtopic_id,
-          totalDuration: lessonDurations.get(video.lesson_number) || 0,
-          videoCount: 0,
-          videos: []
-        });
+    const { data, error } = await supabase
+      .from('video_content')
+      .select('embedding')
+      .eq('vimeo_id', videoId)
+      .single();
+
+    if (error) {
+      console.error(`Error fetching embedding for video ${videoId}:`, error);
+      return null;
+    }
+
+    if (!data) {
+      console.error(`No data found for video ${videoId}`);
+      return null;
+    }
+
+    if (!data.embedding) {
+      console.error(`No embedding found for video ${videoId}`);
+      return null;
+    }
+
+    // Parse the embedding string into an array of numbers
+    let embedding: number[];
+    try {
+      if (typeof data.embedding === 'string') {
+        embedding = JSON.parse(data.embedding);
+      } else {
+        embedding = data.embedding;
       }
-      
-      const summary = this.lessonSummaries.get(video.lesson_number)!;
-      summary.videoCount += 1;
-      
-      // Add video with updated title to the summary
-      const updatedTitle = this.videoTitles.get(video.video_id) || video.video_title;
-      summary.videos.push({
-        id: video.video_id,
-        title: updatedTitle
-      });
+    } catch (error) {
+      console.error(`Failed to parse embedding for video ${videoId}:`, error);
+      return null;
+    }
+
+    // Log the type and structure of the embedding
+    console.log(`Embedding for video ${videoId}:`, {
+      type: typeof embedding,
+      isArray: Array.isArray(embedding),
+      length: Array.isArray(embedding) ? embedding.length : 'N/A',
+      sample: Array.isArray(embedding) ? embedding.slice(0, 5) : embedding
     });
+
+    return embedding;
   }
 
-  private processedToVideoContent(processed: ProcessedVideo): VideoContent {
-    return {
-      id: processed.video_id,
-      title: this.videoTitles.get(processed.video_id) || processed.video_title,
-      description: processed.content,
-      videoSource: VideoSource.VIMEO,
-      videoId: processed.video_id.replace('video_', ''),
-      subtopicId: processed.subtopic_id,
-      lessonNumber: processed.lesson_number,
-      duration: this.formatDuration(processed.duration || 0),
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+  static async findSimilarVideos(
+    query: string | VideoContent,
+    maxResults: number = 4,
+    subtopicId?: string
+  ): Promise<VideoContent[]> {
+    // Get embedding for the query
+    let queryEmbedding: number[];
+    if (typeof query === 'string') {
+      queryEmbedding = await EmbeddingService.getTextEmbedding(query);
+    } else {
+      const videoEmbedding = await this.getVideoEmbedding(query.vimeo_id);
+      if (!videoEmbedding) {
+        throw new Error('Could not get embedding for video');
+      }
+      queryEmbedding = videoEmbedding;
+    }
+
+    // Use database function for similarity search
+    const { data, error } = await supabase.rpc('match_videos_weighted', {
+      query_embedding: queryEmbedding,
+      subtopic: subtopicId || '',
+      subtopic_boost: 0.025, // 2.5% boost for same subtopic
+      similarity_threshold: 0.2,
+      max_results: maxResults
+    });
+
+    if (error) throw error;
+
+    // Get full video content for matched videos
+    const videoIds = (data as VideoMatch[]).map(match => match.id);
+    const { data: videos, error: videosError } = await supabase
+      .from('video_content')
+      .select('*')
+      .in('id', videoIds);
+
+    if (videosError) throw videosError;
+
+    // Sort videos to match the similarity order
+    return (data as VideoMatch[]).map(match => 
+      videos.find(v => v.id === match.id)
+    ).filter((v): v is VideoContent => v !== undefined);
   }
 
-  formatDuration(minutes: number): string {
+  static formatDuration(minutes: number): string {
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = Math.round(minutes % 60);
     
@@ -138,50 +156,55 @@ class VideoContentService {
     return `${remainingMinutes} דקות`;
   }
 
-  async getRelatedLessons(subtopicId: string, currentLessonNumber: number): Promise<LessonSummary[]> {
-    await this.initialize();
-    
-    // Debug: Log all videos for this subtopic
-    console.log('All videos for subtopic:', subtopicId, 
-      this.videos.filter(v => v.subtopic_id === subtopicId)
-        .map(v => ({
-          lessonNumber: v.lesson_number,
-          duration: v.duration,
-          title: v.video_title
-        }))
-    );
-    
-    // Simply filter lessons by matching subtopicId
-    const relatedLessons = Array.from(this.lessonSummaries.values())
-      .filter(summary => summary.subtopicId === subtopicId)
-      .sort((a, b) => a.lessonNumber - b.lessonNumber);
-
-    console.log('Found lessons for subtopic:', subtopicId, relatedLessons);
-    return relatedLessons.slice(0, 2); // Return at most 2 related lessons
+  static parseDuration(duration: string): number {
+    // Parse duration string in format "HH:MM:SS" or "MM:SS"
+    const parts = duration.split(':').map(Number);
+    if (parts.length === 3) {
+      return parts[0] * 60 + parts[1] + parts[2] / 60;
+    } else if (parts.length === 2) {
+      return parts[0] + parts[1] / 60;
+    }
+    return 0;
   }
 
-  async getVideo(id: string): Promise<VideoContent | null> {
-    await this.initialize();
-    const video = this.videos.find(v => v.video_id === id);
-    return video ? this.processedToVideoContent(video) : null;
-  }
+  static async getRelatedLessons(subtopicId: string, currentLessonNumber: number): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('video_content')
+      .select('*, lessons(*)')
+      .eq('subtopic_id', subtopicId)
+      .not('lesson_id', 'is', null);
 
-  async getSubtopicVideos(subtopicId: string): Promise<VideoContent[]> {
-    await this.initialize();
-    return this.videos
-      .filter(v => v.subtopic_id === subtopicId)
-      .map(v => this.processedToVideoContent(v));
-  }
+    if (error) throw error;
 
-  async getActiveVideos(): Promise<VideoContent[]> {
-    await this.initialize();
-    return this.videos.map(v => this.processedToVideoContent(v));
-  }
+    // Group videos by lesson
+    const lessons = new Map<number, any>();
+    data?.forEach(video => {
+      if (!lessons.has(video.lesson_id)) {
+        lessons.set(video.lesson_id, {
+          lessonNumber: video.lesson_id,
+          subtopicId: video.subtopic_id,
+          totalDuration: 0,
+          videoCount: 0,
+          videos: []
+        });
+      }
+      
+      const lesson = lessons.get(video.lesson_id)!;
+      const durationMinutes = this.parseDuration(video.duration);
+      lesson.videoCount += 1;
+      lesson.totalDuration += durationMinutes;
+      lesson.videos.push({
+        id: video.id,
+        title: video.title,
+        duration: durationMinutes
+      });
+    });
 
-  async getVideoEmbedding(id: string): Promise<number[] | null> {
-    await this.initialize();
-    const video = this.videos.find(v => v.video_id === id);
-    return video?.embedding || null;
+    // Convert to array and sort by lesson number
+    return Array.from(lessons.values())
+      .filter(lesson => lesson.lessonNumber !== currentLessonNumber)
+      .sort((a, b) => a.lessonNumber - b.lessonNumber)
+      .slice(0, 2); // Return at most 2 related lessons
   }
 }
 

@@ -38,7 +38,9 @@ const { Title, Text } = Typography;
 const PageContainer = styled.div`
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 16px 80px;
+  padding: 0 16px 100px;
+  min-height: 100%;
+  height: auto;
 `;
 
 const ValidationSection = styled.div`
@@ -73,6 +75,7 @@ const MainContent = styled.div`
   padding: 24px;
   background: #fafafa;
   border-radius: 8px;
+  margin-bottom: 40px;
   
   > * {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -190,6 +193,9 @@ const EditActionBar = styled.div`
   padding: 16px;
   margin-bottom: 16px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 16px;
+  z-index: 10;
   
   .action-bar-content {
     display: flex;

@@ -22,7 +22,7 @@ module.exports = {
       // Add path alias for data directory
       webpackConfig.resolve.alias = {
         ...webpackConfig.resolve.alias,
-        data: path.resolve(__dirname, './public/data'),
+        data: path.resolve(__dirname, './src/data'),
       };
 
       // Copy data files to the build output
@@ -31,20 +31,6 @@ module.exports = {
           patterns: [
             {
               from: path.resolve(__dirname, 'src/data'),
-              to: path.resolve(__dirname, 'build/data'),
-              globOptions: {
-                ignore: [
-                  '**/raw/**',           // Ignore raw data
-                  '**/*.docx',           // Ignore Word docs
-                  '**/*.pdf',            // Ignore PDFs
-                  '**/*.mp4',            // Ignore videos
-                  '**/*.mov',            // Ignore videos
-                  '**/*.avi'             // Ignore videos
-                ]
-              }
-            },
-            {
-              from: path.resolve(__dirname, 'public/data'),
               to: path.resolve(__dirname, 'build/data'),
               globOptions: {
                 ignore: [

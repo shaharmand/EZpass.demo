@@ -453,6 +453,8 @@ const PracticePage: React.FC = () => {
                   <RelatedContent
                     currentQuestion={currentQuestion.data}
                     subtopicId={currentQuestion.data.metadata.subtopicId || ''}
+                    isVideoPlaying={isVideoPlaying}
+                    onVideoPlayingChange={setIsVideoPlaying}
                   />
                 </div>
               )}

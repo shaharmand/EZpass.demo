@@ -128,7 +128,7 @@ export const VideoContentManager: React.FC<VideoContentManagerProps> = () => {
       render: (text: string, record: VideoContent) => (
         <Space>
           {text}
-          {!record.isActive && <Tag color="red">Inactive</Tag>}
+          {!record.is_active && <Tag color="red">Inactive</Tag>}
         </Space>
       )
     },
@@ -145,13 +145,24 @@ export const VideoContentManager: React.FC<VideoContentManagerProps> = () => {
       key: 'duration'
     },
     {
+      title: 'Status',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      render: (text: boolean, record: VideoContent) => (
+        <Space>
+          {text ? 'Active' : 'Inactive'}
+          {!record.is_active && <Tag color="red">Inactive</Tag>}
+        </Space>
+      )
+    },
+    {
       title: 'Actions',
       key: 'actions',
       render: (_: any, record: VideoContent) => (
         <Space>
           <Button
             icon={<PlayCircleOutlined />}
-            onClick={() => setPreviewVideoId(record.videoId)}
+            onClick={() => setPreviewVideoId(record.vimeo_id)}
           />
           <Button
             icon={<EditOutlined />}
@@ -222,11 +233,11 @@ export const VideoContentManager: React.FC<VideoContentManagerProps> = () => {
           </Form.Item>
 
           <Form.Item
-            name="videoId"
+            name="vimeo_id"
             label="Video ID"
             rules={[{ required: true, message: 'Please enter video ID' }]}
           >
-            <Input placeholder="Enter Vimeo or YouTube video ID" />
+            <Input />
           </Form.Item>
 
           <Form.Item
@@ -267,7 +278,7 @@ export const VideoContentManager: React.FC<VideoContentManagerProps> = () => {
 
           {editingVideo && (
             <Form.Item
-              name="isActive"
+              name="is_active"
               label="Status"
               valuePropName="checked"
             >

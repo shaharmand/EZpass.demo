@@ -24,11 +24,27 @@ interface VimeoPlayer extends Player {
   setAutopause: (autopause: boolean) => void;
 }
 
+const ModalOverlay = styled(motion.div)`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  padding: 0;
+  overflow: hidden;
+`;
+
 const AspectRatioContainer = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
   max-height: calc(100vh - 48px);
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -44,7 +60,7 @@ const AspectRatioContainer = styled.div`
 const VideoWrapper = styled(motion.div)`
   position: relative;
   width: 100%;
-  max-width: 1600px;
+  max-width: 100%;
   margin: 0 auto;
   height: 100%;
   background: #000;
@@ -133,6 +149,33 @@ const NavigationControls = styled.div`
   gap: 12px;
   margin-top: 16px;
   direction: rtl;
+`;
+
+const CloseButton = styled.button`
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: white;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
 `;
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -256,46 +299,71 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const getVideoUrl = () => {
     if (videoSource === VideoSource.YOUTUBE) {
-      return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&showinfo=0`;
     }
     return `https://player.vimeo.com/video/${videoId}?autoplay=1`;
   };
 
+  // Check if being rendered inside the sidebar
+  const isInSidebar = !document.querySelector('.ant-modal-root');
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <VideoWrapper
-          ref={wrapperRef}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
+        <ModalOverlay
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
+          style={{ position: isInSidebar ? 'absolute' : 'fixed' }}
         >
-          <AspectRatioContainer ref={aspectRatioRef}>
-            <VideoContainer ref={containerRef}>
-              {isLoading && (
-                <LoadingContainer>
-                  <Spin size="large" />
-                </LoadingContainer>
-              )}
-              <iframe
-                ref={iframeRef}
-                src={getVideoUrl()}
-                style={{ 
-                  width: '100%', 
-                  height: '100%', 
-                  border: 'none',
-                  objectFit: 'contain',
-                  maxWidth: '100%',
-                  maxHeight: '100%'
-                }}
-                allow="autoplay; fullscreen; picture-in-picture"
-                allowFullScreen
-                onLoad={handleIframeLoad}
-              />
-            </VideoContainer>
-          </AspectRatioContainer>
-        </VideoWrapper>
+          <VideoWrapper
+            ref={wrapperRef}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3 }}
+            style={{ width: '100%', height: '100%', maxWidth: '100%' }}
+          >
+            <AspectRatioContainer ref={aspectRatioRef}>
+              <CloseButton onClick={handleClose}>
+                <CloseOutlined />
+              </CloseButton>
+              
+              <VideoContainer ref={containerRef}>
+                {isLoading && (
+                  <LoadingContainer>
+                    <Spin size="large" />
+                    <div>Loading video...</div>
+                  </LoadingContainer>
+                )}
+
+                {videoSource === VideoSource.VIMEO && (
+                  <iframe
+                    ref={iframeRef}
+                    src={getVideoUrl()}
+                    frameBorder="0"
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    title={title || 'Video Player'}
+                    onLoad={handleIframeLoad}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain',
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                  />
+                )}
+              </VideoContainer>
+            </AspectRatioContainer>
+          </VideoWrapper>
+        </ModalOverlay>
       )}
     </AnimatePresence>
   );

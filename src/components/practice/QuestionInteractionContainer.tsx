@@ -407,6 +407,15 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
   const renderFeedbackSection = () => {
     const latestSubmission = state.submissions[state.submissions.length - 1];
     
+    console.log('=== Rendering feedback section ===', {
+      hasLatestSubmission: !!latestSubmission,
+      submissionFeedback: latestSubmission?.feedback,
+      submissionFeedbackData: latestSubmission?.feedback?.data,
+      questionId: question.id,
+      status: state.status,
+      submissionsLength: state.submissions.length
+    });
+    
     return (
       <QuestionCard 
         className="feedback-container"
@@ -509,6 +518,7 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
             onNext={onNext}
             onRetry={handleRetry}
             showRetry={!isSuccessfulAnswer(state.submissions[state.submissions.length - 1].feedback!.data.evalLevel)}
+            prepId={prep.id}
           />
         </ActionBarContainer>
       )}

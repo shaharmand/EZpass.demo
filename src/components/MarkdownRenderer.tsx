@@ -29,32 +29,23 @@ import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { CSSProperties } from 'react';
-import { logger } from '../utils/logger';
-import { CRITICAL_SECTIONS } from '../utils/logger';
 import 'katex/dist/katex.min.css';
 import './MarkdownRenderer.css';
-
-// Enable debug logging for KaTeX
-const DEBUG_KATEX = true;
-
-// Custom error handler for KaTeX - suppress all errors silently
-const errorHandler = (_msg: string, _err: any) => {
-  // Suppress all KaTeX errors silently
-  return;
-};
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import remarkRehype from 'remark-rehype';
+import rehypeStringify from 'rehype-stringify';
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
 }
 
-interface CodeProps {
-  node?: any;
-  inline?: boolean;
-  className?: string;
-  children?: React.ReactNode;
-  [key: string]: any;
-}
+// Custom error handler for KaTeX - suppress all errors silently
+const errorHandler = (_msg: string, _err: any) => {
+  // Suppress all KaTeX errors silently
+  return;
+};
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ 
   content,
@@ -63,15 +54,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   // Pre-process content to ensure display math is on its own line and clean up image attributes
   const processedContent = React.useMemo(() => {
     if (!content) return '';
-
-    // Direct console logging for initial content
-    console.log('🔍 Initial content:', {
-      contentLength: content.length,
-      hasLatex: content.includes('$'),
-      hasDisplayMath: content.includes('$$'),
-      displayMathMatches: content.match(/\$\$(.*?)\$\$/g)?.length || 0,
-      preview: content.slice(0, 100)
-    });
     
     try {
       // Store image attributes for later use
@@ -118,186 +100,34 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     }
   }, [content]);
 
-  // Log component renders
-  React.useEffect(() => {
-    console.log('🔄 MarkdownRenderer rendered:', {
-      originalLength: content?.length,
-      processedLength: processedContent?.length,
-      className
-    });
-  }, [content, processedContent, className]);
-
   return (
     <div className={`markdown-content ${className}`} dir="rtl">
       <ReactMarkdown
-        remarkPlugins={[
-          // Debug plugin to see what remark-math receives
-          () => (tree: any) => {
-            const getNodeInfo = (node: any) => ({
-              type: node.type,
-              value: node.value,
-              children: node.children?.map((c: any) => getNodeInfo(c))
-            });
-            
-            console.log('🔄 Before remark-math AST:', {
-              tree: getNodeInfo(tree),
-              content: processedContent,
-              paragraphs: processedContent.split('\n\n').filter(Boolean)
-            });
-            return tree;
-          },
-          // Use remark-math with no config (use defaults)
-          remarkMath,
-          // Debug what remark-math produced
-          () => (tree: any) => {
-            const getNodeInfo = (node: any) => ({
-              type: node.type,
-              value: node.value,
-              data: node.data,
-              children: node.children?.map((c: any) => getNodeInfo(c))
-            });
-            
-            console.log('🔄 After remark-math AST:', {
-              tree: getNodeInfo(tree),
-              mathNodes: tree.children?.filter((n: any) => n.type === 'math' || n.type === 'inlineMath').map((n: any) => ({
-                type: n.type,
-                value: n.value,
-                data: n.data
-              }))
-            });
-            return tree;
-          }
-        ]}
+        remarkPlugins={[remarkMath]}
         rehypePlugins={[
-          // Plugin to inspect before rehype-katex
-          () => (tree: any) => {
-            const getNodeInfo = (node: any) => ({
-              type: node.type,
-              tagName: node.tagName,
-              properties: node.properties,
-              value: node.value,
-              children: node.children?.map((c: any) => getNodeInfo(c))
-            });
-            
-            console.log('📝 Before rehype-katex AST:', getNodeInfo(tree));
-            
-            const visit = (node: any, parent: any = null) => {
-              if (node.tagName === 'span' && node.properties?.className?.includes('math')) {
-                console.log('📐 Math span:', {
-                  className: node.properties.className,
-                  value: node.children?.[0]?.value,
-                  parentTagName: parent?.tagName,
-                  parentChildrenCount: parent?.children?.length,
-                  isDisplay: node.properties.className.includes('math-display')
-                });
-              }
-              if (node.children) {
-                node.children.forEach((child: any) => visit(child, node));
-              }
-            };
-            visit(tree);
-            return tree;
-          },
           [rehypeKatex, {
             strict: false,
             output: 'html',
             throwOnError: false,
-            displayMode: (node: any) => {
-              const isDisplay = node.properties?.className?.includes('math-display');
-              console.log('📐 rehype-katex display check:', {
-                className: node.properties?.className,
-                value: node.children?.[0]?.value,
-                parentTagName: node.parent?.tagName,
-                isDisplay
-              });
-              return isDisplay;
-            }
+            displayMode: (node: any) => node.properties?.className?.includes('math-display')
           }]
         ]}
         components={{
           code({node, inline, className, children, ...props}) {
             const match = /language-(\w+)/.exec(className || '');
-            const language = match ? match[1] : '';
-            const codeContent = String(children).replace(/\n$/, '');
-
-            if (!inline && language) {
-              return (
-                <div className="code-block-wrapper" dir="ltr">
-                  <SyntaxHighlighter
-                    language={language}
-                    style={oneLight}
-                    showLineNumbers={true}
-                    customStyle={{
-                      margin: 0,
-                      padding: '1em',
-                      backgroundColor: '#1f2937',
-                      borderRadius: '0.375rem',
-                      fontFamily: "'Fira Code', Consolas, Monaco, 'Andale Mono', monospace",
-                      fontSize: 'inherit',
-                      lineHeight: 'inherit',
-                      whiteSpace: 'pre'
-                    }}
-                    lineNumberStyle={{
-                      minWidth: '2.5em',
-                      paddingRight: '1em',
-                      paddingLeft: '0.5em',
-                      textAlign: 'right',
-                      color: '#94a3b8',
-                      backgroundColor: '#f8fafc',
-                      borderRight: '1px solid #e5e7eb',
-                      marginRight: '1em'
-                    }}
-                    {...props}
-                  >
-                    {codeContent}
-                  </SyntaxHighlighter>
-                </div>
-              );
-            }
-            return <code className={className} {...props}>{children}</code>;
-          },
-          img({node, src, alt, ...props}) {
-            // Get the line number from the node position
-            const lineNumber = (node as any)?.position?.start?.line;
-            
-            // Get the stored attributes for this image
-            const attributes = (window as any).__imageAttributes?.get(lineNumber) || {
-              width: 100,
-              alignment: 'center'
-            };
-
-            // Don't show alt text if it looks like a filename
-            const isFilename = /\.(jpg|jpeg|png|gif|webp)$/i.test(alt || '');
-            const shouldShowAlt = !isFilename && alt;
-
-            return (
-              <div style={{ textAlign: attributes.alignment, margin: '1em 0' }}>
-                <div style={{ 
-                  display: 'inline-block',
-                  width: `${attributes.width}%`,
-                }}>
-                  <img 
-                    src={src} 
-                    alt={shouldShowAlt ? alt : ''} 
-                    style={{ 
-                      width: '100%', 
-                      height: 'auto',
-                      borderRadius: '4px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                    }} 
-                    {...props} 
-                  />
-                  {shouldShowAlt && (
-                    <div style={{ 
-                      marginTop: '0.5em', 
-                      color: '#666',
-                      fontSize: '0.9em'
-                    }}>
-                      {alt}
-                    </div>
-                  )}
-                </div>
-              </div>
+            return !inline && match ? (
+              <SyntaxHighlighter
+                style={oneLight}
+                language={match[1]}
+                PreTag="div"
+                {...props}
+              >
+                {String(children).replace(/\n$/, '')}
+              </SyntaxHighlighter>
+            ) : (
+              <code className={className} {...props}>
+                {children}
+              </code>
             );
           },
           span({node, className, children, ...props}) {
@@ -335,27 +165,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               );
             }
             return <span className={className} {...props}>{children}</span>;
-          },
-          p({children, ...props}) {
-            return (
-              <p dir="auto" {...props}>
-                {children}
-              </p>
-            );
-          },
-          ol({children, ...props}) {
-            return (
-              <ol dir="rtl" style={{ listStyleType: 'decimal', margin: '1em 0', paddingRight: '1.5em' }} {...props}>
-                {children}
-              </ol>
-            );
-          },
-          li({children, ...props}) {
-            return (
-              <li dir="rtl" style={{ margin: '0.5em 0' }} {...props}>
-                {children}
-              </li>
-            );
           }
         }}
       >

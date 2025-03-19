@@ -22,12 +22,45 @@
 
 .feedback-action-bar-content {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 24px;
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+.feedback-metrics {
+  flex: 1;
+  margin-right: 24px;
+}
+
+.metrics-display {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  background: #f8fafc;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.metric-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metric-label {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.metric-value {
+  color: #1e293b;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .feedback-action-buttons-container {
@@ -160,6 +193,19 @@
 
   .feedback-action-bar-content {
     gap: 16px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .feedback-metrics {
+    margin-right: 0;
+    margin-bottom: 16px;
+  }
+
+  .metrics-display {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 
   .feedback-action-button {

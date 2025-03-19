@@ -27,10 +27,10 @@ import './Feedback.css';
 
 const { Text, Title } = Typography;
 
-interface FeedbackContainerProps {
+export interface FeedbackContainerProps {
   question: Question;
   submission: QuestionSubmission;
-  isLimitedFeedback?: boolean;
+  isLimitedFeedback: boolean;
 }
 
 // This component shows the restricted version of feedback for free-tier users
@@ -102,18 +102,18 @@ const LimitedFeedback: React.FC<{
 export const FeedbackContainer: React.FC<FeedbackContainerProps> = ({
   question,
   submission,
-  isLimitedFeedback = false
+  isLimitedFeedback
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { isAllowedFullFeedback } = usePracticeAttempts();
   const isGuest = !user;
   
-  // Safety check - if no feedback data, don't render anything
-  if (!submission.feedback?.data) {
+  if (!submission || !submission.feedback?.data) {
+    console.warn('No feedback data available');
     return null;
   }
-  
+
   // If limited feedback is requested or user has exceeded their limit, show limited feedback
   if (isLimitedFeedback || !isAllowedFullFeedback()) {
     return (

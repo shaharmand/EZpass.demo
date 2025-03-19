@@ -25,6 +25,17 @@ module.exports = {
         data: path.resolve(__dirname, './src/data'),
       };
 
+      // Add fallbacks for node core modules
+      webpackConfig.resolve.fallback = {
+        ...webpackConfig.resolve.fallback,
+        fs: false,
+        stream: require.resolve('stream-browserify'),
+        path: require.resolve('path-browserify'),
+        crypto: require.resolve('crypto-browserify'),
+        zlib: require.resolve('browserify-zlib'),
+        assert: require.resolve('assert/'),
+      };
+
       // Copy data files to the build output
       webpackConfig.plugins.push(
         new CopyWebpackPlugin({

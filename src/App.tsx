@@ -55,6 +55,10 @@ const App: React.FC = () => {
       path: 'practice',
       children: [
         {
+          index: true,
+          element: <ExamDashboard />
+        },
+        {
           path: ':prepId',
           element: (
             <PracticeAttemptsProvider>

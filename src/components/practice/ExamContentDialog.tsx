@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Modal, Typography, Button, Tooltip, Space, notification, message } from 'antd';
+import { Modal, Typography, Button, Tooltip, Space, notification, message, Spin } from 'antd';
 import styled from 'styled-components';
 import { 
   InfoCircleOutlined,
@@ -26,6 +26,14 @@ const TopicHeader = styled.div`
   justify-content: space-between;
 `;
 
+const LoadingContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  width: 100%;
+`;
+
 interface ExamContentDialogProps {
   exam: ExamTemplate;
   open: boolean;
@@ -48,17 +56,34 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
 }) => {
   const [currentPrep, setCurrentPrep] = useState<StudentPrep | null>(null);
   const [selection, setSelection] = useState<TopicSelection>({ subTopics: [] });
+  const [isLoading, setIsLoading] = useState(false);
   const { startPrep } = useStudentPrep();
 
   // Load current prep state when dialog opens
   useEffect(() => {
-    if (open) {
-      const freshPrep = PrepStateManager.getPrep(prepId);
-      if (freshPrep) {
-        setCurrentPrep(freshPrep);
-        setSelection(freshPrep.selection);
+    const loadPrep = async () => {
+      if (open && prepId) {
+        setIsLoading(true);
+        
+        try {
+          // Get prep asynchronously
+          const freshPrep = await PrepStateManager.getPrep(prepId);
+          if (freshPrep) {
+            setCurrentPrep(freshPrep);
+            setSelection(freshPrep.selection);
+          } else {
+            message.error('Failed to load preparation details');
+          }
+        } catch (error) {
+          console.error('Failed to load preparation:', error);
+          message.error('Failed to load preparation details');
+        } finally {
+          setIsLoading(false);
+        }
       }
-    }
+    };
+    
+    loadPrep();
   }, [open, prepId]);
 
   // Helper function to check if a subtopic is selected
@@ -78,11 +103,13 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
   };
 
   // Handle confirming changes
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!currentPrep) {
       console.error('Failed to confirm changes: No current prep available');
       return;
     }
+
+    setIsLoading(true);
 
     console.log('ExamContentDialog: Confirming changes', {
       oldSelectionCount: PrepStateManager.getSelectedTopicsCount(currentPrep),
@@ -97,7 +124,7 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
 
     // Update the selection using PrepStateManager
     try {
-      const updatedPrep = PrepStateManager.updateSelection(currentPrep.id, newSelection);
+      const updatedPrep = await PrepStateManager.updateSelection(currentPrep.id, newSelection);
       
       // Update local state with the fresh prep
       setCurrentPrep(updatedPrep);
@@ -106,13 +133,15 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
       if (onPrepUpdate) {
         onPrepUpdate(updatedPrep);
       }
+
+      // Close the dialog
+      onClose();
     } catch (error) {
       console.error('Failed to update selection:', error);
-      // You might want to show an error message to the user here
+      message.error('Failed to save changes to preparation');
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Close the dialog
-    onClose();
   };
 
   // Calculate total stats using PrepStateManager
@@ -121,6 +150,25 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
     return PrepStateManager.getTopicCountsByType(currentPrep);
   }, [currentPrep]);
 
+  // Show loading state while fetching preparation
+  if (isLoading && !currentPrep) {
+    return (
+      <Modal
+        open={open}
+        closable={false}
+        onCancel={onClose}
+        width={800}
+        footer={null}
+        bodyStyle={{ padding: '24px' }}
+      >
+        <LoadingContainer>
+          <Spin size="large" tip="Loading preparation details..." />
+        </LoadingContainer>
+      </Modal>
+    );
+  }
+
+  // Don't render content if prep is not available
   if (!currentPrep) return null;
 
   return (
@@ -160,6 +208,7 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
                 fontWeight: 500,
                 boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
               }}
+              disabled={isLoading}
             >
               ביטול
             </Button>
@@ -174,7 +223,8 @@ export const ExamContentDialog: React.FC<ExamContentDialogProps> = ({
                 fontWeight: 500,
                 boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
               }}
-              disabled={topicCounts.subtopics.selected === 0}
+              disabled={topicCounts.subtopics.selected === 0 || isLoading}
+              loading={isLoading}
             >
               אישור
             </Button>

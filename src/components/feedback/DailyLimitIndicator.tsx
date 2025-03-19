@@ -15,7 +15,7 @@ export const DailyLimitIndicator: React.FC<DailyLimitIndicatorProps> = ({ curren
     <div className={`daily-limit-indicator ${isLow ? 'low-remaining' : ''}`}>
       <Tooltip title={`משובים מפורטים: נותרו ${remaining} מתוך ${max} היום`}>
         <div className="limit-content">
-          <InfoCircleOutlined className="info-icon" />
+          <InfoCircleOutlined style={{ fontSize: '14px', color: '#94a3b8' }} />
           <span className="limit-counter">{remaining}</span>
         </div>
       </Tooltip>
@@ -25,11 +25,11 @@ export const DailyLimitIndicator: React.FC<DailyLimitIndicatorProps> = ({ curren
             display: inline-flex;
             align-items: center;
             padding: 4px 8px;
-            background: #f0f9ff;
-            border: 1px solid #bfdbfe;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
             border-radius: 20px;
             font-size: 14px;
-            color: #1e40af;
+            color: #64748b;
             transition: all 0.2s ease;
           }
           
@@ -55,23 +55,18 @@ export const DailyLimitIndicator: React.FC<DailyLimitIndicatorProps> = ({ curren
             cursor: help;
           }
 
-          .info-icon {
-            font-size: 16px;
-            color: #60a5fa;
-          }
-
           .limit-counter {
             display: flex;
             align-items: center;
             justify-content: center;
             min-width: 22px;
             height: 22px;
-            background: #bfdbfe;
+            background: #f1f5f9;
             border-radius: 11px;
             padding: 0 6px;
-            font-weight: 600;
+            font-weight: 500;
             font-size: 13px;
-            color: #1e40af;
+            color: #64748b;
           }
         `}
       </style>

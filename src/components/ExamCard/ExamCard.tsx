@@ -63,6 +63,16 @@ export const ExamCard: React.FC<ExamCardProps> = ({ exam }) => {
       const prepId = await startPrep(exam);
       console.log('Prep created with ID:', prepId);
       
+      // Validate the prep ID to ensure it's a valid string
+      if (!prepId || 
+          typeof prepId !== 'string' || 
+          String(prepId).includes('[object Promise]') || 
+          String(prepId).includes('[object') ||
+          String(prepId) === '[object Object]') {
+        console.error('Invalid preparation ID, cannot navigate:', prepId);
+        throw new Error('Invalid preparation ID created');
+      }
+      
       // Small delay to ensure state updates are complete
       await new Promise(resolve => setTimeout(resolve, 100));
       

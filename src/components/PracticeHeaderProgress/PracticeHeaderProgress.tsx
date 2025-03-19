@@ -166,10 +166,11 @@ function PracticeHeaderProgress({
   prep: initialPrep,
   onShowTopicDetails,
   onPrepUpdate,
-  metrics
+  metrics: initialMetrics
 }: PracticeHeaderProgressProps) {
   const componentId = useRef(Math.random().toString(36).substring(2, 8));
   const renderCount = useRef(0);
+  const [metrics, setMetrics] = useState(initialMetrics);
 
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isExamDatePopoverOpen, setIsExamDatePopoverOpen] = useState(false);
@@ -189,6 +190,56 @@ function PracticeHeaderProgress({
       onPrepUpdate(updatedPrep);
     }
   });
+
+  // Subscribe to metrics changes
+  useEffect(() => {
+    console.log('🔌 PracticeHeaderProgress - Setting up metrics subscription:', {
+      prepId: initialPrep.id,
+      componentId: componentId.current,
+      renderCount: renderCount.current,
+      timestamp: new Date().toISOString()
+    });
+
+    const handleMetricsUpdate = (newMetrics: typeof metrics) => {
+      console.log('📊 PracticeHeaderProgress - Received metrics update:', {
+        prepId: initialPrep.id,
+        componentId: componentId.current,
+        renderCount: renderCount.current,
+        progress: newMetrics.overallProgress,
+        questionsAnswered: newMetrics.questionsAnswered,
+        successRate: newMetrics.successRate,
+        timestamp: new Date().toISOString()
+      });
+
+      // Log the difference in metrics
+      console.log('📈 PracticeHeaderProgress - Metrics changes:', {
+        prepId: initialPrep.id,
+        componentId: componentId.current,
+        progressDiff: newMetrics.overallProgress - metrics.overallProgress,
+        successRateDiff: newMetrics.successRate - metrics.successRate,
+        questionsAnsweredDiff: newMetrics.questionsAnswered - metrics.questionsAnswered,
+        timestamp: new Date().toISOString()
+      });
+
+      // Force a re-render by creating a new metrics object
+      setMetrics({
+        ...newMetrics,
+        typeSpecificMetrics: newMetrics.typeSpecificMetrics.map(m => ({ ...m }))
+      });
+    };
+
+    PrepStateManager.subscribeToMetricsChanges(initialPrep.id, handleMetricsUpdate);
+
+    return () => {
+      console.log('🔌 PracticeHeaderProgress - Cleaning up metrics subscription:', {
+        prepId: initialPrep.id,
+        componentId: componentId.current,
+        renderCount: renderCount.current,
+        timestamp: new Date().toISOString()
+      });
+      PrepStateManager.unsubscribeFromMetricsChanges(initialPrep.id, handleMetricsUpdate);
+    };
+  }, [initialPrep.id]);
 
   // Log component lifecycle
   useEffect(() => {

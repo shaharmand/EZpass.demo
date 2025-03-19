@@ -277,9 +277,22 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
 
   // Handle practice button click - navigate to user's active prep or practice page
   const handlePracticeClick = () => {
+    // If we're already on the home page, don't navigate anywhere
+    if (window.location.pathname === '/' || window.location.pathname === '/practice') {
+      console.log('Already on home/exams page, not navigating');
+      return;
+    }
+
     // If the user has an active prep, go to that prep's practice page
     if (prep && prep.id) {
-      navigate(`/practice/${prep.id}`);
+      // Ensure prep.id is not a Promise
+      const prepId = prep.id;
+      if (typeof prepId !== 'string' || String(prepId).includes('[object')) {
+        console.error('Invalid prep ID in active prep, navigating to main practice page:', prepId);
+        navigate('/practice');
+        return;
+      }
+      navigate(`/practice/${prepId}`);
     } else {
       // If there's no active prep, try to load preps from storage
       try {
@@ -297,13 +310,22 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
               return timestampB - timestampA;
             });
             
+            // Validate the prep ID before navigating
+            const prepId = sortedPrepIds[0];
+            if (typeof prepId !== 'string' || String(prepId).includes('[object')) {
+              console.error('Invalid prep ID in stored preps, navigating to main practice page:', prepId);
+              navigate('/practice');
+              return;
+            }
+            
             // Navigate to the most recently used prep
-            navigate(`/practice/${sortedPrepIds[0]}`);
+            navigate(`/practice/${prepId}`);
             return;
           }
         }
         
-        // If no preps found in storage, go to main practice page
+        // If no preps found in storage, go to practice page to choose an exam
+        console.log('No active preps found, navigating to exam selection');
         navigate('/practice');
       } catch (error) {
         console.error('Error accessing stored preps:', error);
@@ -319,6 +341,8 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
 
   // Handle history button click - navigate to submission history
   const handleHistoryClick = () => {
+    // We don't need to wait for prep ID here since the history page
+    // will handle its own state and filtering
     navigate('/user/submissions');
   };
 

@@ -132,7 +132,7 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
       const values = await form.validateFields();
       
       // Get current prep state
-      const freshPrep = PrepStateManager.getPrep(prep.id);
+      const freshPrep = await PrepStateManager.getPrep(prep.id);
       if (!freshPrep) {
         throw new Error('Prep not found');
       }
@@ -145,15 +145,15 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
         },
         selection: {
           subTopics: values.selectedNodes.filter((key: string) => 
-            freshPrep.exam.topics.some(t => 
-              t.subTopics.some(st => st.id === key)
+            freshPrep.exam.topics.some((t: any) => 
+              t.subTopics.some((st: any) => st.id === key)
             )
           )
         }
       };
 
       // Save updated prep
-      PrepStateManager.updatePrep(updatedPrep);
+      await PrepStateManager.updatePrep(updatedPrep);
       setCurrentPrep(updatedPrep);
 
       // Call onUpdate if provided with the new name
@@ -174,28 +174,38 @@ export const PrepConfigDialog: React.FC<PrepConfigDialogProps> = ({
   useEffect(() => {
     if (open) {
       // Get latest prep state from storage
-      const freshPrep = PrepStateManager.getPrep(prep.id);
-      console.log('Dialog Opening - Current Prep State:', {
-        prepId: prep.id,
-        freshPrep,
-        hasSelection: freshPrep?.selection != null,
-        subTopics: freshPrep?.selection?.subTopics,
-        subTopicsCount: freshPrep?.selection?.subTopics?.length
-      });
+      const loadPrep = async () => {
+        try {
+          const freshPrep = await PrepStateManager.getPrep(prep.id);
+          
+          console.log('Dialog Opening - Current Prep State:', {
+            prepId: prep.id,
+            freshPrep,
+            hasSelection: freshPrep?.selection != null,
+            subTopics: freshPrep?.selection?.subTopics,
+            subTopicsCount: freshPrep?.selection?.subTopics?.length
+          });
 
-      if (!freshPrep) return;
+          if (!freshPrep) return;
 
-      // Set current prep
-      setCurrentPrep(freshPrep);
+          // Set current prep
+          setCurrentPrep(freshPrep);
 
-      // Set form values
-      const examDate = moment(freshPrep.goals.examDate);
+          // Set form values
+          const examDate = moment(freshPrep.goals.examDate);
+          
+          form.setFieldsValue({
+            prepName: getDefaultPrepName(examDate),
+            examDate,
+            selectedNodes: freshPrep.selection.subTopics
+          });
+        } catch (error) {
+          console.error('Error loading prep:', error);
+          setError('Failed to load preparation data');
+        }
+      };
       
-      form.setFieldsValue({
-        prepName: getDefaultPrepName(examDate),
-        examDate,
-        selectedNodes: freshPrep.selection.subTopics
-      });
+      loadPrep();
     }
   }, [open, prep.id]);
 

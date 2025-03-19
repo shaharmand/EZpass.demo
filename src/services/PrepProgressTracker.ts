@@ -89,6 +89,8 @@ export class PrepProgressTracker {
     remainingQuestions: number;
     questionsAnswered: number;
   }> = [];
+  private metricsSubscribers: Set<(metrics: ProgressHeaderMetrics) => void> = new Set();
+  private isUpdatingMetrics: boolean = false;
   
   constructor(subTopicWeights: Array<{ id: string; percentageOfTotal: number }>, examDate: number) {
     console.log('🎯 Creating new PrepProgressTracker instance:', {
@@ -201,17 +203,14 @@ export class PrepProgressTracker {
     questionId: string,
     isCorrect: boolean
   ): void {
-    // Check if this is a first submission for this question
-    const isFirstSubmission = !this.questionHistory.some(q => q.questionId === questionId);
-    
-    // Add to question history
+    // Add to question history first
     console.log('PrepProgressTracker: Adding result', {
       questionId,
       score,
       isCorrect,
       timestamp: new Date(timestamp).toISOString(),
       type: questionType,
-      isFirstSubmission
+      currentHistoryLength: this.questionHistory.length
     });
     
     this.questionHistory.push({
@@ -222,14 +221,26 @@ export class PrepProgressTracker {
       type: questionType
     });
 
-    // Update metrics only on first submission
-    if (isFirstSubmission) {
-      this.completedQuestions++;
-      if (isCorrect) {
-        this.correctAnswers++;
-      }
-      this.successRate = this.calcSuccessRate();
+    // Update correct answers count
+    if (isCorrect) {
+      this.correctAnswers++;
     }
+
+    // Force recalculation of success rate
+    const newSuccessRate = this.calcSuccessRate();
+    console.log('PrepProgressTracker: New success rate calculated:', {
+      oldRate: this.successRate,
+      newRate: newSuccessRate,
+      questionCount: this.questionHistory.length,
+      correctAnswers: this.questionHistory.filter(r => r.isCorrect).length,
+      lastScores: this.questionHistory.slice(-5).map(r => r.score),
+      typeSpecificRates: {
+        mc: this.getTypeSpecificRate(QuestionType.MULTIPLE_CHOICE),
+        open: this.getTypeSpecificRate(QuestionType.OPEN),
+        numeric: this.getTypeSpecificRate(QuestionType.NUMERICAL)
+      }
+    });
+    this.successRate = newSuccessRate;
 
     if (questionType === QuestionType.NUMERICAL) {
       this.updateNumericProgress(score, timestamp);
@@ -237,6 +248,7 @@ export class PrepProgressTracker {
       this.updateSubTopicProgress(subTopicId, questionType, score, timestamp);
     }
 
+    // Force recalculation of metrics
     this.updateHeaderMetrics();
     this.logProgressUpdate();
   }
@@ -333,13 +345,17 @@ export class PrepProgressTracker {
   }
 
   private updateHeaderMetrics(): void {
+    // Prevent recursive updates
+    if (this.isUpdatingMetrics) return;
+    this.isUpdatingMetrics = true;
+
     const now = Date.now();
     
     // Get total questions from history instead of just completedQuestions
     const questionsAnswered = this.questionHistory.length;
     
-    // Calculate total questions from all type-specific metrics
-    const totalQuestions = this.typeSpecificMetrics.reduce((acc, metric) => acc + metric.questionsAnswered, 0);
+    // Calculate total questions from question history instead of type-specific metrics
+    const totalQuestions = this.questionHistory.length;
     
     // Calculate type-specific progress from subtopic progress
     let totalMultipleChoiceProgress = 0;
@@ -368,6 +384,24 @@ export class PrepProgressTracker {
         openProgress: progress.open.progress
       }))
     );
+
+    // If requirements is undefined, use default values
+    if (!requirements || !requirements.total) {
+      this.headerMetrics = {
+        overallProgress: 0,
+        successRate: 0,
+        remainingHours: 0,
+        remainingQuestions: 0,
+        hoursPracticed: 0,
+        questionsAnswered: 0,
+        weeklyNeededHours: 0,
+        dailyNeededHours: 0,
+        examDate: this.examDate,
+        totalQuestions: 0,
+        typeSpecificMetrics: []
+      };
+      return;
+    }
 
     // Get counts for each type from all history
     const allResults = this.questionHistory;
@@ -423,10 +457,22 @@ export class PrepProgressTracker {
         }
       ]
     };
+
+    // Notify subscribers of the updated metrics
+    this.notifyMetricsSubscribers();
+
+    // Reset the flag
+    this.isUpdatingMetrics = false;
   }
 
   public getLatestMetrics(): ProgressHeaderMetrics {
+    // Always recalculate metrics when getting latest
     this.updateHeaderMetrics();
+    return this.headerMetrics;
+  }
+
+  public getCurrentMetrics(): ProgressHeaderMetrics {
+    // Just return current metrics without recalculation
     return this.headerMetrics;
   }
 
@@ -513,20 +559,66 @@ export class PrepProgressTracker {
     const typeResults = allResults.filter(r => r.type === questionType);
     
     // Get last N results based on type
-    const count = questionType === QuestionType.MULTIPLE_CHOICE ? 55 :
-                 questionType === QuestionType.OPEN ? 5 : 3;
+    const count = questionType === QuestionType.MULTIPLE_CHOICE ? 20 :  // Last 20 MC questions
+                 questionType === QuestionType.OPEN ? 5 : 3;  // Last 5 open questions, 3 numeric
     
+    // Always get the most recent N questions
     const resultsToUse = typeResults.slice(-count);
+    
+    console.log('PrepProgressTracker: Type-specific rate calculation:', {
+      timestamp: new Date().toISOString(),
+      questionType,
+      totalQuestions: allResults.length,
+      typeQuestions: typeResults.length,
+      lastNQuestions: resultsToUse.length,
+      scores: resultsToUse.map(r => r.score),
+      correctAnswers: resultsToUse.filter(r => r.isCorrect).length,
+      average: resultsToUse.length > 0 ? (resultsToUse.filter(r => r.isCorrect).length / resultsToUse.length) * 100 : 0
+    });
+    
     if (resultsToUse.length === 0) return 0;
     
-    return resultsToUse.reduce((sum, r) => sum + r.score, 0) / resultsToUse.length;
+    // Calculate success rate based on correct answers
+    const successRate = (resultsToUse.filter(r => r.isCorrect).length / resultsToUse.length) * 100;
+    
+    console.log('PrepProgressTracker: Final rate calculation:', {
+      timestamp: new Date().toISOString(),
+      questionType,
+      successRate,
+      scores: resultsToUse.map(r => r.score),
+      last5Scores: resultsToUse.slice(-5).map(r => r.score),
+      correctAnswers: resultsToUse.filter(r => r.isCorrect).length,
+      totalQuestions: resultsToUse.length
+    });
+    
+    return successRate;
   }
 
   public calcSuccessRate(): number {
+    // Log the actual numbers we're working with
+    console.log('PrepProgressTracker: Starting success rate calculation:', {
+      timestamp: new Date().toISOString(),
+      totalQuestions: this.questionHistory.length,
+      correctAnswers: this.questionHistory.filter(r => r.isCorrect).length,
+      questionHistory: this.questionHistory.map(r => ({
+        id: r.questionId,
+        score: r.score,
+        isCorrect: r.isCorrect,
+        type: r.type
+      }))
+    });
+
     // Get type-specific rates
     const mcRate = this.getTypeSpecificRate(QuestionType.MULTIPLE_CHOICE);
     const openRate = this.getTypeSpecificRate(QuestionType.OPEN);
     const numericRate = this.getTypeSpecificRate(QuestionType.NUMERICAL);
+
+    console.log('PrepProgressTracker: Success rate calculation - before weights:', {
+      timestamp: new Date().toISOString(),
+      mcRate,
+      openRate,
+      numericRate
+    });
 
     // Sum up weighted rates and weights for types that have results
     let weightedSum = 0;
@@ -551,17 +643,14 @@ export class PrepProgressTracker {
     // Calculate weighted average
     const successRate = weightedSum / totalWeight;
 
-    console.log('PrepProgressTracker: Success rate calculation', {
+    console.log('PrepProgressTracker: Success rate calculation - after weights:', {
       timestamp: new Date().toISOString(),
-      multipleChoiceRate: mcRate,
-      openRate: openRate,
-      numericRate: numericRate,
       weightedSum,
       totalWeight,
-      overallRate: successRate
+      finalRate: successRate
     });
 
-    return successRate;  // Already returns 0-100 since scores are 0-100
+    return successRate;
   }
 
   public getAllResultsSorted(): Array<{
@@ -634,4 +723,26 @@ export class PrepProgressTracker {
     return this.correctAnswers;
   }
 
+  public subscribeToMetrics(callback: (metrics: ProgressHeaderMetrics) => void): void {
+    this.metricsSubscribers.add(callback);
+    // Immediately call with current metrics
+    callback(this.getLatestMetrics());
+  }
+
+  public unsubscribeFromMetrics(callback: (metrics: ProgressHeaderMetrics) => void): void {
+    this.metricsSubscribers.delete(callback);
+  }
+
+  private notifyMetricsSubscribers(): void {
+    // If we're already updating metrics, just use current metrics to avoid recursion
+    if (this.isUpdatingMetrics) {
+      const metrics = this.getCurrentMetrics();
+      this.metricsSubscribers.forEach(callback => callback(metrics));
+      return;
+    }
+
+    // Otherwise, get fresh metrics
+    const metrics = this.getLatestMetrics();
+    this.metricsSubscribers.forEach(callback => callback(metrics));
+  }
 } 

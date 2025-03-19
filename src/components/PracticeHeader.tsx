@@ -80,27 +80,39 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
       customName: trimmedName || null
     };
     
-    // Update in storage
-    PrepStateManager.updatePrep(updatedPrep);
+    // Update in storage - use async/await properly
+    const updateStorage = async () => {
+      try {
+        await PrepStateManager.updatePrep(updatedPrep);
+        
+        // Force a refresh of the prep state
+        const freshPrep = await PrepStateManager.getPrep(prep.id);
+        if (freshPrep) {
+          setLocalPrep(freshPrep);
+        }
+        
+        notification.success({
+          message: 'שם המבחן עודכן',
+          placement: 'topLeft',
+          duration: 2,
+        });
+      } catch (error) {
+        console.error('Error updating prep name:', error);
+        notification.error({
+          message: 'שגיאה בעדכון שם המבחן',
+          placement: 'topLeft',
+          duration: 2,
+        });
+      }
+    };
     
-    // Update local state
+    // Update local state immediately
     setLocalPrep(updatedPrep);
     setIsEditingName(false);
     setEditingName('');
-
-    // Force a refresh of the prep state
-    setTimeout(() => {
-      const freshPrep = PrepStateManager.getPrep(prep.id);
-      if (freshPrep) {
-        setLocalPrep(freshPrep);
-      }
-    }, 0);
-
-    notification.success({
-      message: 'שם המבחן עודכן',
-      placement: 'topLeft',
-      duration: 2,
-    });
+    
+    // Then update storage
+    updateStorage();
   };
 
   const pageTitle = "תרגול שאלות";
@@ -116,9 +128,9 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
       metrics={PrepStateManager.getHeaderMetrics(localPrep)}
       prep={localPrep}
       onShowTopicDetails={() => setExamContentOpen(true)}
-      onPrepUpdate={(updatedPrep: StudentPrep) => {
+      onPrepUpdate={async (updatedPrep: StudentPrep) => {
         // Force a refresh of the prep state
-        const freshPrep = PrepStateManager.getPrep(updatedPrep.id);
+        const freshPrep = await PrepStateManager.getPrep(updatedPrep.id);
         if (freshPrep) {
           // Update the local prep state
           setLocalPrep(freshPrep);

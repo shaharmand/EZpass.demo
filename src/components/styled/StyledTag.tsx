@@ -24,26 +24,42 @@ export const StyledTag = styled(Tag)<{ $type: 'subscription' | 'role'; color?: s
       props.color === 'orange' 
         ? 'linear-gradient(135deg, #ff9800 0%, #ed6c02 100%)' : 
       props.color === 'blue' 
-        ? 'linear-gradient(135deg, #3182f6 0%, #2563eb 100%)' : 
+        ? '#f1f5f9' : 
       props.color === 'gray'
-        ? 'linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%)'
-        : 'linear-gradient(135deg, #e0f2fe 0%, #7dd3fc 100%)'
+        ? '#f1f5f9'
+        : '#f1f5f9'
     };
-    border: none;
+    border: ${
+      props.color === 'orange'
+        ? 'none'
+        : '1px solid #e2e8f0'
+    };
     color: ${
       props.color === 'orange' 
         ? '#ffffff' : 
       props.color === 'blue' 
-        ? '#ffffff' : 
+        ? '#64748b' : 
       props.color === 'gray'
-        ? '#475569'
-        : '#0369a1'
+        ? '#64748b'
+        : '#64748b'
     };
-    font-weight: 600;
+    font-weight: ${
+      props.color === 'orange'
+        ? '600'
+        : '500'
+    };
     
     &:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transform: ${
+        props.color === 'orange'
+          ? 'translateY(-1px)'
+          : 'none'
+      };
+      box-shadow: ${
+        props.color === 'orange'
+          ? '0 2px 4px rgba(0, 0, 0, 0.1)'
+          : '0 1px 2px rgba(0, 0, 0, 0.05)'
+      };
     }
   `}
 

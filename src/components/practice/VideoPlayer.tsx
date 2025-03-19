@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { Spin } from 'antd';
 import { CloseOutlined, ArrowRightOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import Player from '@vimeo/player';
 import { VideoSource } from '../../types/videoContent';
+import { debounce } from 'lodash';
 
 interface VideoPlayerProps {
   videoId: string;
@@ -186,17 +187,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   isOpen,
   onClose,
 }) => {
-  console.log('DEBUG: VideoPlayer component rendered', { videoId, isOpen });
-
-  // Add immediate resize handler
-  useEffect(() => {
-    const handleResize = () => {
-      console.log('IMMEDIATE RESIZE EVENT');
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   const [isLoading, setIsLoading] = useState(true);
   const playerRef = useRef<VimeoPlayer | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -204,42 +194,39 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const aspectRatioRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Debug mount and resize
+  // Replace multiple resize handlers with a single debounced one
+  const handleResize = useCallback(
+    debounce(async () => {
+      if (!playerRef.current || !iframeRef.current) return;
+
+      try {
+        const element = await playerRef.current.element;
+        if (element && element.style) {
+          // Your existing resize logic here
+        }
+      } catch (error) {
+        console.error('Error handling resize:', error);
+      }
+    }, 250),
+    []
+  );
+
   useEffect(() => {
-    console.log('VideoPlayer mounted');
-
-    const handleResize = () => {
-      console.log('Window resized:', {
-        windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight
-      });
-    };
-
     window.addEventListener('resize', handleResize);
-    console.log('Added resize listener');
-
     return () => {
       window.removeEventListener('resize', handleResize);
-      console.log('Removed resize listener');
+      handleResize.cancel();
     };
-  }, []);
-
-  // Debug isOpen changes
-  useEffect(() => {
-    console.log('isOpen changed:', isOpen);
-  }, [isOpen]);
+  }, [handleResize]);
 
   useEffect(() => {
     if (isOpen && iframeRef.current && videoSource === VideoSource.VIMEO) {
-      console.log('Initializing Vimeo player');
       const player = new Player(iframeRef.current) as VimeoPlayer;
       playerRef.current = player;
-
       player.setAutopause(false);
       
       return () => {
         if (playerRef.current) {
-          console.log('Destroying Vimeo player');
           playerRef.current.destroy();
           playerRef.current = null;
         }
@@ -250,18 +237,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(() => {
     const player = playerRef.current;
     if (isOpen && player && videoSource === VideoSource.VIMEO) {
-      console.log('Setting up Vimeo resize handler');
       const handleResize = async () => {
-        console.log('Vimeo resize handler called');
         try {
           const element = await player.element;
           if (element) {
             const container = element.parentElement;
             if (container) {
-              console.log('Resizing Vimeo player', {
-                containerWidth: container.clientWidth,
-                containerHeight: container.clientHeight
-              });
               element.style.width = '100%';
               element.style.height = '100%';
             }
@@ -272,18 +253,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       };
 
       handleResize();
-      console.log('Adding Vimeo resize listener');
       window.addEventListener('resize', handleResize);
 
       return () => {
-        console.log('Removing Vimeo resize listener');
         window.removeEventListener('resize', handleResize);
       };
     }
   }, [isOpen, videoSource]);
 
   const handleClose = (e: React.MouseEvent) => {
-    console.log('DEBUG: Video player close clicked');
     e.preventDefault();
     e.stopPropagation();
     if (playerRef.current && videoSource === VideoSource.VIMEO) {
@@ -293,7 +271,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   const handleIframeLoad = () => {
-    console.log('DEBUG: Video iframe loaded');
     setIsLoading(false);
   };
 

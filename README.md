@@ -68,3 +68,32 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+## Database Migrations
+
+### UUID Migration (June 2024)
+
+The application has been updated to use UUIDs for preparation IDs and related foreign keys. This ensures compatibility with Supabase's UUID column types.
+
+Key changes:
+- Preparation IDs are now UUIDs instead of descriptive strings
+- The original exam ID is stored in a metadata field for debugging
+- Migration scripts in `supabase/migrations` handle converting existing data
+
+If you encounter any issues with preparation loading after this update, check the following:
+1. Ensure the Supabase migrations have been run
+2. Clear local storage if testing locally
+3. Check browser console for UUID-related errors
+
+#### Troubleshooting Migration Errors
+
+If you encounter this error during migration:
+```
+ERROR: 42883: operator does not exist: uuid ~ unknown
+HINT: No operator matches the given name and argument types. You might need to add explicit type casts.
+```
+
+The issue is that PostgreSQL doesn't allow using regex operators with UUID types directly. The fix:
+1. Make sure to cast the columns to text before applying regex: `id::text ~ pattern`
+2. The migration files have been updated to add these casts
+3. If you still encounter issues, you can manually run these SQL commands with the proper casts

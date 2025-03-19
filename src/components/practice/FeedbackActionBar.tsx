@@ -2,6 +2,8 @@ import React from 'react';
 import { ArrowLeftOutlined, RedoOutlined } from '@ant-design/icons';
 import { QuestionFeedback } from '../../types/feedback/types';
 import { isSuccessfulAnswer } from '../../types/feedback/status';
+import { usePrepState } from '../../hooks/usePrepState';
+import { PrepStateManager } from '../../services/PrepStateManager';
 import './FeedbackActionBar.css';
 
 interface FeedbackActionBarProps {
@@ -9,6 +11,7 @@ interface FeedbackActionBarProps {
   onRetry: () => void;
   onNext: () => void;
   showRetry: boolean;
+  prepId: string;
 }
 
 export const FeedbackActionBar: React.FC<FeedbackActionBarProps> = ({
@@ -16,8 +19,11 @@ export const FeedbackActionBar: React.FC<FeedbackActionBarProps> = ({
   onRetry,
   onNext,
   showRetry,
+  prepId
 }) => {
   const isSuccess = isSuccessfulAnswer(feedback.evalLevel);
+  const prep = usePrepState(prepId);
+  const metrics = prep ? PrepStateManager.getHeaderMetrics(prep) : null;
 
   const handleRetry = () => {
     console.log('Retry button clicked', {
@@ -40,6 +46,24 @@ export const FeedbackActionBar: React.FC<FeedbackActionBarProps> = ({
   return (
     <div className="feedback-action-bar">
       <div className="feedback-action-bar-content">
+        <div className="feedback-metrics">
+          {metrics && (
+            <div className="metrics-display">
+              <div className="metric-item">
+                <span className="metric-label">שאלות שנענו:</span>
+                <span className="metric-value">{metrics.questionsAnswered}</span>
+              </div>
+              <div className="metric-item">
+                <span className="metric-label">ציון:</span>
+                <span className="metric-value">{metrics.successRate.toFixed(1)}%</span>
+              </div>
+              <div className="metric-item">
+                <span className="metric-label">התקדמות:</span>
+                <span className="metric-value">{metrics.overallProgress.toFixed(1)}%</span>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="feedback-action-buttons-container">
           {showRetry && (
             <button className="feedback-action-button feedback-retry-button" onClick={handleRetry}>

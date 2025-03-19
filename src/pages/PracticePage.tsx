@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Space, Button, Layout, Typography, Card, message, Result } from 'antd';
+import { Alert, Space, Button, Layout, Typography, Card, message, Result, Spin } from 'antd';
 import { HomeOutlined, ArrowLeftOutlined, MessageOutlined, RobotOutlined } from '@ant-design/icons';
 import { PracticeHeader } from '../components/PracticeHeader';
 import { QuestionInteractionContainer } from '../components/practice/QuestionInteractionContainer';
@@ -177,7 +177,9 @@ const PracticePage: React.FC = () => {
     getNext,
     startPrep,
     startPractice,
-    setPrep
+    setPrep,
+    isLoadingPrep,
+    getPrep
   } = useStudentPrep();
   const { incrementAttempt, hasExceededLimit, getCurrentAttempts, getMaxAttempts } = usePracticeAttempts();
   const { user } = useAuth();
@@ -206,17 +208,42 @@ const PracticePage: React.FC = () => {
     setActiveTab(key);
   }, []);
 
-  // Handle prep initialization
+  // Effect to handle preparation loading and initialization
   useEffect(() => {
-    const initializePrep = async () => {
-      if (!prepId) return;
-      
-      setState(prev => ({ ...prev, isLoading: true }));
+    const loadPrep = async () => {
+      // If no prepId or already initialized, don't try to load
+      if (!prepId) {
+        console.log('No prep ID provided, skipping load');
+        return;
+      }
+
+      if (hasInitialized.current) {
+        console.log('Already initialized, skipping load');
+        return;
+      }
       
       try {
-        // Check if this is a new prep request
-        if (prepId.startsWith('new/')) {
-          const examId = prepId.split('/')[1];
+        hasInitialized.current = true;
+        setState(prev => ({ ...prev, isLoading: true }));
+        
+        // Resolve prepId if it's a Promise
+        const resolvedPrepId = typeof prepId === 'object' ? await prepId : prepId;
+        
+        // Validate the prepId
+        if (!resolvedPrepId || 
+            typeof resolvedPrepId !== 'string' || 
+            String(resolvedPrepId).includes('[object')) {
+          console.error('Invalid preparation ID:', resolvedPrepId);
+          setState(prev => ({ 
+            ...prev, 
+            isLoading: false,
+            error: 'Invalid preparation ID format' 
+          }));
+          return;
+        }
+
+        if (resolvedPrepId.startsWith('new/')) {
+          const examId = resolvedPrepId.split('/')[1];
           const exam = await examService.getExamById(examId);
           if (!exam) {
             throw new Error('Failed to load exam template');
@@ -231,10 +258,10 @@ const PracticePage: React.FC = () => {
           navigate(`/practice/${newPrepId}`, { replace: true });
         } else {
           // Load existing prep data
-          console.log('Loading existing prep data for ID:', prepId);
+          console.log('Loading existing prep data for ID:', resolvedPrepId);
           
           // Get prep from storage
-          const existingPrep = PrepStateManager.getPrep(prepId);
+          const existingPrep = await PrepStateManager.getPrep(resolvedPrepId);
           if (!existingPrep) {
             throw new Error('Practice session not found');
           }
@@ -244,7 +271,7 @@ const PracticePage: React.FC = () => {
           console.log('Loaded prep progress:', tracker);
           
           // Initialize question sequencer if needed
-          const questionSequencer = PrepStateManager.getSetProgress(prepId);
+          const questionSequencer = PrepStateManager.getSetProgress(resolvedPrepId);
           console.log('Loaded question sequencer state:', questionSequencer);
           
           // Update state with loaded prep
@@ -253,6 +280,9 @@ const PracticePage: React.FC = () => {
             prep: existingPrep,
             isLoading: false 
           }));
+
+          // Start practice session with this prep
+          await startPractice();
         }
       } catch (error) {
         console.error('Error initializing prep:', error);
@@ -264,11 +294,8 @@ const PracticePage: React.FC = () => {
       }
     };
 
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-      initializePrep();
-    }
-  }, [prepId, startPrep, navigate, user]);
+    loadPrep();
+  }, [prepId, startPrep, navigate, user, getPrep, startPractice]);
 
   // Update state.prep when prep changes
   useEffect(() => {
@@ -366,17 +393,6 @@ const PracticePage: React.FC = () => {
     }
   }, [state.prep, startPractice]);
 
-  // Add logging for dialog visibility changes
-  useEffect(() => {
-    console.log('=== Dialog visibility state changed ===', {
-      showLimitDialog,
-      hasExceededLimit,
-      isGuest: !user,
-      attempts: getCurrentAttempts(),
-      maxAttempts: getMaxAttempts()
-    });
-  }, [showLimitDialog, hasExceededLimit, user, getCurrentAttempts, getMaxAttempts]);
-
   useEffect(() => {
     const handleVideoPlayingState = (event: CustomEvent<{ isPlaying: boolean }>) => {
       setIsVideoPlaying(event.detail.isPlaying);
@@ -393,17 +409,41 @@ const PracticePage: React.FC = () => {
     setIsExamContentOpen(true);
   };
 
+  if (isLoadingPrep || state.isLoading) {
+    return (
+      <Layout style={{ minHeight: '100vh', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <Spin size="large" tip="Loading your practice session..." />
+      </Layout>
+    );
+  }
+
   if (!prep) {
     return (
-      <Result
-        status="warning"
-        title="No active preparation session"
-        extra={
-          <Button type="primary" onClick={() => navigate('/')}>
-            Return Home
-          </Button>
-        }
-      />
+      <Layout style={{ minHeight: '100vh', width: '100%', background: '#f5f8ff' }}>
+        <div style={{ 
+          maxWidth: '800px', 
+          margin: '100px auto',
+          padding: '40px',
+          textAlign: 'center',
+          background: '#ffffff',
+          borderRadius: '12px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+        }}>
+          <Result
+            status="info"
+            title={state.error || "No active preparation found"}
+            subTitle="You don't currently have an active practice session. Choose an exam to start practicing."
+            extra={[
+              <Button key="start" type="primary" onClick={() => navigate('/')} size="large">
+                Choose an Exam
+              </Button>,
+              <Button key="back" onClick={() => navigate(-1)} size="large">
+                Go Back
+              </Button>
+            ]}
+          />
+        </div>
+      </Layout>
     );
   }
 
@@ -564,20 +604,26 @@ const PracticePage: React.FC = () => {
           onClose={async () => {
             console.log('🔄 PracticePage - Dialog onClose triggered');
             
-            // Get the fresh prep state after the dialog's update
-            const updatedPrep = PrepStateManager.getPrep(prep.id);
-            if (updatedPrep) {
-              console.log('📚 PracticePage - Got updated prep:', {
-                oldTopics: prep.selection.subTopics.length,
-                newTopics: updatedPrep.selection.subTopics.length,
-                timestamp: new Date().toISOString()
-              });
+            if (!prep) return;
 
-              // Update local state with fresh prep
-              setState(prev => ({ 
-                ...prev, 
-                prep: updatedPrep
-              }));
+            try {
+              // Get the fresh prep state after the dialog's update
+              const updatedPrep = await PrepStateManager.getPrep(prep.id);
+              if (updatedPrep) {
+                console.log('📚 PracticePage - Got updated prep:', {
+                  oldTopics: prep.selection.subTopics.length,
+                  newTopics: updatedPrep.selection.subTopics.length,
+                  timestamp: new Date().toISOString()
+                });
+
+                // Update local state with fresh prep
+                setState(prev => ({ 
+                  ...prev, 
+                  prep: updatedPrep
+                }));
+              }
+            } catch (error: any) {
+              console.error('Error updating prep:', error);
             }
             
             console.log('🚪 PracticePage - Closing dialog');

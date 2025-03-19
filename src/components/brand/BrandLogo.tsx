@@ -44,9 +44,9 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   size = 'medium'
 }) => {
   const logoSizes = {
-    small: '24px',
-    medium: '32px',
-    large: '40px'
+    small: '32px',
+    medium: '40px',
+    large: '48px'
   };
 
   return (
@@ -64,7 +64,8 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         style={{
           height: collapsed ? '24px' : logoSizes[size],
           width: 'auto',
-          objectFit: 'contain'
+          objectFit: 'contain',
+          maxHeight: '48px'
         }}
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}

@@ -23,37 +23,37 @@ const UserButton = styled(Button)<{ $isLoggedIn: boolean }>`
   font-size: 14px;
   font-weight: 500;
   border-radius: 18px;
-  background: ${props => props.$isLoggedIn ? '#2563eb' : '#ffffff'};
-  border-color: ${props => props.$isLoggedIn ? '#2563eb' : '#e2e8f0'};
-  color: ${props => props.$isLoggedIn ? '#ffffff' : '#475569'};
+  background: ${props => props.$isLoggedIn ? '#ffffff' : '#ffffff'};
+  border-color: ${props => props.$isLoggedIn ? '#e2e8f0' : '#e2e8f0'};
+  color: ${props => props.$isLoggedIn ? '#475569' : '#475569'};
   box-shadow: ${props => props.$isLoggedIn 
-    ? '0 2px 4px rgba(37, 99, 235, 0.15)'
+    ? '0 1px 2px rgba(0, 0, 0, 0.05)'
     : '0 1px 2px rgba(0, 0, 0, 0.05)'};
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    background: ${props => props.$isLoggedIn ? '#1d4ed8' : '#f0f9ff'};
-    border-color: ${props => props.$isLoggedIn ? '#1d4ed8' : '#60a5fa'};
-    color: ${props => props.$isLoggedIn ? '#ffffff' : '#2563eb'};
+    background: ${props => props.$isLoggedIn ? '#f0f9ff' : '#f0f9ff'};
+    border-color: ${props => props.$isLoggedIn ? '#60a5fa' : '#60a5fa'};
+    color: ${props => props.$isLoggedIn ? '#2563eb' : '#2563eb'};
     transform: translateY(-2px);
     box-shadow: ${props => props.$isLoggedIn
-      ? '0 8px 12px rgba(37, 99, 235, 0.2), 0 4px 6px rgba(37, 99, 235, 0.1)'
+      ? '0 4px 6px -1px rgba(37, 99, 235, 0.1)'
       : '0 4px 6px -1px rgba(37, 99, 235, 0.1)'};
   }
 
   &:active {
     transform: translateY(0);
-    background: ${props => props.$isLoggedIn ? '#1d4ed8' : '#e0f2fe'};
-    border-color: ${props => props.$isLoggedIn ? '#1d4ed8' : '#3b82f6'};
+    background: ${props => props.$isLoggedIn ? '#e0f2fe' : '#e0f2fe'};
+    border-color: ${props => props.$isLoggedIn ? '#3b82f6' : '#3b82f6'};
     box-shadow: ${props => props.$isLoggedIn
-      ? '0 2px 4px rgba(37, 99, 235, 0.15)'
+      ? '0 2px 4px -2px rgba(37, 99, 235, 0.05)'
       : '0 2px 4px -2px rgba(37, 99, 235, 0.05)'};
   }
 
   .anticon {
     font-size: 16px;
     margin-left: 4px;
-    color: ${props => props.$isLoggedIn ? '#ffffff' : 'inherit'};
+    color: inherit;
   }
 
   .user-name {

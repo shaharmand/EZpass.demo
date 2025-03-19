@@ -72,8 +72,22 @@ const AuthCallback: React.FC = () => {
           // Clear the return URL from localStorage
           localStorage.removeItem('returnUrl');
           
-          // Navigate to the return URL
-          navigate(returnUrl, { replace: true });
+          // Only navigate if:
+          // 1. returnUrl is not the home page, OR
+          // 2. we're not already on the home page (to avoid unnecessary redirects)
+          const isHomePage = returnUrl === '/' || returnUrl === '' || returnUrl === '/home';
+          const currentPath = window.location.pathname;
+          const alreadyOnHomePage = currentPath === '/' || currentPath === '' || currentPath === '/home';
+          
+          if (!(isHomePage && alreadyOnHomePage)) {
+            console.log('Navigating to return URL:', returnUrl);
+            // Navigate to the return URL
+            navigate(returnUrl, { replace: true });
+          } else {
+            console.log('Already on home page, not navigating');
+            // Just refresh the current page to show the updated auth state
+            window.location.reload();
+          }
         }
       } catch (error) {
         console.error('Error in auth callback:', error);

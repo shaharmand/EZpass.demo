@@ -93,6 +93,17 @@ export interface StudentPrep {
     // Custom exam name (optional)
     customName?: string | null;
     
+    // User identification
+    userId?: string | null;  // Authenticated user ID
+    guestId?: string | null; // Guest user ID for non-authenticated users
+    
+    // Metadata for tracking and debugging
+    metadata?: {
+        examId: string;
+        createdAt: number;
+        [key: string]: any;  // Allow additional metadata properties
+    };
+    
     // Study goals - simplified to just exam date
     goals: {
         examDate: number;        // Target exam date (timestamp)

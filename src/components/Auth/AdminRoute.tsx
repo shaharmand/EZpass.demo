@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Result, Button, Space } from 'antd';
 import styled from 'styled-components';
@@ -21,7 +21,14 @@ interface AdminRouteProps {
 export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
   const { user, profile } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const isHomePage = location.pathname === '/' || location.pathname === '' || location.pathname === '/home';
+
+  // If we're on the home page, just render the children regardless of auth state
+  if (isHomePage) {
+    return <>{children}</>;
+  }
 
   // Store the attempted URL for redirecting after login
   if (!user) {
@@ -40,7 +47,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
               <Button type="primary" onClick={() => setIsAuthModalOpen(true)}>
                 התחבר
               </Button>
-              <Button onClick={() => window.location.href = '/'}>
+              <Button onClick={() => navigate('/')}>
                 חזור לדף הבית
               </Button>
             </Space>
@@ -62,7 +69,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
           title="אין לך הרשאות גישה"
           subTitle={`משתמש ${profile?.first_name || ''} אינו מורשה לגשת לאזור זה`}
           extra={
-            <Button type="primary" onClick={() => window.location.href = '/'}>
+            <Button type="primary" onClick={() => navigate('/')}>
               חזור לדף הבית
             </Button>
           }

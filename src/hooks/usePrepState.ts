@@ -77,10 +77,14 @@ export function usePrepState(prepId: string, onPrepUpdate?: (prep: StudentPrep) 
         });
 
         // Get initial prep state
-        const initialPrep = PrepStateManager.getPrep(prepId);
-        if (initialPrep) {
-            setPrep(initialPrep);
-        }
+        const loadInitialPrep = async () => {
+            const initialPrep = await PrepStateManager.getPrep(prepId);
+            if (initialPrep) {
+                setPrep(initialPrep);
+            }
+        };
+        
+        loadInitialPrep();
 
         // Subscribe to updates
         PrepStateManager.subscribeToPrepStateChanges(prepId, handlePrepUpdate);

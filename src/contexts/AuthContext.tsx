@@ -61,16 +61,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
-      // If user just logged in, migrate their guest prep session
-      if (session?.user) {
-        const migratedPrepId = PrepStateManager.migrateGuestPrep();
-        if (migratedPrepId) {
-          // Navigate to the migrated prep session
-          navigate(`/practice/${migratedPrepId}`, { replace: true });
-        }
-      }
-      
       setLoading(false);
     });
 

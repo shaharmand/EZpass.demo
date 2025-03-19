@@ -17,7 +17,7 @@ export const getSubscriptionLabel = (tier: SubscriptionTier): string => {
     case SubscriptionTier.PRO:
       return 'פרו';
     case SubscriptionTier.PLUS:
-      return 'פלוס';
+      return 'איזיפס+';
     case SubscriptionTier.FREE:
     default:
       return 'חינם';

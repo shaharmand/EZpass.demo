@@ -94,7 +94,18 @@ const SubmissionHistoryPage: React.FC = () => {
   
   // Get filter parameters from URL
   const questionIdFilter = new URLSearchParams(location.search).get('questionId');
-  const prepIdFilter = new URLSearchParams(location.search).get('prepId');
+  const prepIdFromUrl = new URLSearchParams(location.search).get('prepId');
+
+  // Validate prep ID - if it's a Promise or invalid, just ignore it
+  const prepIdFilter = prepIdFromUrl && typeof prepIdFromUrl === 'string' && !String(prepIdFromUrl).includes('[object') 
+    ? prepIdFromUrl 
+    : null;
+
+  if (prepIdFromUrl && !prepIdFilter) {
+    // Log the error but don't throw - we'll just show unfiltered submissions
+    console.warn('Invalid prep ID in URL - ignoring filter:', prepIdFromUrl);
+  }
+
   const submissionIdHighlight = new URLSearchParams(location.search).get('submissionId');
   
   // Show filter info in page title if filtering

@@ -15,6 +15,13 @@ import moment from 'moment';
 import { QuestionSequencer } from '../services/QuestionSequencer';
 import { getCurrentUserIdSync } from '../utils/authHelpers';
 import { submissionStorage } from './submission/submissionStorage';
+import { v4 as uuidv4 } from 'uuid';
+import { 
+    savePreparation, 
+    getPreparationById, 
+    getUserActivePreparation 
+} from './preparationService';
+import { User } from '@supabase/supabase-js';
 
 // Key for localStorage
 const PREP_STORAGE_KEY = 'active_preps';
@@ -76,11 +83,18 @@ export type PrepStateStatus =
         averageScore: number;
       };
 
+interface PrepCreationOptions {
+  examDate?: number;
+  customName?: string;
+  includeInitialSet?: boolean;
+}
+
 export class PrepStateManager {
     private static progressTrackers: Map<string, PrepProgressTracker> = new Map();
     private static progressSubscribers: Map<string, Set<(progress: SetProgress) => void>> = new Map();
     private static prepStateSubscribers: Map<string, Set<(prep: StudentPrep) => void>> = new Map();
     private static examDateSubscribers: Map<string, Set<(prep: StudentPrep) => void>> = new Map();
+    private static metricsSubscribers: Map<string, Set<(metrics: ProgressHeaderMetrics) => void>> = new Map();
     private static setTracker: SetProgressTracker = new SetProgressTracker();
     private static prepsCache: Record<string, StudentPrep> | null = null;
     private static lastLoadTime: number = 0;
@@ -195,71 +209,144 @@ export class PrepStateManager {
     }
 
     // Get prep by ID
-    static getPrep(prepId: string): StudentPrep | null {
-        const preps = this.loadPreps();
-        return preps[prepId] || null;
+    static async getPrep(prepId: string): Promise<StudentPrep | null> {
+        try {
+            // Validate prep ID - if it's a Promise, try to resolve it
+            if (prepId && typeof prepId === 'object' && String(prepId).includes('[object Promise]')) {
+                try {
+                    const resolvedId = await (prepId as Promise<string>);
+                    if (typeof resolvedId === 'string') {
+                        prepId = resolvedId;
+                    } else {
+                        console.warn('Could not resolve prep ID from Promise:', prepId);
+                        return null;
+                    }
+                } catch (error) {
+                    console.warn('Error resolving prep ID from Promise:', error);
+                    return null;
+                }
+            }
+
+            // Validate the resolved/original prep ID
+            if (!prepId || typeof prepId !== 'string' || String(prepId).includes('[object')) {
+                console.warn('Invalid prep ID provided:', prepId);
+                return null;
+            }
+
+            // First try to get from local cache
+            const preps = this.loadPreps();
+            const localPrep = preps[prepId] || null;
+            
+            // If not in cache or stale, try to get from database
+            if (!localPrep) {
+                const dbPrep = await getPreparationById(prepId);
+                if (dbPrep) {
+                    // Update local cache
+                    preps[prepId] = dbPrep;
+                    this.savePreps(preps);
+                    return dbPrep;
+                }
+            }
+            
+            return localPrep;
+        } catch (error) {
+            console.warn('Error getting prep:', error);
+            // Fall back to local storage only
+            const preps = this.loadPreps();
+            return preps[prepId] || null;
+        }
     }
 
-    // Factory method to create new prep instance
-    static createPrep(exam: ExamTemplate, selectedTopics?: TopicSelection): StudentPrep {
-        if (!exam.topics || exam.topics.length === 0) {
-            throw new Error('Cannot create prep: exam has no topics');
-        }
-        if (!exam.topics.every((t: Topic) => t.subTopics && t.subTopics.length > 0)) {
-            throw new Error('Cannot create prep: some topics have no subtopics');
-        }
+    /*
+     * Create a new preparation with the specified exam
+     */
+    static async createPrep(
+        user: User | null,
+        exam: ExamTemplate,
+        options?: PrepCreationOptions
+    ): Promise<string> {
+        try {
+            // Generate a uniqueId for this prep
+            const prepId = uuidv4();
+            
+            // If no user, generate a guest id
+            const guestId = user ? null : uuidv4();
+            
+            // Get all subTopic IDs from the exam
+            const allSubTopicIds = exam.topics.flatMap(topic => 
+                topic.subTopics.map(subTopic => subTopic.id)
+            );
 
-        const preps = this.loadPreps();
-        const prepId = `prep_${exam.id}_${Date.now()}`;
-        
-        // Calculate exam date (keeping this but not using it for calculations)
-        const WEEKS_UNTIL_EXAM = 4;
-        const examDate = Date.now() + (WEEKS_UNTIL_EXAM * 7 * 24 * 60 * 60 * 1000);
-        
-        const allExamSubtopics = exam.topics.flatMap(t => t.subTopics.map(st => st.id));
-        const selectedSubTopics = selectedTopics?.subTopics || allExamSubtopics;
-        
-        // Initialize subtopic progress
-        const subTopicProgress: Record<string, SubTopicProgress> = {};
-        selectedSubTopics.forEach(subtopicId => {
-            subTopicProgress[subtopicId] = {
-                subtopicId,
-                currentDifficulty: 1 as DifficultyLevel,
-                questionsAnswered: 0,
-                correctAnswers: 0,
-                totalQuestions: 20,
-                estimatedTimePerQuestion: 4,
-                lastAttemptDate: Date.now()
+            console.log('Creating new preparation with all subtopics:', {
+                examId: exam.id,
+                totalSubTopics: allSubTopicIds.length,
+                subTopicIds: allSubTopicIds
+            });
+            
+            // Create the new preparation structure
+            const newPrep: StudentPrep = {
+                id: prepId,
+                exam,
+                selection: { subTopics: allSubTopicIds }, // Initialize with all subTopics selected
+                goals: {
+                    examDate: options?.examDate || (Date.now() + (4 * 7 * 24 * 60 * 60 * 1000))
+                },
+                state: {
+                    status: 'active',
+                    startedAt: Date.now(),
+                    activeTime: 0,
+                    lastTick: Date.now(),
+                    completedQuestions: 0,
+                    correctAnswers: 0,
+                    questionHistory: []
+                },
+                subTopicProgress: {},
+                userId: user?.id,
+                guestId,
+                metadata: {
+                    examId: exam.id,
+                    createdAt: Date.now()
+                },
+                focusedType: null,
+                focusedSubTopic: null,
+                customName: options?.customName
             };
-        });
-
-        const newPrep: StudentPrep = {
-            id: prepId,
-            exam,
-            selection: {
-                subTopics: selectedSubTopics
-            },
-            goals: {
-                examDate
-            },
-            focusedType: null,
-            focusedSubTopic: null,
-            subTopicProgress,
-            state: {
-                status: 'active' as const,
-                startedAt: Date.now(),
-                activeTime: 0,
-                lastTick: Date.now(),
-                completedQuestions: 0,
-                correctAnswers: 0,
-                questionHistory: []
+            
+            // Save to local storage
+            const preps = this.loadPreps();
+            preps[prepId] = newPrep;
+            this.savePreps(preps);
+            
+            // Save to the database
+            try {
+                console.log('Saving newly created preparation to database:', {
+                    prepId,
+                    selectedSubTopics: newPrep.selection.subTopics.length
+                });
+                await this.updatePrep(newPrep);
+            } catch (error) {
+                console.error('Failed to save preparation to database:', error);
+                // We continue since local storage update succeeded
             }
-        };
+            
+            return prepId;
+        } catch (error) {
+            console.error('Failed to create preparation:', error);
+            throw error;
+        }
+    }
 
-        preps[prepId] = newPrep;
-        this.savePreps(preps);
+    // Add this static method to the PrepStateManager class
+    static getPrepStorageKey(prepId: string): string {
+        return `prep_${prepId}`;
+    }
 
-        return newPrep;
+    /**
+     * Save preparation to localStorage
+     */
+    private static saveToLocalStorage(prep: StudentPrep): void {
+        const key = this.getPrepStorageKey(prep.id);
+        localStorage.setItem(key, JSON.stringify(prep));
     }
 
     // Activate prep (start practicing)
@@ -323,7 +410,7 @@ export class PrepStateManager {
     }
 
     // Complete prep
-    static complete(prep: StudentPrep): StudentPrep {
+    static async complete(prep: StudentPrep): Promise<StudentPrep> {
         if (prep.state.status !== 'active') {
             throw new Error('Can only complete from active state');
         }
@@ -343,10 +430,18 @@ export class PrepStateManager {
             }
         };
 
-        // Save to storage
+        // Save to local storage
         const preps = this.loadPreps();
         preps[newPrep.id] = newPrep;
         this.savePreps(preps);
+        
+        // Save to database
+        try {
+            await savePreparation(newPrep);
+        } catch (error) {
+            console.error('Error saving completed prep to database:', error);
+            // Continue even if database save fails - we have local storage backup
+        }
         
         return newPrep;
     }
@@ -380,7 +475,7 @@ export class PrepStateManager {
     }
 
     // Update time while active
-    static updateTime(prep: StudentPrep): StudentPrep {
+    static async updateTime(prep: StudentPrep): Promise<StudentPrep> {
         if (prep.state.status !== 'active') {
             return prep;
         }
@@ -397,10 +492,22 @@ export class PrepStateManager {
             }
         };
 
-        // Save to storage
+        // Save to local storage
         const preps = this.loadPreps();
         preps[newPrep.id] = newPrep;
         this.savePreps(preps);
+        
+        // Save to database at a lower frequency to avoid too many writes
+        // We'll save every 60 seconds to the database
+        const SAVE_INTERVAL = 60000; // 60 seconds
+        if (now - (prep.state.lastTick || 0) > SAVE_INTERVAL) {
+            try {
+                await savePreparation(newPrep);
+            } catch (error) {
+                console.error('Error updating time in database:', error);
+                // Continue even if database save fails - we have local storage backup
+            }
+        }
         
         return newPrep;
     }
@@ -471,25 +578,30 @@ export class PrepStateManager {
     }
 
     // Get current focus state
-    static getFocusState(prepId: string): { focusedType: QuestionType | null, focusedSubTopic: string | null } | null {
-        const prep = this.getPrep(prepId);
-        if (!prep) return null;
+    static async getFocusState(prepId: string): Promise<{ focusedType: QuestionType | null, focusedSubTopic: string | null } | null> {
+        try {
+            const prep = await this.getPrep(prepId);
+            if (!prep) return null;
 
-        return {
-            focusedType: prep.focusedType,
-            focusedSubTopic: prep.focusedSubTopic
-        };
+            return {
+                focusedType: prep.focusedType,
+                focusedSubTopic: prep.focusedSubTopic
+            };
+        } catch (error) {
+            console.error('Error getting focus state:', error);
+            return null;
+        }
     }
 
     // Update topic/subtopic selection for a prep
-    static updateSelection(prepId: string, newSelection: StudentPrep['selection']): StudentPrep {
+    static async updateSelection(prepId: string, newSelection: StudentPrep['selection']): Promise<StudentPrep> {
         console.log('🔄 PrepStateManager - Updating selection:', {
-            oldSelection: this.getPrep(prepId)?.selection,
+            oldSelection: this.getPrep(prepId).then(prep => prep?.selection),
             newSelection,
             timestamp: new Date().toISOString()
         });
 
-        const prep = this.getPrep(prepId);
+        const prep = await this.getPrep(prepId);
         if (!prep) {
             console.error('❌ PrepStateManager - Cannot update selection: Prep not found:', prepId);
             throw new Error(`Cannot update selection: Prep not found: ${prepId}`);
@@ -502,16 +614,23 @@ export class PrepStateManager {
         };
         const newCount = updatedPrep.selection.subTopics.length;
 
-        // Save the updated prep state
+        // Save to local storage
         const preps = this.loadPreps();
         preps[prepId] = updatedPrep;
         this.savePreps(preps);
 
-        console.log('✅ PrepStateManager - Selection updated successfully:', {
-            oldCount,
-            newCount,
-            timestamp: new Date().toISOString()
-        });
+        // Save to database
+        try {
+            await this.updatePrep(updatedPrep);
+            console.log('✅ PrepStateManager - Selection updated successfully:', {
+                oldCount,
+                newCount,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('❌ PrepStateManager - Failed to save selection to database:', error);
+            // We continue since local storage update succeeded
+        }
 
         // Notify subscribers of the change
         this.notifyPrepStateChange(prepId, updatedPrep);
@@ -520,11 +639,11 @@ export class PrepStateManager {
     }
 
     // Directly adjust difficulty level for a subtopic
-    static adjustDifficulty(
+    static async adjustDifficulty(
         prep: StudentPrep,
         subtopicId: string,
         adjustment: 'increase' | 'decrease'
-    ): StudentPrep {
+    ): Promise<StudentPrep> {
         if (prep.state.status !== 'active') {
             throw new Error('Can only adjust difficulty in active state');
         }
@@ -546,7 +665,7 @@ export class PrepStateManager {
         subtopicProgress.lastAttemptDate = Date.now();
 
         // Save changes
-        return this.updatePrep(prep);
+        return await this.updatePrep(prep);
     }
 
     // Submit answer
@@ -555,12 +674,25 @@ export class PrepStateManager {
         question: Question,
         submission: QuestionSubmission
     ): StudentPrep {
+        console.log('🎯 PrepStateManager.feedbackArrived - Starting:', {
+            prepId: prep.id,
+            questionId: question.id,
+            hasFeedback: !!submission.feedback?.data,
+            timestamp: new Date().toISOString()
+        });
+
         if (prep.state.status !== 'active') {
             throw new Error('Can only submit answers in active state');
         }
 
         // Update set progress with result
         if (submission.feedback?.data) {
+            console.log('📊 PrepStateManager.feedbackArrived - Updating set progress:', {
+                prepId: prep.id,
+                score: submission.feedback.data.score,
+                isCorrect: submission.feedback.data.isCorrect,
+                timestamp: new Date().toISOString()
+            });
             this.getSetTracker().handleFeedback(prep.id, submission.feedback.data);
         }
         
@@ -608,9 +740,23 @@ export class PrepStateManager {
         // Let PrepProgressTracker handle all progress tracking
         let tracker = this.progressTrackers.get(prep.id);
         if (!tracker) {
+            console.log('🔄 PrepStateManager.feedbackArrived - Creating new progress tracker:', {
+                prepId: prep.id,
+                timestamp: new Date().toISOString()
+            });
             tracker = this.initializeProgressTracker(updatedPrep);
             this.progressTrackers.set(prep.id, tracker);
         }
+
+        console.log('📈 PrepStateManager.feedbackArrived - Adding result to tracker:', {
+            prepId: prep.id,
+            subTopicId: question.metadata.subtopicId,
+            questionType: question.metadata.type,
+            score: submission.feedback?.data.score,
+            isCorrect: submission.feedback?.data.isCorrect,
+            timestamp: new Date().toISOString()
+        });
+
         tracker.addResult(
             question.metadata.subtopicId || null,
             question.metadata.type,
@@ -626,14 +772,19 @@ export class PrepStateManager {
         this.savePreps(preps);
 
         // Notify subscribers of the change
+        console.log('🔔 PrepStateManager.feedbackArrived - Notifying subscribers:', {
+            prepId: updatedPrep.id,
+            subscriberCount: this.prepStateSubscribers.get(updatedPrep.id)?.size || 0,
+            timestamp: new Date().toISOString()
+        });
         this.notifyPrepStateChange(updatedPrep.id, updatedPrep);
 
         return updatedPrep;
     }
 
     // Add the missing updatePrep method
-    static updatePrep(prep: StudentPrep): StudentPrep {
-        // Save to storage
+    static async updatePrep(prep: StudentPrep): Promise<StudentPrep> {
+        // Save to local storage
         const preps = this.loadPreps();
         const oldPrep = preps[prep.id];
         
@@ -647,9 +798,17 @@ export class PrepStateManager {
             this.progressTrackers.set(prep.id, tracker);
         }
         
-        // Save to storage
+        // Save to local storage
         preps[prep.id] = prep;
         this.savePreps(preps);
+
+        // Save to database
+        try {
+            await savePreparation(prep);
+        } catch (error) {
+            console.error('Error updating prep in database:', error);
+            // Continue even if database save fails - we have local storage backup
+        }
 
         // Notify subscribers of the change
         this.notifyPrepStateChange(prep.id, prep);
@@ -742,14 +901,14 @@ export class PrepStateManager {
     }
 
     // Migrate guest prep to user account
-    static migrateGuestPrep(): string | null {
+    static async migrateGuestPrep(): Promise<string | null> {
         const guestPrepId = localStorage.getItem(GUEST_PREP_KEY);
         if (!guestPrepId) {
             return null;
         }
 
         // Get the guest prep
-        const guestPrep = this.getPrep(guestPrepId);
+        const guestPrep = await this.getPrep(guestPrepId);
         if (!guestPrep) {
             localStorage.removeItem(GUEST_PREP_KEY);
             return null;
@@ -853,62 +1012,70 @@ export class PrepStateManager {
         localStorage.removeItem(GUEST_QUESTION_STATE_KEY);
     }
 
-    // Get selected topics count for a prep (subtopics only)
+    // Get the number of selected subtopics in a prep
     static getSelectedTopicsCount(prep: StudentPrep): number {
+        if (!prep?.selection?.subTopics) return 0;
         return prep.selection.subTopics.length;
     }
 
-    // Get total topics count for a prep (all available subtopics in the exam)
+    // Get the total number of subtopics available in the exam
     static getTotalTopicsCount(prep: StudentPrep): number {
-        return prep.exam.topics?.reduce(
-            (count: number, topic) => count + (topic.subTopics?.length || 0), 
-            0
-        ) || 0;
-    }
-
-    // Get both selected and total topics count (subtopics only)
-    static getTopicsCounts(prep: StudentPrep): { selected: number; total: number } {
-        const selected = this.getSelectedTopicsCount(prep);
-        const total = this.getTotalTopicsCount(prep);
+        if (!prep?.exam?.topics) return 0;
         
-        console.log('📊 PrepStateManager - Getting subtopic counts:', {
-            selected,
-            total,
-            timestamp: new Date().toISOString()
-        });
-
-        return { selected, total };
+        return prep.exam.topics.reduce((total, topic) => {
+            return total + (topic.subTopics?.length || 0);
+        }, 0);
     }
 
-    // Get topic counts by type (main topics vs subtopics)
+    // Get counts for both selected and total topics
+    static getTopicsCounts(prep: StudentPrep): { selected: number; total: number } {
+        if (!prep) {
+            return {
+                selected: 0,
+                total: 0
+            };
+        }
+        
+        return {
+            selected: this.getSelectedTopicsCount(prep),
+            total: this.getTotalTopicsCount(prep)
+        };
+    }
+
+    // Get counts broken down by main topics and subtopics
     static getTopicCountsByType(prep: StudentPrep): {
         mainTopics: { selected: number; total: number };
         subtopics: { selected: number; total: number };
     } {
-        // Count selected main topics (topics that have at least one selected subtopic)
-        const selectedMainTopics = new Set(prep.selection.subTopics.map(id => 
-            prep.exam.topics.find(t => 
-                t.subTopics.some(st => st.id === id)
-            )?.id
-        )).size;
-
-        const mainTopics = {
-            selected: selectedMainTopics,
-            total: prep.exam.topics.length
+        if (!prep?.exam?.topics) {
+            return {
+                mainTopics: { selected: 0, total: 0 },
+                subtopics: { selected: 0, total: 0 }
+            };
+        }
+        
+        const totalMainTopics = prep.exam.topics.length;
+        const totalSubtopics = this.getTotalTopicsCount(prep);
+        
+        // Count selected main topics (a main topic is selected if any of its subtopics is selected)
+        const selectedMainTopics = prep.exam.topics.reduce((count, topic) => {
+            // Check if any subtopic of this topic is selected
+            const hasSelectedSubtopic = topic.subTopics.some(subtopic => 
+                prep.selection.subTopics.includes(subtopic.id)
+            );
+            return hasSelectedSubtopic ? count + 1 : count;
+        }, 0);
+        
+        return {
+            mainTopics: {
+                selected: selectedMainTopics,
+                total: totalMainTopics
+            },
+            subtopics: {
+                selected: this.getSelectedTopicsCount(prep),
+                total: totalSubtopics
+            }
         };
-
-        const subtopics = {
-            selected: prep.selection.subTopics.length,
-            total: this.getTotalTopicsCount(prep)
-        };
-
-        console.log('📊 PrepStateManager - Getting topic counts by type:', {
-            mainTopics,
-            subtopics,
-            timestamp: new Date().toISOString()
-        });
-
-        return { mainTopics, subtopics };
     }
 
     // Subscribe to exam date changes
@@ -928,20 +1095,20 @@ export class PrepStateManager {
     }
 
     // Update exam date and notify subscribers
-    static updateExamDate(prepId: string, newDate: number): void {
-        const prep = this.getPrep(prepId);
-        if (!prep) {
+    static async updateExamDate(prepId: string, newDate: number): Promise<void> {
+        const loadedPrep = await this.getPrep(prepId);
+        if (!loadedPrep) {
             console.error('❌ PrepStateManager - Cannot update exam date: Prep not found:', prepId);
             return;
         }
 
-        prep.goals.examDate = newDate;
+        loadedPrep.goals.examDate = newDate;
         const preps = this.loadPreps();
-        preps[prepId] = prep;
+        preps[prepId] = loadedPrep;
         this.savePreps(preps);
 
         // Notify subscribers of the change
-        this.notifyPrepStateChange(prepId, prep);
+        this.notifyPrepStateChange(prepId, loadedPrep);
     }
 
     // Subscribe to any prep state changes
@@ -1085,6 +1252,110 @@ export class PrepStateManager {
                 practiceStartedAt: Date.now(),
                 submissions: []
             };
+        }
+    }
+
+    // Get the user's most recent preparation (from DB)
+    static async getUserActivePreparation(): Promise<StudentPrep | null> {
+        try {
+            const activePrep = await getUserActivePreparation();
+            
+            // If found in DB, update local cache
+            if (activePrep) {
+                const preps = this.loadPreps();
+                preps[activePrep.id] = activePrep;
+                this.savePreps(preps);
+            }
+            
+            return activePrep;
+        } catch (error) {
+            console.error('Error getting active preparation from database:', error);
+            return null;
+        }
+    }
+
+    // Record question completion and update state
+    static async recordQuestionCompletion(
+        prep: StudentPrep, 
+        question: any, 
+        wasCorrect: boolean,
+        historyEntry: QuestionHistoryEntry
+    ): Promise<StudentPrep> {
+        if (!prep) {
+            throw new Error('Cannot record question completion: prep is null');
+        }
+
+        if (prep.state.status !== 'active') {
+            console.warn('Recording question completion on non-active prep state', {
+                prepId: prep.id,
+                status: prep.state.status
+            });
+        }
+
+        // Handle different state types for better TypeScript type safety
+        const completedQuestions = prep.state.status === 'active' && 'completedQuestions' in prep.state
+            ? prep.state.completedQuestions + 1 
+            : 'completedQuestions' in prep.state ? prep.state.completedQuestions : 0;
+            
+        const correctAnswers = prep.state.status === 'active' && wasCorrect && 'correctAnswers' in prep.state
+            ? prep.state.correctAnswers + 1
+            : 'correctAnswers' in prep.state ? prep.state.correctAnswers : 0;
+            
+        const questionHistory = prep.state.status === 'active' && 'questionHistory' in prep.state
+            ? [...(prep.state.questionHistory || []), historyEntry]
+            : 'questionHistory' in prep.state ? prep.state.questionHistory || [] : [];
+
+        // Create updated prep with the new completed question and result
+        const updatedPrep = {
+            ...prep,
+            state: {
+                ...prep.state,
+                completedQuestions,
+                correctAnswers,
+                questionHistory
+            }
+        };
+
+        // Save to local storage
+        const preps = this.loadPreps();
+        preps[prep.id] = updatedPrep;
+        this.savePreps(preps);
+
+        // Save to database
+        try {
+            await this.updatePrep(updatedPrep);
+        } catch (error) {
+            console.error('Error saving question completion to database:', error);
+            // Continue even if database save fails
+        }
+
+        // Notify subscribers
+        this.notifyPrepStateChange(prep.id, updatedPrep);
+
+        return updatedPrep;
+    }
+
+    // Subscribe to metrics changes
+    static subscribeToMetricsChanges(prepId: string, callback: (metrics: ProgressHeaderMetrics) => void): void {
+        let tracker = this.progressTrackers.get(prepId);
+        if (!tracker) {
+            const prep = this.loadPreps()[prepId];
+            if (prep) {
+                tracker = this.initializeProgressTracker(prep);
+                this.progressTrackers.set(prepId, tracker);
+            }
+        }
+        
+        if (tracker) {
+            tracker.subscribeToMetrics(callback);
+        }
+    }
+
+    // Unsubscribe from metrics changes
+    static unsubscribeFromMetricsChanges(prepId: string, callback: (metrics: ProgressHeaderMetrics) => void): void {
+        const tracker = this.progressTrackers.get(prepId);
+        if (tracker) {
+            tracker.unsubscribeFromMetrics(callback);
         }
     }
 } 

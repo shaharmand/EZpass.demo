@@ -28,11 +28,10 @@ export const formatTimeUntilExam = (targetDate: Date): string => {
   }
 };
 
-export const formatDate = (date: string | Date): string => {
-  const d = new Date(date);
-  return d.toLocaleDateString('he-IL', {
+export const formatDate = (date: Date): string => {
+  return new Date(date).toLocaleDateString('he-IL', {
     year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   });
 }; 

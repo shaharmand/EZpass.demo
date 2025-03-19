@@ -176,6 +176,10 @@ export class PrepRequirementsCalculator {
   }
 
   public static getFormattedSummary(requirements: Requirements): string {
+    if (!requirements || !requirements.total || !requirements.multipleChoice || !requirements.open || !requirements.numerical) {
+      return 'No requirements data available';
+    }
+
     return `
 === Study Requirements Summary ===
 

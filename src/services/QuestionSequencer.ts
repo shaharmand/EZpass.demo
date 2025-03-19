@@ -2,6 +2,7 @@ import { Question, QuestionType, PublicationStatusEnum } from '../types/question
 import { PrepStateManager } from '../services/PrepStateManager';
 import { logger } from '../utils/logger';
 import { questionStorage } from './admin/questionStorage';
+import { ExamContext } from './feedback/types';
 
 interface QueryParams {
   subject: string;
@@ -24,6 +25,9 @@ export class QuestionSequencer {
   private static instance: QuestionSequencer;
   private prepId: string | null = null;
   private seenQuestions: Set<string> = new Set();
+  private currentIndex: number = 0;
+  private questions: QuestionMetadata[] = [];
+  private examContext: ExamContext | null = null;
 
   private constructor() {}
 
@@ -45,7 +49,7 @@ export class QuestionSequencer {
       return null;
     }
 
-    const prep = PrepStateManager.getPrep(this.prepId);
+    const prep = await PrepStateManager.getPrep(this.prepId);
     if (!prep) {
       console.error('❌ SEQUENCER: Prep not found', { prepId: this.prepId });
       return null;

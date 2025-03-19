@@ -515,13 +515,19 @@ const CourseView: React.FC<CourseViewProps> = ({ courseData, isAdmin = false }) 
     setSelectedVideo(null);
   };
 
-  // Group videos by lesson number
+  // Group videos by lesson number and sort them by segment number 
+  // to ensure videos are always presented in correct order
   const videosByLesson = courseData.videos.reduce((acc, video) => {
     const lessonNumber = video.lessonNumber;
     if (!acc[lessonNumber]) {
       acc[lessonNumber] = [];
     }
     acc[lessonNumber].push(video);
+    
+    // Sort videos by segmentNumber every time a new video is added
+    // This ensures the videos array is always correctly ordered by segmentNumber
+    acc[lessonNumber].sort((a, b) => a.segmentNumber - b.segmentNumber);
+    
     return acc;
   }, {} as Record<number, VideoData[]>);
 

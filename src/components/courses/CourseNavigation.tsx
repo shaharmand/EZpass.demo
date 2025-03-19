@@ -908,7 +908,7 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
                         {videos
                           .filter(v => v.lessonNumber === lessonId)
                           .sort((a, b) => a.segmentNumber - b.segmentNumber)
-                          .map(video => {
+                          .map((video, index) => {
                             const videoProgressData = videoProgress.find(p => p.vimeoId === video.vimeoId);
                             const isWatched = videoProgressData?.completed || false;
 
@@ -921,7 +921,7 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
                               >
                                 <div className="video-content">
                                   <PlayCircleOutlined className="video-icon" />
-                                  <span className="segment-number">{video.segmentNumber}</span>
+                                  <span className="segment-number">{index + 1}</span>
                                   <VideoTitle $isActive={selectedVideo?.id === video.id} $isWatched={isWatched}>
                                     {video.title}
                                   </VideoTitle>

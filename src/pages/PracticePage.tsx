@@ -49,7 +49,7 @@ interface StyledSidePanelProps {
 const ContentContainer = styled.div<StyledContainerProps>`
   display: flex;
   gap: 12px;
-  padding: 24px 24px 12px 24px;
+  padding: 24px 12px 12px 12px;
   height: calc(100vh - var(--total-header-height));
   overflow: hidden;
   width: 100%;
@@ -58,12 +58,12 @@ const ContentContainer = styled.div<StyledContainerProps>`
   transition: all 0.3s ease;
 
   @media (max-width: 1600px) {
-    padding: 20px 20px 10px 20px;
+    padding: 20px 8px 10px 8px;
   }
 
   @media (max-width: 1366px) {
     gap: 8px;
-    padding: 16px 16px 8px 16px;
+    padding: 16px 4px 8px 4px;
   }
 `;
 
@@ -118,7 +118,7 @@ const SidePanel = styled.div<StyledSidePanelProps>`
     }
   `};
 
-  padding: ${props => props.$isCollapsed ? '0' : '12px 12px 4px 12px'};
+  padding: ${props => props.$isCollapsed ? '0' : '10px 10px 4px 10px'};
   opacity: ${props => props.$isCollapsed ? '0' : '1'};
   visibility: ${props => props.$isCollapsed ? 'hidden' : 'visible'};
 `;
@@ -130,16 +130,16 @@ const MainPanel = styled.div<StyledContainerProps>`
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow-y: auto;
-  padding: 16px 16px 4px 16px;
+  padding: 16px 12px 4px 12px;
   display: flex;
   flex-direction: column;
   transition: all 0.3s ease;
-  margin: 0 12px;
+  margin: 0 8px;
   margin-bottom: 0;
 
   @media (max-width: 1366px) {
-    padding: 12px 12px 4px 12px;
-    margin: 0 8px;
+    padding: 12px 8px 4px 8px;
+    margin: 0 4px;
     min-width: ${props => props.$isVideoPlaying ? '360px' : '400px'};
   }
 `;

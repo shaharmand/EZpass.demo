@@ -140,12 +140,10 @@ const ActionBarContainer = styled.div`
   bottom: 0;
   left: 0;
   right: 0;
-  background: white;
+  background: transparent;
   padding: 4px;
-  border-top: 1px solid #e5e7eb;
   z-index: 100;
   margin: 0;
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
   width: 100%; /* Ensure it takes the width of its parent */
 `;
 

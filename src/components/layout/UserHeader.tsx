@@ -38,7 +38,7 @@ const TopRow = styled.div`
   display: flex;
   align-items: center;
   gap: 24px;
-  padding: 8px 24px;
+  padding: 8px 12px;
   height: var(--user-header-height, 56px);
   border-bottom: 1px solid ${uiColors.border.light};
   direction: rtl;
@@ -51,11 +51,11 @@ const TopRow = styled.div`
   margin: 0 auto;
   
   @media (max-width: 1600px) {
-    padding: 8px 20px;
+    padding: 8px 8px;
   }
 
   @media (max-width: 1366px) {
-    padding: 8px 16px;
+    padding: 8px 4px;
   }
 `;
 

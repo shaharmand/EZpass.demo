@@ -169,8 +169,7 @@ const TopicView: React.FC<TopicViewProps> = ({
             {lessons.map((lessonId, index) => {
               const lesson = lessonInfo.find(l => l.id === lessonId);
               const lessonVideos = (videosByLesson[lessonId] || [])
-                .sort((a, b) => b.segmentNumber - a.segmentNumber)
-                .reverse();
+                .sort((a, b) => a.segmentNumber - b.segmentNumber);
               const isLessonExpanded = expandedLesson === lessonId;
               
               console.log('Rendering lesson:', { lessonId, lesson, lessonVideos, isLessonExpanded });

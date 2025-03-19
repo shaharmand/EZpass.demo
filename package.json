@@ -59,6 +59,7 @@
     "katex": "^0.16.21",
     "langchain": "^0.1.0",
     "lexical": "^0.27.1",
+    "lucide-react": "^0.483.0",
     "markdown-it": "^14.1.0",
     "mathlive": "^0.103.0",
     "mathquill": "^0.10.1-a",

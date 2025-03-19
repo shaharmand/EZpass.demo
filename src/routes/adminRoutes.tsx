@@ -22,6 +22,7 @@ import { AdminRoute } from '../components/Auth/AdminRoute';
 import VideoLibrary from '../pages/admin/videos/VideoLibrary';
 import CourseManager from '../pages/admin/courses/CourseManager';
 import DomainManager from '../pages/admin/subjects/DomainManager';
+import ExamManager from '../pages/admin/exams/ExamManager';
 
 // Wrapper component to handle loading question data and state management
 const QuestionEditPageWrapper: React.FC = () => {
@@ -237,6 +238,10 @@ export const adminRoutes: RouteObject = {
     {
       path: 'subjects',
       element: <DomainManager />,
+    },
+    {
+      path: 'exams',
+      element: <ExamManager />,
     },
     {
       path: 'questions',

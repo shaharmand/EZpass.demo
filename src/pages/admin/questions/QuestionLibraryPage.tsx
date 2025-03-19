@@ -113,32 +113,39 @@ const TableContainer = styled.div`
   background: white;
   border-radius: 8px;
   padding: 0;
-  min-height: 300px;
+  height: calc(100vh - 300px);
+  min-height: 400px;
+  max-height: 800px;
+  margin-bottom: 24px;
   
   .table-wrapper {
     flex: 1;
     overflow: auto;
+    position: relative;
   }
   
   .pagination-container {
     padding: 12px 16px;
     background: #fafafa;
-    border-top: 1px solid #f0f0f0;
-    border-radius: 0 0 8px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    border-radius: 8px 8px 0 0;
     position: sticky;
-    bottom: 0;
+    top: 0;
     z-index: 5;
+    margin-bottom: 0;
   }
 `;
 
 const TableStyles = styled.div`
   direction: rtl;
   width: 100%;
+  height: 100%;
   overflow: hidden;
   
   .table-container {
     width: 100%;
-    overflow-x: auto;
+    height: 100%;
+    overflow: auto;
     margin: 0 -16px;
     padding: 0 16px;
     
@@ -165,6 +172,13 @@ const TableStyles = styled.div`
     width: max-content;
     min-width: 100%;
     border-spacing: 0;
+    
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #fafafa;
+    }
     
     th, td {
       margin: 0;
@@ -1272,6 +1286,8 @@ export function QuestionLibraryPage() {
                   <Option value="Special">ג</Option>
                 </Select>
               </Col>
+            </Row>
+            <Row gutter={[16, 8]} style={{ width: '100%', marginTop: 8 }}>
               <Col>
                 <Select
                   placeholder="סטטוס אימות"

@@ -9,7 +9,8 @@ import {
   PlaySquareOutlined,
   SafetyCertificateOutlined,
   ReadOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  FileTextOutlined
 } from '@ant-design/icons/lib/icons';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
@@ -92,6 +93,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <AppstoreOutlined />,
       label: 'ניהול תחומים',
       onClick: () => navigate('/admin/subjects')
+    },
+    {
+      key: 'exams',
+      icon: <FileTextOutlined />,
+      label: 'ניהול מבחנים',
+      onClick: () => navigate('/admin/exams')
     }
   ];
 

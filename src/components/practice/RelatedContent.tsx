@@ -337,10 +337,8 @@ const VideoListItem = styled.div<{ $isFeatured?: boolean }>`
       font-size: ${props => props.$isFeatured ? '14px' : '12px'};
       color: #64748b;
       line-height: 1.3;
-      display: -webkit-box;
-      -webkit-line-clamp: 1;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      white-space: normal;
+      overflow: visible;
     }
 
     .video-title {
@@ -606,7 +604,26 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
           }
 
           const lesson = lessonsMap.get(video.lesson_id)!;
-          const durationMinutes = VideoContentService.parseDuration(video.duration);
+          // Make sure to parse the duration properly, handling edge cases
+          let durationMinutes = 0;
+          if (video.duration) {
+            if (typeof video.duration === 'string') {
+              if (video.duration.includes(':')) {
+                // Handle time format (HH:MM:SS or MM:SS)
+                durationMinutes = VideoContentService.parseDuration(video.duration);
+              } else {
+                // Handle numeric string
+                durationMinutes = parseFloat(video.duration) || 0;
+              }
+            } else if (typeof video.duration === 'number') {
+              durationMinutes = video.duration;
+            }
+          }
+          // Ensure we have at least some duration (default to 1 minute if unknown)
+          durationMinutes = durationMinutes || 1;
+          
+          console.log(`Video ${video.id} duration: ${video.duration} → ${durationMinutes} minutes`);
+          
           lesson.videoCount += 1;
           lesson.totalDuration += durationMinutes;
           lesson.videos.push({
@@ -673,15 +690,11 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
         <VideoContainer>
           <VideoHeader>
             <VideoTitle>
+              <span className="title">{currentVideo?.title}</span>
+              <span className="separator">|</span>
               <span className="lesson-name">
                 {currentVideo?.lessons?.title || 'ללא שם'}
-                <br />
-                <small style={{ fontSize: '0.85em', opacity: 0.7 }}>
-                  שיעור {currentVideo?.lessons?.lesson_number}
-                </small>
               </span>
-              <span className="separator">|</span>
-              <span className="title">{currentVideo?.title}</span>
             </VideoTitle>
             <CloseButton onClick={handleVideoClose}>
               <CloseOutlined />
@@ -718,22 +731,10 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
                   alt={videos[0].title} 
                 />
                 <div className="content">
-                  <span className="lesson-name">
-                    {videos[0].lesson_id ? (
-                      <>
-                        {videos[0].lessons?.title || 'ללא שם'}
-                        <br />
-                        <small style={{ fontSize: '0.85em', opacity: 0.7 }}>
-                          שיעור {videos[0].lessons?.lesson_number || videos[0].lesson_id}
-                          <br />
-                          <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>
-                            {videos[0].title}
-                          </span>
-                        </small>
-                      </>
-                    ) : 'שיעור ללא מספר'}
-                  </span>
                   <span className="video-title">{videos[0].title}</span>
+                  <span className="lesson-name">
+                    {videos[0].lessons?.title || 'ללא שם'}
+                  </span>
                 </div>
               </VideoListItem>
             )}
@@ -752,22 +753,10 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
                     alt={video.title} 
                   />
                   <div className="content">
-                    <span className="lesson-name">
-                      {video.lesson_id ? (
-                        <>
-                          {video.lessons?.title || 'ללא שם'}
-                          <br />
-                          <small style={{ fontSize: '0.85em', opacity: 0.7 }}>
-                            שיעור {video.lessons?.lesson_number || video.lesson_id}
-                            <br />
-                            <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>
-                              {video.title}
-                            </span>
-                          </small>
-                        </>
-                      ) : 'שיעור ללא מספר'}
-                    </span>
                     <span className="video-title">{video.title}</span>
+                    <span className="lesson-name">
+                      {video.lessons?.title || 'ללא שם'}
+                    </span>
                   </div>
                 </VideoListItem>
               ))}
@@ -786,7 +775,7 @@ export const RelatedContent: React.FC<RelatedContentProps> = ({
                     <h4>{lesson.lessonTitle}</h4>
                     <div className="lesson-info">
                       <span>
-                        {lesson.videoCount} סרטונים • {Math.round(lesson.totalDuration)} דקות
+                        {lesson.videoCount} סרטונים • {lesson.totalDuration > 0 ? Math.round(lesson.totalDuration) : 1} דקות
                       </span>
                     </div>
                   </LessonCard>

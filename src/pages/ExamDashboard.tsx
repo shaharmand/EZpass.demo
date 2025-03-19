@@ -2,7 +2,7 @@
 // Contains exam cards and development tools in development mode
 
 import React, { useState, useEffect } from 'react';
-import { Typography, Card, Spin, Alert, Button, Divider, Badge, Progress, Space, Row, Col } from 'antd';
+import { Typography, Card, Spin, Alert, Button, Divider, Badge, Progress, Space, Row, Col, Input, Select } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -31,9 +31,23 @@ import { UserHeader } from '../components/layout/UserHeader';
 import { CalendarIcon, ArrowLeftIcon, ChevronLeftIcon } from '@heroicons/react/24/outline';
 import { formatDate } from '../utils/dateUtils';
 import styled from 'styled-components';
-import { LineChartOutlined, TrophyOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { 
+  CalendarOutlined, 
+  QuestionCircleOutlined, 
+  TrophyOutlined,
+  LineChartOutlined
+} from '@ant-design/icons';
+import { 
+  Plus,
+  Search,
+  Filter,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
 
 const { Title, Text } = Typography;
+const { Search: SearchInput } = Input;
+const { Option } = Select;
 
 // Define UI colors
 const uiColors = {
@@ -109,21 +123,31 @@ interface Preparation {
 interface PreparationRowProps {
   preparation: Preparation;
   onComplete: (id: string) => void;
+  isCompleting?: boolean;
 }
 
-const PreparationRow: React.FC<PreparationRowProps> = ({ preparation, onComplete }) => {
+const PreparationRow: React.FC<PreparationRowProps> = ({ preparation, onComplete, isCompleting }) => {
   const navigate = useNavigate();
   const score = preparation.prep_state.state.correctAnswers > 0 
-    ? Math.round((preparation.prep_state.state.correctAnswers / Math.max(preparation.completedQuestions, 1)) * 100)
+    ? Math.round((preparation.prep_state.state.correctAnswers / (preparation.completedQuestions || 1)) * 100)
     : 0;
   
+  // Calculate remaining time
+  const now = new Date();
+  const examDate = new Date(preparation.examDate);
+  const totalDays = Math.ceil((examDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const daysRemaining = Math.max(0, totalDays);
+  
+  // Calculate progress percentage (inverse of remaining days)
+  const maxDays = 365; // Consider 1 year as maximum
+  const timeProgress = Math.min(100, Math.round((1 - (daysRemaining / maxDays)) * 100));
+
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'center',
         padding: '24px',
-        marginBottom: '16px',
         background: '#ffffff',
         borderRadius: '16px',
         border: '1px solid #e5e7eb',
@@ -131,143 +155,164 @@ const PreparationRow: React.FC<PreparationRowProps> = ({ preparation, onComplete
         transition: 'all 0.2s ease',
         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        opacity: isCompleting ? 0.5 : 1,
+        pointerEvents: isCompleting ? 'none' : 'auto'
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-2px)';
-        e.currentTarget.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.1)';
+        e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
         e.currentTarget.style.borderColor = '#3b82f6';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'none';
+        e.currentTarget.style.transform = 'translateY(0)';
         e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.05)';
         e.currentTarget.style.borderColor = '#e5e7eb';
       }}
       onClick={() => navigate(`/practice/${preparation.id}`)}
     >
-      {/* Left Accent Bar */}
-      <div style={{
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: '4px',
+      <div style={{ 
+        position: 'absolute', 
+        left: 0, 
+        top: 0, 
+        bottom: 0, 
+        width: '4px', 
         background: '#3b82f6',
-        borderRadius: '4px'
+        opacity: 0,
+        transition: 'opacity 0.2s ease'
       }} />
-
-      {/* Content Container */}
-      <div style={{ flex: 1, marginLeft: '20px', display: 'flex', alignItems: 'center', gap: '32px' }}>
-        {/* Exam Info */}
-        <div style={{ flex: '2' }}>
-          <Text strong style={{ fontSize: '16px', color: '#1e293b', display: 'block', marginBottom: '4px' }}>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '24px',
+        flex: 1
+      }}>
+        <div style={{ flex: '0 0 200px' }}>
+          <div style={{ 
+            fontSize: '16px', 
+            fontWeight: 600, 
+            color: '#1e293b',
+            marginBottom: '4px'
+          }}>
             {preparation.name}
-          </Text>
-          <Text style={{ fontSize: '14px', color: '#64748b' }}>
-            {formatDate(preparation.examDate)}
-          </Text>
-        </div>
-
-        {/* Questions Progress */}
-        <div style={{ flex: '1', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            padding: '8px 12px',
-            background: 'rgba(2, 132, 199, 0.08)',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <QuestionCircleOutlined style={{ fontSize: '16px', color: '#0284c7' }} />
-            <Text style={{ fontSize: '14px', color: '#0284c7', fontWeight: 600 }}>
-              {`${preparation.completedQuestions} / ${preparation.totalQuestions || 100}`}
-            </Text>
           </div>
         </div>
-
-        {/* Score */}
-        <div style={{ flex: '1', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            padding: '8px 12px',
-            background: score >= 70 ? 'rgba(22, 163, 74, 0.08)' : 'rgba(234, 179, 8, 0.08)',
-            borderRadius: '8px',
+        <div style={{ flex: '0 0 120px' }}>
+          <div style={{ 
             display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
+            flexDirection: 'column',
+            gap: '4px'
           }}>
-            <TrophyOutlined style={{ 
-              fontSize: '16px', 
-              color: score >= 70 ? '#16a34a' : '#eab308'
-            }} />
-            <Text style={{ 
+            <div style={{ 
               fontSize: '14px', 
-              color: score >= 70 ? '#16a34a' : '#eab308',
-              fontWeight: 600 
+              color: '#64748b',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}>
-              {score}
-            </Text>
+              <Clock size={16} />
+              {daysRemaining} ימים נותרו
+            </div>
+            <Progress 
+              percent={timeProgress} 
+              showInfo={false}
+              strokeColor={{
+                '0%': '#3b82f6',
+                '100%': '#2563eb'
+              }}
+              strokeWidth={4}
+              style={{ margin: 0 }}
+            />
           </div>
         </div>
-
-        {/* Progress Bar */}
-        <div style={{ flex: '2', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Progress 
-            percent={preparation.progress} 
-            showInfo={false} 
-            strokeColor={{
-              '0%': '#3b82f6',
-              '100%': '#2563eb'
-            }}
-            strokeWidth={8}
-            style={{ flex: 1 }}
-          />
-          <Text style={{ fontSize: '14px', color: '#3b82f6', fontWeight: 600, minWidth: '45px' }}>
-            {`${preparation.progress}%`}
-          </Text>
+        <div style={{ flex: '0 0 120px' }}>
+          <div style={{ 
+            fontSize: '14px', 
+            color: '#0284c7',
+            background: 'rgba(2, 132, 199, 0.08)',
+            padding: '4px 12px',
+            borderRadius: '20px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <QuestionCircleOutlined style={{ fontSize: '16px' }} />
+            <span>{preparation.totalQuestions}</span>
+            <span style={{ color: '#64748b' }}>/</span>
+            <span style={{ color: '#16a34a' }}>{preparation.prep_state.state.correctAnswers}</span>
+          </div>
         </div>
-
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: '24px' }}>
-          <Button
-            type="primary"
-            style={{
-              background: 'linear-gradient(to right, #3b82f6, #2563eb)',
-              border: 'none',
-              boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              height: '38px',
-              borderRadius: '8px',
-              padding: '0 16px'
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/practice/${preparation.id}`);
-            }}
-          >
-            <Play weight="fill" size={16} style={{ transform: 'rotate(180deg)' }} />
-            <span>המשך תרגול</span>
-          </Button>
-          <Button
-            style={{
-              border: '1px solid #e5e7eb',
-              background: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              height: '38px',
-              borderRadius: '8px',
-              padding: '0 16px'
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onComplete(preparation.id);
-            }}
-          >
-            <CheckCircle weight="fill" size={16} />
-            <span>סיים</span>
-          </Button>
+        <div style={{ flex: '0 0 120px' }}>
+          <div style={{ 
+            fontSize: '14px', 
+            color: score >= 70 ? '#16a34a' : '#eab308',
+            background: score >= 70 ? 'rgba(22, 163, 74, 0.08)' : 'rgba(234, 179, 8, 0.08)',
+            padding: '4px 12px',
+            borderRadius: '20px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <TrophyOutlined style={{ fontSize: '16px' }} />
+            {score}%
+          </div>
+        </div>
+        <div style={{ flex: '0 0 120px' }}>
+          <div style={{ 
+            fontSize: '14px', 
+            color: '#3b82f6',
+            textAlign: 'right'
+          }}>
+            {preparation.progress}%
+          </div>
+        </div>
+        <div style={{ flex: '0 0 200px', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Button
+              type="primary"
+              style={{
+                background: 'linear-gradient(to right, #3b82f6, #2563eb)',
+                border: 'none',
+                boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                height: '38px',
+                borderRadius: '8px',
+                padding: '0 16px',
+                opacity: isCompleting ? 0.5 : 1,
+                pointerEvents: isCompleting ? 'none' : 'auto'
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/practice/${preparation.id}`);
+              }}
+            >
+              <Play weight="fill" size={16} style={{ transform: 'rotate(180deg)' }} />
+              <span>המשך תרגול</span>
+            </Button>
+            <Button
+              style={{
+                border: '1px solid #e5e7eb',
+                background: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                height: '38px',
+                borderRadius: '8px',
+                padding: '0 16px',
+                opacity: isCompleting ? 0.5 : 1,
+                pointerEvents: isCompleting ? 'none' : 'auto'
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onComplete(preparation.id);
+              }}
+            >
+              <CheckCircle weight="fill" size={16} />
+              <span>סיים</span>
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -378,6 +423,7 @@ const ExamDashboard: React.FC = () => {
   const [loadingActivePrep, setLoadingActivePrep] = useState(false);
   const [userPreparations, setUserPreparations] = useState<PreparationSummary[]>([]);
   const [loadingPreparations, setLoadingPreparations] = useState(false);
+  const [completingPrepId, setCompletingPrepId] = useState<string | null>(null);
 
   // Load user's preparations
   useEffect(() => {
@@ -559,6 +605,41 @@ const ExamDashboard: React.FC = () => {
     }
   };
 
+  const handleComplete = async (prepId: string) => {
+    try {
+      // Set the completing state to trigger animation
+      setCompletingPrepId(prepId);
+
+      // Wait for animation to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const prep = await PrepStateManager.getPrep(prepId);
+      if (!prep) {
+        console.error('Could not find prep to complete:', prepId);
+        return;
+      }
+
+      // Complete the preparation
+      const completedPrep = await PrepStateManager.complete(prep);
+      
+      // Update the local state
+      setUserPreparations(prev => 
+        prev.map(p => 
+          p.id === prepId 
+            ? { ...p, status: 'completed', prep_state: completedPrep }
+            : p
+        )
+      );
+
+      // Clear the completing state
+      setCompletingPrepId(null);
+    } catch (error) {
+      console.error('Error completing preparation:', error);
+      setError('Failed to complete preparation');
+      setCompletingPrepId(null);
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {user ? (
@@ -636,54 +717,62 @@ const ExamDashboard: React.FC = () => {
               border: '1px solid #e5e7eb',
               overflow: 'hidden'
             }}>
-              {/* Column Headers */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                padding: '12px 20px',
-                borderBottom: '1px solid #e5e7eb',
-                background: '#f8fafc'
-              }}>
-                <div style={{ flex: 2, minWidth: '200px' }}>
-                  <Text strong type="secondary">שם המבחן</Text>
+              <div style={{ marginTop: '24px' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '24px',
+                  padding: '0 24px',
+                  marginBottom: '16px',
+                  color: '#64748b',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}>
+                  <div style={{ flex: '0 0 200px' }}>שם הבחינה</div>
+                  <div style={{ flex: '0 0 120px' }}>תאריך הבחינה</div>
+                  <div style={{ flex: '0 0 120px' }}>שאלות</div>
+                  <div style={{ flex: '0 0 120px' }}>ציון</div>
+                  <div style={{ flex: '0 0 120px', textAlign: 'right' }}>התקדמות</div>
+                  <div style={{ flex: '0 0 200px', display: 'flex', justifyContent: 'flex-end' }}>פעולות</div>
                 </div>
-                <div style={{ flex: 1, minWidth: '150px' }}>
-                  <Text strong type="secondary">תאריך בחינה</Text>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {userPreparations
+                    .filter(prep => prep.status !== 'completed')
+                    .map((prep) => (
+                      <motion.div
+                        key={prep.id}
+                        initial={{ opacity: 1, y: 0 }}
+                        animate={{ 
+                          opacity: completingPrepId === prep.id ? 0 : 1,
+                          y: completingPrepId === prep.id ? -20 : 0
+                        }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        style={{ marginBottom: '16px' }}
+                      >
+                        <PreparationRow
+                          preparation={{
+                            id: prep.id,
+                            name: prep.name,
+                            examDate: new Date(prep.prep_state.goals.examDate),
+                            progress: prep.progress,
+                            completedQuestions: prep.completedQuestions,
+                            totalQuestions: prep.totalQuestions || 100,
+                            status: prep.status,
+                            prep_state: {
+                              state: {
+                                correctAnswers: prep.prep_state.state.status !== 'initializing' && prep.prep_state.state.status !== 'not_started' 
+                                  ? prep.prep_state.state.correctAnswers 
+                                  : 0
+                              }
+                            }
+                          }}
+                          onComplete={handleComplete}
+                          isCompleting={completingPrepId === prep.id}
+                        />
+                      </motion.div>
+                    ))}
                 </div>
-                <div style={{ flex: 1, minWidth: '120px' }}>
-                  <Text strong type="secondary">שאלות</Text>
-                </div>
-                <div style={{ flex: 2, minWidth: '200px' }}>
-                  <Text strong type="secondary">התקדמות</Text>
-                </div>
-                <div style={{ width: '200px' }} />
               </div>
-
-              {userPreparations
-                .filter(prep => prep.status !== 'completed')
-                .map((prep) => (
-                  <PreparationRow
-                    key={prep.id}
-                    preparation={{
-                      id: prep.id,
-                      name: prep.name,
-                      examDate: new Date(prep.prep_state.goals.examDate),
-                      progress: prep.progress,
-                      completedQuestions: prep.completedQuestions,
-                      totalQuestions: prep.totalQuestions || 100,
-                      status: prep.status,
-                      prep_state: {
-                        state: {
-                          correctAnswers: prep.prep_state.state.status !== 'initializing' && prep.prep_state.state.status !== 'not_started' 
-                            ? prep.prep_state.state.correctAnswers 
-                            : 0
-                        }
-                      }
-                    }}
-                    onComplete={() => {}}
-                  />
-                ))}
             </div>
 
             <Divider>

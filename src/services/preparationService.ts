@@ -8,6 +8,8 @@ import { supabase } from '../lib/supabase';
 import type { StudentPrep } from '../types/prepState';
 import type { UserPreparationDB, PreparationSummary, PreparationResponse } from '../types/preparation';
 import { getActiveTime } from '../types/prepState';
+import { PrepProgressTracker } from './PrepProgressTracker';
+import { PrepStateManager } from './PrepStateManager';
 
 /**
  * Save a preparation to the database
@@ -266,18 +268,45 @@ export async function getUserPreparations(): Promise<PreparationSummary[]> {
         ? prepState.state.status 
         : 'paused';
       
-      // Calculate completion rate
-      const totalCompleted = 'completedQuestions' in prepState.state 
-        ? prepState.state.completedQuestions 
-        : 0;
+      // Get the actual number of questions completed by the user
+      let completedQuestions = 0;
+      
+      // Use the dedicated completedQuestions field which counts unique completions
+      if ('completedQuestions' in prepState.state) {
+        completedQuestions = prepState.state.completedQuestions || 0;
+      }
       
       // Get total questions count from exam if available
       const totalQuestions = prepState.exam?.totalQuestions || 0;
       
-      // Calculate progress as a percentage
-      const progress = totalQuestions > 0 
-        ? Math.min(100, Math.round((totalCompleted / totalQuestions) * 100)) 
-        : 0;
+      // Calculate progress using PrepProgressTracker's getOverallProgress method if possible
+      let progress = 0;
+      
+      // If we have the prep state, get metrics from PrepStateManager
+      try {
+        // Get metrics from the PrepStateManager which maintains trackers
+        const metrics = PrepStateManager.getHeaderMetrics(prepState);
+        progress = Math.round(metrics.overallProgress);
+      } catch (err) {
+        console.warn('Error getting metrics from PrepStateManager:', err);
+        // Fallback to simple percentage calculation
+        progress = totalQuestions > 0 
+          ? Math.min(100, Math.round((completedQuestions / totalQuestions) * 100)) 
+          : 0;
+      }
+      
+      // Count correct answers from history if available
+      let correctAnswers = 0;
+      if (prepState.state.status !== 'initializing' && prepState.state.status !== 'not_started') {
+        if ('correctAnswers' in prepState.state) {
+          correctAnswers = prepState.state.correctAnswers || 0;
+        } else if (prepState.state.questionHistory && Array.isArray(prepState.state.questionHistory)) {
+          // Count correct answers if not directly available
+          correctAnswers = prepState.state.questionHistory.filter((entry: any) => 
+            entry.submission?.feedback?.data?.isCorrect === true
+          ).length;
+        }
+      }
       
       return {
         id: prep.id,
@@ -286,17 +315,37 @@ export async function getUserPreparations(): Promise<PreparationSummary[]> {
         examId: prep.exam_id,
         exam: prepState.exam,
         lastActiveAt: prep.last_active_at,
-        completedQuestions: totalCompleted,
-        totalQuestions,
+        completedQuestions: completedQuestions,
+        totalQuestions: completedQuestions, // Use completedQuestions as totalQuestions for display
         status,
         progress,
-        prep_state: prepState
+        prep_state: {
+          ...prepState,
+          state: {
+            ...prepState.state,
+            correctAnswers // Make sure correct answers count is available
+          }
+        }
       };
     });
   } catch (err) {
     console.error('Exception in getUserPreparations:', err);
     return [];
   }
+}
+
+// Helper function to type check the state
+function isActiveOrCompletedState(state: any): state is (
+  | { 
+      status: 'active' | 'paused' | 'completed';
+      completedQuestions: number;
+      questionHistory: any[];
+    }
+) {
+  return (
+    (state.status === 'active' || state.status === 'paused' || state.status === 'completed') && 
+    'questionHistory' in state
+  );
 }
 
 /**

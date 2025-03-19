@@ -1,4 +1,4 @@
-/** @type {import('next').NextConfig} */
+bpm/** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config, { isServer }) => {
     if (!isServer) {

@@ -35,7 +35,8 @@ import {
   CalendarOutlined, 
   QuestionCircleOutlined, 
   TrophyOutlined,
-  LineChartOutlined
+  LineChartOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons';
 import { 
   Plus,
@@ -169,7 +170,11 @@ const PreparationRow: React.FC<PreparationRowProps> = ({ preparation, onComplete
         e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.05)';
         e.currentTarget.style.borderColor = '#e5e7eb';
       }}
-      onClick={() => navigate(`/practice/${preparation.id}`)}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigate(`/practice/${preparation.id}`);
+      }}
     >
       <div style={{ 
         position: 'absolute', 
@@ -213,16 +218,6 @@ const PreparationRow: React.FC<PreparationRowProps> = ({ preparation, onComplete
               <Clock size={16} />
               {daysRemaining} ימים נותרו
             </div>
-            <Progress 
-              percent={timeProgress} 
-              showInfo={false}
-              strokeColor={{
-                '0%': '#3b82f6',
-                '100%': '#2563eb'
-              }}
-              strokeWidth={4}
-              style={{ margin: 0 }}
-            />
           </div>
         </div>
         <div style={{ flex: '0 0 120px' }}>
@@ -237,36 +232,59 @@ const PreparationRow: React.FC<PreparationRowProps> = ({ preparation, onComplete
             gap: '6px'
           }}>
             <QuestionCircleOutlined style={{ fontSize: '16px' }} />
-            <span>{preparation.totalQuestions}</span>
-            <span style={{ color: '#64748b' }}>/</span>
-            <span style={{ color: '#16a34a' }}>{preparation.prep_state.state.correctAnswers}</span>
+            {preparation.totalQuestions}
+            <span style={{ 
+              color: '#64748b', 
+              fontSize: '12px', 
+              marginLeft: '4px' 
+            }}>
+              (<span style={{ color: '#16a34a' }}>{preparation.prep_state.state.correctAnswers}</span> נכונות)
+            </span>
           </div>
         </div>
         <div style={{ flex: '0 0 120px' }}>
           <div style={{ 
             fontSize: '14px', 
-            color: score >= 70 ? '#16a34a' : '#eab308',
-            background: score >= 70 ? 'rgba(22, 163, 74, 0.08)' : 'rgba(234, 179, 8, 0.08)',
+            color: preparation.completedQuestions === 0 ? '#94a3b8' : 
+                   score >= 80 ? '#16a34a' : 
+                   score >= 60 ? '#eab308' : 
+                   '#ef4444',
+            background: preparation.completedQuestions === 0 ? 'transparent' : 
+                        score >= 80 ? 'rgba(22, 163, 74, 0.08)' : 
+                        score >= 60 ? 'rgba(234, 179, 8, 0.08)' : 
+                        'rgba(239, 68, 68, 0.08)',
             padding: '4px 12px',
             borderRadius: '20px',
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px'
           }}>
-            <TrophyOutlined style={{ fontSize: '16px' }} />
-            {score}%
+            <CheckCircleOutlined style={{ 
+              fontSize: '16px',
+              color: preparation.completedQuestions === 0 ? '#94a3b8' : 
+                     score >= 80 ? '#16a34a' : 
+                     score >= 60 ? '#eab308' : 
+                     '#ef4444'
+            }} />
+            {preparation.completedQuestions === 0 ? '-' : score}
           </div>
         </div>
         <div style={{ flex: '0 0 120px' }}>
           <div style={{ 
             fontSize: '14px', 
-            color: '#3b82f6',
-            textAlign: 'right'
+            color: '#0284c7',
+            background: 'rgba(2, 132, 199, 0.08)',
+            padding: '4px 12px',
+            borderRadius: '20px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
           }}>
-            {preparation.progress}%
+            <LineChartOutlined style={{ fontSize: '16px' }} />
+            {preparation.progress === 0 ? '-' : `${preparation.progress}/100`}
           </div>
         </div>
-        <div style={{ flex: '0 0 200px', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ flex: '0 0 200px', display: 'flex', justifyContent: 'flex-start' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Button
               type="primary"
@@ -288,8 +306,8 @@ const PreparationRow: React.FC<PreparationRowProps> = ({ preparation, onComplete
                 navigate(`/practice/${preparation.id}`);
               }}
             >
-              <Play weight="fill" size={16} style={{ transform: 'rotate(180deg)' }} />
               <span>המשך תרגול</span>
+              <Play weight="fill" size={16} style={{ transform: 'rotate(180deg)' }} />
             </Button>
             <Button
               style={{
@@ -641,7 +659,12 @@ const ExamDashboard: React.FC = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column',
+      minHeight: '100vh',
+      overflow: 'visible'
+    }}>
       {user ? (
         <UserHeader
           variant="default"
@@ -651,9 +674,14 @@ const ExamDashboard: React.FC = () => {
       ) : (
         <MinimalHeader />
       )}
-      {/* Header */}
+
+      {/* Header Section */}
       {!user && (
-        <div style={{ padding: '40px 24px', background: '#ffffff', borderBottom: '1px solid #e5e7eb', marginTop: '64px' }}>
+        <div style={{ 
+          padding: '40px 24px', 
+          background: '#ffffff', 
+          borderBottom: '1px solid #e5e7eb'
+        }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
             <div style={{ 
               display: 'flex', 
@@ -693,8 +721,7 @@ const ExamDashboard: React.FC = () => {
         <div style={{
           background: '#f8fafc',
           padding: '24px',
-          borderBottom: '1px solid #e5e7eb',
-          marginBottom: '32px'
+          borderBottom: '1px solid #e5e7eb'
         }}>
           <div style={{
             maxWidth: '1200px',
@@ -733,7 +760,7 @@ const ExamDashboard: React.FC = () => {
                   <div style={{ flex: '0 0 120px' }}>שאלות</div>
                   <div style={{ flex: '0 0 120px' }}>ציון</div>
                   <div style={{ flex: '0 0 120px', textAlign: 'right' }}>התקדמות</div>
-                  <div style={{ flex: '0 0 200px', display: 'flex', justifyContent: 'flex-end' }}>פעולות</div>
+                  <div style={{ flex: '0 0 200px', display: 'flex', justifyContent: 'flex-start' }}>פעולות</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {userPreparations
@@ -774,22 +801,37 @@ const ExamDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            <Divider>
-              <Text type="secondary">או התחל תרגול חדש</Text>
-            </Divider>
           </div>
         </div>
       )}
 
-      {/* Main Content */}
+      {/* Divider and Exam Cards Section */}
       <div style={{ 
-        flex: 1, 
-        padding: '48px 24px', 
+        padding: '24px 24px 48px 24px', 
         background: 'linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%)',
-        position: 'relative',
-        minHeight: 'calc(100vh - 400px)'
+        flex: 1
       }}>
+        {user && userPreparations.filter(prep => prep.status !== 'completed').length > 0 && (
+          <div style={{
+            maxWidth: '1200px',
+            margin: '0 auto 32px auto',
+          }}>
+            <Divider style={{ margin: '0 0 32px 0' }}>
+              <Text style={{
+                fontSize: '18px',
+                fontWeight: 600,
+                color: '#ffffff',
+                padding: '8px 24px',
+                background: 'linear-gradient(90deg, #3b82f6, #2563eb)',
+                borderRadius: '20px',
+                boxShadow: '0 4px 8px rgba(59, 130, 246, 0.25)'
+              }}>
+                או התחל מבחן חדש
+              </Text>
+            </Divider>
+          </div>
+        )}
+
         <div style={{ 
           maxWidth: '1200px', 
           margin: '0 auto',
@@ -797,9 +839,7 @@ const ExamDashboard: React.FC = () => {
           gridTemplateColumns: 'repeat(3, 350px)',
           justifyContent: 'center',
           gap: '32px',
-          padding: '24px',
-          position: 'relative',
-          minHeight: '600px'
+          padding: '24px'
         }}>
           <AnimatePresence>
             {examTypes.map((type, index) => (
@@ -969,59 +1009,37 @@ const ExamDashboard: React.FC = () => {
                         transition={{ delay: index * 0.1 }}
                         onClick={async (e) => {
                           e.stopPropagation();
+                          e.preventDefault();
                           try {
                             setError(null);
-                            console.log('Checking existing preparations for exam:', exam.names.short);
+                            console.log('Starting preparation for exam:', exam.id, exam.names.short);
                             
                             // Check if there's an existing preparation for this exam
                             const existingPrep = userPreparations.find(prep => 
-                              prep.examId === exam.id
+                              prep.examId === exam.id && 
+                              (prep.status === 'active' || prep.status === 'paused')
                             );
 
                             if (existingPrep) {
-                              console.log('Found existing preparation:', {
-                                id: existingPrep.id,
-                                status: existingPrep.status,
-                                examId: existingPrep.examId
-                              });
-
-                              // If preparation exists and is active or paused, continue it
-                              if (existingPrep.status === 'active' || existingPrep.status === 'paused') {
-                                console.log('Continuing existing preparation:', existingPrep.id);
-                                navigate(`/practice/${existingPrep.id}`, { replace: true });
-                                return;
+                              console.log('Continuing existing preparation:', existingPrep.id);
+                              navigate(`/practice/${existingPrep.id}`);
+                              return;
+                            }
+                            
+                            // Create new preparation
+                            try {
+                              const prepId = await startPrep(exam);
+                              console.log('Created new preparation:', prepId);
+                              
+                              if (!prepId) {
+                                throw new Error('Failed to create preparation: Invalid ID');
                               }
                               
-                              // If preparation is completed, create a new one
-                              if (existingPrep.status === 'completed') {
-                                console.log('Creating new preparation for completed exam');
-                              }
-                            }
-
-                            // Create new preparation if none exists or previous one was completed
-                            let prepId;
-                            try {
-                              prepId = await startPrep(exam);
-                              console.log('Created new preparation:', { prepId, type: typeof prepId });
+                              navigate(`/practice/${prepId}`);
                             } catch (prepError) {
                               console.error('Error creating preparation:', prepError);
                               throw new Error('Failed to create preparation');
                             }
-                            
-                            // Validate preparation ID
-                            if (!prepId || 
-                                typeof prepId !== 'string' || 
-                                String(prepId).includes('[object Promise]') || 
-                                String(prepId).includes('[object') ||
-                                String(prepId) === '[object Object]') {
-                              console.error('Invalid preparation ID, cannot navigate:', prepId);
-                              throw new Error('Invalid preparation ID created');
-                            }
-                            
-                            // Navigate with the validated ID
-                            const safeId = prepId.toString();
-                            console.log('Navigating to practice with new preparation:', safeId);
-                            navigate(`/practice/${safeId}`, { replace: true });
                           } catch (error) {
                             console.error('Failed to handle exam selection:', error);
                             setError(error instanceof Error ? error.message : 'Failed to handle exam selection');
@@ -1071,6 +1089,7 @@ const ExamDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Footer */}
       <Footer />
 
       {error && (

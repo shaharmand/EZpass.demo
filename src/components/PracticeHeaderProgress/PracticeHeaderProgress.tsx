@@ -30,8 +30,8 @@ const uiColors = {
 };
 
 interface PracticeHeaderProgressProps {
-  prep: StudentPrep;
-  onShowTopicDetails?: () => void;
+  prep: StudentPrep | null;
+  onShowTopicDetails: () => void;
   onPrepUpdate?: (updatedPrep: StudentPrep) => void;
   metrics: {
     overallProgress: number;
@@ -177,24 +177,27 @@ function PracticeHeaderProgress({
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isLocalTopicsDialogOpen, setIsLocalTopicsDialogOpen] = useState(false);
 
-  const prep = usePrepState(initialPrep.id, (updatedPrep) => {
-    console.log('🔄 PracticeHeaderProgress - Received prep update:', {
-      prepId: updatedPrep.id,
-      componentId: componentId.current,
-      renderCount: renderCount.current,
-      topicsCount: updatedPrep.selection.subTopics.length,
-      timestamp: new Date().toISOString()
-    });
-    if (onPrepUpdate) {
-      console.log('📤 PracticeHeaderProgress - Calling onPrepUpdate callback');
-      onPrepUpdate(updatedPrep);
-    }
-  });
+  // Only call usePrepState if we have a valid prep ID
+  const prep = initialPrep?.id 
+    ? usePrepState(initialPrep.id, (updatedPrep) => {
+        console.log('🔄 PracticeHeaderProgress - Received prep update:', {
+          prepId: updatedPrep?.id,
+          componentId: componentId.current,
+          renderCount: renderCount.current,
+          topicsCount: updatedPrep?.selection.subTopics.length,
+          timestamp: new Date().toISOString()
+        });
+        if (onPrepUpdate) {
+          console.log('📤 PracticeHeaderProgress - Calling onPrepUpdate callback');
+          onPrepUpdate(updatedPrep);
+        }
+      }) 
+    : initialPrep; // Fall back to initialPrep if id is undefined
 
   // Subscribe to metrics changes
   useEffect(() => {
     console.log('🔌 PracticeHeaderProgress - Setting up metrics subscription:', {
-      prepId: initialPrep.id,
+      prepId: initialPrep?.id,
       componentId: componentId.current,
       renderCount: renderCount.current,
       timestamp: new Date().toISOString()
@@ -202,44 +205,43 @@ function PracticeHeaderProgress({
 
     const handleMetricsUpdate = (newMetrics: typeof metrics) => {
       console.log('📊 PracticeHeaderProgress - Received metrics update:', {
-        prepId: initialPrep.id,
+        prepId: initialPrep?.id,
         componentId: componentId.current,
         renderCount: renderCount.current,
-        progress: newMetrics.overallProgress,
-        questionsAnswered: newMetrics.questionsAnswered,
-        successRate: newMetrics.successRate,
         timestamp: new Date().toISOString()
       });
+
+      setMetrics(newMetrics);
 
       // Log the difference in metrics
       console.log('📈 PracticeHeaderProgress - Metrics changes:', {
-        prepId: initialPrep.id,
+        prepId: initialPrep?.id,
         componentId: componentId.current,
         progressDiff: newMetrics.overallProgress - metrics.overallProgress,
         successRateDiff: newMetrics.successRate - metrics.successRate,
-        questionsAnsweredDiff: newMetrics.questionsAnswered - metrics.questionsAnswered,
         timestamp: new Date().toISOString()
-      });
-
-      // Force a re-render by creating a new metrics object
-      setMetrics({
-        ...newMetrics,
-        typeSpecificMetrics: newMetrics.typeSpecificMetrics.map(m => ({ ...m }))
       });
     };
 
-    PrepStateManager.subscribeToMetricsChanges(initialPrep.id, handleMetricsUpdate);
+    // Only subscribe if we have a valid prep ID
+    if (initialPrep?.id) {
+      PrepStateManager.subscribeToMetricsChanges(initialPrep.id, handleMetricsUpdate);
+    }
 
     return () => {
       console.log('🔌 PracticeHeaderProgress - Cleaning up metrics subscription:', {
-        prepId: initialPrep.id,
+        prepId: initialPrep?.id,
         componentId: componentId.current,
         renderCount: renderCount.current,
         timestamp: new Date().toISOString()
       });
-      PrepStateManager.unsubscribeFromMetricsChanges(initialPrep.id, handleMetricsUpdate);
+      
+      // Only unsubscribe if we have a valid prep ID
+      if (initialPrep?.id) {
+        PrepStateManager.unsubscribeFromMetricsChanges(initialPrep.id, handleMetricsUpdate);
+      }
     };
-  }, [initialPrep.id]);
+  }, [initialPrep?.id]);
 
   // Log component lifecycle
   useEffect(() => {

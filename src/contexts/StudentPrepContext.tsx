@@ -56,8 +56,31 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     console.log('Current path check:', {
       path: location.pathname,
       isHomePath: location.pathname === '/' || location.pathname === '' || location.pathname === '/home',
-      isPracticePath: location.pathname === '/practice'
+      isPracticePath: location.pathname === '/practice',
+      hasPrep: !!prep,
+      prepId: prep?.id
     });
+
+    // Extract prep ID from the current path
+    const pathParts = location.pathname.split('/');
+    const practiceIndex = pathParts.indexOf('practice');
+    const pathPrepId = practiceIndex >= 0 && pathParts.length > practiceIndex + 1 
+      ? pathParts[practiceIndex + 1] 
+      : null;
+      
+    // If we're on a practice page with a different prep ID than the current one,
+    // reset the prep state
+    if (pathPrepId && prep && pathPrepId !== prep.id) {
+      console.log('Detected navigation to different preparation:', {
+        currentPrepId: prep.id,
+        newPrepId: pathPrepId,
+        timestamp: new Date().toISOString()
+      });
+      // Clear the current prep to allow loading the new one
+      setPrep(null);
+      setIsLoadingPrep(false);
+      return;
+    }
 
     // DEFENSIVE: Skip the entire effect for home page or main practice page
     if (location.pathname === '/' || 
@@ -69,27 +92,23 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
 
     const restoreActivePrep = async () => {
-      // Skip if prep already loaded or in progress
-      if (prep || isLoadingPrep) return;
-      
-      // Additional defensive check - we've already checked this at the top level,
-      // but keeping it here as well for extra safety
-      if (location.pathname === '/' || 
-          location.pathname === '' || 
-          location.pathname === '/home' ||
-          location.pathname === '/practice') { 
-        console.log('Home/practice page detected, SKIPPING ALL prep loading to prevent redirections');
-        return;
-      }
-      
-      // From this point onwards, we know we're not on the home page
+      console.log('Restoring active prep:', {
+        path: location.pathname,
+        isOnPracticePage: location.pathname.includes('/practice/'),
+        hasPrep: !!prep,
+        isLoading: isLoadingPrep,
+        timestamp: new Date().toISOString()
+      });
       
       try {
-        // Check if we're already on a practice page before trying to restore
-        const isOnPracticePage = location.pathname.includes('/practice/');
+        // Don't run if we already have a prep loaded or are currently loading
+        if (prep || isLoadingPrep) {
+          console.log('Already has prep or is loading, skipping restore...');
+          return;
+        }
         
         // Try to restore from URL params ONLY if we're already on a practice page
-        if (isOnPracticePage) {
+        if (location.pathname.includes('/practice/')) {
           const params = new URLSearchParams(location.search);
           const prepPath = params.get('prepId');
           
@@ -109,73 +128,45 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
               return;
             }
             
+            console.log('Found prep ID in URL, attempting to load:', effectivePrepId);
+            
             try {
-              setIsLoadingPrep(true);
-              console.log('Loading specific prep from URL:', effectivePrepId);
-              const storedPrep = await PrepStateManager.getPrep(effectivePrepId);
-              if (storedPrep) {
+              const urlPrep = await PrepStateManager.getPrep(effectivePrepId);
+              if (urlPrep) {
+                console.log('Successfully loaded prep from URL ID:', effectivePrepId);
+                
+                // Always verify the ID matches before accepting it
+                if (urlPrep.id !== effectivePrepId) {
+                  console.error(`CRITICAL ERROR: Loaded prep ID (${urlPrep.id}) does not match requested ID (${effectivePrepId})`);
+                  return; // Don't load this prep if IDs don't match
+                }
+                
                 // Initialize managers
-                if (!prepStateManager.current) {
-                  prepStateManager.current = PrepStateManager.getInstance({ topics: storedPrep.exam.topics });
-                }
-                if (!questionSequencer.current) {
-                  questionSequencer.current = QuestionSequencer.getInstance();
-                  await questionSequencer.current.initialize(
-                    { subject: storedPrep.exam.subjectId, domain: storedPrep.exam.domainId },
-                    storedPrep.id
-                  );
-                }
-                // Set active prep
-                setPrep(storedPrep);
+                prepStateManager.current = PrepStateManager.getInstance({ topics: urlPrep.exam.topics });
+                questionSequencer.current = QuestionSequencer.getInstance();
+                await questionSequencer.current.initialize(
+                  { subject: urlPrep.exam.subjectId, domain: urlPrep.exam.domainId },
+                  urlPrep.id
+                );
+                
+                // Set the prep and return - don't try to load anything else
+                setPrep(urlPrep);
+                return;
+              } else {
+                console.warn('Could not find prep with ID from URL:', effectivePrepId);
+                // Do NOT continue to fallback methods unless explicitly requested
                 return;
               }
             } catch (error) {
-              console.error('Error restoring prep from URL param:', error);
-            } finally {
-              setIsLoadingPrep(false);
+              console.error('Error loading prep from URL ID:', error);
+              // Do NOT continue to fallback methods
+              return;
             }
           }
         }
         
-        // If we reach here, we couldn't load a prep from the URL
-        // But we're also not on the home page, so try to get active prep
-        
-        try {
-          const activePrep = await PrepStateManager.getUserActivePreparation();
-          if (activePrep) {
-            console.log('Found active preparation, loading:', activePrep.id);
-            setPrep(activePrep);
-            
-            // Initialize managers for active prep
-            prepStateManager.current = PrepStateManager.getInstance({ topics: activePrep.exam.topics });
-            questionSequencer.current = QuestionSequencer.getInstance();
-            await questionSequencer.current.initialize(
-              { subject: activePrep.exam.subjectId, domain: activePrep.exam.domainId },
-              activePrep.id
-            );
-          } else {
-            // No active prep found but we're on a practice page
-            // Try to restore guest prep as last resort
-            const guestPrepId = PrepStateManager.getGuestPrepId();
-            if (guestPrepId) {
-              console.log('Found guest prep, attempting to load:', guestPrepId);
-              const guestPrep = await PrepStateManager.getPrep(guestPrepId);
-              if (guestPrep) {
-                // Initialize managers for guest prep
-                prepStateManager.current = PrepStateManager.getInstance({ topics: guestPrep.exam.topics });
-                questionSequencer.current = QuestionSequencer.getInstance();
-                await questionSequencer.current.initialize(
-                  { subject: guestPrep.exam.subjectId, domain: guestPrep.exam.domainId },
-                  guestPrep.id
-                );
-                
-                setPrep(guestPrep);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error restoring active prep:', error);
-        }
+        // ONLY reach here if we're NOT on a practice page with an ID
+        // Or if there's a specific reason to restore without an ID
       } catch (error) {
         console.error('Overall error in restoreActivePrep:', error);
       }
@@ -528,40 +519,72 @@ export const StudentPrepProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, []);
 
-  const handleGetPrep = useCallback(async (prepId: string): Promise<StudentPrep | null> => {
+  const handleGetPrep = useCallback(async (prepId: string) => {
     try {
-      // Validate prepId to ensure it's not a Promise
-      if (typeof prepId !== 'string' || String(prepId).includes('[object')) {
-        console.error('Invalid prep ID passed to getPrep:', prepId);
-        return null;
-      }
-      
       setIsLoadingPrep(true);
+      console.log('StudentPrepContext - getPrep - Starting to load preparation:', {
+        requestedId: prepId,
+        timestamp: new Date().toISOString()
+      });
       
-      // Try to get prep from storage/database
-      const storedPrep = await PrepStateManager.getPrep(prepId);
-      if (storedPrep) {
-        // Initialize managers if needed
-        if (!prepStateManager.current) {
-          prepStateManager.current = PrepStateManager.getInstance({ topics: storedPrep.exam.topics });
+      // Resolve prepId if it's a Promise  
+      if (prepId && typeof prepId === 'object' && String(prepId).includes('[object Promise]')) {
+        try {
+          const resolvedId = await (prepId as Promise<string>);
+          console.log('Resolved prepId from Promise:', { original: prepId, resolved: resolvedId });
+          if (typeof resolvedId === 'string') {
+            prepId = resolvedId;
+          } else {
+            throw new Error(`Could not resolve prep ID from Promise: ${prepId}`);
+          }
+        } catch (error) {
+          console.error('Error resolving prep ID from Promise:', error);
+          throw error;
         }
-        if (!questionSequencer.current) {
-          questionSequencer.current = QuestionSequencer.getInstance();
-          await questionSequencer.current.initialize(
-            { subject: storedPrep.exam.subjectId, domain: storedPrep.exam.domainId },
-            storedPrep.id
-          );
-        }
-        
-        // Update current prep state
-        setPrep(storedPrep);
-        return storedPrep;
       }
       
-      return null;
+      // Verify the prepId is valid
+      if (!prepId || typeof prepId !== 'string') {
+        console.error('Invalid prep ID provided to getPrep:', prepId);
+        throw new Error('Invalid preparation ID format');
+      }
+
+      // Get prep from manager
+      const retrievedPrep = await PrepStateManager.getPrep(prepId);
+      
+      if (!retrievedPrep) {
+        console.error('Preparation not found in getPrep:', prepId);
+        throw new Error(`Preparation not found: ${prepId}`);
+      }
+      
+      // Double-check that the loaded preparation matches the requested ID
+      console.log('PREPARATION VERIFICATION:', {
+        requestedId: prepId,
+        loadedId: retrievedPrep.id,
+        isMatch: retrievedPrep.id === prepId,
+        examId: retrievedPrep.exam?.id,
+        examName: retrievedPrep.exam?.names?.medium || retrievedPrep.exam?.names?.full || 'Unknown',
+        timestamp: new Date().toISOString()
+      });
+      
+      if (retrievedPrep.id !== prepId) {
+        console.error(`Critical Error: Loaded preparation ID (${retrievedPrep.id}) does not match requested ID (${prepId})`);
+        throw new Error('Preparation ID mismatch');
+      }
+
+      // Initialize managers
+      prepStateManager.current = PrepStateManager.getInstance({ topics: retrievedPrep.exam.topics });
+      questionSequencer.current = QuestionSequencer.getInstance();
+      await questionSequencer.current.initialize(
+        { subject: retrievedPrep.exam.subjectId, domain: retrievedPrep.exam.domainId },
+        retrievedPrep.id
+      );
+
+      setPrep(retrievedPrep);
+      return retrievedPrep;
     } catch (error) {
-      console.error('Error getting prep:', error);
-      return null;
+      console.error('Error in getPrep:', error);
+      throw error;
     } finally {
       setIsLoadingPrep(false);
     }

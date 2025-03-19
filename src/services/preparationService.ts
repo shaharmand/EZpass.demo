@@ -153,6 +153,13 @@ export async function getPreparationById(id: string): Promise<StudentPrep | null
       return null;
     }
 
+    console.log('DATABASE REQUEST: getPreparationById', {
+      requestedId: id,
+      sqlTable: 'user_preparations',
+      sqlQuery: `SELECT prep_state FROM user_preparations WHERE id = '${id}' LIMIT 1`,
+      timestamp: new Date().toISOString()
+    });
+
     const { data, error } = await supabase
       .from('user_preparations')
       .select('prep_state')
@@ -164,7 +171,18 @@ export async function getPreparationById(id: string): Promise<StudentPrep | null
       return null;
     }
     
-    return data.prep_state as StudentPrep;
+    const loadedPrep = data.prep_state as StudentPrep;
+    console.log('DATABASE RESPONSE: getPreparationById', {
+      requestedId: id,
+      loadedPrepId: loadedPrep.id,
+      isMatch: loadedPrep.id === id,
+      examId: loadedPrep.exam?.id,
+      status: loadedPrep.state?.status,
+      rowCount: data ? 1 : 0,
+      timestamp: new Date().toISOString()
+    });
+    
+    return loadedPrep;
   } catch (err) {
     console.error('Exception in getPreparationById:', err);
     return null;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Space, Button, Layout, Typography, Card, message, Result, Spin } from 'antd';
+import { Alert, Space, Button, Layout, Typography, Card, message, Result, Spin, Tabs, Collapse, Modal, List, Empty } from 'antd';
 import { HomeOutlined, ArrowLeftOutlined, MessageOutlined, RobotOutlined } from '@ant-design/icons';
 import { PracticeHeader } from '../components/PracticeHeader';
 import { QuestionInteractionContainer } from '../components/practice/QuestionInteractionContainer';
@@ -29,11 +29,15 @@ import { UserHeader } from '../components/layout/UserHeader';
 import PracticeHeaderProgress from '../components/PracticeHeaderProgress/PracticeHeaderProgress';
 import styled, { css } from 'styled-components';
 import { ExamContentDialog } from '../components/practice/ExamContentDialog';
+import { getUserPreparations } from '../services/preparationService';
+import type { PreparationSummary } from '../types/preparation';
 
 interface PageState {
   error?: string;
   prep?: StudentPrep;
   isLoading: boolean;
+  notFoundId?: string;
+  availablePreps?: PreparationSummary[];
 }
 
 interface StyledContainerProps {
@@ -208,9 +212,27 @@ const PracticePage: React.FC = () => {
     setActiveTab(key);
   }, []);
 
+  // Reset initialization flag when prep ID changes
+  useEffect(() => {
+    console.log('Prep ID changed, resetting initialization state:', {
+      prepId,
+      hasInitialized: hasInitialized.current,
+      timestamp: new Date().toISOString()
+    });
+    hasInitialized.current = false;
+  }, [prepId]);
+
   // Effect to handle preparation loading and initialization
   useEffect(() => {
     const loadPrep = async () => {
+      // Log the initial URL parameter
+      console.log('PRACTICE PAGE INITIALIZATION:', {
+        urlParam: prepId,
+        path: window.location.pathname,
+        hasInitialized: hasInitialized.current,
+        timestamp: new Date().toISOString()
+      });
+      
       // If no prepId or already initialized, don't try to load
       if (!prepId) {
         console.log('No prep ID provided, skipping load');
@@ -242,6 +264,9 @@ const PracticePage: React.FC = () => {
           return;
         }
 
+        // Log the resolved prep ID
+        console.log('Attempting to load preparation with ID:', resolvedPrepId);
+
         if (resolvedPrepId.startsWith('new/')) {
           const examId = resolvedPrepId.split('/')[1];
           const exam = await examService.getExamById(examId);
@@ -263,7 +288,53 @@ const PracticePage: React.FC = () => {
           // Get prep from storage
           const existingPrep = await PrepStateManager.getPrep(resolvedPrepId);
           if (!existingPrep) {
-            throw new Error('Practice session not found');
+            console.error(`Practice session with ID ${resolvedPrepId} not found`);
+            
+            // Instead of throwing error, get available preparations for the user to choose from
+            if (user) {
+              const availablePreps = await getUserPreparations();
+              const activeOrPausedPreps = availablePreps.filter(
+                (p: PreparationSummary) => p.status === 'active' || p.status === 'paused'
+              );
+              
+              setState(prev => ({
+                ...prev,
+                isLoading: false,
+                notFoundId: resolvedPrepId,
+                availablePreps: activeOrPausedPreps,
+                error: `מבחן עם מזהה ${resolvedPrepId} לא נמצא. בחר אחד מהמבחנים הזמינים או חזור לדף הבית.`
+              }));
+            } else {
+              // For guest users, just show the error
+              setState(prev => ({
+                ...prev,
+                isLoading: false,
+                notFoundId: resolvedPrepId,
+                error: 'Practice session not found. Please return to the home page.'
+              }));
+            }
+            return;
+          }
+          
+          // Double-check that we have the correct preparation
+          console.log('PREPARATION LOADING CHECK:', {
+            requestedId: resolvedPrepId,
+            loadedPrepId: existingPrep.id,
+            isMatch: existingPrep.id === resolvedPrepId,
+            examId: existingPrep.exam?.id,
+            examName: existingPrep.exam?.names?.medium || existingPrep.exam?.names?.full,
+            status: existingPrep.state.status,
+            timestamp: new Date().toISOString()
+          });
+          
+          if (existingPrep.id !== resolvedPrepId) {
+            console.error(`Loaded preparation ID (${existingPrep.id}) does not match requested ID (${resolvedPrepId})`);
+            setState(prev => ({
+              ...prev,
+              isLoading: false,
+              error: 'Practice session ID mismatch. Please return to the home page.'
+            }));
+            return;
           }
           
           // Initialize progress tracker with existing data
@@ -409,7 +480,36 @@ const PracticePage: React.FC = () => {
     setIsExamContentOpen(true);
   };
 
-  if (isLoadingPrep || state.isLoading) {
+  // Handle selection of an alternative preparation when original was not found
+  const handlePrepSelect = useCallback((selectedPrepId: string) => {
+    navigate(`/practice/${selectedPrepId}`, { replace: true });
+    window.location.reload(); // Force reload to ensure clean state
+  }, [navigate]);
+  
+  const handleReturnHome = useCallback(() => {
+    navigate('/', { replace: true });
+  }, [navigate]);
+
+  // Define a combined loading state - more permissive for practice pages with IDs
+  const isPracticePage = location.pathname.includes('/practice/');
+  const hasPrepId = location.pathname.split('/').length > 2;
+  const isLoading = isLoadingPrep || 
+                   state.isLoading || 
+                   (isPracticePage && hasPrepId && !prep && !state.error);
+                   
+  console.log('PRACTICE PAGE RENDERING STATUS:', {
+    isPracticePage,
+    hasPrepId,
+    isLoadingPrep,
+    stateIsLoading: state.isLoading,
+    hasPrep: !!prep,
+    hasError: !!state.error,
+    showLoadingSpinner: isLoading,
+    path: location.pathname,
+    timestamp: new Date().toISOString()
+  });
+
+  if (isLoading) {
     return (
       <Layout style={{ minHeight: '100vh', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <Spin size="large" tip="Loading your practice session..." />
@@ -417,7 +517,71 @@ const PracticePage: React.FC = () => {
     );
   }
 
-  if (!prep) {
+  if (state.error && state.notFoundId) {
+    return (
+      <div style={{ 
+        padding: '32px', 
+        maxWidth: '1200px', 
+        margin: '0 auto', 
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'center'
+      }}>
+        <Result
+          status="404"
+          title="מבחן לא נמצא"
+          subTitle={state.error}
+          extra={
+            <div style={{ marginTop: '24px' }}>
+              <Button type="primary" onClick={handleReturnHome} style={{ marginBottom: '24px' }}>
+                חזרה לעמוד הבית
+              </Button>
+              
+              {state.availablePreps && state.availablePreps.length > 0 ? (
+                <div>
+                  <Typography.Title level={4} style={{ marginTop: '32px', marginBottom: '16px', textAlign: 'center' }}>
+                    מבחנים זמינים
+                  </Typography.Title>
+                  <List
+                    grid={{ gutter: 16, column: 1 }}
+                    dataSource={state.availablePreps}
+                    renderItem={item => (
+                      <List.Item>
+                        <Card 
+                          hoverable
+                          onClick={() => handlePrepSelect(item.id)}
+                          style={{ textAlign: 'right', cursor: 'pointer' }}
+                        >
+                          <div>
+                            <Typography.Title level={5}>{item.name}</Typography.Title>
+                            <Typography.Text type="secondary">
+                              סטטוס: {item.status === 'active' ? 'פעיל' : 'מושהה'}
+                            </Typography.Text>
+                            <div>
+                              התקדמות: {item.progress}/100
+                            </div>
+                          </div>
+                        </Card>
+                      </List.Item>
+                    )}
+                  />
+                </div>
+              ) : (
+                <Empty description="אין מבחנים זמינים" />
+              )}
+            </div>
+          }
+        />
+      </div>
+    );
+  }
+
+  // Only show the "no active preparation" message if we're sure we've finished loading
+  // and there's still no prep
+  if (!prep && !isLoading) {
     return (
       <Layout style={{ minHeight: '100vh', width: '100%', background: '#f5f8ff' }}>
         <div style={{ 
@@ -458,13 +622,15 @@ const PracticePage: React.FC = () => {
         <UserHeader 
           variant="practice"
           pageType="תרגול שאלות"
-          pageContent={prep?.exam.names?.full }
+          pageContent={prep?.exam?.names?.full || ''}
         />
-        <PracticeHeaderProgress 
-          prep={prep}
-          onShowTopicDetails={handleShowTopicDetails}
-          metrics={PrepStateManager.getHeaderMetrics(prep)}
-        />
+        {prep && (
+          <PracticeHeaderProgress 
+            prep={prep}
+            onShowTopicDetails={handleShowTopicDetails}
+            metrics={PrepStateManager.getHeaderMetrics(prep)}
+          />
+        )}
       </div>
       <Layout.Content className="practice-content">
         {state.error && (
@@ -477,17 +643,17 @@ const PracticePage: React.FC = () => {
             onClose={() => setState(prev => ({ ...prev, error: undefined }))}
           />
         )}
-        {!currentQuestion && !state.isLoading && !state.error && state.prep && (
+        {!currentQuestion && !state.isLoading && !state.error && prep && (
           <WelcomeScreen
             onStart={handleStartPractice}
             onExamDateChange={handleExamDateChange}
-            prep={state.prep}
+            prep={prep}
           />
         )}
         {state.isLoading && !currentQuestion && (
           <LoadingSpinner />
         )}
-        {currentQuestion && state.prep && (
+        {currentQuestion && prep && (
           <ContentContainer $isVideoPlaying={isVideoPlaying}>
             {/* Learning content panel on the right */}
             <SidePanel 
@@ -543,7 +709,7 @@ const PracticePage: React.FC = () => {
                     <QuestionProperties
                       question={currentQuestion.data}
                       questionNumber={questionState.submissions.length + 1}
-                      totalQuestions={state.prep.exam.totalQuestions}
+                      totalQuestions={prep.exam.totalQuestions}
                       onSkip={handleSkip}
                     />
                   )}
@@ -597,6 +763,8 @@ const PracticePage: React.FC = () => {
       )}
 
       {/* Add ExamContentDialog */}
+      {/* TypeScript doesn't recognize that this conditional ensures prep is not null */}
+      {/* @ts-ignore - We've verified that prep is not null when this renders */}
       {prep && isExamContentOpen && (
         <ExamContentDialog
           key={`exam-content-${Date.now()}`}

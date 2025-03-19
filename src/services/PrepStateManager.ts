@@ -111,6 +111,13 @@ export class PrepStateManager {
         completedInSet: number;
     }> = new Map();
 
+    // Use in-memory storage for guest prep ID instead of localStorage
+    private static _guestPrepId: string | null = null;
+
+    // Define in-memory storage for guest data
+    private static _guestSequencerState: any = null;
+    private static _guestSetProgress: any = null;
+
     // Public accessor for setTracker
     static getSetTracker(): SetProgressTracker {
         return this.setTracker;
@@ -170,47 +177,39 @@ export class PrepStateManager {
     // Load preps from storage
     private static loadPreps(): Record<string, StudentPrep> {
         const now = Date.now();
-        if (this.prepsCache && (now - this.lastLoadTime) < this.CACHE_TTL) {
+        if (this.prepsCache && now - this.lastLoadTime < this.CACHE_TTL) {
             return this.prepsCache;
         }
 
-        try {
-            const stored = localStorage.getItem(PREP_STORAGE_KEY);
-            const preps = stored ? JSON.parse(stored) : {};
-            
-            // Ensure selections are arrays
-            Object.values(preps).forEach((prep: any) => {
-                if (prep.selection) {
-                    prep.selection = {
-                        topics: Array.isArray(prep.selection.topics) ? prep.selection.topics : [],
-                        subTopics: Array.isArray(prep.selection.subTopics) ? prep.selection.subTopics : []
-                    };
-                }
-            });
-
-            this.prepsCache = preps;
-            this.lastLoadTime = now;
-            return preps as Record<string, StudentPrep>;
-        } catch (error) {
-            console.error('Error loading preps:', error);
-            return {};
-        }
+        // No longer using localStorage - returning empty object
+        // We'll fetch preps directly from database when needed instead
+        console.log('Removing localStorage dependency: loadPreps will no longer load from localStorage');
+        this.prepsCache = {};
+        this.lastLoadTime = now;
+        return {};
     }
 
     // Save preps to storage
     private static savePreps(preps: Record<string, StudentPrep>): void {
-        try {
-            localStorage.setItem(PREP_STORAGE_KEY, JSON.stringify(preps));
-            this.prepsCache = preps;
-            this.lastLoadTime = Date.now();
-        } catch (error) {
-            console.error('Error saving preps:', error);
-        }
+        // No longer using localStorage for saving preps
+        console.log('Removing localStorage dependency: savePreps will no longer save to localStorage');
+        this.prepsCache = preps;
+        this.lastLoadTime = Date.now();
     }
 
     // Get prep by ID
     static async getPrep(prepId: string): Promise<StudentPrep | null> {
         try {
+            // Add stack trace for debugging
+            const stackTrace = new Error().stack;
+            const caller = stackTrace?.split('\n')[2]?.trim() || 'unknown';
+            
+            console.log('PREPARATION REQUEST:', {
+                requestedId: prepId,
+                caller,
+                timestamp: new Date().toISOString()
+            });
+            
             // Validate prep ID - if it's a Promise, try to resolve it
             if (prepId && typeof prepId === 'object' && String(prepId).includes('[object Promise]')) {
                 try {
@@ -226,34 +225,34 @@ export class PrepStateManager {
                     return null;
                 }
             }
-
-            // Validate the resolved/original prep ID
-            if (!prepId || typeof prepId !== 'string' || String(prepId).includes('[object')) {
-                console.warn('Invalid prep ID provided:', prepId);
+            
+            // Ensure we have a valid prep ID
+            if (!prepId || typeof prepId !== 'string') {
+                console.warn('Invalid prep ID:', prepId);
                 return null;
             }
-
-            // First try to get from local cache
-            const preps = this.loadPreps();
-            const localPrep = preps[prepId] || null;
             
-            // If not in cache or stale, try to get from database
-            if (!localPrep) {
-                const dbPrep = await getPreparationById(prepId);
-                if (dbPrep) {
-                    // Update local cache
-                    preps[prepId] = dbPrep;
-                    this.savePreps(preps);
-                    return dbPrep;
-                }
+            // Get prep from database
+            const dbPrep = await getPreparationById(prepId);
+            
+            if (!dbPrep) {
+                console.warn('Preparation not found in database:', prepId);
+                return null;
             }
             
-            return localPrep;
+            // Log the preparation ID and associated exam name
+            console.log('PREPARATION LOADED:', {
+                preparationId: dbPrep.id,
+                examId: dbPrep.exam?.id,
+                examName: dbPrep.exam?.names?.medium || dbPrep.exam?.names?.full || 'Unknown',
+                status: dbPrep.state?.status,
+                timestamp: new Date().toISOString()
+            });
+            
+            return dbPrep;
         } catch (error) {
-            console.warn('Error getting prep:', error);
-            // Fall back to local storage only
-            const preps = this.loadPreps();
-            return preps[prepId] || null;
+            console.error('Error getting prep from database:', error);
+            return null; // Don't fall back to local storage
         }
     }
 
@@ -336,17 +335,17 @@ export class PrepStateManager {
         }
     }
 
-    // Add this static method to the PrepStateManager class
+    // This method is no longer used for localStorage access
     static getPrepStorageKey(prepId: string): string {
         return `prep_${prepId}`;
     }
 
     /**
-     * Save preparation to localStorage
+     * Method previously used to save to localStorage
+     * Now just logs a message since we're moving away from client-side storage
      */
     private static saveToLocalStorage(prep: StudentPrep): void {
-        const key = this.getPrepStorageKey(prep.id);
-        localStorage.setItem(key, JSON.stringify(prep));
+        console.log('Removing localStorage dependency: saveToLocalStorage no longer saves to localStorage');
     }
 
     // Activate prep (start practicing)
@@ -887,22 +886,23 @@ export class PrepStateManager {
 
     // Store guest prep ID
     static storeGuestPrepId(prepId: string): void {
-        localStorage.setItem(GUEST_PREP_KEY, prepId);
+        console.log('Using in-memory storage instead of localStorage for guest prep ID');
+        this._guestPrepId = prepId;
     }
 
     // Get guest prep ID
     static getGuestPrepId(): string | null {
-        return localStorage.getItem(GUEST_PREP_KEY);
+        return this._guestPrepId;
     }
 
     // Clear guest prep ID
     static clearGuestPrepId(): void {
-        localStorage.removeItem(GUEST_PREP_KEY);
+        this._guestPrepId = null;
     }
 
     // Migrate guest prep to user account
     static async migrateGuestPrep(): Promise<string | null> {
-        const guestPrepId = localStorage.getItem(GUEST_PREP_KEY);
+        const guestPrepId = this.getGuestPrepId();
         if (!guestPrepId) {
             return null;
         }
@@ -910,22 +910,21 @@ export class PrepStateManager {
         // Get the guest prep
         const guestPrep = await this.getPrep(guestPrepId);
         if (!guestPrep) {
-            localStorage.removeItem(GUEST_PREP_KEY);
+            this.clearGuestPrepId();
             return null;
         }
 
         // Store the sequencer state before migration
         const sequencer = QuestionSequencer.getInstance();
-        const sequencerState = {
+        this._guestSequencerState = {
             currentIndex: sequencer.getCurrentIndex(),
             questions: sequencer.getQuestions()
         };
-        localStorage.setItem(GUEST_SEQUENCER_KEY, JSON.stringify(sequencerState));
 
         // Store set progress state
         const setProgress = this.getSetProgress(guestPrepId);
         if (setProgress) {
-            localStorage.setItem(GUEST_SET_PROGRESS_KEY, JSON.stringify(setProgress));
+            this._guestSetProgress = setProgress;
         }
 
         // Create a new prep ID for the user
@@ -935,48 +934,18 @@ export class PrepStateManager {
         const preps = this.loadPreps();
         preps[userPrepId] = {
             ...guestPrep,
-            id: userPrepId
+            id: userPrepId,
+            userId: getCurrentUserIdSync() || null // Attach the user ID
         };
         this.savePreps(preps);
 
-        // Update the set tracker for the new prep ID
-        if (setProgress) {
-            // First clear any existing progress for the new ID
-            this.setTracker.clearSet(userPrepId);
-            
-            // Then replay the results to rebuild the state
-            setProgress.results.forEach((result, index) => {
-                if (result) {
-                    // Move to the correct position
-                    while (this.setTracker.getSetProgress(userPrepId).currentIndex < index) {
-                        this.setTracker.handleNewQuestion(userPrepId);
-                    }
-                    // Add the result with a complete feedback object
-                    const score = result === FeedbackStatus.SUCCESS ? 100 : 
-                                result === FeedbackStatus.PARTIAL ? 75 : 0;
-                                const evalLevel = result === FeedbackStatus.SUCCESS ? DetailedEvalLevel.PERFECT :
-                                                result === FeedbackStatus.PARTIAL ? DetailedEvalLevel.GOOD :
-                                                DetailedEvalLevel.POOR;
-                                
-                                this.setTracker.handleFeedback(userPrepId, {
-                                    type: 'detailed',
-                                    evalLevel,
-                                    coreFeedback: '',
-                                    detailedFeedback: '',
-                                    criteriaFeedback: [],
-                                    score,
-                                    message: '',
-                                    isCorrect: result === FeedbackStatus.SUCCESS,
-                                    status: result
-                                });
-                }
-            });
+        // Create the progress tracker for the new prep
+        if (!this.progressTrackers.has(userPrepId)) {
+            this.progressTrackers.set(userPrepId, this.initializeProgressTracker(preps[userPrepId]));
         }
 
-        // Clean up guest prep
-        delete preps[guestPrepId];
-        this.savePreps(preps);
-        localStorage.removeItem(GUEST_PREP_KEY);
+        // Clear guest prep ID
+        this.clearGuestPrepId();
 
         return userPrepId;
     }
@@ -984,32 +953,28 @@ export class PrepStateManager {
     // Restore all states after migration
     static restoreAllStates(): void {
         // Restore sequencer state
-        const sequencerStateJson = localStorage.getItem(GUEST_SEQUENCER_KEY);
-        if (sequencerStateJson) {
+        if (this._guestSequencerState) {
             try {
-                const sequencerState = JSON.parse(sequencerStateJson);
                 const sequencer = QuestionSequencer.getInstance();
-                sequencer.restoreState(sequencerState);
-                localStorage.removeItem(GUEST_SEQUENCER_KEY);
+                sequencer.restoreState(this._guestSequencerState);
+                this._guestSequencerState = null;
             } catch (error) {
                 console.error('Failed to restore sequencer state:', error);
             }
         }
 
         // Restore set progress state
-        const setProgressJson = localStorage.getItem(GUEST_SET_PROGRESS_KEY);
-        if (setProgressJson) {
+        if (this._guestSetProgress) {
             try {
-                const setProgress = JSON.parse(setProgressJson);
                 // The set progress will be restored when initializing with the new prep ID
-                localStorage.removeItem(GUEST_SET_PROGRESS_KEY);
+                this._guestSetProgress = null;
             } catch (error) {
                 console.error('Failed to restore set progress state:', error);
             }
         }
 
         // Clean up any remaining guest state
-        localStorage.removeItem(GUEST_QUESTION_STATE_KEY);
+        console.log('Using in-memory storage instead of localStorage for guest states');
     }
 
     // Get the number of selected subtopics in a prep
@@ -1258,15 +1223,10 @@ export class PrepStateManager {
     // Get the user's most recent preparation (from DB)
     static async getUserActivePreparation(): Promise<StudentPrep | null> {
         try {
+            // Get active preparation directly from database
             const activePrep = await getUserActivePreparation();
             
-            // If found in DB, update local cache
-            if (activePrep) {
-                const preps = this.loadPreps();
-                preps[activePrep.id] = activePrep;
-                this.savePreps(preps);
-            }
-            
+            // Return preparation directly without updating local storage
             return activePrep;
         } catch (error) {
             console.error('Error getting active preparation from database:', error);

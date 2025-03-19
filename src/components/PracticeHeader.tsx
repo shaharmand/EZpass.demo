@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Typography, Button, Space, Spin, notification, Input, Tooltip } from 'antd';
 import { EditOutlined, InfoCircleOutlined, SettingOutlined, BookOutlined } from '@ant-design/icons';
 import { useStudentPrep } from '../contexts/StudentPrepContext';
@@ -142,6 +142,16 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
     />
   );
 
+  // Handle user header action buttons
+  const handleHistoryClick = useCallback(() => {
+    // If we have a current prep, include its ID in the URL
+    if (prep?.id) {
+      navigate(`/user/submissions?prepId=${prep.id}`);
+    } else {
+      navigate('/user/submissions');
+    }
+  }, [navigate, prep?.id]);
+
   return (
     <div className="practice-header-container">
       {/* User Header */}
@@ -149,6 +159,7 @@ export const PracticeHeader: React.FC<PracticeHeaderProps> = ({
         variant="practice"
         pageType="תרגול שאלות"
         pageContent={localPrep.exam.names?.full || pageTitle}
+        onHistoryClick={handleHistoryClick}
       />
       
       {/* Metrics Section */}

@@ -509,6 +509,15 @@ const PracticePage: React.FC = () => {
     timestamp: new Date().toISOString()
   });
 
+  // Function to handle navigating to history with current prep ID
+  const handleHistoryClick = useCallback(() => {
+    if (prep?.id) {
+      navigate(`/user/submissions?prepId=${prep.id}`);
+    } else {
+      navigate('/user/submissions');
+    }
+  }, [navigate, prep?.id]);
+
   if (isLoading) {
     return (
       <Layout style={{ minHeight: '100vh', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -623,6 +632,7 @@ const PracticePage: React.FC = () => {
           variant="practice"
           pageType="תרגול שאלות"
           pageContent={prep?.exam?.names?.full || ''}
+          onHistoryClick={handleHistoryClick}
         />
         {prep && (
           <PracticeHeaderProgress 

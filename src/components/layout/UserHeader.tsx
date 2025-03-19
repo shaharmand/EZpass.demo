@@ -12,7 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getSubscriptionColor, getSubscriptionLabel } from '../../utils/subscriptionUtils';
 import { StyledTag } from '../styled/StyledTag';
 import { JoinEZpassPlusDialog } from '../dialogs/JoinEZpassPlusDialog';
-import { HistoryOutlined, BookOutlined, ReadOutlined, FormOutlined, EditOutlined } from '@ant-design/icons';
+import { HistoryOutlined, BookOutlined, ReadOutlined, FormOutlined, EditOutlined, HomeOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useStudentPrep } from '../../contexts/StudentPrepContext';
 import { PrepStateManager } from '../../services/PrepStateManager';
 
@@ -228,21 +228,41 @@ const HistoryButton = styled(ActionButton)`
   }
 `;
 
+// Create a new styled button for the Exam Center
+const ExamCenterButton = styled(ActionButton)`
+  color: #10b981; // Green color for exam center
+  
+  &:hover {
+    color: #ffffff;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-color: #059669;
+    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+  }
+  
+  &:active {
+    color: #ffffff;
+    background: #059669;
+    box-shadow: 0 1px 2px rgba(16, 185, 129, 0.1);
+  }
+`;
+
 export interface UserHeaderProps {
   children?: React.ReactNode;
   pageType: string;
   pageContent: string;
   variant?: 'default' | 'practice' | 'course';
   style?: React.CSSProperties;
+  onHistoryClick?: () => void;
 }
 
-export const UserHeader: React.FC<UserHeaderProps> = ({
+export const UserHeader: React.FC<UserHeaderProps> = function({
   pageType,
   pageContent,
   variant = 'default',
   style,
-  children
-}) => {
+  children,
+  onHistoryClick
+}) {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [showJoinDialog, setShowJoinDialog] = useState(false);
@@ -341,9 +361,25 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
 
   // Handle history button click - navigate to submission history
   const handleHistoryClick = () => {
-    // We don't need to wait for prep ID here since the history page
-    // will handle its own state and filtering
-    navigate('/user/submissions');
+    // If parent provided a handler, use it
+    if (onHistoryClick) {
+      onHistoryClick();
+      return;
+    }
+    
+    // Otherwise use our default behavior
+    // If we have a current prep, navigate with its ID as a query parameter
+    if (prep?.id) {
+      navigate(`/user/submissions?prepId=${prep.id}`);
+    } else {
+      // Otherwise navigate to the main submissions page
+      navigate('/user/submissions');
+    }
+  };
+
+  // Handle exam center button click - navigate to home page
+  const handleExamCenterClick = () => {
+    navigate('/');
   };
 
   return (
@@ -362,6 +398,14 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
         <UserInfoSection>
           {profile && (
             <NavigationButtonsContainer>
+              <Tooltip title="מרכז המבחנים" placement="bottom">
+                <ExamCenterButton 
+                  type="text"
+                  icon={<FileTextOutlined />} 
+                  onClick={handleExamCenterClick}
+                />
+              </Tooltip>
+              
               <Tooltip title="תרגול שאלות" placement="bottom">
                 <PracticeButton 
                   type="text"

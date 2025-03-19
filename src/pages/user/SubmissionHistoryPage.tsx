@@ -1,17 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Typography, Row, Col, Card, Timeline, Spin, Empty, Tag, Statistic, Button, Tabs, Segmented, message } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Typography, Row, Col, Card, Timeline, Spin, Empty, Tag, Button, Tabs, Segmented, message, List, Collapse, Divider, Table, Badge, Select, Space } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, DownOutlined, RightOutlined, QuestionCircleOutlined, InfoCircleOutlined, StarOutlined, FilterOutlined, UpOutlined, EditOutlined } from '@ant-design/icons';
 import { submissionStorage } from '../../services/submission';
 import { getCurrentUserIdSync } from '../../utils/authHelpers';
 import { QuestionSubmission } from '../../types/submissionTypes';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { PrepStateManager } from '../../services/PrepStateManager';
 import { useStudentPrep } from '../../contexts/StudentPrepContext';
-import { Question } from '../../types/question';
+import { Question, QuestionType } from '../../types/question';
 import { UserHeader } from '../../components/layout/UserHeader';
+import { MarkdownRenderer } from '../../components/MarkdownRenderer';
+import { questionStorage } from '../../services/admin/questionStorage';
+import { getUserPreparations } from '../../services/preparationService';
+import { PreparationSummary } from '../../types/preparation';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
+const { Panel } = Collapse;
 
 // Extract URL parameters at script level
 const urlParams = new URLSearchParams(window.location.search);
@@ -47,6 +52,25 @@ const getTimeSpentMinutes = (ms: number) => {
   return Math.round((ms / 60000) * 10) / 10;
 };
 
+// Helper function to get status tag
+const getStatusTag = (submission: QuestionSubmission) => {
+  if (!submission.feedback || !submission.feedback.data) {
+    return <Tag icon={<QuestionCircleOutlined />} color="default">אין הערכה</Tag>;
+  }
+
+  // For partially correct answers (assuming score between 30-70 is partially correct)
+  if (submission.feedback.data.score !== undefined && 
+      submission.feedback.data.score > 30 && 
+      submission.feedback.data.score < 70) {
+    return <Tag icon={<InfoCircleOutlined />} color="warning">נכון חלקית</Tag>;
+  }
+
+  // For correct/incorrect
+  return submission.feedback.data.isCorrect ? 
+    <Tag icon={<CheckCircleOutlined />} color="success">נכון</Tag> : 
+    <Tag icon={<CloseCircleOutlined />} color="error">לא נכון</Tag>;
+};
+
 // Hook to get window size
 const useWindowSize = () => {
   const [windowSize, setWindowSize] = useState({
@@ -72,18 +96,40 @@ const useWindowSize = () => {
   return windowSize;
 };
 
+interface QuestionDetails extends QuestionSubmission {
+  questionContent?: {
+    text: string;
+    options?: Array<{
+      text: string;
+      format: string;
+    }>;
+  };
+  questionType?: QuestionType;
+  questionTitle?: string;
+  schoolAnswer?: {
+    finalAnswer?: {
+      type: string;
+      value: number;
+      tolerance?: number;
+      unit?: string;
+    };
+    solution?: {
+      text: string;
+      format: string;
+    };
+  };
+}
+
 const SubmissionHistoryPage: React.FC = () => {
   const [submissions, setSubmissions] = useState<QuestionSubmission[]>([]);
   const [filteredSubmissions, setFilteredSubmissions] = useState<QuestionSubmission[]>([]);
+  const [questionsWithDetails, setQuestionsWithDetails] = useState<Record<string, QuestionDetails>>({});
+  const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
   const [highlightedSubmissionId, setHighlightedSubmissionId] = useState<string | null>(null);
-  const [stats, setStats] = useState<{
-    totalSubmissions: number;
-    correctSubmissions: number;
-    totalQuestions: number;
-    averageScore: number;
-  } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'timeline' | 'cards'>('timeline');
+  const [loadingQuestionDetails, setLoadingQuestionDetails] = useState<Record<string, boolean>>({});
+  const [availablePreparations, setAvailablePreparations] = useState<PreparationSummary[]>([]);
+  const [loadingPreparations, setLoadingPreparations] = useState(false);
   const navigate = useNavigate();
   const { width } = useWindowSize();
   const isMobile = width < 576;
@@ -126,12 +172,18 @@ const SubmissionHistoryPage: React.FC = () => {
     isFiltering
   });
 
+  // Helper to get preparation name for display
+  const getPrepName = (prepId: string) => {
+    const prep = availablePreparations.find(p => p.id === prepId);
+    return prep ? `מבחן ${prep.name}` : `מבחן ${prepId}`;
+  };
+
   // Get information about what we're filtering on for the header
   const pageTitle = isFiltering 
     ? questionIdFilter 
       ? `שאלה ${questionIdFilter}` 
       : prepIdFilter 
-        ? `מבחן ${prepIdFilter}` 
+        ? getPrepName(prepIdFilter)
         : "כל התשובות" 
     : "כל התשובות";
 
@@ -155,6 +207,79 @@ const SubmissionHistoryPage: React.FC = () => {
     }
   }, [submissionIdHighlight, filteredSubmissions]);
 
+  // Load available preparations
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const userId = getCurrentUserIdSync();
+        
+        // Load available preparations regardless of user ID (will be empty for guest users)
+        try {
+          setLoadingPreparations(true);
+          const preps = await getUserPreparations();
+          // Filter only active or paused preparations
+          const activeOrPausedPreps = preps.filter(
+            prep => prep.status === 'active' || prep.status === 'paused'
+          );
+          setAvailablePreparations(activeOrPausedPreps);
+          
+          // If we have preparations but no filters applied, and there's a prepId in the URL
+          // then automatically navigate to that preparation's submissions
+          if (activeOrPausedPreps.length > 0 && !isFiltering && prepIdFromUrl) {
+            const validPrep = activeOrPausedPreps.find(prep => prep.id === prepIdFromUrl);
+            if (validPrep) {
+              console.log('Auto-selecting preparation from URL:', validPrep.name);
+              navigate(`/user/submissions?prepId=${prepIdFromUrl}`, { replace: true });
+              return; // Exit early as we're redirecting
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching preparations:', error);
+        } finally {
+          setLoadingPreparations(false);
+        }
+        
+        if (!userId) {
+          setLoading(false);
+          return;
+        }
+
+        // Fetch submissions based on filter parameters
+        let recentSubmissions: QuestionSubmission[];
+        
+        if (questionIdFilter) {
+          // If filtering by question ID, fetch only submissions for that question
+          recentSubmissions = await submissionStorage.getSubmissionsForQuestion(questionIdFilter, userId);
+          console.log(`Fetched ${recentSubmissions.length} submissions for question ${questionIdFilter}`);
+        } else if (prepIdFilter) {
+          // If filtering by prep ID, fetch only submissions for that prep
+          try {
+            recentSubmissions = await submissionStorage.getSubmissionsForPrep(prepIdFilter, userId);
+            console.log(`Fetched ${recentSubmissions.length} submissions for prep ${prepIdFilter}`);
+          } catch (error) {
+            console.warn('Failed to filter by prepId - method may not exist', error);
+            recentSubmissions = await submissionStorage.getRecentSubmissions(userId, 50);
+          }
+        } else {
+          // Otherwise, fetch recent submissions - increased from 10 to 50 to support pagination
+          recentSubmissions = await submissionStorage.getRecentSubmissions(userId, 50);
+        }
+        
+        setSubmissions(recentSubmissions);
+        setFilteredSubmissions(recentSubmissions);
+        
+        // Log the first few submissions for debugging
+        console.log('First 3 submissions:', recentSubmissions.slice(0, 3));
+      } catch (error) {
+        console.error('Error fetching submission history:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [questionIdFilter, prepIdFilter, isFiltering, navigate]);
+
   // Apply filters whenever submissions or filter parameters change
   useEffect(() => {
     if (!submissions.length) return;
@@ -176,56 +301,6 @@ const SubmissionHistoryPage: React.FC = () => {
     setFilteredSubmissions(filtered);
   }, [submissions, questionIdFilter, prepIdFilter]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const userId = getCurrentUserIdSync();
-        if (!userId) {
-          setLoading(false);
-          return;
-        }
-
-        // Fetch submissions based on filter parameters
-        let recentSubmissions: QuestionSubmission[];
-        
-        if (questionIdFilter) {
-          // If filtering by question ID, fetch only submissions for that question
-          recentSubmissions = await submissionStorage.getSubmissionsForQuestion(questionIdFilter, userId);
-          console.log(`Fetched ${recentSubmissions.length} submissions for question ${questionIdFilter}`);
-        } else if (prepIdFilter) {
-          // If filtering by prep ID, fetch only submissions for that prep
-          // Note: You might need to add this method to submissionStorage
-          try {
-            recentSubmissions = await submissionStorage.getSubmissionsForPrep(prepIdFilter, userId);
-            console.log(`Fetched ${recentSubmissions.length} submissions for prep ${prepIdFilter}`);
-          } catch (error) {
-            console.warn('Failed to filter by prepId - method may not exist', error);
-            recentSubmissions = await submissionStorage.getRecentSubmissions(userId, 50);
-          }
-        } else {
-          // Otherwise, fetch recent submissions
-          recentSubmissions = await submissionStorage.getRecentSubmissions(userId, 50);
-        }
-        
-        setSubmissions(recentSubmissions);
-        setFilteredSubmissions(recentSubmissions);
-
-        // Fetch statistics (could be filtered based on the current filter)
-        const userStats = await submissionStorage.getUserStatistics(userId);
-        setStats(userStats);
-        
-        // Log the first few submissions for debugging
-        console.log('First 3 submissions:', recentSubmissions.slice(0, 3));
-      } catch (error) {
-        console.error('Error fetching submission history:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [questionIdFilter, prepIdFilter]);
-
   // Group submissions by date for timeline view - use filtered submissions
   const groupedSubmissions = filteredSubmissions.reduce((groups, submission) => {
     const date = new Date(submission.metadata?.submittedAt || 0);
@@ -239,334 +314,504 @@ const SubmissionHistoryPage: React.FC = () => {
     return groups;
   }, {} as Record<string, QuestionSubmission[]>);
 
-  // Handle click on review button to navigate to question
-  const handleReviewQuestion = (questionId: string) => {
-    // When reviewing a question, ensure that the submission data is loaded into the state
-    PrepStateManager.loadSubmissionsFromDatabase(questionId)
-      .then(() => {
-        navigate(`/practice/question/${questionId}`);
-      })
-      .catch(error => {
-        console.error('Error loading submissions before review:', error);
-        // Still navigate even if there's an error
-        navigate(`/practice/question/${questionId}`);
-      });
+  // Update handleEditQuestion function to use the correct URL format
+  const handleEditQuestion = (questionId: string) => {
+    // Navigate to the correct edit page URL
+    navigate(`/admin/questions/${questionId}`);
   };
 
-  const renderTimelineView = () => {
-    const timelineItems = Object.entries(groupedSubmissions)
-      .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
-      .map(([date, dailySubmissions]) => {
-        const formattedDate = new Date(date).toLocaleDateString('he-IL');
-        
-        return (
-          <Timeline.Item 
-            key={date} 
-            color="blue"
-            label={<strong>{formattedDate}</strong>}
+  // Load question details
+  const loadQuestionDetails = async (questionId: string) => {
+    // Skip if we already have this question's details
+    if (questionsWithDetails[questionId]) return;
+    
+    try {
+      setLoadingQuestionDetails(prev => ({ ...prev, [questionId]: true }));
+      
+      // Fetch question details
+      const dbQuestion = await questionStorage.getQuestion(questionId);
+      
+      if (dbQuestion && dbQuestion.data) {
+        const submissionData = filteredSubmissions.find(s => s.questionId === questionId);
+        if (submissionData) {
+          // Use name field from question root
+          const questionTitle = dbQuestion.data.name || '';
+          
+          setQuestionsWithDetails(prev => ({ 
+            ...prev, 
+            [questionId]: {
+              ...submissionData,
+              questionContent: {
+                text: dbQuestion.data.content.text,
+                options: dbQuestion.data.content.options
+              },
+              questionType: dbQuestion.data.metadata.type,
+              questionTitle,
+              schoolAnswer: dbQuestion.data.schoolAnswer
+            } 
+          }));
+        }
+      }
+    } catch (error) {
+      console.error(`Error loading details for question ${questionId}:`, error);
+    } finally {
+      setLoadingQuestionDetails(prev => ({ ...prev, [questionId]: false }));
+    }
+  };
+
+  const handleRowExpand = (expanded: boolean, record: QuestionSubmission) => {
+    // Generate key consistent with the rowKey function
+    const keyIndex = filteredSubmissions.findIndex(sub => 
+      (sub.id === record.id && sub.questionId === record.questionId) || 
+      (sub.questionId === record.questionId && sub.metadata?.submittedAt === record.metadata?.submittedAt)
+    );
+    
+    // Use the same key format as in the rowKey function
+    let key: string;
+    if (record.id) {
+      key = `${record.id}-idx-${keyIndex}`;
+    } else if (record.metadata?.submittedAt) {
+      key = `${record.questionId}-${record.metadata.submittedAt}-idx-${keyIndex}`;
+    } else {
+      key = `${record.questionId}-idx-${keyIndex}`;
+    }
+    
+    console.log('Row expand toggle:', { expanded, key, record });
+    
+    if (expanded) {
+      setExpandedRowKeys(prev => [...prev, key]);
+      loadQuestionDetails(record.questionId);
+    } else {
+      setExpandedRowKeys(prev => prev.filter(k => k !== key));
+    }
+  };
+
+  // Fix the fetchAllQuestionDetails function to use the correct name field
+  const fetchAllQuestionDetails = useCallback(async (submissions: QuestionSubmission[]) => {
+    const questionIds = submissions.map(s => s.questionId);
+    const uniqueIds = Array.from(new Set(questionIds));
+    
+    for (const questionId of uniqueIds) {
+      if (!questionsWithDetails[questionId]) {
+        try {
+          // Fetch question details
+          const dbQuestion = await questionStorage.getQuestion(questionId);
+          
+          if (dbQuestion && dbQuestion.data) {
+            const submissionData = submissions.find(s => s.questionId === questionId);
+            if (submissionData) {
+              // Use name field from question root (not from metadata)
+              const questionTitle = dbQuestion.data.name || ''; 
+              
+              setQuestionsWithDetails(prev => ({ 
+                ...prev, 
+                [questionId]: {
+                  ...submissionData,
+                  questionContent: {
+                    text: dbQuestion.data.content.text,
+                    options: dbQuestion.data.content.options
+                  },
+                  questionType: dbQuestion.data.metadata.type,
+                  questionTitle,
+                  schoolAnswer: dbQuestion.data.schoolAnswer
+                } 
+              }));
+            }
+          }
+        } catch (error) {
+          console.error(`Error loading details for question ${questionId}:`, error);
+        }
+      }
+    }
+  }, [questionsWithDetails]);
+
+  // Add effect to fetch details for visible questions when filteredSubmissions changes
+  useEffect(() => {
+    if (filteredSubmissions.length > 0) {
+      // Get first visible page of submissions
+      const visibleSubmissions = filteredSubmissions.slice(0, 10);
+      fetchAllQuestionDetails(visibleSubmissions);
+    }
+  }, [filteredSubmissions, fetchAllQuestionDetails]);
+
+  const renderListView = () => {
+    const columns = [
+      {
+        title: 'מזהה',
+        dataIndex: 'questionId',
+        key: 'questionId',
+        render: (text: string) => (
+          <span style={{ direction: 'ltr', display: 'inline-block' }}>{text}</span>
+        ),
+        width: 120,
+      },
+      {
+        title: 'שם שאלה',
+        key: 'title',
+        render: (_: unknown, record: QuestionSubmission) => {
+          const details = questionsWithDetails[record.questionId];
+          return details?.questionTitle || 'ללא שם';
+        },
+        ellipsis: true,
+      },
+      {
+        title: 'סטטוס',
+        key: 'status',
+        render: (_: unknown, record: QuestionSubmission) => getStatusTag(record),
+        width: 100,
+      },
+      {
+        title: 'ציון',
+        key: 'score',
+        render: (_: unknown, record: QuestionSubmission) => 
+          record.feedback?.data?.score !== undefined ? `${record.feedback.data.score}%` : '-',
+        width: 80,
+      },
+      {
+        title: 'זמן',
+        key: 'time',
+        render: (_: unknown, record: QuestionSubmission) => 
+          `${getTimeSpentMinutes(record.metadata?.timeSpentMs || 0)} דקות`,
+        width: 100,
+      },
+      {
+        title: 'תאריך',
+        key: 'date',
+        render: (_: unknown, record: QuestionSubmission) => formatDate(record.metadata?.submittedAt),
+        width: 150,
+      },
+      {
+        title: 'פעולות',
+        key: 'actions',
+        render: (_: unknown, record: QuestionSubmission) => (
+          <Button 
+            type="primary" 
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent row click event
+              handleEditQuestion(record.questionId);
+            }}
           >
-            <Card title={`${dailySubmissions.length} תשובות ב-${formattedDate}`} size="small">
-              {dailySubmissions.map((submission, index) => {
-                const submissionId = submission.id || `${submission.questionId}-${index}`;
-                const isHighlighted = submissionId === highlightedSubmissionId;
-                
+            ערוך
+          </Button>
+        ),
+        width: 80,
+      },
+    ];
+
+    return (
+      <div className="table-container">
+        <Table 
+          dataSource={filteredSubmissions}
+          columns={columns}
+          rowKey={(record, index) => `row-${record.questionId}-${index}`}
+          expandable={{
+            expandedRowKeys,
+            onExpandedRowsChange: (expandedRows) => {
+              console.log('Expanded rows changed:', expandedRows);
+              setExpandedRowKeys(expandedRows as string[]);
+            },
+            expandedRowRender: (record) => {
+              const questionId = record.questionId;
+              
+              // Load question details if not already loaded - no useEffect here
+              if (!questionsWithDetails[questionId] && !loadingQuestionDetails[questionId]) {
+                loadQuestionDetails(questionId);
+              }
+              
+              const details = questionsWithDetails[questionId];
+              const isLoading = loadingQuestionDetails[questionId];
+              
+              if (isLoading) {
                 return (
-                  <div 
-                    id={`submission-${submissionId}`}
-                    key={`${submission.questionId}-${index}`} 
-                    style={{ 
-                      marginBottom: 16, 
-                      padding: 12,
-                      borderRadius: 8,
-                      backgroundColor: submission.feedback?.data?.isCorrect ? '#f6ffed' : '#fff1f0',
-                      border: `1px solid ${submission.feedback?.data?.isCorrect ? '#b7eb8f' : '#ffa39e'}`,
-                      boxShadow: isHighlighted ? '0 0 8px 2px rgba(24, 144, 255, 0.8)' : 'none',
-                      transition: 'box-shadow 0.3s ease'
-                    }}
-                    className={isHighlighted ? 'highlighted-submission' : ''}
-                  >
-                    <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: isMobile ? 'flex-start' : 'center',
-                      flexDirection: isMobile ? 'column' : 'row',
-                      gap: isMobile ? '8px' : '0',
-                      direction: 'rtl'
-                    }}>
-                      <div>
-                        <Text strong style={{ direction: 'ltr', display: 'inline-block' }}>{submission.questionId}</Text>
-                        <div style={{ marginTop: 4 }}>
-                          {submission.feedback?.data?.isCorrect ? (
-                            <Tag icon={<CheckCircleOutlined />} color="success">נכון</Tag>
-                          ) : (
-                            <Tag icon={<CloseCircleOutlined />} color="error">לא נכון</Tag>
-                          )}
-                          <Tag icon={<ClockCircleOutlined />} color="default">
-                            {getTimeSpentMinutes(submission.metadata?.timeSpentMs || 0)} דקות
-                          </Tag>
-                          {submission.feedback?.data?.score !== undefined && (
-                            <Tag color="blue">{submission.feedback.data.score}%</Tag>
-                          )}
-                          <Button 
-                            type="text" 
-                            size="small"
-                            onClick={() => {
-                              const url = `${window.location.origin}/user/submissions?submissionId=${submissionId}`;
-                              navigator.clipboard.writeText(url);
-                              message.success('הלינק הועתק ללוח!');
-                            }}
-                            title="העתק קישור ישיר לתשובה זו"
-                          >
-                            🔗
-                          </Button>
-                        </div>
-                      </div>
-                      <Button 
-                        type="link" 
-                        onClick={() => handleReviewQuestion(submission.questionId)}
-                        style={{ padding: isMobile ? '4px 0' : undefined }}
-                      >
-                        בדוק
-                      </Button>
-                    </div>
+                  <div className="submission-expanded-row" style={{ padding: '24px', textAlign: 'center' }}>
+                    <Spin tip="טוען פרטי שאלה..." />
                   </div>
                 );
-              })}
-            </Card>
-          </Timeline.Item>
-        );
-      });
-
-    return (
-      <Timeline 
-        mode={isMobile ? 'right' : 'left'} 
-        style={{ 
-          marginTop: 24,
-          paddingRight: isMobile ? 16 : 0,
-          paddingLeft: isMobile ? 0 : 16,
-          direction: 'rtl'
-        }}
-      >
-        {timelineItems}
-      </Timeline>
-    );
-  };
-
-  const renderCardView = () => {
-    return (
-      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        {filteredSubmissions.map((submission, index) => {
-          const submissionId = submission.id || `${submission.questionId}-${index}`;
-          const isHighlighted = submissionId === highlightedSubmissionId;
-          
-          return (
-            <Col 
-              xs={24} 
-              sm={12} 
-              lg={8} 
-              key={`${submission.questionId}-${index}`}
-              id={`submission-${submissionId}`}
-            >
-              <Card 
-                hoverable
-                title={
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', direction: 'rtl' }}>
-                    <span>שאלה <span style={{ direction: 'ltr', display: 'inline-block' }}>{submission.questionId}</span></span>
-                    <Button 
-                      type="text" 
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const url = `${window.location.origin}/user/submissions?submissionId=${submissionId}`;
-                        navigator.clipboard.writeText(url);
-                        message.success('הלינק הועתק ללוח!');
-                      }}
-                      title="העתק קישור ישיר לתשובה זו"
-                      style={{ padding: 4, marginLeft: 8 }}
-                    >
-                      🔗
-                    </Button>
+              }
+              
+              if (!details || !details.questionContent) {
+                return (
+                  <div className="submission-expanded-row" style={{ padding: '24px', textAlign: 'center' }}>
+                    <Text type="secondary">לא ניתן לטעון את פרטי השאלה</Text>
                   </div>
-                }
-                extra={!isMobile && (
-                  <Button 
-                    type="link" 
-                    onClick={() => handleReviewQuestion(submission.questionId)}
-                  >
-                    בדוק
-                  </Button>
-                )}
-                style={{ 
-                  borderRight: `5px solid ${submission.feedback?.data?.isCorrect ? '#52c41a' : '#ff4d4f'}`,
-                  height: '100%',
-                  boxShadow: isHighlighted ? '0 0 8px 2px rgba(24, 144, 255, 0.8)' : 'none',
-                  transition: 'box-shadow 0.3s ease',
-                  direction: 'rtl'
-                }}
-                className={isHighlighted ? 'highlighted-submission' : ''}
-              >
-                <div>
-                  <Paragraph>
-                    <Text strong>הוגש:</Text> {formatDate(submission.metadata?.submittedAt)}
-                  </Paragraph>
-                  <Paragraph>
-                    <Text strong>זמן שהושקע:</Text> {getTimeSpentMinutes(submission.metadata?.timeSpentMs || 0)} דקות
-                  </Paragraph>
-                  <Paragraph>
-                    <Text strong>ביטחון:</Text> {
-                      submission.metadata?.confidence === 'high' ? 'גבוה' :
-                      submission.metadata?.confidence === 'medium' ? 'בינוני' :
-                      submission.metadata?.confidence === 'low' ? 'נמוך' : 'לא צוין'
-                    }
-                  </Paragraph>
-                  <Paragraph>
-                    <Text strong>תוצאה:</Text> {' '}
-                    {submission.feedback?.data?.isCorrect ? (
-                      <Tag icon={<CheckCircleOutlined />} color="success">נכון</Tag>
-                    ) : (
-                      <Tag icon={<CloseCircleOutlined />} color="error">לא נכון</Tag>
-                    )}
-                  </Paragraph>
-                  {submission.feedback?.data?.score !== undefined && (
-                    <Paragraph>
-                      <Text strong>ציון:</Text> {submission.feedback.data.score}%
-                    </Paragraph>
-                  )}
-                  
-                  {isMobile && (
-                    <div style={{ marginTop: 16, textAlign: 'left' }}>
-                      <Button 
-                        type="primary" 
-                        size="small"
-                        onClick={() => handleReviewQuestion(submission.questionId)}
-                      >
-                        בדוק
-                      </Button>
+                );
+              }
+              
+              const { questionContent, questionType, questionTitle } = details;
+              const isCorrect = record.feedback?.data?.isCorrect;
+              
+              return (
+                <div className="submission-expanded-row" style={{ padding: '8px', fontSize: '12px' }}>
+                  <div style={{ 
+                    marginBottom: '8px', 
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div className={`answer-status-header ${isCorrect ? 'answer-correct' : 'answer-incorrect'}`} style={{ flex: 1, padding: '4px 8px' }}>
+                      <Text style={{ fontSize: '12px', fontWeight: 'bold' }}>
+                        {questionTitle ? (
+                          <span>שאלה: {questionTitle}</span>
+                        ) : (
+                          <span>שאלה מספר {questionId}</span>
+                        )}
+                      </Text>
+                      <div>
+                        {isCorrect ? (
+                          <Tag icon={<CheckCircleOutlined />} color="success" style={{ fontSize: '11px', padding: '0 4px' }}>תשובה נכונה</Tag>
+                        ) : (
+                          <Tag icon={<CloseCircleOutlined />} color="error" style={{ fontSize: '11px', padding: '0 4px' }}>תשובה שגויה</Tag>
+                        )}
+                        {record.feedback?.data?.score !== undefined && (
+                          <Tag color="blue" style={{ fontSize: '11px', padding: '0 4px' }}>{record.feedback.data.score}%</Tag>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
+                  
+                  {/* Compact content display */}
+                  <div className="submission-content-container" style={{ backgroundColor: 'white', borderRadius: '6px', padding: '8px', fontSize: '12px' }}>
+                    {/* Question Content */}
+                    <div className="markdown-content" style={{ fontSize: '12px' }}>
+                      <MarkdownRenderer content={questionContent.text} />
+                    </div>
+                    
+                    {/* Multiple Choice Options */}
+                    {questionType === QuestionType.MULTIPLE_CHOICE && questionContent.options && (
+                      <div style={{ marginTop: '8px' }}>
+                        <Divider style={{ margin: '6px 0', fontSize: '12px' }}>אפשרויות</Divider>
+                        <ol style={{ paddingRight: '16px', margin: '0', fontSize: '12px' }}>
+                          {questionContent.options.map((option, index) => {
+                            const isUserAnswer = index + 1 === record.answer.finalAnswer?.value;
+                            const isCorrectAnswer = index + 1 === details.schoolAnswer?.finalAnswer?.value;
+                            const showCorrectIndicator = !isCorrect && isCorrectAnswer;
+                            
+                            return (
+                              <li key={index} style={{ 
+                                margin: '2px 0', 
+                                padding: '4px 6px', 
+                                borderRadius: '4px', 
+                                backgroundColor: isUserAnswer 
+                                  ? isCorrect ? '#f6ffed' : '#fff2f0'
+                                  : isCorrectAnswer ? '#f6ffed' : 'transparent',
+                                border: isUserAnswer 
+                                  ? `1px solid ${isCorrect ? '#b7eb8f' : '#ffa39e'}`
+                                  : isCorrectAnswer ? '1px solid #b7eb8f' : 'none',
+                                fontSize: '12px'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div style={{ flex: 1, fontSize: '12px' }}>
+                                    <MarkdownRenderer content={option.text} />
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '4px', flexShrink: 0, marginRight: '4px' }}>
+                                    {isUserAnswer && (
+                                      <Tag color={isCorrect ? "success" : "error"} style={{ margin: 0, fontSize: '11px', padding: '0 2px' }}>
+                                        {isCorrect ? "תשובתך נכונה" : "תשובתך שגויה"}
+                                      </Tag>
+                                    )}
+                                    {showCorrectIndicator && (
+                                      <Tag color="success" style={{ margin: 0, fontSize: '11px', padding: '0 2px' }}>
+                                        התשובה הנכונה
+                                      </Tag>
+                                    )}
+                                  </div>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </div>
+                    )}
+                    
+                    {/* For numerical questions, show the correct answer if student was wrong */}
+                    {questionType === QuestionType.NUMERICAL && (
+                      <div style={{ marginTop: '8px' }}>
+                        <Divider style={{ margin: '6px 0', fontSize: '12px' }}>התשובה שלך</Divider>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Badge 
+                            count={record.answer.finalAnswer?.value || 'N/A'} 
+                            style={{ backgroundColor: isCorrect ? '#52c41a' : '#ff4d4f', marginRight: '4px', fontSize: '11px' }}
+                          />
+                          {/* Only show unit for numerical answers */}
+                          {record.answer.finalAnswer?.type === 'numerical' && (
+                            <Text style={{ fontSize: '12px' }}>{record.answer.finalAnswer.unit || ''}</Text>
+                          )}
+                        </div>
+                        
+                        {!isCorrect && details.schoolAnswer?.finalAnswer?.type === 'numerical' && (
+                          <div style={{ marginTop: '6px', padding: '4px 6px', backgroundColor: '#f6ffed', borderRadius: '4px', border: '1px solid #b7eb8f', fontSize: '12px' }}>
+                            <Text strong style={{ fontSize: '12px' }}>התשובה הנכונה: </Text> 
+                            <span>{details.schoolAnswer.finalAnswer.value} {details.schoolAnswer.finalAnswer.unit || ''}</span>
+                            {details.schoolAnswer.finalAnswer.tolerance && details.schoolAnswer.finalAnswer.tolerance > 0 && (
+                              <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
+                                (טווח קבלה: ±{details.schoolAnswer.finalAnswer.tolerance})
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* For open questions, show user's answer and sample solution if wrong */}
+                    {questionType === QuestionType.OPEN && (
+                      <div style={{ marginTop: '8px' }}>
+                        <Divider style={{ margin: '6px 0', fontSize: '12px' }}>התשובה שלך</Divider>
+                        {record.answer.solution?.text ? (
+                          <div className="markdown-content" style={{ fontSize: '12px' }}>
+                            <MarkdownRenderer content={record.answer.solution.text} />
+                          </div>
+                        ) : (
+                          <Text type="secondary" style={{ fontSize: '12px' }}>לא הוגשה תשובה מלאה</Text>
+                        )}
+                        
+                        {!isCorrect && details.schoolAnswer?.solution?.text && (
+                          <div style={{ marginTop: '6px' }}>
+                            <Divider style={{ margin: '6px 0', fontSize: '12px' }}>תשובה לדוגמה</Divider>
+                            <div style={{ padding: '4px 6px', backgroundColor: '#f6ffed', borderRadius: '4px', border: '1px solid #b7eb8f', fontSize: '12px' }}>
+                              <MarkdownRenderer content={details.schoolAnswer.solution.text} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Metadata without confidence and edit button */}
+                    <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '11px' }}>
+                      <Text type="secondary" style={{ fontSize: '11px' }}>
+                        <ClockCircleOutlined style={{ marginLeft: '2px' }} />
+                        זמן: {getTimeSpentMinutes(record.metadata?.timeSpentMs || 0)} דקות
+                      </Text>
+                    </div>
+                    
+                    {/* Feedback message if available */}
+                    {record.feedback?.data?.message && (
+                      <div style={{ marginTop: '8px' }}>
+                        <Divider style={{ margin: '6px 0', fontSize: '12px' }}>משוב</Divider>
+                        <div className="markdown-content" style={{ backgroundColor: '#f9f9f9', padding: '4px 6px', borderRadius: '4px', fontSize: '12px' }}>
+                          <MarkdownRenderer content={record.feedback.data.message} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </Card>
-            </Col>
-          );
-        })}
-      </Row>
+              );
+            }
+          }}
+          onRow={(record, index) => ({
+            onClick: () => {
+              const key = `row-${record.questionId}-${index}`;
+              const isExpanded = expandedRowKeys.includes(key);
+              
+              // Toggle expanded state
+              if (isExpanded) {
+                setExpandedRowKeys(expandedRowKeys.filter(k => k !== key));
+              } else {
+                setExpandedRowKeys([...expandedRowKeys, key]);
+              }
+            },
+            style: { cursor: 'pointer' }
+          })}
+          pagination={{ 
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50'],
+            showTotal: (total, range) => `${range[0]}-${range[1]} מתוך ${total} תשובות`,
+            position: ['bottomCenter'],
+            responsive: true
+          }}
+          rowClassName={record => {
+            const key = record.id || record.questionId;
+            return highlightedSubmissionId === key ? 'highlighted-submission' : '';
+          }}
+          style={{ direction: 'rtl' }}
+          scroll={{ x: 'max-content', y: isMobile ? undefined : 500 }}
+        />
+      </div>
     );
   };
 
-  const renderStatsCards = () => {
-    if (!stats) return null;
+  // Update the renderPrepSelector function to better handle default cases
+  const renderPrepSelector = () => {
+    // If we have a prepId filter, use it, otherwise default to 'all'
+    const currentPrepId = prepIdFilter || 'all';
     
-    // Calculate filtered stats if filtering
-    const filteredStats = isFiltering ? {
-      totalSubmissions: filteredSubmissions.length,
-      correctSubmissions: filteredSubmissions.filter(sub => sub.feedback?.data?.isCorrect).length,
-      totalQuestions: new Set(filteredSubmissions.map(sub => sub.questionId)).size,
-      averageScore: filteredSubmissions.reduce((sum, sub) => sum + (sub.feedback?.data?.score || 0), 0) / 
-                    (filteredSubmissions.length || 1)
-    } : stats;
-    
-    return (
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic 
-              title="סך הכל תשובות" 
-              value={filteredStats.totalSubmissions} 
-              suffix={`/ ${filteredStats.totalQuestions} שאלות`}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic 
-              title="אחוז הצלחה" 
-              value={(filteredStats.correctSubmissions / filteredStats.totalSubmissions * 100) || 0} 
-              precision={1}
-              suffix="%" 
-              valueStyle={{ color: '#3f8600' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic 
-              title="ציון ממוצע" 
-              value={filteredStats.averageScore} 
-              precision={1}
-              suffix="%" 
-              valueStyle={{ color: filteredStats.averageScore > 70 ? '#3f8600' : '#cf1322' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic 
-              title="שאלות ייחודיות" 
-              value={filteredStats.totalQuestions} 
-            />
-          </Card>
-        </Col>
-      </Row>
-    );
-  };
-
-  // After the renderStatsCards function, add a new function to render filter options
-  const renderFilterOptions = () => {
     return (
       <Card style={{ marginBottom: 16 }}>
         <div style={{ 
           display: 'flex', 
           flexDirection: isMobile ? 'column' : 'row',
           gap: '16px',
-          alignItems: isMobile ? 'stretch' : 'center',
+          alignItems: 'center',
           justifyContent: 'space-between',
           direction: 'rtl'
         }}>
-          <div>
-            <Text strong style={{ marginLeft: 8 }}>סינון:</Text>
-            <Button.Group style={{ marginLeft: 16 }}>
-              <Button 
-                type={!isFiltering ? 'primary' : 'default'} 
-                onClick={() => navigate('/user/submissions')}
-              >
-                הכל
-              </Button>
-              <Button 
-                type={isFiltering && questionIdFilter ? 'primary' : 'default'} 
-                disabled={!filteredSubmissions.length}
-                onClick={() => {
-                  // No action if already filtered by question
-                  if (questionIdFilter) return;
-                  
-                  // If there are submissions, take the first one's question ID
-                  if (filteredSubmissions.length) {
-                    const firstQuestionId = filteredSubmissions[0].questionId;
-                    navigate(`/user/submissions?questionId=${firstQuestionId}`);
-                  }
-                }}
-              >
-                לפי שאלה
-              </Button>
-            </Button.Group>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <FilterOutlined />
+            <Text strong>סנן לפי מבחן:</Text>
+            <Select
+              loading={loadingPreparations}
+              style={{ width: 250, textAlign: 'right' }}
+              value={currentPrepId}
+              onChange={(value) => {
+                if (value === 'all') {
+                  navigate('/user/submissions');
+                } else {
+                  navigate(`/user/submissions?prepId=${value}`);
+                }
+              }}
+              placeholder="בחר מבחן"
+              disabled={loadingPreparations}
+            >
+              <Select.Option value="all" key="all">כל המבחנים</Select.Option>
+              {availablePreparations.map(prep => (
+                <Select.Option value={prep.id} key={prep.id}>
+                  {prep.name} {prep.status === 'paused' ? '(מושהה)' : '(פעיל)'} - {prep.progress}%
+                </Select.Option>
+              ))}
+            </Select>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', direction: 'rtl' }}>
-            <Text strong>מיון:</Text>
-            <Segmented
-              options={[
-                { value: 'timeline', label: 'ציר זמן' },
-                { value: 'cards', label: 'כרטיסים' }
-              ]}
-              value={viewMode}
-              onChange={(value) => setViewMode(value as 'timeline' | 'cards')}
-            />
+          <div>
+            {prepIdFilter && (
+              <Button 
+                type="default" 
+                onClick={() => navigate('/user/submissions')}
+                style={{ marginRight: 8 }}
+              >
+                נקה סינון
+              </Button>
+            )}
           </div>
         </div>
       </Card>
     );
   };
 
-  // Add CSS for highlight flash animation
+  // Simplify the renderFilterOptions function to only show a clear filter button when filtering
+  const renderFilterOptions = () => {
+    if (!isFiltering) return null;
+    
+    return (
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          direction: 'rtl'
+        }}>
+          <Button 
+            type="default" 
+            onClick={() => navigate('/user/submissions')}
+          >
+            הצג את כל התשובות
+          </Button>
+        </div>
+      </Card>
+    );
+  };
+
+  // Add CSS for highlight flash animation and scrollable content
   useEffect(() => {
     // Add CSS for highlight flash animation
     const style = document.createElement('style');
@@ -582,19 +827,83 @@ const SubmissionHistoryPage: React.FC = () => {
       }
       
       .highlighted-submission {
-        position: relative;
+        background-color: rgba(24, 144, 255, 0.1) !important;
       }
       
-      .highlighted-submission::before {
-        content: '';
-        position: absolute;
-        top: -8px;
-        left: -8px;
-        right: -8px;
-        bottom: -8px;
-        border-radius: 12px;
-        border: 2px solid rgba(24, 144, 255, 0.8);
-        pointer-events: none;
+      .ant-table-row.highlighted-submission td {
+        background-color: rgba(24, 144, 255, 0.1) !important;
+      }
+      
+      /* Improved expanded row styling with clearer connection to parent */
+      .submission-expanded-row {
+        border-radius: 8px;
+        position: relative;
+        margin: 0 24px;
+        border-left: 4px solid #1890ff;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+        background-color: #fafafa;
+        transition: all 0.3s ease;
+      }
+      
+      /* Make sure expanded content is visible */
+      .ant-table-expanded-row-fixed {
+        margin: 0 !important;
+        padding: 16px 0 !important;
+        position: static !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+      }
+      
+      .ant-table-expanded-row > td {
+        padding: 16px 0 !important;
+      }
+      
+      /* Ensure expanded rows don't cause horizontal scroll issues */
+      .ant-table-expanded-row .ant-table-cell {
+        padding: 0 !important;
+        background-color: transparent !important;
+        overflow: visible !important;
+      }
+      
+      /* Ensure markdown content in expanded rows is properly displayed */
+      .submission-expanded-row .markdown-content {
+        max-width: 100%;
+        overflow-wrap: break-word;
+        padding: 16px;
+        background-color: white;
+        border-radius: 4px;
+      }
+      
+      /* Status indicator for the answer */
+      .answer-status-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 16px;
+        border-radius: 4px;
+        margin-bottom: 16px;
+      }
+      
+      .answer-correct {
+        background-color: #f6ffed;
+        border: 1px solid #b7eb8f;
+      }
+      
+      .answer-incorrect {
+        background-color: #fff2f0;
+        border: 1px solid #ffccc7;
+      }
+
+      /* Media queries for mobile responsiveness */
+      @media (max-width: 576px) {
+        .submissions-page-content {
+          padding: 12px 8px;
+        }
+        
+        .submission-expanded-row {
+          padding: 8px 4px !important;
+          margin: 0 8px;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -620,14 +929,20 @@ const SubmissionHistoryPage: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="submissions-page-root">
       <UserHeader 
         pageType="היסטוריה" 
         pageContent={pageTitle}
       />
       
-      <div style={{ padding: '16px 24px', maxWidth: 1200, margin: '0 auto', flex: 1 }}>
-        {submissions.length === 0 ? (
+      <div className="submissions-page-content" style={{ padding: '16px 24px', maxWidth: 1200, margin: '0 auto' }}>
+        {/* Always show the preparation selector if we have preparations available */}
+        {availablePreparations.length > 0 && renderPrepSelector()}
+        
+        {/* Only show the filter options if explicitly filtering by something other than a preparation */}
+        {isFiltering && !prepIdFilter && renderFilterOptions()}
+        
+        {submissions.length === 0 && !loading ? (
           <Empty 
             description={
               <span>
@@ -652,11 +967,7 @@ const SubmissionHistoryPage: React.FC = () => {
             )}
           </Empty>
         ) : (
-          <>
-            {renderStatsCards()}
-            {renderFilterOptions()}
-            {viewMode === 'timeline' ? renderTimelineView() : renderCardView()}
-          </>
+          renderListView()
         )}
       </div>
     </div>

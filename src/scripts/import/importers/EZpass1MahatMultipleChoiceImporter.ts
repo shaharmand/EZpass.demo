@@ -60,6 +60,7 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
         super('ezpass1-mahat-multiple-choice', questionStorage);
         this.jsonPath = jsonPath;
         this.excelPath = excelPath;
+        this.options = { limit: undefined, dryRun: false };
         this.loadTitleToCategoryMap();
     }
 
@@ -163,7 +164,13 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
             console.log(`Found ${questions.length} valid questions`);
 
             // Apply limit if specified
+            console.log(`About to apply limit: ${this.options?.limit}`);
+            console.log(`this.options: ${JSON.stringify(this.options)}`);
+            
             const limitedQuestions = this.options?.limit ? questions.slice(0, this.options.limit) : questions;
+            
+            console.log(`After applying limit: Processing ${limitedQuestions.length} questions`);
+            console.log(`Original length: ${questions.length}, Limited length: ${limitedQuestions.length}`);
             console.log(`Processing ${limitedQuestions.length} questions (${this.options?.limit ? `limited from ${questions.length}` : 'all'})`);
 
             return limitedQuestions;
@@ -475,10 +482,10 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
             },
             metadata: {
                 type: QuestionType.MULTIPLE_CHOICE,
-                subjectId: 'CIV-SAF',
-                domainId: 'SAFETY',
+                subjectId: 'civil_engineering',
+                domainId: 'construction_safety',
                 topicId: CategoryMapper.mapCategoryToTopic(sourceRow.category).topicId,
-                subtopicId: sourceRow.category,
+                subtopicId: CategoryMapper.mapCategoryToTopic(sourceRow.category).subtopicId,
                 difficulty: 3,
                 answerFormat: {
                     hasFinalAnswer: true,
@@ -609,14 +616,27 @@ export class EZpass1MahatMultipleChoiceImporter extends BaseImporter {
             console.log('Question Options:', question.content?.options?.map(opt => opt.text));
             console.log('Question Solution:', question.schoolAnswer?.solution?.text);
             
-            const aiFields = await TitleGenerator.generateAIFields(question);
+            // Generate title using correct method
+            const generatedTitle = await TitleGenerator.generateTitle(question, {
+                useAI: true,
+                includeCategory: false,
+                includeQuestionType: false,
+                useChoices: true,
+                useSolution: true
+            });
             
-            // Log the generated fields and confidence scores
-            console.log('Generated Fields:', aiFields.fields);
-            console.log('Confidence Scores:', aiFields.confidence);
-            console.log('AI Generation Complete\n');
+            console.log('Generated Title:', generatedTitle);
+            console.log('Original Name:', question.name);
             
-            return aiFields;
+            // Important: Update the question's name with the generated title
+            question.name = generatedTitle;
+            
+            // Return only title as an AI field
+            return {
+                fields: ['title'],
+                confidence: { title: 0.95 },
+                generatedAt: new Date().toISOString()
+            };
         } catch (error) {
             console.error('Error generating AI fields:', error);
             // Return empty result on error

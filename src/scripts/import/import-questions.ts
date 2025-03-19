@@ -299,6 +299,7 @@ async function main() {
         console.log('Type Arg:', typeArg);
         console.log('Type:', type);
         console.log('Is Dry Run:', isDryRun);
+        console.log('Is Dry Run (raw check):', args.includes('--dry-run'));
         console.log('Limit Arg:', limitArg);
         console.log('Limit:', limit);
         console.log('===========================\n');
@@ -332,9 +333,19 @@ async function main() {
 
         // Set options on the importer
         if ('setOptions' in importer) {
+            console.log('\n=== About to call setOptions ===');
+            console.log('isDryRun:', isDryRun);
+            console.log('limit:', limit);
+            console.log('===========================\n');
+            
             (importer as any).setOptions({ limit, dryRun: isDryRun });
         }
 
+        console.log('\n=== About to call importFromSource ===');
+        console.log('isDryRun:', isDryRun);
+        console.log('limit:', limit);
+        console.log('===========================\n');
+        
         const result = await importer.importFromSource(sourcePath, { 
             dryRun: isDryRun,
             limit,

@@ -945,7 +945,7 @@ export class QuestionStorage implements QuestionRepository {
     }
 
     // Prepare the operation data with ONLY the fields that should be in the database table
-    const operationData = {
+    const operationData: any = {
       id: question.id,
       data: question.data,  // Direct assignment - no cleaning needed as we validate structure above
       publication_status: question.publication_status,
@@ -954,6 +954,11 @@ export class QuestionStorage implements QuestionRepository {
       import_info: currentQuestion.import_info,  // Preserve existing import_info
       updated_at: new Date().toISOString()
     };
+
+    // Add ai_generated_fields if present in the input (for importers)
+    if ('ai_generated_fields' in question) {
+      operationData.ai_generated_fields = (question as any).ai_generated_fields;
+    }
 
     // Execute the operation
     await this.executeQuestionOperation('save', question.id, async () => {

@@ -78,9 +78,9 @@ export function validateQuestionId(id: string, subjectId: string, domainId: stri
 }
 
 /**
- * Generates a fake question ID for dry runs in the format XXX-YYY-99NNNN
+ * Generates a fake question ID for dry runs in the format XXX-YYY-9999NN
  * where XXX is the 3-letter subject code, YYY is the 3-letter domain code,
- * and 99NNNN is a number starting with 99 followed by 4 sequential digits
+ * and 9999NN is a number starting with 9999 followed by 2 sequential digits
  */
 export function generateFakeQuestionId(subjectId: string, domainId: string): string {
     // Validate that the domain belongs to the subject
@@ -94,12 +94,12 @@ export function generateFakeQuestionId(subjectId: string, domainId: string): str
     
     // Use incrementing counter for sequential fake IDs
     const currentCounter = fakeIdCounter++;
-    if (fakeIdCounter > 9999) {
+    if (fakeIdCounter > 99) {
         fakeIdCounter = 1; // Reset if we reach max
     }
     
-    // Format: XXX-YYY-99NNNN where NNNN is padded to 4 digits
-    return `${subjectCode}-${domainCode}-99${currentCounter.toString().padStart(4, '0')}`;
+    // Format: XXX-YYY-9999NN where NN is padded to 2 digits
+    return `${subjectCode}-${domainCode}-9999${currentCounter.toString().padStart(2, '0')}`;
 }
 
 /**

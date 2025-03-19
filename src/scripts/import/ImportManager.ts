@@ -178,12 +178,16 @@ export class ImportManager {
                             });
                         } else {
                             // In live mode, actually save the question
-                            const saveQuestion: SaveQuestion = {
-                                id: completeDbQuestion.id,
-                                data: completeDbQuestion.data,
-                                publication_status: completeDbQuestion.publication_status
-                            };
-                            await this.questionStorage.saveQuestion(saveQuestion);
+                            await this.questionStorage.updateQuestion(
+                                completeDbQuestion.id,
+                                {
+                                    data: completeDbQuestion.data,
+                                    publication_status: completeDbQuestion.publication_status,
+                                    validation_status: completeDbQuestion.validation_status,
+                                    review_status: completeDbQuestion.review_status,
+                                    ai_generated_fields: completeDbQuestion.ai_generated_fields
+                                }
+                            );
                         }
                     }
                 }

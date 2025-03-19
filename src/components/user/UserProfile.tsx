@@ -5,7 +5,8 @@ import {
   SettingOutlined, 
   LogoutOutlined, 
   GoogleOutlined,
-  ControlOutlined 
+  ControlOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import { useAuth } from '../../contexts/AuthContext';
@@ -118,6 +119,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({
       case 'profile':
         navigate('/profile');
         break;
+      case 'submissions':
+        navigate('/user/submissions');
+        break;
       case 'settings':
         navigate('/settings');
         break;
@@ -146,6 +150,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({
       key: 'profile',
       icon: <UserOutlined />,
       label: 'פרופיל'
+    },
+    {
+      key: 'submissions',
+      icon: <HistoryOutlined />,
+      label: 'היסטוריית תשובות',
     },
     ...(profile?.role === UserRole.ADMIN ? [
       { type: 'divider' as const },

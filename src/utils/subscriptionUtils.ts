@@ -3,12 +3,12 @@ import { SubscriptionTier } from '../types/userTypes';
 export const getSubscriptionColor = (tier: SubscriptionTier): string => {
   switch (tier) {
     case SubscriptionTier.PRO:
-      return 'gold';
+      return 'orange';
     case SubscriptionTier.PLUS:
-      return 'purple';
+      return 'blue';
     case SubscriptionTier.FREE:
     default:
-      return 'blue';
+      return 'gray';
   }
 };
 

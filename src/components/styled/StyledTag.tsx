@@ -20,13 +20,25 @@ export const StyledTag = styled(Tag)<{ $type: 'subscription' | 'role'; color?: s
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 
   ${props => props.$type === 'subscription' && `
-    background: ${props.color === 'gold' ? 'linear-gradient(135deg, #fef9c3 0%, #fde047 100%)' : 
-                props.color === 'purple' ? 'linear-gradient(135deg, #f3e8ff 0%, #d8b4fe 100%)' : 
-                'linear-gradient(135deg, #e0f2fe 0%, #7dd3fc 100%)'};
+    background: ${
+      props.color === 'orange' 
+        ? 'linear-gradient(135deg, #ff9800 0%, #ed6c02 100%)' : 
+      props.color === 'blue' 
+        ? 'linear-gradient(135deg, #3182f6 0%, #2563eb 100%)' : 
+      props.color === 'gray'
+        ? 'linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%)'
+        : 'linear-gradient(135deg, #e0f2fe 0%, #7dd3fc 100%)'
+    };
     border: none;
-    color: ${props.color === 'gold' ? '#854d0e' : 
-            props.color === 'purple' ? '#6b21a8' : 
-            '#0369a1'};
+    color: ${
+      props.color === 'orange' 
+        ? '#ffffff' : 
+      props.color === 'blue' 
+        ? '#ffffff' : 
+      props.color === 'gray'
+        ? '#475569'
+        : '#0369a1'
+    };
     font-weight: 600;
     
     &:hover {

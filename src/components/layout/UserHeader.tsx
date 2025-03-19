@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Button, Typography } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Button, Typography, Tooltip } from 'antd';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { colors } from '../../utils/feedbackStyles';
@@ -12,6 +12,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getSubscriptionColor, getSubscriptionLabel } from '../../utils/subscriptionUtils';
 import { StyledTag } from '../styled/StyledTag';
 import { JoinEZpassPlusDialog } from '../dialogs/JoinEZpassPlusDialog';
+import { HistoryOutlined, BookOutlined, ReadOutlined, FormOutlined, EditOutlined } from '@ant-design/icons';
+import { useStudentPrep } from '../../contexts/StudentPrepContext';
+import { PrepStateManager } from '../../services/PrepStateManager';
 
 const { Text } = Typography;
 
@@ -88,7 +91,7 @@ const UserMetaContainer = styled.div`
 const DailyLimitContainer = styled.div`
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 12px;
   border-right: 1px solid ${uiColors.border.separator};
   height: 40px;
 `;
@@ -129,6 +132,91 @@ const UpgradeButton = styled(Button)`
   }
 `;
 
+// Navigation buttons container with better spacing
+const NavigationButtonsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: 8px;
+`;
+
+// Shared base ActionButton styled component with smaller size
+const ActionButton = styled(Button)`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  transition: all 0.2s ease;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+`;
+
+// Primary blue button (for Practice) with gradient matching the brand
+const PracticeButton = styled(ActionButton)`
+  color: #3182f6; // EZpass blue color from the header
+  
+  &:hover {
+    color: #ffffff;
+    background: linear-gradient(135deg, #3182f6 0%, #2563eb 100%);
+    border-color: #2563eb;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+  }
+  
+  &:active {
+    color: #ffffff;
+    background: #1d4ed8;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.1);
+  }
+`;
+
+// Orange button (for Courses, matching the upgrade button)
+const CoursesButton = styled(ActionButton)`
+  color: #ff9800;
+  
+  &:hover {
+    color: #ffffff;
+    background: linear-gradient(135deg, #ff9800 0%, #ed6c02 100%);
+    border-color: #ed6c02;
+    box-shadow: 0 4px 6px -1px rgba(255, 152, 0, 0.2);
+  }
+  
+  &:active {
+    color: #ffffff;
+    background: #f57c00;
+    box-shadow: 0 1px 2px rgba(255, 152, 0, 0.1);
+  }
+`;
+
+// Secondary blue button (for History)
+const HistoryButton = styled(ActionButton)`
+  color: #60a5fa; // Lighter blue that contrasts well with the primary blue
+  
+  &:hover {
+    color: #ffffff;
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    border-color: #3b82f6;
+    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
+  }
+  
+  &:active {
+    color: #ffffff;
+    background: #2563eb;
+    box-shadow: 0 1px 2px rgba(59, 130, 246, 0.1);
+  }
+`;
+
 export interface UserHeaderProps {
   children?: React.ReactNode;
   pageType: string;
@@ -148,6 +236,9 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
   const { profile } = useAuth();
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   
+  // Get the student prep context to access the current active prep
+  const { prep } = useStudentPrep();
+  
   // Only use practice attempts if we're in practice variant
   const practiceAttempts = variant === 'practice' ? usePracticeAttempts() : null;
   const getCurrentAttempts = React.useCallback(() => {
@@ -162,49 +253,132 @@ export const UserHeader: React.FC<UserHeaderProps> = ({
     if (currentTier === SubscriptionTier.PRO) return null;
     
     return (
-      <UpgradeButton 
-        type="text"
-        onClick={() => setShowJoinDialog(true)}
-      >
-        שדרג
-      </UpgradeButton>
+      <Tooltip title="שדרג והגדל את הגישה שלך למשובים מפורטים">
+        <UpgradeButton 
+          type="text"
+          onClick={() => setShowJoinDialog(true)}
+        >
+          שדרג
+        </UpgradeButton>
+      </Tooltip>
     );
+  };
+
+  // Handle practice button click - navigate to user's active prep or practice page
+  const handlePracticeClick = () => {
+    // If the user has an active prep, go to that prep's practice page
+    if (prep && prep.id) {
+      navigate(`/practice/${prep.id}`);
+    } else {
+      // If there's no active prep, try to load preps from storage
+      try {
+        const storedPrepsJson = localStorage.getItem('active_preps');
+        if (storedPrepsJson) {
+          const storedPreps = JSON.parse(storedPrepsJson);
+          if (storedPreps && Object.keys(storedPreps).length > 0) {
+            // Sort preps by last updated and take the most recent one
+            const sortedPrepIds = Object.keys(storedPreps).sort((a, b) => {
+              const prepA = storedPreps[a];
+              const prepB = storedPreps[b];
+              // Sort by last updated timestamp if available
+              const timestampA = prepA.state?.lastTick || 0;
+              const timestampB = prepB.state?.lastTick || 0;
+              return timestampB - timestampA;
+            });
+            
+            // Navigate to the most recently used prep
+            navigate(`/practice/${sortedPrepIds[0]}`);
+            return;
+          }
+        }
+        
+        // If no preps found in storage, go to main practice page
+        navigate('/practice');
+      } catch (error) {
+        console.error('Error accessing stored preps:', error);
+        navigate('/practice');
+      }
+    }
+  };
+
+  // Handle courses button click - navigate to safety courses
+  const handleCoursesClick = () => {
+    navigate('/courses/safety');
+  };
+
+  // Handle history button click - navigate to submission history
+  const handleHistoryClick = () => {
+    navigate('/user/submissions');
   };
 
   return (
     <>
       <TopRow style={style}>
-        <BrandLogo />
+        <BrandLogo
+          onClick={() => navigate('/')}
+          size="small"
+          showSlogan={false}
+        />
         <PageIdentityContainer>
-          <PageContent>{pageContent}</PageContent>
           <PageType>{pageType}</PageType>
+          <PageContent>{pageContent}</PageContent>
         </PageIdentityContainer>
         <Spacer />
         <UserInfoSection>
-          <UserProfile />
           {profile && (
-            <>
-              <UserMetaContainer>
-                <StyledTag 
-                  $type="subscription" 
-                  color={getSubscriptionColor(profile.subscription_tier)}
-                >
-                  {getSubscriptionLabel(profile.subscription_tier)}
-                </StyledTag>
-              </UserMetaContainer>
-              {variant === 'practice' && (
-                <DailyLimitContainer>
-                  <DailyLimitIndicator
-                    current={getCurrentAttempts()}
-                    max={getMaxAttempts()}
-                  />
-                </DailyLimitContainer>
-              )}
-              <ActionsContainer>
-                {getUpgradeButton(profile.subscription_tier)}
-              </ActionsContainer>
-            </>
+            <NavigationButtonsContainer>
+              <Tooltip title="תרגול שאלות" placement="bottom">
+                <PracticeButton 
+                  type="text"
+                  icon={<FormOutlined />} 
+                  onClick={handlePracticeClick}
+                />
+              </Tooltip>
+              
+              <Tooltip title="קורסים" placement="bottom">
+                <CoursesButton 
+                  type="text"
+                  icon={<ReadOutlined />} 
+                  onClick={handleCoursesClick}
+                />
+              </Tooltip>
+              
+              <Tooltip title="היסטוריית תשובות" placement="bottom">
+                <HistoryButton 
+                  type="text"
+                  icon={<HistoryOutlined />} 
+                  onClick={handleHistoryClick}
+                />
+              </Tooltip>
+            </NavigationButtonsContainer>
           )}
+          
+          {/* Daily limit indicator for practice variant */}
+          {variant === 'practice' && practiceAttempts && (
+            <DailyLimitContainer onClick={() => setShowJoinDialog(true)} style={{ cursor: 'pointer' }}>
+              <DailyLimitIndicator 
+                current={getCurrentAttempts()} 
+                max={getMaxAttempts()}
+              />
+            </DailyLimitContainer>
+          )}
+          
+          {/* Subscription tier tag */}
+          {profile && profile.subscription_tier && (
+            <UserMetaContainer>
+              <Tooltip title={`מנוי ${getSubscriptionLabel(profile.subscription_tier as SubscriptionTier)} פעיל`}>
+                <StyledTag 
+                  $type="subscription"
+                  color={getSubscriptionColor(profile.subscription_tier as SubscriptionTier)}
+                >
+                  {getSubscriptionLabel(profile.subscription_tier as SubscriptionTier)}
+                </StyledTag>
+              </Tooltip>
+              {getUpgradeButton(profile.subscription_tier as SubscriptionTier)}
+            </UserMetaContainer>
+          )}
+          
+          <UserProfile />
         </UserInfoSection>
         {children}
       </TopRow>

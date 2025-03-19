@@ -36,7 +36,7 @@ def extract_question_terms(question_text, answer_text=None):
         """
         
         response = client.chat.completions.create(
-            model="gpt-4-0125-preview",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a construction safety expert specializing in Israeli construction regulations and safety standards. Extract technical terms from Hebrew text and return them ONLY as a JSON object with term categories as keys and arrays of Hebrew terms as values."},
                 {"role": "user", "content": prompt}

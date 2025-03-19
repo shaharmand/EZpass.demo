@@ -13,11 +13,10 @@ export const DailyLimitIndicator: React.FC<DailyLimitIndicatorProps> = ({ curren
   
   return (
     <div className={`daily-limit-indicator ${isLow ? 'low-remaining' : ''}`}>
-      <Tooltip title="מספר המשובים המפורטים שנותרו לך היום">
+      <Tooltip title={`משובים מפורטים: נותרו ${remaining} מתוך ${max} היום`}>
         <div className="limit-content">
           <InfoCircleOutlined className="info-icon" />
-          <span className="limit-text">משובים מפורטים</span>
-          <span className="limit-count">{remaining}/{max}</span>
+          <span className="limit-counter">{remaining}</span>
         </div>
       </Tooltip>
       <style>
@@ -25,7 +24,7 @@ export const DailyLimitIndicator: React.FC<DailyLimitIndicatorProps> = ({ curren
           .daily-limit-indicator {
             display: inline-flex;
             align-items: center;
-            padding: 6px 12px;
+            padding: 4px 8px;
             background: #f0f9ff;
             border: 1px solid #bfdbfe;
             border-radius: 20px;
@@ -44,14 +43,15 @@ export const DailyLimitIndicator: React.FC<DailyLimitIndicatorProps> = ({ curren
             color: #fb7185 !important;
           }
           
-          .low-remaining .limit-count {
+          .low-remaining .limit-counter {
+            background: #fecdd3 !important;
             color: #e11d48 !important;
           }
 
           .limit-content {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             cursor: help;
           }
 
@@ -60,13 +60,18 @@ export const DailyLimitIndicator: React.FC<DailyLimitIndicatorProps> = ({ curren
             color: #60a5fa;
           }
 
-          .limit-text {
-            font-weight: 500;
-          }
-
-          .limit-count {
+          .limit-counter {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 22px;
+            background: #bfdbfe;
+            border-radius: 11px;
+            padding: 0 6px;
             font-weight: 600;
-            color: #2563eb;
+            font-size: 13px;
+            color: #1e40af;
           }
         `}
       </style>

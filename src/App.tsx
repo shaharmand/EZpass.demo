@@ -14,6 +14,7 @@ import { checkEnvironmentVariables } from './utils/envCheck';
 import { adminRoutes } from './routes/adminRoutes';
 import SafetyCoursePage from './pages/courses/SafetyCoursePage';
 import VideoPage from './components/courses/VideoPage';
+import SubmissionHistoryPage from './pages/user/SubmissionHistoryPage';
 
 const App: React.FC = () => {
   useEffect(() => {
@@ -59,6 +60,20 @@ const App: React.FC = () => {
             <PracticeAttemptsProvider>
               <PracticePage />
             </PracticeAttemptsProvider>
+          )
+        }
+      ]
+    },
+    // User routes
+    {
+      path: 'user',
+      children: [
+        {
+          path: 'submissions',
+          element: (
+            <ProtectedRoute>
+              <SubmissionHistoryPage />
+            </ProtectedRoute>
           )
         }
       ]

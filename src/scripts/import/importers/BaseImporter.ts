@@ -126,10 +126,16 @@ export abstract class BaseImporter implements BaseQuestionImporter {
 
         try {
             // Set options on the importer if it supports it
+            console.log('\n=== BaseImporter.importFromSource ===');
+            console.log('Options received:', options);
+            
             if ('setOptions' in this) {
+                console.log('Calling setOptions with:', options);
                 (this as any).setOptions(options);
+            } else {
+                console.log('This importer does not have setOptions method');
             }
-
+            
             // Read raw rows from source with limit if specified
             const rows = await this.readSource(sourcePath);
             
@@ -142,6 +148,7 @@ export abstract class BaseImporter implements BaseQuestionImporter {
                 dryRun: options.dryRun ? true : false,
                 limit: options.limit
             });
+            console.log('==============================\n');
 
             // Process each row
             for (const rawRow of rows) {
@@ -161,6 +168,15 @@ export abstract class BaseImporter implements BaseQuestionImporter {
 
                     // Generate AI fields
                     const aiGeneratedFields = await this.generateAIFields(transformedQuestionWithoutId);
+
+                    // If we have a title in the AI fields, update the question name
+                    if (aiGeneratedFields.fields.includes('title') && aiGeneratedFields.confidence.title > 0) {
+                        logger.info('Using AI-generated title for question', { 
+                            originalName: transformedQuestionWithoutId.name,
+                            confidence: aiGeneratedFields.confidence.title
+                        });
+                        // The title is already set in the transformedQuestionWithoutId.name field
+                    }
 
                     // Generate ID based on whether this is a dry run
                     let nextId;

@@ -17,7 +17,14 @@ import type {
  * 4. Power analytics dashboards
  */
 interface QuestionSubmission {
-  questionId: string;  // Reference to question for all metadata/requirements
+  /** Unique identifier for the submission */
+  id?: string;
+  
+  /** The question this submission is for */
+  questionId: string;
+  
+  /** Optional reference to the prep/session this submission is part of */
+  prepId?: string;
   
   answer: FullAnswer;  // Always interpreted in context of the referenced question
   

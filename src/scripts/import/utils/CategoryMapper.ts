@@ -29,6 +29,7 @@ export class CategoryMapper {
         'הריסות וחומרי פיצוץ': 'demolition_and_explosives',  // Alternative spelling
         'הקמת מבני מתכת': 'steel_construction',  // Steel construction mapping - plural form
         'הקמת מבנה מתכת': 'steel_construction',  // Steel construction mapping - singular form
+        'טפסות': 'concrete_formwork',  // Concrete formwork mapping
         
         // Height work
         'גגות שבירים תלולים': 'fragile_or_steep_roofs',
@@ -46,11 +47,17 @@ export class CategoryMapper {
      * Returns the matching subtopic and its parent topic
      */
     static mapCategoryToTopic(category: string): TopicMapping {
+        console.log('\n=== CategoryMapper: Mapping ===');
+        console.log('Input Category:', category);
+        
         // First normalize the category name
         const normalizedCategory = this.normalizeCategory(category);
+        console.log('Normalized Category:', normalizedCategory);
         
         // First check if we have a direct mapping
         const mappedSubtopicId = this.categoryMappings[normalizedCategory];
+        console.log('Direct Mapping Result:', mappedSubtopicId || 'No direct mapping found');
+        
         if (mappedSubtopicId) {
             // Get all topics and subtopics from UniversalTopics
             const allTopics = universalTopics.getTopicsForSubject('civil_engineering');
@@ -59,11 +66,11 @@ export class CategoryMapper {
             for (const topic of allTopics) {
                 const subtopic = topic.subTopics.find(st => st.id === mappedSubtopicId);
                 if (subtopic) {
-                    logger.debug('Found topic mapping via categoryMappings', {
-                        category: normalizedCategory,
-                        topicId: topic.id,
-                        subtopicId: subtopic.id
-                    });
+                    console.log('Found mapping in topic:', topic.id);
+                    console.log('Subtopic ID:', subtopic.id);
+                    console.log('Subtopic Name:', subtopic.name);
+                    console.log('===========================\n');
+                    
                     return {
                         subtopicId: subtopic.id,
                         topicId: topic.id
@@ -73,15 +80,16 @@ export class CategoryMapper {
         }
         
         // If no mapping found, try to find by exact Hebrew name match
+        console.log('Trying to find by exact Hebrew name match');
         const allTopics = universalTopics.getTopicsForSubject('civil_engineering');
         for (const topic of allTopics) {
             for (const subtopic of topic.subTopics) {
                 if (subtopic.name === normalizedCategory) {
-                    logger.debug('Found topic mapping via exact name match', {
-                        category: normalizedCategory,
-                        topicId: topic.id,
-                        subtopicId: subtopic.id
-                    });
+                    console.log('Found matching Hebrew name in topic:', topic.id);
+                    console.log('Subtopic ID:', subtopic.id);
+                    console.log('Subtopic Name:', subtopic.name);
+                    console.log('===========================\n');
+                    
                     return {
                         subtopicId: subtopic.id,
                         topicId: topic.id
@@ -89,6 +97,10 @@ export class CategoryMapper {
                 }
             }
         }
+
+        console.log('No mapping found for category:', category);
+        console.log('Available mappings:', Object.keys(this.categoryMappings).join(', '));
+        console.log('===========================\n');
 
         // If no match found, throw error with category name
         throw new Error(`No matching subtopic found for category: ${category}`);

@@ -359,9 +359,9 @@ const LessonTitle = styled.div<{ $isActive: boolean; $isCompleted: boolean }>`
     return '#1f2937';
   }};
   flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  line-height: 1.4;
 `;
 
 const LessonMetadata = styled.div`
@@ -391,6 +391,15 @@ const LessonMetadata = styled.div`
   .lesson-progress {
     color: #10b981;
     font-weight: 500;
+  }
+
+  .video-count {
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 8px;
+    background: #f3f4f6;
+    border-radius: 12px;
   }
 `;
 
@@ -516,9 +525,9 @@ const VideoTitle = styled.div<{ $isActive?: boolean; $isWatched?: boolean }>`
   }};
   font-weight: ${props => (props.$isActive || props.$isWatched) ? '500' : '400'};
   flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  line-height: 1.4;
 `;
 
 const VideoInfo = styled.div`
@@ -579,7 +588,9 @@ const formatVideoTime = (minutes: number): string => {
 
 // Format video duration in rounded minutes (for navigation)
 const formatNavigationTime = (minutes: number): string => {
-  return `${Math.round(minutes)} ד\'`;
+  // Ensure we never show 0 minutes
+  const displayMinutes = Math.max(1, Math.round(minutes || 0));
+  return `${displayMinutes} ד\'`;
 };
 
 const CourseNavigation: React.FC<CourseNavigationProps> = ({
@@ -697,7 +708,7 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
     
     // Calculate total duration from all videos in the topic
     const topicVideos = videos.filter(v => lessonIds.includes(v.lessonNumber));
-    const totalMinutes = topicVideos.reduce((total, video) => total + video.duration, 0);
+    const totalMinutes = topicVideos.reduce((total, video) => total + (video.duration || 0), 0);
 
     return {
       duration: roundToHalfHour(totalMinutes),
@@ -710,13 +721,17 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
   // Calculate lesson duration by summing video durations
   const getLessonDuration = (lessonId: number): string => {
     const lessonVideos = videos.filter(v => v.lessonNumber === lessonId);
-    const totalMinutes = lessonVideos.reduce((total, video) => total + video.duration, 0);
+    const totalMinutes = lessonVideos.reduce((total, video) => total + (video.duration || 0), 0);
+    
+    // Ensure we always return at least "1 ד'" even for very short videos
+    if (totalMinutes <= 0) return "1 ד'";
+    
     return roundToQuarter(totalMinutes);
   };
 
   // Calculate total course duration
   const getTotalCourseDuration = () => {
-    const totalMinutes = videos.reduce((total, video) => total + video.duration, 0);
+    const totalMinutes = videos.reduce((total, video) => total + (video.duration || 0), 0);
     return roundToHalfHour(totalMinutes);
   };
 
@@ -858,6 +873,11 @@ const CourseNavigation: React.FC<CourseNavigationProps> = ({
                             <span className="lesson-duration">
                               <ClockCircleOutlined /> {lessonDuration}
                             </span>
+                            {videos.filter(v => v.lessonNumber === lessonId).length > 1 && (
+                              <span className="video-count">
+                                {videos.filter(v => v.lessonNumber === lessonId).length} סרטונים
+                              </span>
+                            )}
                           </LessonMetadata>
                         </div>
                         {videos.filter(v => v.lessonNumber === lessonId).length > 1 && (

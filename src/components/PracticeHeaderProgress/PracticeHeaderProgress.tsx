@@ -58,21 +58,23 @@ interface PracticeHeaderProgressProps {
 const MetricsContainer = styled.div`
   display: flex;
   align-items: center;
-  gap: 24px;
+  justify-content: space-between;
   max-width: 1200px;
   width: 100%;
-  height: 80px;
-  padding: 0 24px;
+  padding: 16px 24px;
   margin: 0 auto;
   direction: rtl;
-  background: #f8fafc;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 `;
 
 const MetricGroup = styled.div<{ $hasBorder?: boolean }>`
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: ${props => props.$hasBorder ? '0 24px' : '0'};
+  gap: 24px;
+  padding: ${props => props.$hasBorder ? '0 0 0 24px' : '0'};
+  margin: ${props => props.$hasBorder ? '0 0 0 24px' : '0'};
   border-left: ${props => props.$hasBorder ? `1px solid ${uiColors.border.light}` : 'none'};
   height: 60px;
 `;
@@ -93,8 +95,8 @@ const MetricTitle = styled(Text)`
 const MetricValue = styled.div<{ $variant?: 'success' | 'progress' | 'default' | 'warning' | 'error' }>`
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 40px;
+  gap: 12px;
+  height: 42px;
   padding: 0 12px;
   background: ${props => 
     props.$variant === 'success' ? '#f0fdf4' :
@@ -108,24 +110,55 @@ const MetricValue = styled.div<{ $variant?: 'success' | 'progress' | 'default' |
     props.$variant === 'warning' ? '#fde047' :
     props.$variant === 'error' ? '#fca5a5' :
     uiColors.border.light};
-  border-radius: 6px;
+  border-radius: 8px;
+  cursor: pointer;
   transition: all 0.2s ease;
-  
+  position: relative;
+  box-shadow: ${props => 
+    props.$variant === 'progress' ? '0 2px 4px rgba(37, 99, 235, 0.1)' : 
+    '0 1px 2px rgba(0, 0, 0, 0.05)'};
+
   &:hover {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     transform: translateY(-1px);
+    box-shadow: ${props => 
+      props.$variant === 'progress' ? '0 4px 8px rgba(37, 99, 235, 0.15)' : 
+      '0 2px 6px rgba(0, 0, 0, 0.1)'};
   }
 `;
 
 const ProgressBar = styled(Progress)`
-  width: 80px;
+  width: 120px;
+  margin-right: 8px;
   
   .ant-progress-inner {
     background-color: #e5e7eb !important;
+    height: 8px !important;
+    border-radius: 4px !important;
   }
   
   .ant-progress-bg {
     transition: all 0.3s ease-out;
+    border-radius: 4px !important;
+    box-shadow: 0 1px 2px rgba(2, 132, 199, 0.2);
+  }
+`;
+
+// Progress value with animation styles
+const AnimatedProgressValue = styled(Text)`
+  transition: all 0.3s ease;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(2, 132, 199, 0.08);
+  line-height: 1.2;
+  animation: highlight 0.6s ease-out;
+  
+  @keyframes highlight {
+    0% {
+      background: rgba(2, 132, 199, 0.25);
+    }
+    100% {
+      background: rgba(2, 132, 199, 0.08);
+    }
   }
 `;
 
@@ -262,7 +295,7 @@ function PracticeHeaderProgress({
           fontWeight: '500',
           display: 'block',
           marginBottom: '4px'
-        }}>הציון המוערך שלך בבחינה</Text>
+        }}>הציון המוערך שלך בבחינה (0-100)</Text>
         <Text style={{ 
           color: '#94a3b8',
           fontSize: '13px'
@@ -380,15 +413,44 @@ function PracticeHeaderProgress({
 
   return (
     <MetricsContainer>
-      {/* Progress Group */}
+      {/* Animation styles */}
+      <style>
+        {`
+          @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+          }
+        `}
+      </style>
+      
+      {/* Progress Group - First/Right */}
       <MetricGroup $hasBorder>
         {/* Progress Section */}
         <MetricSection>
           <MetricTitle>התקדמות</MetricTitle>
-          <MetricValue $variant="progress" onClick={handleOpenDetailsDialog}>
+          <MetricValue 
+            $variant={metrics.questionsAnswered === 0 ? 'default' : "progress"} 
+            onClick={handleOpenDetailsDialog}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <LineChartOutlined style={{ fontSize: '16px', color: '#0284c7' }} />
-              <Text style={{ fontSize: '15px', fontWeight: '600', color: '#0284c7' }}>
+              <LineChartOutlined style={{ 
+                fontSize: '18px', 
+                color: metrics.questionsAnswered === 0 ? '#94a3b8' : '#0284c7' 
+              }} />
+              <Text 
+                key={`progress-${Math.round(metrics.overallProgress)}`} 
+                style={{ 
+                  fontSize: '18px', 
+                  fontWeight: '700', 
+                  color: metrics.questionsAnswered === 0 ? '#94a3b8' : '#0284c7',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  background: metrics.questionsAnswered === 0 ? 'transparent' : 'rgba(2, 132, 199, 0.08)',
+                  transition: 'all 0.3s ease',
+                  animation: metrics.questionsAnswered === 0 ? 'none' : 'pulse 0.6s ease-in-out'
+                }}
+              >
                 {(() => {
                   console.log('📊 PracticeHeaderProgress - Rendering progress value:', {
                     prepId: prep?.id ?? 'unknown',
@@ -403,9 +465,11 @@ function PracticeHeaderProgress({
               </Text>
             </div>
             <ProgressBar 
-              percent={metrics.overallProgress} 
+              percent={metrics.questionsAnswered === 0 ? 0 : metrics.overallProgress} 
               size="small"
-              strokeColor="#0284c7"
+              strokeColor={metrics.questionsAnswered === 0 ? "#cbd5e1" : "#0284c7"}
+              strokeWidth={6}
+              format={() => ''}
             />
           </MetricValue>
         </MetricSection>
@@ -415,6 +479,7 @@ function PracticeHeaderProgress({
           <MetricTitle>ציון</MetricTitle>
           <MetricValue 
             $variant={
+              metrics.questionsAnswered === 0 ? 'default' :
               metrics.successRate >= 80 ? 'success' : 
               metrics.successRate >= 60 ? 'warning' : 
               'error'
@@ -422,16 +487,34 @@ function PracticeHeaderProgress({
             onClick={handleOpenDetailsDialog}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircleOutlined style={{ fontSize: '16px', color: successStyles.text }} />
-              <Text style={{ fontSize: '15px', fontWeight: '600', color: successStyles.text }}>
-                {metrics.questionsAnswered === 0 ? '-' : Math.round(metrics.successRate)}%
+              <CheckCircleOutlined style={{ 
+                fontSize: '18px', 
+                color: metrics.questionsAnswered === 0 ? '#94a3b8' : successStyles.text 
+              }} />
+              <Text 
+                key={`score-${Math.round(metrics.successRate)}`}
+                style={{ 
+                  fontSize: '18px', 
+                  fontWeight: '700', 
+                  color: metrics.questionsAnswered === 0 ? '#94a3b8' : successStyles.text,
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  background: metrics.questionsAnswered === 0 ? 'transparent' : 
+                    metrics.successRate >= 80 ? 'rgba(34, 197, 94, 0.08)' :
+                    metrics.successRate >= 60 ? 'rgba(234, 179, 8, 0.08)' :
+                    'rgba(239, 68, 68, 0.08)',
+                  transition: 'all 0.3s ease',
+                  animation: metrics.questionsAnswered === 0 ? 'none' : 'pulse 0.6s ease-in-out'
+                }}
+              >
+                {metrics.questionsAnswered === 0 ? '-' : Math.round(metrics.successRate)}
               </Text>
             </div>
           </MetricValue>
         </MetricSection>
       </MetricGroup>
 
-      {/* Time Group */}
+      {/* Time Group - Middle */}
       <MetricGroup $hasBorder>
         {/* Time Section */}
         <MetricSection>
@@ -461,14 +544,21 @@ function PracticeHeaderProgress({
         </MetricSection>
       </MetricGroup>
 
-      {/* Topics Group */}
+      {/* Topics Group - Left */}
       <MetricGroup>
         <MetricSection>
           <MetricTitle>תכולת מבחן</MetricTitle>
           <MetricValue $variant="progress" onClick={() => onShowTopicDetails?.()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <BookOutlined style={{ fontSize: '16px', color: '#3b82f6' }} />
-              <Text style={{ fontSize: '15px', fontWeight: '600', color: '#3b82f6' }}>
+              <Text style={{ 
+                fontSize: '15px', 
+                fontWeight: '600', 
+                color: '#3b82f6',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                background: 'rgba(59, 130, 246, 0.08)'
+              }}>
                 {prep?.selection.subTopics.length ?? 0}/{prep ? PrepStateManager.getTotalTopicsCount(prep) : 0} תתי-נושאים
               </Text>
             </div>

@@ -13,6 +13,8 @@ import { DetailedQuestionFeedback } from '../types/feedback/types';
 import type { Question } from '../types/question';
 import moment from 'moment';
 import { QuestionSequencer } from '../services/QuestionSequencer';
+import { getCurrentUserIdSync } from '../utils/authHelpers';
+import { submissionStorage } from './submission/submissionStorage';
 
 // Key for localStorage
 const PREP_STORAGE_KEY = 'active_preps';
@@ -561,17 +563,37 @@ export class PrepStateManager {
         if (submission.feedback?.data) {
             this.getSetTracker().handleFeedback(prep.id, submission.feedback.data);
         }
+        
         // Create history entry
         const historyEntry: QuestionHistoryEntry = {
             question: question,
             submission: submission
         };
-        // Update prep state
+        
         // Ensure feedback exists and has been received
         if (!submission.feedback?.data) {
           throw new Error('Cannot update prep state without feedback data');
         }
 
+        // Save submission to database if user is logged in
+        const userId = getCurrentUserIdSync();
+        if (userId) {
+            // Don't await this - we want it to happen in the background
+            submissionStorage.saveSubmission(submission, userId)
+                .then(() => {
+                    console.log('✅ Submission saved to database successfully', {
+                        questionId: question.id,
+                        userId
+                    });
+                })
+                .catch(error => {
+                    console.error('❌ Failed to save submission to database', {
+                        error,
+                        questionId: question.id,
+                        userId
+                    });
+                });
+        }
         
         const updatedPrep: StudentPrep = {
             ...prep,
@@ -972,6 +994,97 @@ export class PrepStateManager {
                 prepId,
                 timestamp: new Date().toISOString()
             });
+        }
+    }
+
+    /**
+     * Load submissions for a question from the database
+     * @param questionId ID of the question to load submissions for
+     * @returns Array of submissions or empty array if no submissions or not logged in
+     */
+    static async loadSubmissionsFromDatabase(questionId: string): Promise<QuestionSubmission[]> {
+        const userId = getCurrentUserIdSync();
+        if (!userId) {
+            return [];
+        }
+        
+        try {
+            const submissions = await submissionStorage.getSubmissionsForQuestion(questionId, userId);
+            return submissions;
+        } catch (error) {
+            console.error('Failed to load submissions from database:', error);
+            return [];
+        }
+    }
+    
+    /**
+     * Get the latest submission for a question from the database
+     * @param questionId ID of the question to get submission for
+     * @returns Latest submission or null if no submissions or not logged in
+     */
+    static async getLatestSubmissionFromDatabase(questionId: string): Promise<QuestionSubmission | null> {
+        const userId = getCurrentUserIdSync();
+        if (!userId) {
+            return null;
+        }
+        
+        try {
+            return await submissionStorage.getLatestSubmission(questionId, userId);
+        } catch (error) {
+            console.error('Failed to get latest submission from database:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Initialize question practice state from database submissions
+     * @param questionId ID of the question to initialize state for
+     * @returns Initial question practice state based on database submissions
+     */
+    static async initializeQuestionPracticeState(questionId: string): Promise<{
+        status: 'viewing' | 'practicing' | 'submitted' | 'reviewed';
+        currentAnswer: any | null;
+        practiceStartedAt: number;
+        submissions: QuestionSubmission[];
+        lastSubmittedAt?: number;
+    }> {
+        try {
+            const submissions = await this.loadSubmissionsFromDatabase(questionId);
+            
+            if (submissions.length > 0) {
+                // Sort submissions by timestamp to get the latest one
+                const sortedSubmissions = [...submissions].sort(
+                    (a, b) => (b.metadata?.submittedAt || 0) - (a.metadata?.submittedAt || 0)
+                );
+                
+                const latestSubmission = sortedSubmissions[0];
+                
+                return {
+                    status: 'reviewed',
+                    currentAnswer: null,
+                    practiceStartedAt: Date.now(),
+                    submissions: sortedSubmissions,
+                    lastSubmittedAt: latestSubmission.metadata?.submittedAt
+                };
+            }
+            
+            // No submissions found - fresh start
+            return {
+                status: 'viewing',
+                currentAnswer: null,
+                practiceStartedAt: Date.now(),
+                submissions: []
+            };
+        } catch (error) {
+            console.error('Failed to initialize question practice state:', error);
+            
+            // Fallback to empty state
+            return {
+                status: 'viewing',
+                currentAnswer: null,
+                practiceStartedAt: Date.now(),
+                submissions: []
+            };
         }
     }
 } 

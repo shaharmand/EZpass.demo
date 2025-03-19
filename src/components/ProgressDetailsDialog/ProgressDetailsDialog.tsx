@@ -211,7 +211,7 @@ const ProgressDetailsDialog: React.FC<ProgressDetailsDialogProps> = ({
               </motion.div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                 <Title level={2} style={{ margin: 0, color: '#1e293b' }}>
-                  100 / {Math.round(metrics.overallProgress)}
+                  {Math.round(metrics.overallProgress)}/100
                 </Title>
                 <Text style={{ fontSize: '15px', color: '#0369a1' }}>התקדמות</Text>
               </div>
@@ -239,7 +239,9 @@ const ProgressDetailsDialog: React.FC<ProgressDetailsDialogProps> = ({
                 }} />
               </motion.div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                <Title level={2} style={{ margin: 0, color: getSuccessRateColor(metrics.successRate) }}>{Math.round(metrics.successRate)}</Title>
+                <Title level={2} style={{ margin: 0, color: getSuccessRateColor(metrics.successRate) }}>
+                  {Math.round(metrics.successRate)}
+                </Title>
                 <Text style={{ fontSize: '15px', color: '#0369a1' }}>ציון</Text>
               </div>
             </div>

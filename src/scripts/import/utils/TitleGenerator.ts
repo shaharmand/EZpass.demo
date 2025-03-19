@@ -86,7 +86,7 @@ Please provide both the analysis and the title.`;
 
         try {
             const completion = await this.openai.chat.completions.create({
-                model: "gpt-4",
+                model: "gpt-4o",
                 messages: [
                     {
                         role: "system",
@@ -204,94 +204,5 @@ Please provide both the analysis and the title.`;
         }
 
         return this.generateFallbackTitle(data);
-    }
-
-    /**
-     * Generates AI fields for a question, including title and other fields
-     * @param question The question object without ID
-     * @returns Object containing AI-generated fields and their confidence scores
-     */
-    public static async generateAIFields(question: Omit<Question, 'id'>): Promise<AIGeneratedFields> {
-        this.initializeOpenAI();
-        if (!this.openai) {
-            throw new Error('OpenAI client not initialized');
-        }
-
-        const prompt = `You are an expert educational content analyzer. Analyze the following question and provide:
-1. A concise, descriptive title (15-35 characters)
-2. Confidence score for the title (0-1)
-3. Any additional fields that could be AI-generated with their confidence scores
-
-## Question Information:
-Content: ${question?.content?.text || ''}
-Options: ${question?.content?.options ? question.content.options.map(opt => opt.text).join('\n') : 'No options'}
-Solution: ${question?.schoolAnswer?.solution?.text || ''}
-Category: ${question?.metadata?.subtopicId || question?.metadata?.topicId || ''}
-
-## Response Format:
-{
-    "title": {
-        "value": "generated title here",
-        "confidence": 0.95
-    },
-    "additionalFields": [
-        {
-            "field": "field_name",
-            "value": "generated value",
-            "confidence": 0.85
-        }
-    ]
-}`;
-
-        try {
-            const completion = await this.openai.chat.completions.create({
-                model: "gpt-4",
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are an educational content analyzer. Provide a JSON response with title and additional fields."
-                    },
-                    {
-                        role: "user",
-                        content: prompt
-                    }
-                ],
-                temperature: 0.2,
-                response_format: { type: "json_object" }
-            });
-
-            const response = JSON.parse(completion.choices[0].message.content || '{}');
-            
-            // Format the response according to AIGeneratedFields type
-            const fields: string[] = [];
-            const confidence: { [key: string]: number } = {};
-
-            // Add title field
-            if (response.title?.value) {
-                fields.push('title');
-                confidence.title = response.title.confidence || 0;
-            }
-
-            // Add additional fields
-            if (response.additionalFields) {
-                response.additionalFields.forEach((field: { field: string; value: string; confidence: number }) => {
-                    fields.push(field.field);
-                    confidence[field.field] = field.confidence;
-                });
-            }
-
-            return {
-                fields,
-                confidence,
-                generatedAt: new Date().toISOString()
-            };
-        } catch (error) {
-            console.error('Error generating AI fields:', error);
-            return {
-                fields: [],
-                confidence: {},
-                generatedAt: new Date().toISOString()
-            };
-        }
     }
 } 

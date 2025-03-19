@@ -139,14 +139,14 @@ export function buildSystemMessage(
 export const OPENAI_MODELS = {
   // For complex analysis requiring deep understanding
   analysis: {
-    model: "gpt-4-0125-preview",  // Latest model with strongest analytical capabilities
+    model: "gpt-4o",  // Updated to gpt-4o which supports json_object response format
     temperature: 0.1,
     response_format: { type: "json_object" }
   },
   
   // For standard feedback generation
   feedback: {
-    model: "gpt-4-0125-preview",
+    model: "gpt-4o",  // Updated to gpt-4o which supports json_object response format
     temperature: 0.2,  // Slightly more creative for feedback
     response_format: { type: "json_object" }
   },

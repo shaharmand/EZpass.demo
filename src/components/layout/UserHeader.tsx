@@ -46,6 +46,17 @@ const TopRow = styled.div`
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   position: relative;
   z-index: 10;
+  width: 100%;
+  max-width: 1920px;
+  margin: 0 auto;
+  
+  @media (max-width: 1600px) {
+    padding: 8px 20px;
+  }
+
+  @media (max-width: 1366px) {
+    padding: 8px 16px;
+  }
 `;
 
 const PageIdentityContainer = styled.div`

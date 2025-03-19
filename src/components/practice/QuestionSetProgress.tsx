@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Typography, Tooltip } from 'antd';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -26,11 +26,11 @@ const ProgressContainer = styled.div.attrs({
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  background-color: white;
+  gap: 16px;
+  padding: 12px 24px;
+  background: linear-gradient(to bottom, #ffffff, #f9fafb);
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   position: relative;
   
   &::after {
@@ -39,15 +39,61 @@ const ProgressContainer = styled.div.attrs({
 `;
 
 const QuestionText = styled.div`
-  font-size: 14px;
-  font-weight: 700;
-  color: #1f2937;
-  white-space: nowrap;
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-width: 120px;
+  gap: 8px;
+  min-width: 180px;
   margin-right: 4px;
+  position: relative;
+  white-space: nowrap;
+  background: #f8fafc;
+  border-radius: 24px;
+  padding: 4px 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+`;
+
+const QuestionLabel = styled.span`
+  font-size: 15px;
+  font-weight: 600;
+  color: #64748b;
+  margin-right: 4px;
+  padding-right: 4px;
+`;
+
+const CurrentQuestion = styled(motion.span)`
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e40af;
+  line-height: 1;
+  padding: 2px 8px;
+  position: relative;
+  background: white;
+  border-radius: 16px;
+  margin: 0 2px;
+  border: 1px solid #bfdbfe;
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.1);
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0));
+    border-radius: 16px 16px 0 0;
+    pointer-events: none;
+  }
+`;
+
+const TotalQuestions = styled.span`
+  font-size: 15px;
+  font-weight: 500;
+  color: #64748b;
+  padding-left: 4px;
+  border-left: 1px solid #e2e8f0;
+  margin-left: 4px;
 `;
 
 const ProgressBar = styled.div`
@@ -154,6 +200,7 @@ const QuestionSetProgress: React.FC<QuestionSetProgressProps> = ({
     currentIndex: 0,
     results: []
   });
+  const prevIndexRef = useRef<number>(0);
 
   // Subscribe to progress changes to get actual results
   useEffect(() => {
@@ -176,10 +223,30 @@ const QuestionSetProgress: React.FC<QuestionSetProgressProps> = ({
   }, [prep.id]);
 
   const currentIndex = PrepStateManager.getDisplayIndex(prep.id) - 1;
+  const isIndexChanged = prevIndexRef.current !== currentIndex;
+  
+  // Update the ref after checking for changes
+  useEffect(() => {
+    prevIndexRef.current = currentIndex;
+  }, [currentIndex]);
   
   return (
     <ProgressContainer>
-      <QuestionText>שאלה {currentIndex + 1} מתוך 10</QuestionText>
+      <QuestionText>
+        <QuestionLabel>שאלה</QuestionLabel>
+        <Tooltip title={`שאלה ${currentIndex + 1} מתוך 10 בסט הנוכחי`} placement="top">
+          <CurrentQuestion
+            key={currentIndex}
+            initial={{ scale: isIndexChanged ? 1.2 : 1, y: isIndexChanged ? -5 : 0 }}
+            animate={{ scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            whileHover={{ scale: 1.05, boxShadow: '0 2px 6px rgba(59, 130, 246, 0.2)' }}
+          >
+            {currentIndex + 1}
+          </CurrentQuestion>
+        </Tooltip>
+        <TotalQuestions>מתוך 10</TotalQuestions>
+      </QuestionText>
       <ProgressBar>
         {Array.from({ length: 10 }, (_, index) => {
           // Get result if it exists, otherwise undefined

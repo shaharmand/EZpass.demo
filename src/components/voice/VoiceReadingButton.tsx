@@ -103,9 +103,7 @@ export const VoiceReadingButton: React.FC<VoiceReadingButtonProps> = ({
     ? isPaused
       ? <PlayCircleOutlined />
       : <PauseOutlined />
-    : preferredEngine === TTSEngine.GOOGLE
-      ? <GoogleOutlined />
-      : <SoundOutlined />;
+    : <PlayCircleOutlined />;
 
   const buttonText = isReading
     ? isPaused
@@ -132,11 +130,12 @@ export const VoiceReadingButton: React.FC<VoiceReadingButtonProps> = ({
               borderTopRightRadius: showStyleControls ? 0 : undefined,
               borderBottomRightRadius: showStyleControls ? 0 : undefined,
               borderRight: showStyleControls ? 'none' : undefined,
+              padding: '4px 8px',
+              width: '32px',
+              height: '32px'
             }}
             size={size}
-          >
-            {!iconOnly && buttonText}
-          </Button>
+          />
         </Tooltip>
         
         {showStyleControls && (
@@ -148,6 +147,9 @@ export const VoiceReadingButton: React.FC<VoiceReadingButtonProps> = ({
             style={{
               borderTopLeftRadius: 0,
               borderBottomLeftRadius: 0,
+              padding: '4px 8px',
+              width: '32px',
+              height: '32px'
             }}
           />
         )}

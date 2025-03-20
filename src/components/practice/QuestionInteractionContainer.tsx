@@ -28,6 +28,7 @@ import './QuestionInteractionContainer.css';
 import styled from 'styled-components';
 import { FeedbackContainer } from '../feedback/FeedbackContainer';
 import { QuestionHeader } from './QuestionHeader';
+import { AnswerHeader } from './AnswerHeader';
 import SectionTitle from './SectionTitle';
 
 const { Text } = Typography;
@@ -43,11 +44,6 @@ const GlobalStyle = () => (
     }
   `}</style>
 );
-
-// Simple Answer Header component
-const AnswerHeader: React.FC = () => {
-  return <SectionTitle>תשובה</SectionTitle>;
-};
 
 // Simple Feedback Header component
 const FeedbackHeader: React.FC = () => {
@@ -393,10 +389,7 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
         className={`answer-section ${isAnswerSectionVisible ? 'animate-in' : ''}`}
         style={{ marginTop: '12px' }}
       >
-        <QuestionHeader
-          title="תשובה"
-          showControls={false}
-        />
+        <AnswerHeader />
         <QuestionResponseInput 
           question={question}
           onAnswer={handleAnswerChange}

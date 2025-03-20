@@ -4,13 +4,12 @@ import { Question } from '../../types/question';
 import { SkipReason } from '../../types/prepUI';
 import SectionTitle from './SectionTitle';
 import styled from 'styled-components';
-import { VoiceReadingButton } from '../voice/VoiceReadingButton';
 
 const HeaderContainer = styled.div.attrs({
   className: 'section-header'
 })`
   padding: 12px 24px;
-  background: linear-gradient(to bottom, #e2e8f0, #f1f5f9);
+  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -30,35 +29,31 @@ const HeaderContainer = styled.div.attrs({
   }
 `;
 
-const QuestionTitle = styled(SectionTitle)`
+const AnswerTitle = styled(SectionTitle)`
   color: #1f2937;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.4;
 `;
 
-interface QuestionHeaderProps {
+interface AnswerHeaderProps {
   question?: Question;
   onSkip?: (reason: SkipReason) => void;
   title?: string;
   showControls?: boolean;
 }
 
-export const QuestionHeader: React.FC<QuestionHeaderProps> = ({ 
+export const AnswerHeader: React.FC<AnswerHeaderProps> = ({ 
   question,
   onSkip,
-  title = "שאלה",
+  title = "תשובה",
   showControls = true
 }) => {
   return (
     <HeaderContainer>
-      <QuestionTitle noLine>{title}</QuestionTitle>
-      <VoiceReadingButton 
-        text={question?.content?.text || ''}
-        options={question?.content?.options?.map(opt => opt.text)}
-      />
+      <AnswerTitle noLine>{title}</AnswerTitle>
     </HeaderContainer>
   );
 };
 
-export default QuestionHeader; 
+export default AnswerHeader; 

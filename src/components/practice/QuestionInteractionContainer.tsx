@@ -403,7 +403,7 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
       >
         <AnswerHeader 
           onVoiceTranscript={handleVoiceTranscript} 
-          status={state.status}
+          isMultipleChoice={question.metadata.type === QuestionType.MULTIPLE_CHOICE}
         />
         <QuestionResponseInput 
           question={question}

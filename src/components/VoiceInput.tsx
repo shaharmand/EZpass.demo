@@ -54,13 +54,15 @@ interface VoiceInputProps {
   disabled?: boolean;
   canUpdateText?: boolean;
   onModeChange?: (isVoiceMode: boolean) => void;
+  isMultipleChoice?: boolean;
 }
 
 export const VoiceInput: React.FC<VoiceInputProps> = ({ 
   onTranscript, 
   disabled = false,
   canUpdateText = true,
-  onModeChange
+  onModeChange,
+  isMultipleChoice = false
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,18 +95,25 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
         console.log('Final transcript:', transcript);
         if (canUpdateText) {
           onTranscript(transcript);
-          setIsSpeaking(true);
         }
       };
 
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         setError(event.error);
-        setIsSpeaking(false);
       };
 
       recognitionRef.current.onend = () => {
         console.log('Speech recognition ended');
+      };
+
+      recognitionRef.current.onsoundstart = () => {
+        console.log('Sound detected');
+        setIsSpeaking(true);
+      };
+
+      recognitionRef.current.onsoundend = () => {
+        console.log('Sound ended');
         setIsSpeaking(false);
       };
 
@@ -155,7 +164,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
     <div>
       <StyledButton
         onClick={toggleMode}
-        disabled={disabled}
+        disabled={disabled || isMultipleChoice}
         $isRecording={isRecording}
       >
         <IconWrapper $active={!isRecording}>
@@ -169,6 +178,11 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       {error && (
         <div style={{ color: '#1890ff', marginTop: '8px', fontSize: '14px' }}>
           {error}
+        </div>
+      )}
+      {isMultipleChoice && (
+        <div style={{ color: '#9ca3af', marginTop: '8px', fontSize: '14px' }}>
+          הקלטה קולית אינה זמינה בשאלות רב-ברירה
         </div>
       )}
     </div>

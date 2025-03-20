@@ -5,6 +5,7 @@ import { SkipReason } from '../../types/prepUI';
 import SectionTitle from './SectionTitle';
 import styled from 'styled-components';
 import { VoiceInput } from '../VoiceInput';
+import { QuestionPracticeStatus } from '../../types/prepUI';
 
 const HeaderContainer = styled.div.attrs({
   className: 'section-header'
@@ -50,7 +51,8 @@ interface AnswerHeaderProps {
   showControls?: boolean;
   onVoiceTranscript?: (text: string) => void;
   disabled?: boolean;
-  status?: 'idle' | 'active' | 'submitted' | 'receivedFeedback' | 'moved_on';
+  status?: QuestionPracticeStatus;
+  isMultipleChoice?: boolean;
 }
 
 export const AnswerHeader: React.FC<AnswerHeaderProps> = memo(({ 
@@ -60,18 +62,21 @@ export const AnswerHeader: React.FC<AnswerHeaderProps> = memo(({
   showControls = true,
   onVoiceTranscript,
   disabled = false,
-  status = 'idle'
+  status = 'idle',
+  isMultipleChoice = false
 }) => {
   return (
     <HeaderContainer>
       <AnswerTitle noLine>{title}</AnswerTitle>
-      <ControlsContainer>
-        <VoiceInput 
-          onTranscript={onVoiceTranscript || (() => {})} 
-          disabled={disabled}
-          canUpdateText={status === 'idle' || status === 'active'}
-        />
-      </ControlsContainer>
+      {!isMultipleChoice && (
+        <ControlsContainer>
+          <VoiceInput 
+            onTranscript={onVoiceTranscript || (() => {})} 
+            disabled={disabled}
+            canUpdateText={status === 'idle' || status === 'active'}
+          />
+        </ControlsContainer>
+      )}
     </HeaderContainer>
   );
 });

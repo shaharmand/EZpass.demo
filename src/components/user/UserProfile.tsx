@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { UserRole } from '../../types/userTypes';
 import { AuthModal } from '../Auth/AuthModal';
 
@@ -112,6 +112,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 }) => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   const handleMenuClick: MenuProps['onClick'] = async (e) => {
@@ -123,7 +124,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({
         navigate('/user/submissions');
         break;
       case 'settings':
-        navigate('/settings');
+        navigate('/settings', { 
+          state: { from: location.pathname }
+        });
         break;
       case 'admin':
         navigate('/admin');
@@ -155,6 +158,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({
       key: 'submissions',
       icon: <HistoryOutlined />,
       label: 'היסטוריית תשובות',
+    },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'הגדרות',
     },
     ...(profile?.role === UserRole.ADMIN ? [
       { type: 'divider' as const },

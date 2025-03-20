@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Tooltip, Space } from 'antd';
+import { Button, Tooltip } from 'antd';
 import { 
   SoundOutlined, 
   LoadingOutlined, 
   PauseOutlined, 
-  PlayCircleOutlined, 
-  SettingOutlined,
-  GoogleOutlined
+  PlayCircleOutlined
 } from '@ant-design/icons';
-import { useUnifiedTTS, TTSEngine, UnifiedTTSOptions } from '../../services/voice/unifiedTTS';
-import { VoiceSettingsPanel } from './VoiceSettingsPanel';
+import { useUnifiedTTS, UnifiedTTSOptions } from '../../services/voice/unifiedTTS';
 
 interface VoiceReadingButtonProps {
   text: string;
@@ -19,7 +16,6 @@ interface VoiceReadingButtonProps {
   style?: React.CSSProperties;
   tooltipText?: string;
   size?: 'small' | 'middle' | 'large';
-  showStyleControls?: boolean;
 }
 
 /**
@@ -33,8 +29,7 @@ export const VoiceReadingButton: React.FC<VoiceReadingButtonProps> = ({
   className,
   style,
   tooltipText = 'הקרא את הטקסט',
-  size = 'middle',
-  showStyleControls = false
+  size = 'middle'
 }) => {
   const { 
     speak, 
@@ -45,13 +40,11 @@ export const VoiceReadingButton: React.FC<VoiceReadingButtonProps> = ({
     isReading, 
     isPaused, 
     isSupported,
-    isGoogleSupported,
     preferredEngine
   } = useUnifiedTTS();
   
   const [currentStyle, setCurrentStyle] = useState<string>('DEFAULT');
   const [speechRate, setSpeechRate] = useState<number>(1.0);
-  const [isSettingsVisible, setIsSettingsVisible] = useState<boolean>(false);
   
   // Clean up speech synthesis when component unmounts
   useEffect(() => {
@@ -88,11 +81,6 @@ export const VoiceReadingButton: React.FC<VoiceReadingButtonProps> = ({
     }
   };
 
-  const openSettings = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsSettingsVisible(true);
-  };
-
   // If speech synthesis is not supported, don't render the button
   if (!isSupported) {
     return null;
@@ -114,51 +102,23 @@ export const VoiceReadingButton: React.FC<VoiceReadingButtonProps> = ({
       : 'הקרא';
 
   return (
-    <>
-      <Space size={0}>
-        <Tooltip title={tooltipText}>
-          <Button
-            type="default"
-            icon={icon}
-            onClick={handleClick}
-            className={className}
-            style={{
-              ...style,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderTopRightRadius: showStyleControls ? 0 : undefined,
-              borderBottomRightRadius: showStyleControls ? 0 : undefined,
-              borderRight: showStyleControls ? 'none' : undefined,
-              padding: '4px 8px',
-              width: '32px',
-              height: '32px'
-            }}
-            size={size}
-          />
-        </Tooltip>
-        
-        {showStyleControls && (
-          <Button
-            type="default"
-            icon={<SettingOutlined />}
-            onClick={openSettings}
-            size={size}
-            style={{
-              borderTopLeftRadius: 0,
-              borderBottomLeftRadius: 0,
-              padding: '4px 8px',
-              width: '32px',
-              height: '32px'
-            }}
-          />
-        )}
-      </Space>
-
-      <VoiceSettingsPanel 
-        visible={isSettingsVisible} 
-        onClose={() => setIsSettingsVisible(false)} 
+    <Tooltip title={tooltipText}>
+      <Button
+        type="default"
+        icon={icon}
+        onClick={handleClick}
+        className={className}
+        style={{
+          ...style,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '4px 8px',
+          width: '32px',
+          height: '32px'
+        }}
+        size={size}
       />
-    </>
+    </Tooltip>
   );
 }; 

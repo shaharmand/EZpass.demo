@@ -15,6 +15,7 @@ import { adminRoutes } from './routes/adminRoutes';
 import SafetyCoursePage from './pages/courses/SafetyCoursePage';
 import VideoPage from './components/courses/VideoPage';
 import SubmissionHistoryPage from './pages/user/SubmissionHistoryPage';
+import SettingsPage from './pages/user/SettingsPage';
 
 const App: React.FC = () => {
   useEffect(() => {
@@ -88,6 +89,14 @@ const App: React.FC = () => {
       element: (
         <ProtectedRoute>
           <UserProfile />
+        </ProtectedRoute>
+      )
+    },
+    {
+      path: 'settings',
+      element: (
+        <ProtectedRoute>
+          <SettingsPage />
         </ProtectedRoute>
       )
     },

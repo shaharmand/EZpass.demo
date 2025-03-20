@@ -88,7 +88,7 @@ export const useUnifiedTTS = () => {
     
     // Stop browser TTS
     browserTTS.stop();
-  }, [browserTTS]);
+  }, []);
   
   // Clean up on unmount
   useEffect(() => {
@@ -99,7 +99,7 @@ export const useUnifiedTTS = () => {
       }
       browserTTS.stop();
     };
-  }, [browserTTS]);
+  }, []);
   
   // Function to speak text
   const speak = useCallback(async (text: string, options: UnifiedTTSOptions = {}) => {

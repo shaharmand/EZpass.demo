@@ -50,6 +50,7 @@ interface AnswerHeaderProps {
   showControls?: boolean;
   onVoiceTranscript?: (text: string) => void;
   disabled?: boolean;
+  status?: 'idle' | 'active' | 'submitted' | 'receivedFeedback' | 'moved_on';
 }
 
 export const AnswerHeader: React.FC<AnswerHeaderProps> = memo(({ 
@@ -58,13 +59,18 @@ export const AnswerHeader: React.FC<AnswerHeaderProps> = memo(({
   title = "תשובה",
   showControls = true,
   onVoiceTranscript,
-  disabled = false
+  disabled = false,
+  status = 'idle'
 }) => {
   return (
     <HeaderContainer>
       <AnswerTitle noLine>{title}</AnswerTitle>
       <ControlsContainer>
-        <VoiceInput onTranscript={(text) => console.log('Voice transcript:', text)} disabled={disabled} />
+        <VoiceInput 
+          onTranscript={onVoiceTranscript || (() => {})} 
+          disabled={disabled}
+          canUpdateText={status === 'idle' || status === 'active'}
+        />
       </ControlsContainer>
     </HeaderContainer>
   );

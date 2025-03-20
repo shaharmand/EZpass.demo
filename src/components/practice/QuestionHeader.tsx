@@ -53,10 +53,12 @@ export const QuestionHeader: React.FC<QuestionHeaderProps> = ({
   return (
     <HeaderContainer>
       <QuestionTitle noLine>{title}</QuestionTitle>
-      <VoiceReadingButton 
-        text={question?.content?.text || ''}
-        options={question?.content?.options?.map(opt => opt.text)}
-      />
+      {showControls && (
+        <VoiceReadingButton 
+          text={question?.content?.text || ''}
+          options={question?.content?.options?.map(opt => opt.text)}
+        />
+      )}
     </HeaderContainer>
   );
 };

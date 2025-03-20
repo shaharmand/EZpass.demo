@@ -365,6 +365,18 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
     // TODO: Implement help functionality
   }, []);
 
+  const handleVoiceTranscript = useCallback((text: string) => {
+    console.log('Voice transcript received:', text);
+    if (text) {
+      handleAnswerChange({
+        solution: {
+          text: text,
+          format: 'markdown'
+        }
+      });
+    }
+  }, [handleAnswerChange]);
+
   // Render functions
   const renderQuestionContent = () => {
     // Extract option texts for multiple choice questions
@@ -389,7 +401,10 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
         className={`answer-section ${isAnswerSectionVisible ? 'animate-in' : ''}`}
         style={{ marginTop: '12px' }}
       >
-        <AnswerHeader />
+        <AnswerHeader 
+          onVoiceTranscript={handleVoiceTranscript} 
+          status={state.status}
+        />
         <QuestionResponseInput 
           question={question}
           onAnswer={handleAnswerChange}

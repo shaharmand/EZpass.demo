@@ -1,9 +1,10 @@
-import React from 'react';
-import { Typography } from 'antd';
+import React, { memo } from 'react';
+import { Typography, Button } from 'antd';
 import { Question } from '../../types/question';
 import { SkipReason } from '../../types/prepUI';
 import SectionTitle from './SectionTitle';
 import styled from 'styled-components';
+import { VoiceInput } from '../VoiceInput';
 
 const HeaderContainer = styled.div.attrs({
   className: 'section-header'
@@ -36,24 +37,37 @@ const AnswerTitle = styled(SectionTitle)`
   line-height: 1.4;
 `;
 
+const ControlsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
 interface AnswerHeaderProps {
   question?: Question;
   onSkip?: (reason: SkipReason) => void;
   title?: string;
   showControls?: boolean;
+  onVoiceTranscript?: (text: string) => void;
+  disabled?: boolean;
 }
 
-export const AnswerHeader: React.FC<AnswerHeaderProps> = ({ 
+export const AnswerHeader: React.FC<AnswerHeaderProps> = memo(({ 
   question,
   onSkip,
   title = "תשובה",
-  showControls = true
+  showControls = true,
+  onVoiceTranscript,
+  disabled = false
 }) => {
   return (
     <HeaderContainer>
       <AnswerTitle noLine>{title}</AnswerTitle>
+      <ControlsContainer>
+        <VoiceInput onTranscript={(text) => console.log('Voice transcript:', text)} disabled={disabled} />
+      </ControlsContainer>
     </HeaderContainer>
   );
-};
+});
 
 export default AnswerHeader; 

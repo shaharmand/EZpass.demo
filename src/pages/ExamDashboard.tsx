@@ -1035,6 +1035,12 @@ const ExamDashboard: React.FC = () => {
                                 throw new Error('Failed to create preparation: Invalid ID');
                               }
                               
+                              // If user is guest, store the prep ID
+                              if (!user) {
+                                console.log('Guest user detected, storing prep ID:', prepId);
+                                PrepStateManager.storeGuestPrepId(prepId);
+                              }
+                              
                               navigate(`/practice/${prepId}`);
                             } catch (prepError) {
                               console.error('Error creating preparation:', prepError);

@@ -371,10 +371,16 @@ export const QuestionInteractionContainer: React.FC<QuestionInteractionContainer
 
   // Render functions
   const renderQuestionContent = () => {
+    // Extract option texts for multiple choice questions
+    const optionTexts = question.metadata.type === QuestionType.MULTIPLE_CHOICE && question.content.options
+      ? question.content.options.map(option => option.text)
+      : undefined;
+      
     return (
       <div className="question-content">
         <QuestionContentDisplay
           content={question.content.text}
+          options={optionTexts}
           isLoading={false}
         />
       </div>
